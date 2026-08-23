@@ -10,6 +10,7 @@ import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CallStaffButton   from "./components/CallStaffButton.jsx";
 import PrepTimeEstimate  from "./components/PrepTimeEstimate.jsx";
+import OrderFeedback     from "./components/OrderFeedback.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -274,6 +275,11 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
           onNotify={onNotify}
         />
       </div>
+
+      {/* ── Feedback (Phase 29) ─────────────────────────────────────────
+          Self-gating: renders only for a delivered order that belongs to
+          this session, and flips to read-only once submitted. */}
+      <OrderFeedback order={order} session={session} />
 
       {/* ── Order updates (status history) ─────────────────────────────── */}
       {order.statusHistory?.length > 0 && (

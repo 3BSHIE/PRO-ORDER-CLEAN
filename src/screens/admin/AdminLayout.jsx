@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   LogOut, LayoutDashboard, ClipboardList, UtensilsCrossed, Tags, QrCode, Settings, BellRing,
+  MessageSquareHeart,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -25,6 +26,7 @@ export const ADMIN_NAV_ITEMS = [
   { key: "menu",       label: "Menu",        icon: UtensilsCrossed, active: true },
   { key: "categories", label: "Categories",  icon: Tags,            active: true },
   { key: "tables",     label: "Tables & QR", icon: QrCode,          active: true },
+  { key: "feedback",   label: "Feedback",    icon: MessageSquareHeart, active: true },
   { key: "settings",   label: "Settings",    icon: Settings,        active: true },
 ];
 /* Phase 21 architecture review — Menu & Categories management are
@@ -38,7 +40,7 @@ export const ADMIN_NAV_ITEMS = [
    Phase 25 note: "staffCalls" is deliberately NOT in this list. A waiter
    bell is front-of-house work and Cashier is front-of-house staff, so both
    roles get it — unlike the menu/table/settings editors. */
-export const ADMIN_ONLY_NAV_KEYS = ["menu", "categories", "tables", "settings"];
+export const ADMIN_ONLY_NAV_KEYS = ["menu", "categories", "tables", "settings", "feedback"];
 /* Translation keys for each nav item's visible label, keyed by item.key.
    "menu" reuses customer.menu since it's the identical word "Menu" already
    translated for the customer-facing back button. */
@@ -49,6 +51,7 @@ const NAV_ITEM_KEY = {
   menu: "customer.menu",
   categories: "admin.categories",
   tables: "admin.tablesAndQr",
+  feedback: "feedback.feedback",
   settings: "admin.restaurantSettings",
 };
 

@@ -18,6 +18,8 @@ import AdminCategoriesScreen              from "./screens/admin/AdminCategoriesS
 import AdminMenuItemsScreen               from "./screens/admin/AdminMenuItemsScreen.jsx";
 import AdminTablesScreen                  from "./screens/admin/AdminTablesScreen.jsx";
 import AdminSettingsScreen                from "./screens/admin/AdminSettingsScreen.jsx";
+import AdminFeedbackScreen                from "./screens/admin/AdminFeedbackScreen.jsx";
+import { ADMIN_ONLY_NAV_KEYS }            from "./screens/admin/AdminLayout.jsx";
 import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
 import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js";
@@ -206,8 +208,14 @@ function AdminRoute() {
      etc.) — it silently falls back to the Dashboard, which Cashier is
      allowed to see. AdminLayout also hides the Menu/Categories nav buttons
      for Cashier, and each screen has its own redundant role check too, but
-     this is the one that actually decides what renders. */
-  const isAdminOnlyPage = adminPage === "menu" || adminPage === "categories" || adminPage === "tables" || adminPage === "settings";
+     this is the one that actually decides what renders.
+
+     Phase 29 note: this now derives from AdminLayout's exported
+     ADMIN_ONLY_NAV_KEYS rather than repeating the list inline. The two used
+     to be maintained separately, which meant every new Admin-only page had
+     to be added in two places or the guard would silently disagree with the
+     nav. One source of truth removes that whole class of mistake. */
+  const isAdminOnlyPage = ADMIN_ONLY_NAV_KEYS.includes(adminPage);
   const isAuthorizedForPage = !isAdminOnlyPage || session.role === "admin";
 
   if (adminPage === "liveOrders") {
@@ -261,6 +269,17 @@ function AdminRoute() {
   if (adminPage === "tables" && isAuthorizedForPage) {
     return (
       <AdminTablesScreen
+        restaurant={restaurant}
+        session={session}
+        onSignOut={handleSignOut}
+        onNavigate={setAdminPage}
+      />
+    );
+  }
+
+  if (adminPage === "feedback" && isAuthorizedForPage) {
+    return (
+      <AdminFeedbackScreen
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}

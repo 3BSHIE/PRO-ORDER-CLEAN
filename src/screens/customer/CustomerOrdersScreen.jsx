@@ -8,7 +8,9 @@ import Badge   from "../../components/ui/Badge.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
+import StarRating         from "../../components/ui/StarRating.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -277,6 +279,11 @@ function OrderCard({ order, onTrackOrder }) {
           orders placed before this phase, so the list stays uncluttered. */}
       <PrepTimeEstimate order={order} variant="inline" />
 
+      {/* Phase 29 — delivered orders show their rating, or a nudge to leave
+          one. The form itself lives on the tracking screen; this keeps the
+          list compact while still making feedback discoverable. */}
+      <OrderCardFeedback order={order} onTrackOrder={onTrackOrder} />
+
       <div className="order-card__bottom">
         <span className="order-card__total">{fmtPrice(order.total)}</span>
         <Button size="sm" onClick={() => onTrackOrder(order.orderId)}>
@@ -284,6 +291,40 @@ function OrderCard({ order, onTrackOrder }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+/* ── Delivered-order feedback strip on a My Orders card ──────────────────── */
+function OrderCardFeedback({ order, onTrackOrder }) {
+  const { t } = useLanguage();
+  const { feedback } = useOrderFeedback(order.restaurantSlug, order.orderId);
+
+  /* Only delivered orders can be rated, so nothing else shows anything. */
+  if (order.status !== "delivered") return null;
+
+  if (feedback) {
+    return (
+      <div className="order-card__rating">
+        <span className="order-card__rating-label">{t("feedback.yourRating", "Your rating")}</span>
+        <StarRating
+          readOnly
+          size={13}
+          name={`oc-food-${order.orderId}`}
+          label={t("feedback.foodQuality", "Food Quality")}
+          value={feedback.foodRating}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="order-card__rate-prompt"
+      onClick={() => onTrackOrder(order.orderId)}
+    >
+      {t("feedback.rateYourOrder", "Rate your order")}
+    </button>
   );
 }
 

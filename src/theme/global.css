@@ -2014,6 +2014,124 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 29 — Feedback & ratings ════════════════════════════════════════ */
+
+/* Screen-reader-only text: visually gone, still announced. Used by the star
+   control so every option has a real label ("Food Quality: 4 out of 5")
+   without printing it on screen. */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ── Star rating ──────────────────────────────────────────────────────────
+   The visible stars are decoration over a native radio group — the real
+   input stays in the DOM (not display:none, which would remove it from the
+   accessibility tree and kill keyboard support) and is simply made
+   invisible while remaining focusable. */
+.star-rating{display:flex;align-items:center;gap:12px}
+.star-rating__stars{display:inline-flex;align-items:center;gap:4px}
+
+.star-rating__option{
+  display:inline-flex;cursor:pointer;color:var(--text-3);
+  border-radius:8px;padding:2px;
+  transition:color .15s var(--ease),transform .12s var(--ease)}
+.star-rating__option:hover{color:var(--gold-bright);transform:scale(1.08)}
+.star-rating__option--on{color:var(--gold)}
+
+.star-rating__input{
+  position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+/* Keyboard focus must be obvious even though the input itself is invisible. */
+.star-rating__input:focus-visible + .star-rating__star{
+  outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
+
+.star-rating__star{flex:none;transition:color .15s var(--ease)}
+.star-rating__star--on{color:var(--gold)}
+
+/* Numeric readout — the selected value never depends on colour alone. */
+.star-rating__value{
+  font-size:12.5px;font-weight:700;color:var(--text-2);
+  font-variant-numeric:tabular-nums;min-width:30px}
+[dir="rtl"] .star-rating__value{direction:ltr;unicode-bidi:isolate;text-align:start}
+
+.star-rating--readonly .star-rating__star{color:var(--text-3)}
+.star-rating--readonly .star-rating__star--on{color:var(--gold)}
+
+/* ── Customer feedback card ───────────────────────────────────────────────── */
+.fb-card{margin-bottom:22px;display:flex;flex-direction:column;gap:16px;text-align:start}
+.fb-card__head{display:flex;align-items:flex-start;gap:12px}
+.fb-card__icon{
+  width:34px;height:34px;flex:none;display:grid;place-items:center;
+  border-radius:11px;background:var(--gold-soft);color:var(--gold);
+  border:1px solid var(--gold-line)}
+.fb-card__icon--done{
+  background:var(--ready-soft);color:var(--ready);border-color:rgba(63,214,143,.35)}
+.fb-card__title{
+  font-family:var(--font-display);font-size:16px;font-weight:700;
+  color:var(--text-1);margin:0}
+.fb-card__sub{font-size:12.5px;color:var(--text-3);margin:3px 0 0}
+
+.fb-field{display:flex;flex-direction:column;gap:8px;position:relative}
+.fb-field__label{
+  font-size:12.5px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
+
+.fb-textarea{
+  width:100%;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--r-md);color:var(--text-1);padding:11px 13px;
+  font-family:var(--font-body);font-size:14px;line-height:1.5;resize:vertical}
+.fb-textarea:focus{outline:none;border-color:var(--gold-line)}
+.fb-textarea::placeholder{color:var(--text-3)}
+.fb-counter{
+  align-self:flex-end;font-size:11px;color:var(--text-3);
+  font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+
+.fb-error{
+  margin:0;font-size:13px;color:var(--canceled);line-height:1.5}
+
+.fb-readonly{display:flex;flex-direction:column;gap:10px}
+.fb-readonly__row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px}
+.fb-readonly__label{font-size:13px;color:var(--text-2)}
+.fb-readonly__comment{
+  margin:2px 0 0;padding:11px 13px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border);
+  font-size:13.5px;color:var(--text-2);line-height:1.6;font-style:italic}
+
+/* ── My Orders card strip ─────────────────────────────────────────────────── */
+.order-card__rating{
+  display:flex;align-items:center;gap:10px;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--border)}
+.order-card__rating-label{font-size:11.5px;color:var(--text-3)}
+.order-card__rate-prompt{
+  margin-top:10px;padding:7px 14px;border-radius:999px;cursor:pointer;
+  background:var(--gold-soft);border:1px solid var(--gold-line);color:var(--gold);
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  align-self:flex-start;transition:background .18s,transform .12s var(--ease)}
+.order-card__rate-prompt:hover{background:rgba(212,169,78,.2)}
+.order-card__rate-prompt:active{transform:scale(.97)}
+
+/* ── Admin feedback list ──────────────────────────────────────────────────── */
+.fb-list{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.fb-row{padding:16px;display:flex;flex-direction:column;gap:12px}
+.fb-row__top{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.fb-row__order{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13px;font-weight:700;color:var(--gold);margin:0;letter-spacing:.03em}
+.fb-row__meta{font-size:12px;color:var(--text-3);margin:3px 0 0}
+.fb-row__time{font-size:11.5px;color:var(--text-3);white-space:nowrap;flex:none}
+.fb-row__ratings{display:flex;flex-wrap:wrap;gap:10px 28px}
+.fb-row__rating{display:flex;align-items:center;gap:10px}
+.fb-row__rating-label{font-size:12px;color:var(--text-2);min-width:78px}
+.fb-row__comment{
+  margin:0;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border);
+  font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic}
+
+/* Order ids and table numbers stay LTR-readable inside an Arabic page,
+   matching the convention used for prices, timers, and schedules. */
+[dir="rtl"] .fb-row__order,
+[dir="rtl"] .fb-row__table{direction:ltr;unicode-bidi:isolate}
+
 /* ══ Phase 28 — Category visibility (manual + scheduled) ══════════════════ */
 
 .cv-card{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
