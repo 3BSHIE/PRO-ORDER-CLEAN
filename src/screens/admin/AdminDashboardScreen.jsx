@@ -1,14 +1,20 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { LineChart } from "lucide-react";
+import { LineChart, ChevronRight } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
 import CategoryVisibilityCard from "./CategoryVisibilityCard.jsx";
+import DashboardDrillDown from "./DashboardDrillDown.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
+import {
+  filterToday,
+  summarizeRevenue,
+  summarizeOrderStatuses,
+} from "../../lib/dashboardStats.js";
 
 const RECENT_ORDERS_LIMIT = 8;
 
@@ -68,6 +74,8 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  /* Which drill-down is open, by card key; null = none. */
+  const [openDetail, setOpenDetail] = useState(null);
   const { t } = useLanguage();
 
   const refresh = useCallback(() => {
@@ -89,36 +97,56 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
     [allOrders, restaurant.slug]
   );
 
-  const isToday = (iso) => {
-    const d = new Date(iso);
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
-  };
+  /* Phase 30 — every number below now comes from src/lib/dashboardStats.js,
+     the single calculation path shared with the drill-down modals. The values
+     are identical to what this screen computed inline before; the point of
+     the move is that a card and its breakdown can no longer disagree.
 
-  const ordersToday = restaurantOrders.filter((o) => isToday(o.createdAt));
-  const revenueToday = ordersToday
-    .filter((o) => o.status !== "canceled")
-    .reduce((sum, o) => sum + (o.total || 0), 0);
+     Scope is unchanged and deliberately mixed, exactly as since Phase 18:
+     the two "Today" cards are today-scoped, every status count is all-time. */
+  const ordersToday = useMemo(() => filterToday(restaurantOrders), [restaurantOrders]);
 
-  const countByStatus = (status) => restaurantOrders.filter((o) => o.status === status).length;
-  const activeCount = ["received", "preparing", "ready"].reduce(
-    (sum, s) => sum + countByStatus(s),
-    0
+  /* Today-scoped — drives the Revenue Today and Orders Today cards and both
+     drill-downs. */
+  const todayRevenue = useMemo(() => summarizeRevenue(ordersToday), [ordersToday]);
+  const todayStatuses = useMemo(() => summarizeOrderStatuses(ordersToday), [ordersToday]);
+
+  /* All-time — drives the five status cards and Active Orders, matching the
+     pre-existing behaviour of those cards. */
+  const allTimeStatuses = useMemo(
+    () => summarizeOrderStatuses(restaurantOrders),
+    [restaurantOrders]
   );
 
+  /* Which cards open a detail view. A card is listed here only when the
+     breakdown tells the reader something the dashboard does not already show:
+
+       revenueToday — a single figure that silently mixes money collected with
+                      money still owed; the split is genuinely new information.
+       ordersToday  — today's volume broken out by status, which appears
+                      nowhere else (the status cards are all-time).
+
+     Everything else stays static on purpose:
+       activeOrders — its breakdown is Waiting Prep + Preparing + Ready to
+                      Serve, which are literally the next three cards on the
+                      same screen. A modal would restate what is already
+                      visible.
+       waitingPrep / preparing / readyToServe / completed / canceled —
+                      atomic single-status counts. The only useful "detail" is
+                      the list of those orders, which Live Orders already
+                      provides with per-status filter tabs; duplicating it
+                      here would be a second orders screen, not a drill-down. */
+  const INTERACTIVE_CARDS = ["revenueToday", "ordersToday"];
+
   const STAT_CARDS = [
-    { key: "ordersToday",  label: "Orders Today",  value: ordersToday.length,         tone: "gold" },
-    { key: "revenueToday", label: "Revenue Today", value: fmtPrice(revenueToday),     tone: "gold" },
-    { key: "activeOrders", label: "Active Orders", value: activeCount,                tone: "gold" },
-    { key: "waitingPrep",  label: "Waiting Prep",  value: countByStatus("received"),  tone: "received" },
-    { key: "preparing",    label: "Preparing",     value: countByStatus("preparing"), tone: "preparing" },
-    { key: "readyToServe", label: "Ready to Serve",value: countByStatus("ready"),      tone: "ready" },
-    { key: "completed",    label: "Completed",     value: countByStatus("delivered"), tone: "neutral" },
-    { key: "canceled",     label: "Canceled",      value: countByStatus("canceled"),  tone: "canceled" },
+    { key: "ordersToday",  label: "Orders Today",  value: todayStatuses.total,           tone: "gold" },
+    { key: "revenueToday", label: "Revenue Today", value: fmtPrice(todayRevenue.total),  tone: "gold" },
+    { key: "activeOrders", label: "Active Orders", value: allTimeStatuses.active,        tone: "gold" },
+    { key: "waitingPrep",  label: "Waiting Prep",  value: allTimeStatuses.received,      tone: "received" },
+    { key: "preparing",    label: "Preparing",     value: allTimeStatuses.preparing,     tone: "preparing" },
+    { key: "readyToServe", label: "Ready to Serve",value: allTimeStatuses.ready,          tone: "ready" },
+    { key: "completed",    label: "Completed",     value: allTimeStatuses.delivered,     tone: "neutral" },
+    { key: "canceled",     label: "Canceled",      value: allTimeStatuses.canceled,      tone: "canceled" },
   ];
 
   const recentOrders = useMemo(
@@ -166,14 +194,54 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
 
       {/* ── Stat cards ────────────────────────────────────────────────────── */}
       <div className="ad-stats anim-rise" style={{ animationDelay: "80ms" }}>
-        {STAT_CARDS.map((stat) => (
-          <Card key={stat.key} className="ad-stat">
-            <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
-            <span className="ad-stat__value">{stat.value}</span>
-            <span className="ad-stat__label">{t(STAT_LABEL_KEY[stat.key], stat.label)}</span>
-          </Card>
-        ))}
+        {STAT_CARDS.map((stat) => {
+          const label = t(STAT_LABEL_KEY[stat.key], stat.label);
+          const isInteractive = INTERACTIVE_CARDS.includes(stat.key);
+
+          /* Interactive cards render as real <button>s carrying the same
+             `card ad-stat` classes, so they look identical to the static ones
+             while being keyboard-focusable and announced as buttons. */
+          if (isInteractive) {
+            return (
+              <button
+                key={stat.key}
+                type="button"
+                className="card ad-stat ad-stat--interactive"
+                onClick={() => setOpenDetail(stat.key)}
+                aria-haspopup="dialog"
+              >
+                <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+                <span className="ad-stat__value">{stat.value}</span>
+                <span className="ad-stat__label">{label}</span>
+                <ChevronRight
+                  className="ad-stat__chevron"
+                  size={14}
+                  strokeWidth={2.4}
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          }
+
+          return (
+            <Card key={stat.key} className="ad-stat">
+              <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+              <span className="ad-stat__value">{stat.value}</span>
+              <span className="ad-stat__label">{label}</span>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Detail views read the live summaries above, so an open modal keeps
+          updating as the 4s poll picks up new orders and payment changes. */}
+      <DashboardDrillDown
+        detailKey={openDetail}
+        revenue={todayRevenue}
+        statuses={todayStatuses}
+        onClose={() => setOpenDetail(null)}
+        onNavigate={onNavigate}
+      />
 
       {/* ── Recent orders ─────────────────────────────────────────────────── */}
       <div className="ad-section-bar anim-rise" style={{ animationDelay: "120ms" }}>

@@ -2014,6 +2014,76 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 30 — Dashboard drill-down details ══════════════════════════════ */
+
+/* Interactive stat cards are <button>s wearing the same `card ad-stat`
+   classes as the static ones, so these rules only undo the browser's button
+   defaults and add the affordance — the card's own look is untouched. */
+.ad-stat--interactive{
+  font-family:var(--font-body);text-align:start;width:100%;
+  cursor:pointer;color:inherit;
+  transition:transform .15s var(--ease),border-color .2s,background .2s}
+[dir="rtl"] .ad-stat--interactive{text-align:start}
+.ad-stat--interactive:hover{
+  border-color:var(--gold-line);transform:translateY(-2px)}
+.ad-stat--interactive:active{transform:translateY(0) scale(.99)}
+
+.ad-stat__chevron{
+  position:absolute;bottom:14px;inset-inline-end:14px;
+  color:var(--text-3);opacity:.7;transition:color .2s,opacity .2s}
+[dir="rtl"] .ad-stat__chevron{transform:scaleX(-1)}
+.ad-stat--interactive:hover .ad-stat__chevron{color:var(--gold);opacity:1}
+
+/* ── Detail body inside the shared Modal ─────────────────────────────────── */
+.dd{display:flex;flex-direction:column;gap:4px;text-align:start}
+
+.dd-scope{
+  margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--gold)}
+
+.dd-total{
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  padding:14px 16px;margin-bottom:16px;border-radius:var(--r-md);
+  background:var(--gold-soft);border:1px solid var(--gold-line)}
+.dd-total__label{font-size:12.5px;font-weight:600;color:var(--text-2)}
+.dd-total__value{
+  font-family:var(--font-display);font-size:22px;font-weight:700;
+  color:var(--text-1);white-space:nowrap}
+
+.dd-section{
+  margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-3)}
+
+.dd-rows{display:flex;flex-direction:column;gap:2px}
+.dd-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:9px 2px;font-size:13.5px;color:var(--text-2)}
+.dd-row__label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.dd-row__count{
+  font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  padding:2px 7px;border-radius:999px;
+  background:var(--surface-3);color:var(--text-3);white-space:nowrap}
+.dd-row__value{
+  font-weight:700;color:var(--text-1);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.dd-row--strong .dd-row__value{color:var(--gold)}
+.dd-row--pending .dd-row__value{color:var(--preparing)}
+
+.dd-divider{height:1px;background:var(--border);margin:8px 0}
+
+.dd-note{
+  margin:14px 0 0;font-size:12px;color:var(--text-3);line-height:1.5;
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.dd-note__count{
+  font-weight:700;color:var(--canceled);
+  font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+
+/* Money and counts stay LTR-readable inside an Arabic page, matching the
+   convention used for prices, order IDs, timers, and schedules. */
+[dir="rtl"] .dd-total__value,
+[dir="rtl"] .dd-row__value,
+[dir="rtl"] .dd-row__count{direction:ltr;unicode-bidi:isolate}
+
 /* ══ Phase 29 — Feedback & ratings ════════════════════════════════════════ */
 
 /* Screen-reader-only text: visually gone, still announced. Used by the star

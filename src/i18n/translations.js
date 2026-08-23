@@ -307,6 +307,19 @@ export const translations = {
       endTime: "End time",
       scheduleTimesRequired: "Please set both a start and an end time.",
       scheduleHint: "Uses the restaurant time zone from Settings. Overnight ranges are supported (e.g. 20:00 → 02:00).",
+
+      /* Phase 30 — Dashboard drill-down details */
+      revenueDetails: "Revenue Details",
+      paymentBreakdown: "Payment Breakdown",
+      totalRevenue: "Total Revenue",
+      collected: "Collected",
+      orderBreakdown: "Order Breakdown",
+      completedOrders: "Completed Orders",
+      viewInLiveOrders: "View in Live Orders",
+      scopeToday: "Today's orders",
+      canceledExcludedNote: "Canceled orders are excluded from revenue.",
+      paidOrdersCount: "Paid orders",
+      pendingOrdersCount: "Unpaid orders",
     },
     orders: {
       yourOrder: "Your order",
@@ -727,6 +740,19 @@ export const translations = {
       endTime: "وقت الانتهاء",
       scheduleTimesRequired: "يرجى تحديد وقت البدء ووقت الانتهاء.",
       scheduleHint: "يعتمد على المنطقة الزمنية للمطعم من الإعدادات. الفترات الممتدة بعد منتصف الليل مدعومة (مثال: 20:00 ← 02:00).",
+
+      /* Phase 30 — Dashboard drill-down details */
+      revenueDetails: "تفاصيل الإيرادات",
+      paymentBreakdown: "تفاصيل الدفع",
+      totalRevenue: "إجمالي الإيرادات",
+      collected: "المحصّل",
+      orderBreakdown: "تفاصيل الطلبات",
+      completedOrders: "الطلبات المكتملة",
+      viewInLiveOrders: "عرض في الطلبات المباشرة",
+      scopeToday: "طلبات اليوم",
+      canceledExcludedNote: "الطلبات الملغاة غير محتسبة ضمن الإيرادات.",
+      paidOrdersCount: "طلبات مدفوعة",
+      pendingOrdersCount: "طلبات غير مدفوعة",
     },
     orders: {
       yourOrder: "طلبك",
