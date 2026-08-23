@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { LineChart } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
+import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
+import BusyModeCard from "./BusyModeCard.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -63,6 +65,8 @@ const METHOD_LABEL_KEY = {
 
 export default function AdminDashboardScreen({ restaurant, session, onSignOut, onNavigate }) {
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const { t } = useLanguage();
 
   const refresh = useCallback(() => {
@@ -137,6 +141,20 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         <p className="ad-header__subtitle">{t("admin.monitorActivity", "Monitor today's restaurant activity.")}</p>
       </header>
 
+      {/* ── Busy Mode / service speed (Phase 26) ──────────────────────────
+          Available to Admin AND Cashier; the card itself decides which
+          controls each role gets. */}
+      <div className="anim-rise" style={{ animationDelay: "60ms", marginBottom: 18 }}>
+        <BusyModeCard
+          restaurant={restaurant}
+          session={session}
+          onNotify={(message) => {
+            setToastMessage(message);
+            setToastVisible(true);
+          }}
+        />
+      </div>
+
       {/* ── Stat cards ────────────────────────────────────────────────────── */}
       <div className="ad-stats anim-rise" style={{ animationDelay: "80ms" }}>
         {STAT_CARDS.map((stat) => (
@@ -202,6 +220,12 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           })}
         </div>
       )}
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        onDone={() => setToastVisible(false)}
+      />
     </AdminLayout>
   );
 }

@@ -1866,3 +1866,105 @@ button{font-family:var(--font-body)}
 /* RTL — the table number is a digit that must stay LTR-readable inside an
    Arabic sentence, matching how order IDs/prices/totals are handled above. */
 [dir="rtl"] .sc-card__table-num{direction:ltr;unicode-bidi:isolate}
+
+/* ══ Phase 26 — Estimated prep time + Busy Mode ════════════════════════════ */
+
+/* ── Customer: estimated preparation time ─────────────────────────────────
+   Informational, not alarming — uses the calm "received" blue rather than
+   the warning orange, since a normal estimate is good news, not a problem. */
+.prep-estimate--block{
+  display:flex;align-items:center;gap:12px;
+  max-width:380px;margin:0 auto 24px;padding:12px 16px;
+  background:var(--received-soft);border:1px solid rgba(110,168,254,.28);
+  border-radius:var(--r-md);text-align:start}
+.prep-estimate__icon{display:grid;place-items:center;color:var(--received);flex:none}
+.prep-estimate__text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.prep-estimate__label{font-size:11.5px;color:var(--text-2);letter-spacing:.02em}
+.prep-estimate__value{font-size:14.5px;font-weight:700;color:var(--text-1)}
+
+.prep-estimate--inline{
+  display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+  padding:4px 10px;border-radius:999px;
+  background:var(--received-soft);border:1px solid rgba(110,168,254,.28);
+  color:var(--received);font-size:11.5px;font-weight:600}
+
+/* ── Customer: subtle busy notice on the Menu ─────────────────────────────
+   Purely informational — never blocks or disables any ordering control. */
+.busy-notice{
+  display:flex;align-items:center;gap:9px;margin-bottom:14px;
+  padding:10px 14px;border-radius:var(--r-md);
+  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.28);
+  color:var(--preparing);font-size:12.5px;font-weight:500;line-height:1.5}
+
+/* ── Admin / Cashier: Busy Mode card ──────────────────────────────────────── */
+.busy-card{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.busy-card--on{border-color:rgba(245,158,75,.4)}
+
+.busy-card__head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:16px;flex-wrap:wrap}
+.busy-card__title-wrap{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.busy-card__icon{
+  width:34px;height:34px;flex:none;display:grid;place-items:center;
+  border-radius:11px;background:var(--gold-soft);color:var(--gold);
+  border:1px solid var(--gold-line)}
+.busy-card__title{
+  font-family:var(--font-display);font-size:17px;font-weight:700;
+  color:var(--text-1);margin:0}
+.busy-card__sub{font-size:12.5px;color:var(--text-3);margin:3px 0 0;line-height:1.5}
+.busy-card__estimate{color:var(--text-1);font-weight:700}
+
+/* ON/OFF control — one button, current state always spelled out so there is
+   no ambiguity about which way it is pointing. */
+.busy-toggle{
+  display:inline-flex;align-items:center;gap:10px;flex:none;
+  padding:8px 8px 8px 16px;border-radius:999px;cursor:pointer;
+  background:transparent;border:1px solid var(--border-strong);
+  color:var(--text-2);font-family:var(--font-body);
+  font-size:12.5px;font-weight:600;
+  transition:border-color .2s,color .2s,background .2s,transform .15s var(--ease)}
+[dir="rtl"] .busy-toggle{padding:8px 16px 8px 8px}
+.busy-toggle:hover{border-color:var(--gold-line);color:var(--text-1)}
+.busy-toggle:active{transform:scale(.97)}
+.busy-toggle__state{
+  padding:4px 12px;border-radius:999px;font-size:11.5px;font-weight:700;
+  letter-spacing:.06em;background:var(--surface-3);color:var(--text-3)}
+.busy-toggle--on{
+  border-color:rgba(245,158,75,.45);color:var(--preparing);
+  background:var(--preparing-soft)}
+.busy-toggle--on .busy-toggle__state{background:var(--preparing);color:#1a1206}
+
+.busy-card__banner{
+  display:flex;align-items:center;gap:9px;padding:10px 14px;
+  border-radius:var(--r-md);background:var(--preparing-soft);
+  border:1px solid rgba(245,158,75,.3);color:var(--preparing);
+  font-size:13px;font-weight:600}
+
+.busy-card__divider{height:1px;background:var(--border)}
+
+.busy-card__config{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.busy-card__fields{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
+@media(max-width:640px){.busy-card__fields{grid-template-columns:1fr}}
+.busy-card__error{
+  margin:0;font-size:12.5px;color:var(--canceled);line-height:1.5}
+
+.busy-card__readonly{display:flex;flex-direction:column;gap:8px}
+.busy-card__readonly-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  font-size:13px;color:var(--text-2)}
+.busy-card__readonly-row strong{color:var(--text-1);font-size:14px}
+.busy-card__lock{
+  display:flex;align-items:center;gap:6px;margin:2px 0 0;
+  font-size:11.5px;color:var(--text-3);line-height:1.5}
+
+/* RTL note: "About {n} minutes" is a full sentence in both languages
+   ("حوالي 20 دقيقة"), NOT a bare token like an order ID or a price — so it
+   must keep the page direction and let the bidi algorithm place the embedded
+   digits. Forcing direction:ltr here would reorder the Arabic words.
+   Only the standalone numeric values below are isolated. */
+[dir="rtl"] .busy-card__readonly-row strong{unicode-bidi:isolate}
+
+/* The numeric config inputs follow the existing Phase 21 convention for
+   number fields (see the [dir="rtl"] input[type="number"] rule above), which
+   already covers these — no extra rule needed. */

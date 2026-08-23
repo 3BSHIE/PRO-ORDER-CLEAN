@@ -7,6 +7,7 @@ import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
+import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -129,6 +130,10 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
         <span className="confirm__order-id">{order.orderId}</span>
       </div>
       <p className="confirm__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
+
+      {/* Phase 26 — the estimate the guest was given at checkout, frozen on
+          the order. Renders nothing for pre-Phase-26 orders. */}
+      <PrepTimeEstimate order={order} />
 
       <Card className="confirm__summary">
         <h3 className="confirm__summary-title">{t("orders.orderSummary", "Order summary")}</h3>

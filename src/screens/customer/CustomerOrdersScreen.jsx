@@ -7,6 +7,7 @@ import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
+import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -271,6 +272,10 @@ function OrderCard({ order, onTrackOrder }) {
         <span className="order-card__dot">&middot;</span>
         <span>{paymentLabel}</span>
       </div>
+
+      {/* Phase 26 — compact variant; self-hides for finished orders and for
+          orders placed before this phase, so the list stays uncluttered. */}
+      <PrepTimeEstimate order={order} variant="inline" />
 
       <div className="order-card__bottom">
         <span className="order-card__total">{fmtPrice(order.total)}</span>

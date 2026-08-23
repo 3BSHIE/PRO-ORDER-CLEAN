@@ -9,6 +9,7 @@ import Toast   from "../../components/ui/Toast.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CallStaffButton   from "./components/CallStaffButton.jsx";
+import PrepTimeEstimate  from "./components/PrepTimeEstimate.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -243,6 +244,12 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
       <p className="track__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
 
       <p className="track__msg">{statusMsg}</p>
+
+      {/* Phase 26 — shown only while the order is still Received/Preparing.
+          Once it's Ready or Delivered the status message above already says
+          what matters, so the estimate steps aside rather than contradicting
+          it. Component handles that rule internally. */}
+      <PrepTimeEstimate order={order} />
 
       {isCanceled ? (
         <div className="track__canceled">

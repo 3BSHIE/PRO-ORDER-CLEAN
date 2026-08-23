@@ -23,6 +23,11 @@
  *     ],
  *     items: [ ...cart items, unchanged shape — see customerCart.js ],
  *     subtotal, serviceChargePercent, serviceCharge, total,
+ *     estimatedPrepMinutes,   // Phase 26 — frozen at creation time from
+ *                             // prepTimeData.js (base + busy extra). Never
+ *                             // recomputed: turning Busy Mode off later must
+ *                             // not change what an existing guest was told.
+ *                             // null on orders created before Phase 26.
  *     paymentMethod: { id, label, type, selectedAt },
  *     paymentStatus,          // "pending_at_table" for cash/card this phase;
  *                             // Admin/Cashier can mark "paid" (Phase 20) —
@@ -120,6 +125,11 @@ function resolvePaymentStatus(paymentMethodId) {
  * @param {number} params.serviceCharge
  * @param {number} params.total
  * @param {object} params.paymentMethod — { paymentMethodId, paymentMethodLabel, paymentMethodType, selectedAt }
+ * @param {number} [params.estimatedPrepMinutes] — Phase 26; resolved by the
+ *   caller from prepTimeData.js at the moment of checkout and frozen here.
+ *   Omitted/invalid becomes null, which every customer screen treats as
+ *   "no estimate to show" — that's also what pre-Phase-26 orders already in
+ *   localStorage look like, so they keep rendering exactly as before.
  * @returns {object} the created order
  */
 export function createCustomerOrder({
@@ -132,6 +142,7 @@ export function createCustomerOrder({
   serviceCharge,
   total,
   paymentMethod,
+  estimatedPrepMinutes,
 }) {
   const now = new Date().toISOString();
   const orderId = nextOrderId();
@@ -154,6 +165,10 @@ export function createCustomerOrder({
     serviceChargePercent: restaurant.serviceChargePercent || 0,
     serviceCharge,
     total,
+    /* Phase 26 snapshot — a plain number frozen at this instant. Nothing in
+       this module ever writes it again, so no later Busy Mode change or
+       config edit can alter what this guest was promised. */
+    estimatedPrepMinutes: Number.isInteger(estimatedPrepMinutes) ? estimatedPrepMinutes : null,
     paymentMethod: {
       id: paymentMethod.paymentMethodId,
       label: paymentMethod.paymentMethodLabel,

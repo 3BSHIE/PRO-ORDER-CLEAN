@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  Search, ShoppingBag, RotateCcw, ShoppingCart,
+  Search, ShoppingBag, RotateCcw, ShoppingCart, Clock,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -18,6 +18,7 @@ import {
 } from "../../lib/customerCart.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
+import { usePrepTime } from "../../lib/usePrepTime.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ── Price formatter ─────────────────────────────────────────────────────── */
@@ -108,6 +109,9 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const [searchQuery,    setSearchQuery]    = useState("");
   const { t } = useLanguage();
   const { categories, items: allMenuItems } = useMenuData(restaurant.slug);
+  /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
+     sees the notice appear when staff flip it, without reloading. */
+  const { busyModeEnabled } = usePrepTime(restaurant.slug);
 
   /* Item details modal state */
   const [selectedItem,  setSelectedItem]  = useState(null);
@@ -275,6 +279,21 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             }}
           />
         </header>
+
+        {/* ── Busy notice (Phase 26) ──────────────────────────────────────
+            Informational only — it never disables the menu, the item modal,
+            the cart, or checkout. Ordering stays fully open while busy. */}
+        {busyModeEnabled && (
+          <div className="busy-notice anim-rise" role="status">
+            <Clock size={14} strokeWidth={2.2} />
+            <span>
+              {t(
+                "prep.customerBusyNotice",
+                "We're currently busy. Orders may take a little longer."
+              )}
+            </span>
+          </div>
+        )}
 
         {/* ── Search ──────────────────────────────────────────────────── */}
         <div className="menu-search anim-rise" style={{ animationDelay: "80ms" }}>

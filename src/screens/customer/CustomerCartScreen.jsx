@@ -15,6 +15,7 @@ import {
   clearCustomerCart, getCartTotal,
 } from "../../lib/customerCart.js";
 import { createCustomerOrder } from "../../lib/customerOrders.js";
+import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -151,6 +152,11 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
       serviceCharge,
       total,
       paymentMethod: paymentPayload,
+      /* Phase 26 — read the estimate exactly once, here, at the instant the
+         order is created, so it can be frozen onto the order. Deliberately
+         NOT read from a hook/state higher up: that could hold a value from
+         seconds earlier, and this number is a promise made to the guest. */
+      estimatedPrepMinutes: getEstimatedPrepMinutes(restaurant.slug),
     });
 
     clearCustomerCart();
