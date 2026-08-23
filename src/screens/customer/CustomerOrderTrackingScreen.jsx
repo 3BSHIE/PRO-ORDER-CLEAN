@@ -5,8 +5,10 @@ import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
+import Toast   from "../../components/ui/Toast.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
+import CallStaffButton   from "./components/CallStaffButton.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -130,13 +132,31 @@ export default function CustomerOrderTrackingScreen({
   /* Gate 2: redirect in progress */
   if (!hasValidSession) return null;
 
-  return <TrackingShell orderId={orderId} onBackToMenu={onBackToMenu} />;
+  return (
+    <TrackingShell
+      orderId={orderId}
+      onBackToMenu={onBackToMenu}
+      restaurantSlug={restaurantSlug}
+      table={result.table}
+      session={session}
+    />
+  );
 }
 
 /* ── Tracking shell — owns the live-refreshing order read ──────────────── */
-function TrackingShell({ orderId, onBackToMenu }) {
+function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }) {
   const [order, setOrder] = useState(() => getOrderById(orderId));
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const { t } = useLanguage();
+
+  /* Phase 25 — the Call Staff control is rendered inside TrackingView but
+     the Toast lives here, matching how every other screen in the app keeps
+     its toast at the screen level rather than inside a child. */
+  function handleNotify(message) {
+    setToastMessage(message);
+    setToastVisible(true);
+  }
 
   const refresh = useCallback(() => {
     setOrder(getOrderById(orderId));
@@ -171,14 +191,30 @@ function TrackingShell({ orderId, onBackToMenu }) {
         right={<Logo variant="icon" size="nav" />}
       />
       <main className="container">
-        {order ? <TrackingView order={order} /> : <OrderNotFoundView onBackToMenu={onBackToMenu} />}
+        {order ? (
+          <TrackingView
+            order={order}
+            restaurantSlug={restaurantSlug}
+            table={table}
+            session={session}
+            onNotify={handleNotify}
+          />
+        ) : (
+          <OrderNotFoundView onBackToMenu={onBackToMenu} />
+        )}
       </main>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        onDone={() => setToastVisible(false)}
+      />
     </>
   );
 }
 
 /* ── Main tracking view ──────────────────────────────────────────────────── */
-function TrackingView({ order }) {
+function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
   const { t } = useLanguage();
   const isCanceled = order.status === "canceled";
   const paymentMethodLabel = t(
@@ -216,6 +252,21 @@ function TrackingView({ order }) {
       ) : (
         <StatusTimeline currentStatus={order.status} />
       )}
+
+      {/* Phase 25 — Digital Waiter Bell. A canceled order is exactly when a
+          guest is most likely to need a person, so that case gets the
+          prominent centered action the phase spec calls for; every other
+          status keeps the same quiet inline pill used on the Menu screen. */}
+      <div className={`track__call-staff ${isCanceled ? "track__call-staff--prominent" : ""}`}>
+        <CallStaffButton
+          restaurantSlug={restaurantSlug}
+          tableId={table.id}
+          tableNumber={table.tableNumber}
+          customerName={session.customerName}
+          variant={isCanceled ? "prominent" : "subtle"}
+          onNotify={onNotify}
+        />
+      </div>
 
       {/* ── Order updates (status history) ─────────────────────────────── */}
       {order.statusHistory?.length > 0 && (

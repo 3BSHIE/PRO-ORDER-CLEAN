@@ -13,6 +13,7 @@ import KitchenBoardScreen                from "./screens/kitchen/KitchenBoardScr
 import AdminLoginScreen, { AdminInvalidRestaurantView } from "./screens/admin/AdminLoginScreen.jsx";
 import AdminDashboardScreen               from "./screens/admin/AdminDashboardScreen.jsx";
 import AdminLiveOrdersScreen              from "./screens/admin/AdminLiveOrdersScreen.jsx";
+import AdminStaffCallsScreen              from "./screens/admin/AdminStaffCallsScreen.jsx";
 import AdminCategoriesScreen              from "./screens/admin/AdminCategoriesScreen.jsx";
 import AdminMenuItemsScreen               from "./screens/admin/AdminMenuItemsScreen.jsx";
 import AdminTablesScreen                  from "./screens/admin/AdminTablesScreen.jsx";
@@ -212,6 +213,21 @@ function AdminRoute() {
   if (adminPage === "liveOrders") {
     return (
       <AdminLiveOrdersScreen
+        restaurant={restaurant}
+        session={session}
+        onSignOut={handleSignOut}
+        onNavigate={setAdminPage}
+      />
+    );
+  }
+
+  /* Phase 25 — Staff Calls (Digital Waiter Bell) is intentionally NOT part
+     of isAdminOnlyPage above: both Admin and Cashier answer the waiter bell,
+     the same way both already handle Delivered/Cancel/Mark as Paid. Kitchen
+     can never reach it — this whole route requires an admin/cashier session. */
+  if (adminPage === "staffCalls") {
+    return (
+      <AdminStaffCallsScreen
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}

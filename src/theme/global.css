@@ -1792,3 +1792,77 @@ button{font-family:var(--font-body)}
    beside its name; PRO·ORDER's full logo above is completely unaffected. */
 .access__restaurant-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:2px}
 .access__restaurant-logo{width:22px;height:22px;border-radius:6px;object-fit:cover;flex:none}
+
+/* ══ Phase 25 — Digital Waiter Bell (Call Staff) ═══════════════════════════ */
+
+/* ── Customer action ──────────────────────────────────────────────────────
+   Two variants of one control. "subtle" is a quiet outline pill that sits
+   inside existing screen furniture without competing with ordering;
+   "prominent" is the centered call-to-action used only on a canceled order.
+   Both use the app's existing tokens, so nothing new is introduced to the
+   visual language. */
+.call-staff{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:999px;cursor:pointer;font-family:var(--font-body);
+  font-weight:600;letter-spacing:.015em;white-space:nowrap;
+  background:transparent;border:1px solid var(--border-strong);color:var(--text-2);
+  transition:transform .15s var(--ease),background .2s,border-color .2s,color .2s}
+.call-staff:hover{border-color:var(--gold-line);color:var(--gold);background:var(--gold-soft)}
+.call-staff:active{transform:scale(.97)}
+
+.call-staff--subtle{padding:7px 14px;font-size:12.5px}
+
+.call-staff--prominent{
+  padding:13px 26px;font-size:14.5px;color:#181203;border-color:transparent;
+  background:linear-gradient(180deg,#e6c176,#c99e3f);
+  box-shadow:0 8px 22px rgba(212,169,78,.22),inset 0 1px 0 rgba(255,255,255,.3)}
+.call-staff--prominent:hover{
+  filter:brightness(1.08);color:#181203;border-color:transparent;
+  background:linear-gradient(180deg,#e6c176,#c99e3f)}
+
+/* Already-called state — calm confirmation, never an error. Pressing it
+   again is still allowed; it just re-shows the "already called" message. */
+.call-staff--called{
+  background:var(--ready-soft);border-color:rgba(63,214,143,.32);color:var(--ready)}
+.call-staff--called:hover{
+  background:var(--ready-soft);border-color:rgba(63,214,143,.45);color:var(--ready);filter:none}
+.call-staff--prominent.call-staff--called{box-shadow:none}
+
+/* Placement inside the customer Menu header */
+.menu-header .call-staff{margin-top:14px}
+
+/* Placement inside Order Tracking */
+.track__call-staff{display:flex;justify-content:center;margin:0 0 28px}
+.track__call-staff--prominent{margin:0 0 32px}
+
+/* ── Admin / Cashier Staff Calls panel ───────────────────────────────────── */
+.sc-list{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.sc-list--resolved{opacity:.72}
+
+.sc-card{padding:14px 16px;display:flex;align-items:center;
+  justify-content:space-between;gap:14px;flex-wrap:wrap}
+.sc-card--open{border-color:var(--gold-line)}
+
+.sc-card__main{display:flex;align-items:center;gap:16px;flex:1 1 220px;min-width:0}
+.sc-card__id{min-width:0}
+.sc-card__table{font-size:12px;color:var(--text-3);letter-spacing:.04em}
+.sc-card__table-num{
+  font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--gold);
+  margin-inline-start:2px}
+.sc-card__customer{
+  font-size:14.5px;font-weight:600;color:var(--text-1);margin:2px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.sc-card__meta{display:flex;align-items:center;gap:10px;flex:none}
+.sc-card__elapsed{font-size:11.5px;color:var(--text-3);white-space:nowrap}
+.sc-card__action{flex:none}
+
+/* Live open-call count on the shared admin nav item */
+.ad-nav__count{
+  min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;
+  border-radius:999px;background:var(--gold);color:#181203;
+  font-size:10.5px;font-weight:700;line-height:1}
+
+/* RTL — the table number is a digit that must stay LTR-readable inside an
+   Arabic sentence, matching how order IDs/prices/totals are handled above. */
+[dir="rtl"] .sc-card__table-num{direction:ltr;unicode-bidi:isolate}

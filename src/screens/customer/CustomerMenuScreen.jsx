@@ -7,6 +7,7 @@ import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
+import CallStaffButton  from "./components/CallStaffButton.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
@@ -258,6 +259,21 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           <p className="menu-header__meta">
             {t("customer.yourTable", "Table")} #{table.tableNumber} &middot; What are you having today?
           </p>
+
+          {/* Phase 25 — quiet, always-available way to ask for a person.
+              Deliberately understated here: ordering is the primary task on
+              this screen, this is the fallback. */}
+          <CallStaffButton
+            restaurantSlug={restaurant.slug}
+            tableId={table.id}
+            tableNumber={table.tableNumber}
+            customerName={session.customerName}
+            variant="subtle"
+            onNotify={(message) => {
+              setToastMessage(message);
+              setToastVisible(true);
+            }}
+          />
         </header>
 
         {/* ── Search ──────────────────────────────────────────────────── */}
