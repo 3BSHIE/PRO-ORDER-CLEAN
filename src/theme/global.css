@@ -1968,3 +1968,58 @@ button{font-family:var(--font-body)}
 /* The numeric config inputs follow the existing Phase 21 convention for
    number fields (see the [dir="rtl"] input[type="number"] rule above), which
    already covers these — no extra rule needed. */
+
+/* ══ Phase 27 — Kitchen alerts, prep timers, delayed state ════════════════ */
+
+/* ── Kitchen card prep timer ──────────────────────────────────────────────
+   Occupies the same top-right slot the coarse "2m ago" label used to, so the
+   card layout is unchanged — only the precision and the live updating are
+   new. */
+.kb-card__timer-wrap{
+  display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+
+.kb-timer{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:999px;
+  background:var(--surface-3);border:1px solid var(--border);
+  color:var(--text-2);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;white-space:nowrap}
+
+/* Frozen total for a ready/canceled ticket — visually quieter, since it's a
+   record of what happened rather than something to watch. */
+.kb-timer--final{opacity:.62}
+
+/* Past the estimate the guest was given. Reuses the app's existing canceled
+   red at low saturation — attention-getting without shouting. */
+.kb-timer--delayed{
+  background:var(--canceled-soft);border-color:rgba(241,106,106,.35);
+  color:var(--canceled)}
+
+.kb-delayed{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:999px;
+  background:var(--canceled-soft);border:1px solid rgba(241,106,106,.35);
+  color:var(--canceled);
+  font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  white-space:nowrap}
+
+/* A delayed card gets a subtle edge as well, so it reads at a glance from
+   across a kitchen without the board being reordered. */
+.kb-card--delayed{border-color:rgba(241,106,106,.32)}
+
+/* Timers are bare numeric tokens (02:15) — they must stay LTR inside an
+   Arabic board, exactly like order IDs and prices. This is the opposite of
+   the Phase 26 "About {n} minutes" case, which is a full sentence. */
+[dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
+
+/* ── Admin: Kitchen Alerts card ───────────────────────────────────────────── */
+.ka-volume{display:flex;align-items:center;gap:10px;color:var(--text-3)}
+.ka-volume__slider{
+  flex:1;accent-color:var(--gold);cursor:pointer;min-width:0}
+.ka-volume__slider:disabled{cursor:not-allowed;opacity:.45}
+.ka-volume__value{
+  color:var(--text-3);font-weight:600;
+  font-variant-numeric:tabular-nums}
+[dir="rtl"] .ka-volume__value{direction:ltr;unicode-bidi:isolate}

@@ -6,6 +6,7 @@ import Input   from "../../components/ui/Input.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import AdminLayout from "./AdminLayout.jsx";
+import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -238,6 +239,18 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             ))}
           </div>
         </Card>
+
+        {/* ── Kitchen Alerts (Phase 27) ────────────────────────────────────
+            Self-contained: it writes to its own storage key the moment a
+            control changes, so it is intentionally NOT wired to the Save
+            button below (which commits the general-settings draft only). */}
+        <KitchenAlertsCard
+          restaurant={restaurant}
+          onNotify={(message) => {
+            setToastMessage(message);
+            setToastVisible(true);
+          }}
+        />
       </div>
 
       <div className="ad-settings__save-bar anim-rise">

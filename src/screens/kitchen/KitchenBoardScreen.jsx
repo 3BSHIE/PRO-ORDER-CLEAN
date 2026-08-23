@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { LogOut, Clock } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { LogOut, Clock, Timer, AlertTriangle } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -9,6 +9,8 @@ import Toast   from "../../components/ui/Toast.jsx";
 import { getCustomerOrders, updateCustomerOrderStatus } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
+import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
+import { playAlertSound } from "../../lib/kitchenAlertSound.js";
 
 /* Board columns, in display order. Each maps to exactly one order.status. */
 const BOARD_COLUMNS = [
@@ -86,11 +88,15 @@ const METHOD_LABEL_KEY = {
 
 export default function KitchenBoardScreen({ restaurant, session, onSignOut, onHome }) {
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
-  const [, forceTick] = useState(0); // re-render trigger for elapsed-time labels
+  /* Phase 27 — ONE board-level clock driving every card's prep timer. A
+     per-card interval would mean N timers fighting for the main thread on a
+     busy board; this is a single 1s tick that cards read as a plain prop. */
+  const [now, setNow] = useState(() => Date.now());
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const { t } = useLanguage();
+  const { settings: alertSettings } = useKitchenAlertSettings(restaurant.slug);
 
   const refresh = useCallback(() => {
     setAllOrders(getCustomerOrders());
@@ -100,9 +106,11 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
     refresh();
     window.addEventListener("focus", refresh);
     const refreshInterval = setInterval(refresh, 4000);
-    /* Separate, faster tick just to re-render elapsed-time labels ("2m ago")
-       between full data refreshes, without hitting localStorage every second. */
-    const tickInterval = setInterval(() => forceTick((t) => t + 1), 15000);
+    /* Separate, faster tick so the prep timers advance every second between
+       full data refreshes, without hitting localStorage that often. Note
+       `now` is deliberately NOT a dependency of the grouping useMemo below,
+       so a tick re-renders cards but never re-filters/re-sorts the board. */
+    const tickInterval = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       window.removeEventListener("focus", refresh);
       clearInterval(refreshInterval);
@@ -127,6 +135,60 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // oldest first
     }
     return groups;
+  }, [restaurantOrders]);
+
+  /* ── Phase 27: new-order audio alert ───────────────────────────────────
+     The rule is "alert once, only for an order that genuinely arrived while
+     this board was already open". Three pieces enforce that:
+
+       seenReceivedRef  — every order id this board has ever observed in
+                          "received". An id in here can never alert again, so
+                          a 4s poll, a tab refocus, or a re-render replays
+                          nothing.
+       hasSeededRef     — the FIRST pass after mount only records what was
+                          already on the board and returns without playing.
+                          That's what stops the burst of alerts when a
+                          kitchen opens the screen to a backlog of orders.
+       status filter    — only "received" is ever considered, so
+                          preparing→ready and any admin-side delivered/
+                          canceled transition are structurally incapable of
+                          making a sound.
+
+     Settings are read through a ref so that changing volume/sound type
+     doesn't re-run this effect (which would re-evaluate arrivals). */
+  const seenReceivedRef = useRef(new Set());
+  const hasSeededRef = useRef(false);
+  const alertSettingsRef = useRef(alertSettings);
+
+  useEffect(() => {
+    alertSettingsRef.current = alertSettings;
+  }, [alertSettings]);
+
+  useEffect(() => {
+    const receivedIds = restaurantOrders
+      .filter((o) => o.status === "received")
+      .map((o) => o.orderId);
+
+    if (!hasSeededRef.current) {
+      // First look at the board: remember the backlog silently.
+      receivedIds.forEach((id) => seenReceivedRef.current.add(id));
+      hasSeededRef.current = true;
+      return;
+    }
+
+    const arrivedIds = receivedIds.filter((id) => !seenReceivedRef.current.has(id));
+    if (arrivedIds.length === 0) return;
+
+    // Mark as seen BEFORE playing, so a throw could never cause a replay.
+    arrivedIds.forEach((id) => seenReceivedRef.current.add(id));
+
+    const { soundEnabled, soundType, volume } = alertSettingsRef.current;
+    if (!soundEnabled) return;
+
+    /* One alert per detection cycle, not one per order: if two tickets land
+       in the same 4s window, overlapping tones would just smear into noise.
+       The visual board still shows both immediately. */
+    playAlertSound(soundType, volume);
   }, [restaurantOrders]);
 
   /* Advance a single order to its next valid status. Guards against
@@ -197,6 +259,7 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
                       <KitchenOrderCard
                         key={order.orderId}
                         order={order}
+                        now={now}
                         isUpdating={updatingOrderId === order.orderId}
                         onAdvance={() => handleAdvance(order)}
                       />
@@ -219,7 +282,7 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
 }
 
 /* ── Single kitchen order card ───────────────────────────────────────────── */
-function KitchenOrderCard({ order, isUpdating, onAdvance }) {
+function KitchenOrderCard({ order, now, isUpdating, onAdvance }) {
   const transition = TRANSITIONS[order.status];
   const isCanceled = order.status === "canceled";
   const isReady    = order.status === "ready";
@@ -229,8 +292,11 @@ function KitchenOrderCard({ order, isUpdating, onAdvance }) {
     order.paymentMethod.label
   );
 
+  const timer = resolveTimer(order, now);
+  const isDelayed = isOrderDelayed(order, timer);
+
   return (
-    <Card className="kb-card">
+    <Card className={`kb-card ${isDelayed ? "kb-card--delayed" : ""}`}>
       <div className="kb-card__top">
         <div>
           <p className="kb-card__id">{order.orderId}</p>
@@ -238,7 +304,28 @@ function KitchenOrderCard({ order, isUpdating, onAdvance }) {
             {t("customer.yourTable", "Table")} #{order.tableNumber} &middot; {order.customerName}
           </p>
         </div>
-        <span className="kb-card__elapsed">{formatElapsed(order.createdAt)}</span>
+
+        {/* Prep timer — replaces the old coarse "2m ago" label with the live
+            mm:ss elapsed time this phase calls for. Same slot, same styling
+            language; it freezes for finished/canceled tickets. */}
+        {timer && (
+          <div className="kb-card__timer-wrap">
+            <span
+              className={`kb-timer ${timer.running ? "" : "kb-timer--final"} ${
+                isDelayed ? "kb-timer--delayed" : ""
+              }`}
+            >
+              <Timer size={12} strokeWidth={2.3} />
+              {formatTimer(timer.elapsedMs)}
+            </span>
+            {isDelayed && (
+              <span className="kb-delayed">
+                <AlertTriangle size={11} strokeWidth={2.4} />
+                {t("kitchen.delayed", "Delayed")}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="kb-card__items">
@@ -335,14 +422,68 @@ function KitchenLineItem({ line }) {
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
-function formatElapsed(iso) {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diffMs = Date.now() - then;
-  const diffMin = Math.max(0, Math.floor(diffMs / 60000));
 
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  return `${diffHr}h ago`;
+/* When did this order reach the given status? Read from the statusHistory
+   the order already carries — nothing is written to order data to support
+   timers, which the phase explicitly forbids. Falls back to updatedAt for
+   any order whose history predates a status (defensive only). */
+function statusReachedAt(order, status) {
+  const entry = order.statusHistory?.find((e) => e.status === status);
+  return entry?.at || order.updatedAt || null;
+}
+
+/**
+ * How long this ticket has been cooking, and whether that number is still
+ * moving. Derived purely from timestamps + the board clock — no stored
+ * timer state anywhere.
+ *
+ *   received / preparing → runs live against `now`
+ *   ready               → frozen at the moment it was marked ready, i.e. the
+ *                         total time the kitchen actually took
+ *   canceled            → frozen at cancellation; nothing keeps counting for
+ *                         a ticket nobody is cooking
+ *
+ * @returns {{running: boolean, elapsedMs: number}|null}
+ */
+function resolveTimer(order, now) {
+  const startMs = new Date(order.createdAt).getTime();
+  if (Number.isNaN(startMs)) return null;
+
+  const isFinished = order.status === "ready" || order.status === "canceled";
+  let endMs = now;
+
+  if (isFinished) {
+    const stoppedAt = statusReachedAt(order, order.status);
+    const stoppedMs = stoppedAt ? new Date(stoppedAt).getTime() : NaN;
+    endMs = Number.isNaN(stoppedMs) ? now : stoppedMs;
+  }
+
+  return { running: !isFinished, elapsedMs: Math.max(0, endMs - startMs) };
+}
+
+/**
+ * Delayed = still being worked on, and past the estimate the guest was given
+ * at checkout (Phase 26's frozen order.estimatedPrepMinutes).
+ *
+ * Only ACTIVE tickets are flagged: "Delayed" on a card is a call to action,
+ * and a ready or canceled ticket has no action left. Orders created before
+ * Phase 26 carry no estimate, so they simply show a plain timer with no
+ * comparison — exactly as the phase requires.
+ */
+function isOrderDelayed(order, timer) {
+  if (!timer || !timer.running) return false;
+  const estimate = order.estimatedPrepMinutes;
+  if (!Number.isInteger(estimate)) return false;
+  return timer.elapsedMs > estimate * 60000;
+}
+
+/** mm:ss, widening to h:mm:ss only once an hour has passed. */
+function formatTimer(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
