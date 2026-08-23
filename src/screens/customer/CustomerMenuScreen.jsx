@@ -19,6 +19,7 @@ import {
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { usePrepTime } from "../../lib/usePrepTime.js";
+import { isCategoryVisibleNow } from "../../lib/categoryVisibility.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ── Price formatter ─────────────────────────────────────────────────────── */
@@ -108,10 +109,38 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const [activeCategory, setActiveCategory] = useState(null); // null = All
   const [searchQuery,    setSearchQuery]    = useState("");
   const { t } = useLanguage();
-  const { categories, items: allMenuItems } = useMenuData(restaurant.slug);
+  const { categories: allCategories, items: allMenuItems } = useMenuData(restaurant.slug);
   /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
      sees the notice appear when staff flip it, without reloading. */
   const { busyModeEnabled } = usePrepTime(restaurant.slug);
+  /* Phase 28 — the restaurant's own timezone drives schedule evaluation, not
+     the guest's device clock (a tourist's phone on the wrong timezone must
+     not see a different menu than the table next to them). */
+  const { settings } = useSettingsData(restaurant.slug);
+
+  /* ONE shared clock for every scheduled category, not one timer per
+     category. Schedules only have minute resolution, so a 30s tick is more
+     than precise enough to retire a category within moments of its boundary
+     while staying cheap. */
+  const [visibilityTick, setVisibilityTick] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setVisibilityTick(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /* Categories the guest is allowed to see right now. Everything downstream
+     — chips, grouped sections, the flat grid, and search — derives from this
+     one list, so there is exactly one place the rule is applied. */
+  const categories = useMemo(
+    () =>
+      allCategories.filter((c) =>
+        isCategoryVisibleNow(c, { timeZone: settings.timeZone })
+      ),
+    // visibilityTick is an intentional dependency: it is what re-evaluates
+    // schedules for a menu that is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allCategories, settings.timeZone, visibilityTick]
+  );
 
   /* Item details modal state */
   const [selectedItem,  setSelectedItem]  = useState(null);
@@ -137,7 +166,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
       categories.map((c) => [c.id, c.name.toLowerCase()])
     );
 
-    let items = [...allMenuItems];
+    /* Phase 28 — the gate for EVERY list on this screen. Filtering here
+       rather than only in the grouped view is what stops a hidden
+       category's products leaking through search, which previously bypassed
+       the category list entirely and matched against the raw item array. */
+    const visibleCategoryIds = new Set(categories.map((c) => c.id));
+    let items = allMenuItems.filter((i) => visibleCategoryIds.has(i.categoryId));
 
     if (activeCategory) {
       items = items.filter((i) => i.categoryId === activeCategory);
@@ -162,6 +196,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const isSearching  = searchQuery.trim().length > 0;
   const showGrouped  = !activeCategory && !isSearching;
   const activeCat    = categories.find((c) => c.id === activeCategory);
+
+  /* If the category the guest is currently browsing gets hidden underneath
+     them (staff toggled it, or its schedule just ended), fall back to All
+     rather than leaving them staring at an empty list with no chip selected. */
+  useEffect(() => {
+    if (activeCategory && !activeCat) setActiveCategory(null);
+  }, [activeCategory, activeCat]);
 
   const sectionTitle = isSearching
     ? `${filteredItems.length} result${filteredItems.length !== 1 ? "s" : ""} for "${searchQuery.trim()}"`
@@ -327,7 +368,9 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           >
             {t("common.all", "All")}
           </button>
-          {categories.filter((c) => c.isActive).map((cat) => (
+          {/* `categories` is already the visibility-filtered list (which
+              subsumes the old isActive check), so no extra filter here. */}
+          {categories.map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -404,7 +447,8 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 function GroupedView({ items, categories, onOpen }) {
   return (
     <>
-      {categories.filter((c) => c.isActive).map((cat) => {
+      {/* Receives the already visibility-filtered category list. */}
+      {categories.map((cat) => {
         const catItems = items.filter((i) => i.categoryId === cat.id);
         if (!catItems.length) return null;
         return (

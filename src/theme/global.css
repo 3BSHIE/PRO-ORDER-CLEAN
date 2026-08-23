@@ -2014,6 +2014,49 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 28 — Category visibility (manual + scheduled) ══════════════════ */
+
+.cv-card{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.cv-card__head{display:flex;flex-direction:column;gap:3px}
+.cv-card__title{
+  font-family:var(--font-display);font-size:17px;font-weight:700;
+  color:var(--text-1);margin:0}
+.cv-card__sub{font-size:12.5px;color:var(--text-3);margin:0;line-height:1.5}
+
+.cv-list{display:flex;flex-direction:column;gap:8px}
+.cv-row{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border)}
+.cv-row__emoji{font-size:17px;flex:none;line-height:1}
+.cv-row__info{flex:1;min-width:0}
+.cv-row__name{
+  font-size:14px;font-weight:600;color:var(--text-1);margin:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-row__schedule{
+  display:flex;align-items:center;gap:5px;margin:2px 0 0;
+  font-size:11.5px;color:var(--text-3)}
+/* A time range is a bare numeric token — keep it LTR inside an Arabic page,
+   same convention as prices, order IDs, and kitchen timers. */
+.cv-row__schedule-value{direction:ltr;unicode-bidi:isolate;
+  font-variant-numeric:tabular-nums}
+
+.cv-toggle{
+  display:inline-flex;align-items:center;gap:6px;flex:none;
+  padding:6px 12px;border-radius:999px;cursor:pointer;
+  background:transparent;border:1px solid var(--border-strong);
+  color:var(--text-3);font-family:var(--font-body);
+  font-size:11.5px;font-weight:700;letter-spacing:.06em;
+  transition:border-color .18s,color .18s,background .18s,transform .15s var(--ease)}
+.cv-toggle:hover{border-color:var(--gold-line);color:var(--text-1)}
+.cv-toggle:active{transform:scale(.96)}
+.cv-toggle--on{
+  background:var(--ready-soft);border-color:rgba(63,214,143,.4);color:var(--ready)}
+
+/* Schedule shown beside the item count in the Admin category list */
+.mm-cat-row__schedule{direction:ltr;unicode-bidi:isolate;
+  font-variant-numeric:tabular-nums}
+
 /* ── Admin: Kitchen Alerts card ───────────────────────────────────────────── */
 .ka-volume{display:flex;align-items:center;gap:10px;color:var(--text-3)}
 .ka-volume__slider{

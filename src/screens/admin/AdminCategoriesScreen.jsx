@@ -15,6 +15,22 @@ import {
   moveCategory,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
+import { getCategoryVisibilityState, formatSchedule } from "../../lib/categoryVisibility.js";
+
+/* Phase 28 — the live customer-facing verdict for one category, with the
+   reason it is hidden. Purely informational; Admin management always lists
+   every category, visible or not. */
+function CategoryStateBadge({ category, timeZone }) {
+  const { t } = useLanguage();
+  const { visible, reason } = getCategoryVisibilityState(category, { timeZone });
+
+  if (visible) return <Badge tone="ready" dot>{t("admin.visible", "Visible")}</Badge>;
+  if (reason === "schedule") {
+    return <Badge tone="preparing" dot>{t("admin.offSchedule", "Off schedule")}</Badge>;
+  }
+  return <Badge tone="canceled" dot>{t("admin.hidden", "Hidden")}</Badge>;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminCategoriesScreen — Phase 21
@@ -37,6 +53,8 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 export default function AdminCategoriesScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { categories, items } = useMenuData(restaurant.slug);
   const { t } = useLanguage();
+  /* Restaurant timezone drives the schedule verdict shown per row. */
+  const { settings } = useSettingsData(restaurant.slug);
 
   const [editingCategory, setEditingCategory] = useState(null); // category object, or {} for "new"
   const [pendingDelete, setPendingDelete] = useState(null); // category awaiting delete confirmation
@@ -155,8 +173,20 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
                 <p className="mm-cat-row__name">{cat.name}</p>
                 <p className="mm-cat-row__meta">
                   {itemCountFor(cat.id)} {t("orders.items", "Items")}
+                  {formatSchedule(cat) && (
+                    <>
+                      {" · "}
+                      <span className="mm-cat-row__schedule">{formatSchedule(cat)}</span>
+                    </>
+                  )}
                 </p>
               </div>
+
+              {/* Live customer-facing verdict, so Admin sees what a guest
+                  sees right now — including a category currently outside its
+                  schedule window. Admin management itself always lists every
+                  category regardless of visibility. */}
+              <CategoryStateBadge category={cat} timeZone={settings.timeZone} />
 
               <Badge tone={cat.isActive ? "gold" : "neutral"}>
                 {cat.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
@@ -233,6 +263,16 @@ function CategoryEditorModal({ category, onSave, onClose }) {
   const [emoji, setEmoji] = useState(category.emoji || "");
   const [imageUrl, setImageUrl] = useState(category.imageUrl || "");
   const [isActive, setIsActive] = useState(category.isActive !== false);
+  /* Phase 28 — operational visibility + schedule. isVisible is the same flag
+     Cashier can flip from Overview; it is shown here too so Admin has one
+     complete view of a category, but it stays a distinct concept from
+     isActive (catalog) above. */
+  const [isVisible, setIsVisible] = useState(category.isVisible !== false);
+  const [visibilityMode, setVisibilityMode] = useState(
+    category.visibilityMode === "scheduled" ? "scheduled" : "always"
+  );
+  const [visibleFrom, setVisibleFrom] = useState(category.visibleFrom || "07:00");
+  const [visibleUntil, setVisibleUntil] = useState(category.visibleUntil || "12:00");
   const [error, setError] = useState(null);
 
   function handleSubmit() {
@@ -240,7 +280,20 @@ function CategoryEditorModal({ category, onSave, onClose }) {
       setError(t("admin.categoryNameRequired", "Please enter a category name."));
       return;
     }
-    onSave({ name: name.trim(), emoji: emoji.trim(), imageUrl: imageUrl.trim(), isActive });
+    if (visibilityMode === "scheduled" && (!visibleFrom || !visibleUntil)) {
+      setError(t("admin.scheduleTimesRequired", "Please set both a start and an end time."));
+      return;
+    }
+    onSave({
+      name: name.trim(),
+      emoji: emoji.trim(),
+      imageUrl: imageUrl.trim(),
+      isActive,
+      isVisible,
+      visibilityMode,
+      visibleFrom: visibilityMode === "scheduled" ? visibleFrom : "",
+      visibleUntil: visibilityMode === "scheduled" ? visibleUntil : "",
+    });
   }
 
   return (
@@ -287,6 +340,56 @@ function CategoryEditorModal({ category, onSave, onClose }) {
         />
         <span>{t("admin.active", "Active")}</span>
       </label>
+
+      {/* ── Phase 28: Category Visibility ──────────────────────────────── */}
+      <div className="mm-divider" style={{ margin: "16px 0 12px" }} />
+      <h4 className="mm-section-title">{t("admin.categoryVisibility", "Category Visibility")}</h4>
+
+      <label className="mm-toggle-row" style={{ marginBottom: 12 }}>
+        <input
+          type="checkbox"
+          checked={isVisible}
+          onChange={(e) => setIsVisible(e.target.checked)}
+        />
+        <span>{isVisible ? t("admin.visible", "Visible") : t("admin.hidden", "Hidden")}</span>
+      </label>
+
+      <label className="field mm-field" style={{ marginBottom: 12 }}>
+        <span className="field__label">{t("admin.visibilityMode", "Availability")}</span>
+        <select
+          className="mm-select mm-select--full"
+          value={visibilityMode}
+          onChange={(e) => setVisibilityMode(e.target.value)}
+        >
+          <option value="always">{t("admin.alwaysAvailable", "Always available")}</option>
+          <option value="scheduled">{t("admin.scheduled", "Scheduled")}</option>
+        </select>
+      </label>
+
+      {visibilityMode === "scheduled" && (
+        <>
+          <div className="mm-row-2">
+            <Input
+              label={t("admin.startTime", "Start time")}
+              type="time"
+              value={visibleFrom}
+              onChange={(e) => setVisibleFrom(e.target.value)}
+            />
+            <Input
+              label={t("admin.endTime", "End time")}
+              type="time"
+              value={visibleUntil}
+              onChange={(e) => setVisibleUntil(e.target.value)}
+            />
+          </div>
+          <p className="ad-settings__hint" style={{ marginTop: 8 }}>
+            {t(
+              "admin.scheduleHint",
+              "Uses the restaurant time zone from Settings. Overnight ranges are supported (e.g. 20:00 → 02:00)."
+            )}
+          </p>
+        </>
+      )}
     </Modal>
   );
 }

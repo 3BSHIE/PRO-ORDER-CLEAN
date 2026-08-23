@@ -84,16 +84,34 @@ function seedIfEmpty(restaurantSlug) {
   }
 }
 
+/* Phase 28 — normalize the visibility fields on read instead of migrating
+   stored records. Categories created before this phase have none of them,
+   and this guarantees every consumer (customer menu, admin list, cashier
+   card) sees one complete, predictable shape without a migration step and
+   without changing how those older categories behave: absent isVisible
+   reads as visible, absent visibilityMode reads as "always". */
+function normalizeCategory(category) {
+  return {
+    ...category,
+    isVisible: category.isVisible !== false,
+    visibilityMode: category.visibilityMode === "scheduled" ? "scheduled" : "always",
+    visibleFrom: typeof category.visibleFrom === "string" ? category.visibleFrom : "",
+    visibleUntil: typeof category.visibleUntil === "string" ? category.visibleUntil : "",
+  };
+}
+
 /** This restaurant's categories, sorted by sortOrder (never null — falls
-    back to the seed list). */
+    back to the seed list). Visibility fields are normalized (see above). */
 export function getCategories(restaurantSlug) {
   seedIfEmpty(restaurantSlug);
   try {
     const raw = localStorage.getItem(categoriesKey(restaurantSlug));
     const list = raw ? JSON.parse(raw) : SEED_CATEGORIES;
-    return [...list].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    return [...list]
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map(normalizeCategory);
   } catch {
-    return SEED_CATEGORIES;
+    return SEED_CATEGORIES.map(normalizeCategory);
   }
 }
 
@@ -130,10 +148,23 @@ function saveMenuItems(restaurantSlug, items) {
 
 /**
  * @param {string} restaurantSlug
- * @param {object} data — { name, emoji, imageUrl, isActive }
+ * @param {object} data — { name, emoji, imageUrl, isActive, isVisible,
+ *   visibilityMode, visibleFrom, visibleUntil }
  * @returns {object} the created category
  */
-export function createCategory(restaurantSlug, { name, emoji, imageUrl, isActive = true }) {
+export function createCategory(
+  restaurantSlug,
+  {
+    name,
+    emoji,
+    imageUrl,
+    isActive = true,
+    isVisible = true,
+    visibilityMode = "always",
+    visibleFrom = "",
+    visibleUntil = "",
+  }
+) {
   const categories = getCategories(restaurantSlug);
   const maxSort = categories.reduce((max, c) => Math.max(max, c.sortOrder || 0), 0);
   const category = {
@@ -143,6 +174,12 @@ export function createCategory(restaurantSlug, { name, emoji, imageUrl, isActive
     imageUrl: (imageUrl || "").trim() || null,
     sortOrder: maxSort + 1,
     isActive: !!isActive,
+    /* Phase 28 visibility fields — see src/lib/categoryVisibility.js for how
+       these three combine with isActive to decide customer visibility. */
+    isVisible: isVisible !== false,
+    visibilityMode: visibilityMode === "scheduled" ? "scheduled" : "always",
+    visibleFrom: (visibleFrom || "").trim(),
+    visibleUntil: (visibleUntil || "").trim(),
   };
   saveCategories(restaurantSlug, [...categories, category]);
   return category;
@@ -162,6 +199,35 @@ export function updateCategory(restaurantSlug, categoryId, patch) {
   const updated = { ...categories[idx], ...patch };
   const next = categories.map((c, i) => (i === idx ? updated : c));
   saveCategories(restaurantSlug, next);
+  return updated;
+}
+
+/**
+ * Phase 28 — flip ONLY the operational visibility flag.
+ *
+ * Deliberately separate from updateCategory(): this is the one category
+ * write a Cashier is allowed to make, and it must be incapable of touching
+ * name, emoji, image, sortOrder, isActive, or the schedule. A surgical patch
+ * also means a Cashier toggling from Overview can never clobber an Admin
+ * editing the same category in Category Management, and vice versa — the
+ * same concurrency lesson as Busy Mode in Phase 26.
+ *
+ * Note it never modifies visibilityMode/visibleFrom/visibleUntil: manual
+ * visibility and scheduled visibility stay independent concepts, so turning
+ * a category back on does not wipe its schedule.
+ *
+ * @param {string} restaurantSlug
+ * @param {string} categoryId
+ * @param {boolean} isVisible
+ * @returns {object|null} the updated category, or null if not found
+ */
+export function setCategoryVisible(restaurantSlug, categoryId, isVisible) {
+  const categories = getCategories(restaurantSlug);
+  const idx = categories.findIndex((c) => c.id === categoryId);
+  if (idx === -1) return null;
+
+  const updated = { ...categories[idx], isVisible: isVisible !== false };
+  saveCategories(restaurantSlug, categories.map((c, i) => (i === idx ? updated : c)));
   return updated;
 }
 

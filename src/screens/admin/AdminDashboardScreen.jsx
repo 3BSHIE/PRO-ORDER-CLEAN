@@ -5,6 +5,7 @@ import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
+import CategoryVisibilityCard from "./CategoryVisibilityCard.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -153,6 +154,14 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
             setToastVisible(true);
           }}
         />
+      </div>
+
+      {/* ── Category visibility (Phase 28) ────────────────────────────────
+          Operational on/off for Admin AND Cashier. Full Category Management
+          (add/rename/delete/reorder/image/schedule) remains Admin-only in
+          its own screen — this card can only flip one boolean. */}
+      <div className="anim-rise" style={{ animationDelay: "70ms", marginBottom: 18 }}>
+        <CategoryVisibilityCard restaurant={restaurant} />
       </div>
 
       {/* ── Stat cards ────────────────────────────────────────────────────── */}

@@ -293,6 +293,20 @@ export const translations = {
       closingTime: "Closing Time",
       closedDays: "Closed Days",
       settingsSaved: "Settings saved",
+
+      /* Phase 28 — Category visibility (manual + scheduled) */
+      categoryVisibility: "Category Visibility",
+      categoryVisibilityHint: "Turn categories on or off for service.",
+      visibilityMode: "Availability",
+      visible: "Visible",
+      hidden: "Hidden",
+      offSchedule: "Off schedule",
+      alwaysAvailable: "Always available",
+      scheduled: "Scheduled",
+      startTime: "Start time",
+      endTime: "End time",
+      scheduleTimesRequired: "Please set both a start and an end time.",
+      scheduleHint: "Uses the restaurant time zone from Settings. Overnight ranges are supported (e.g. 20:00 → 02:00).",
     },
     orders: {
       yourOrder: "Your order",
@@ -676,6 +690,20 @@ export const translations = {
       closingTime: "وقت الإغلاق",
       closedDays: "أيام الإغلاق",
       settingsSaved: "تم حفظ الإعدادات",
+
+      /* Phase 28 — Category visibility (manual + scheduled) */
+      categoryVisibility: "ظهور التصنيفات",
+      categoryVisibilityHint: "شغّل أو أوقف التصنيفات أثناء الخدمة.",
+      visibilityMode: "التوفر",
+      visible: "ظاهر",
+      hidden: "مخفي",
+      offSchedule: "خارج وقت الظهور",
+      alwaysAvailable: "متاح دائمًا",
+      scheduled: "حسب الوقت",
+      startTime: "وقت البدء",
+      endTime: "وقت الانتهاء",
+      scheduleTimesRequired: "يرجى تحديد وقت البدء ووقت الانتهاء.",
+      scheduleHint: "يعتمد على المنطقة الزمنية للمطعم من الإعدادات. الفترات الممتدة بعد منتصف الليل مدعومة (مثال: 20:00 ← 02:00).",
     },
     orders: {
       yourOrder: "طلبك",
