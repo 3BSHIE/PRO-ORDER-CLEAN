@@ -331,8 +331,12 @@ export default function App() {
     <div className="app">
       <BrowserRouter>
         {/* Demo-only dev tool — see src/components/demo/DemoSwitcher.jsx.
-            Must be disabled/removed before production. */}
-        <DemoSwitcher />
+            Phase 33: mounted only in development. import.meta.env.DEV is
+            statically replaced with `false` in a production build, so this
+            branch (and the component behind it) is dead-code-eliminated
+            rather than merely hidden. The component carries the same guard
+            internally as a second layer. */}
+        {import.meta.env.DEV && <DemoSwitcher />}
         <Routes>
           <Route path="/"                                                          element={<HomeRoute />} />
           <Route path="/kitchen/:restaurantSlug"                                  element={<KitchenRoute />} />

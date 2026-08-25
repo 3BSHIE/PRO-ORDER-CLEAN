@@ -9,6 +9,7 @@ import Input   from "../components/ui/Input.jsx";
 import Modal   from "../components/ui/Modal.jsx";
 import Tabs    from "../components/ui/Tabs.jsx";
 import { SURFACES } from "../data/surfaces.js";
+import { useLanguage } from "../i18n/useLanguage.js";
 
 const TAB_ITEMS = [
   { id: "allday", label: "All day" },
@@ -25,16 +26,34 @@ const QR_TESTS = [
     to: "/r/lumiere/table/broken-token",  path: "/r/lumiere/table/broken-token"  },
 ];
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   HomeScreen — the demo/landing route at "/".
+
+   Phase 33 production safety: everything below the hero is developer-only —
+   the surface cards link straight to the Kitchen and Admin sign-in screens,
+   the QR panel is a set of test shortcuts, and the Foundation kit is a
+   component showcase. A guest reaches this route by tapping "Back to home"
+   from an invalid QR, so in a production build none of that may be on offer.
+
+   In production the route therefore renders the brand hero plus the same
+   "scan the QR code on your table" line the invalid-access view already uses
+   (an existing, already-translated string). A real marketing landing page
+   can replace this later; the point here is only that "/" must never hand a
+   diner staff navigation.
+   ═══════════════════════════════════════════════════════════════════════ */
+
 export default function HomeScreen({ onNavigate }) {
   const [tab,       setTab]       = useState("dinner");
   const [name,      setName]      = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const { t } = useLanguage();
+  const isDev = import.meta.env.DEV;
 
   return (
     <>
       <Topbar
         left={<Logo variant="icon" size="nav" />}
-        right={<Badge tone="gold">Phase 24</Badge>}
+        right={isDev ? <Badge tone="gold">Phase 24</Badge> : null}
       />
 
       <main className="container">
@@ -49,6 +68,20 @@ export default function HomeScreen({ onNavigate }) {
           </p>
         </section>
 
+        {/* Production: a guest who lands here just needs to know what to do.
+            Uses the same already-translated string as the invalid-QR view. */}
+        {!isDev && (
+          <p className="hero__lede" style={{ textAlign: "center", margin: "0 auto 48px" }}>
+            {t(
+              "common.invalidTableAccessMsg",
+              "Please scan the QR code placed on your table to open the menu."
+            )}
+          </p>
+        )}
+
+        {/* ── Everything below is DEVELOPMENT ONLY (Phase 33) ────────────── */}
+        {isDev && (
+        <>
         {/* Demo surfaces */}
         <div className="section-label">Demo surfaces</div>
         <div className="navgrid">
@@ -156,25 +189,32 @@ export default function HomeScreen({ onNavigate }) {
         <footer className="foot">
           Phase 24 · Production QA & Polish — accessibility, performance, RTL, and code-quality pass across the whole app.
         </footer>
+        </>
+        )}
       </main>
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Sample modal"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button icon={Check}   onClick={() => setModalOpen(false)}>Confirm</Button>
-          </>
-        }
-      >
-        <p style={{ margin: "0 0 16px" }}>
-          Bottom sheet on mobile, centered dialog on desktop. Item
-          customisation and payment choice will live in shells like this.
-        </p>
-        <Input label="Sample field" placeholder="Type anything…" />
-      </Modal>
+      {/* Part of the dev-only Foundation kit — its only trigger lives inside
+          the gated block above, so it is gated too rather than shipping an
+          unreachable sample dialog in the production bundle. */}
+      {isDev && (
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title="Sample modal"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button icon={Check}   onClick={() => setModalOpen(false)}>Confirm</Button>
+            </>
+          }
+        >
+          <p style={{ margin: "0 0 16px" }}>
+            Bottom sheet on mobile, centered dialog on desktop. Item
+            customisation and payment choice will live in shells like this.
+          </p>
+          <Input label="Sample field" placeholder="Type anything…" />
+        </Modal>
+      )}
     </>
   );
 }

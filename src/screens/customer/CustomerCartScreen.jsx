@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, ShoppingCart, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -125,12 +125,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     setToastVisible(true);
   }
 
-  function handleClearCart() {
-    clearCustomerCart();
-    setCart([]);
-    setToastMessage(t("customer.cartCleared", "Cart cleared"));
-    setToastVisible(true);
-  }
+  /* Phase 33 — the "Clear cart (demo only)" footer button was removed from
+     this screen (customer-reachable destructive action). clearCustomerCart
+     is still imported and used below by the real checkout flow, which empties
+     the cart once an order has actually been created. */
 
   function handlePayClick() {
     setPaymentModalOpen(true);
@@ -220,12 +218,6 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
               </div>
             </Card>
 
-            {/* ── Demo clear cart ─────────────────────────────────────── */}
-            <div className="cart-demo-foot">
-              <button type="button" className="menu-demo-clear" onClick={handleClearCart}>
-                <RotateCcw size={12} strokeWidth={2.2} /> {t("common.clearCart", "Clear cart (demo only)")}
-              </button>
-            </div>
           </>
         )}
       </main>

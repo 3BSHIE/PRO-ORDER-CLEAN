@@ -15,16 +15,21 @@ import { clearCustomerOrders } from "../../lib/customerOrders.js";
  * losing localStorage/sessionStorage state (orders, cart, sessions) the way
  * leaving the preview or reloading sometimes does.
  *
- * ⚠️ THIS MUST BE DISABLED OR REMOVED BEFORE PRODUCTION. ⚠️
- * Toggle via SHOW_DEMO_TOOLS below — swap to `import.meta.env.DEV` for an
- * automatic "only in dev builds" gate, or delete this component and its
- * mount point in App.jsx entirely for a production build.
+ * Phase 33 — production safety:
+ * This is now gated on `import.meta.env.DEV`, so it renders while running
+ * `npm run dev` and is absent from any production build. Vite replaces
+ * import.meta.env.DEV with the literal `false` at build time, so the guard
+ * below folds to a constant and App.jsx's conditional mount lets the bundler
+ * drop this whole component from the production bundle — it is not merely
+ * hidden, it is not shipped.
  *
  * Navigation links here NEVER touch storage — only the explicitly-labeled
  * "Danger zone" buttons do, and each requires a confirmation click.
  */
 
-const SHOW_DEMO_TOOLS = true; // ← set to false (or use import.meta.env.DEV) before production
+/* Dev-only. Do not hardcode this to true — a production build must never
+   expose the Danger zone to a customer. */
+const SHOW_DEMO_TOOLS = import.meta.env.DEV;
 
 const NAV_LINKS = [
   { label: "Home",              to: "/" },

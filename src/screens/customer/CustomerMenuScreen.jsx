@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  Search, ShoppingBag, RotateCcw, ShoppingCart, Clock,
+  Search, ShoppingBag, ShoppingCart, Clock,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -11,9 +11,9 @@ import CallStaffButton  from "./components/CallStaffButton.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
-import { getCustomerSession, clearCustomerSession } from "../../lib/customerSession.js";
+import { getCustomerSession } from "../../lib/customerSession.js";
 import {
-  getCustomerCart, addCartItem, clearCustomerCart,
+  getCustomerCart, addCartItem,
   getCartTotal, getCartItemCount,
 } from "../../lib/customerCart.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -254,20 +254,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     onViewCart?.();
   }, [onViewCart]);
 
-  /* Demo-only clear cart */
-  function handleClearCart() {
-    clearCustomerCart();
-    setCart([]);
-    setToastMessage(t("customer.cartCleared", "Cart cleared"));
-    setToastVisible(true);
-  }
-
-  /* Clearing the session also clears the cart, then returns to onboarding */
-  function handleClearSession() {
-    clearCustomerSession();
-    clearCustomerCart();
-    onBackToAccess();
-  }
+  /* Phase 33 — the "Clear cart (demo only)" / "Clear session (demo only)"
+     buttons that used to live in the menu footer were removed: they were
+     customer-reachable destructive actions, and both are already available
+     (dev-only) from the DemoSwitcher Danger zone, so nothing is lost for
+     local testing. Their handlers went with them. */
 
   const selectedCategory = selectedItem
     ? categories.find((c) => c.id === selectedItem.categoryId)
@@ -399,17 +390,6 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           <ItemGrid items={filteredItems} categories={categories} onOpen={handleOpenItem} />
         )}
 
-        {/* ── Demo footer actions ───────────────────────────────────────── */}
-        <div className="menu-demo-foot">
-          {hasCartItems && (
-            <button type="button" className="menu-demo-clear" onClick={handleClearCart}>
-              <RotateCcw size={12} strokeWidth={2.2} /> {t("common.clearCart", "Clear cart (demo only)")}
-            </button>
-          )}
-          <button type="button" className="menu-demo-clear" onClick={handleClearSession}>
-            <RotateCcw size={12} strokeWidth={2.2} /> {t("common.clearSession", "Clear session (demo only)")}
-          </button>
-        </div>
       </main>
 
       {/* ── Floating cart button ────────────────────────────────────────── */}
