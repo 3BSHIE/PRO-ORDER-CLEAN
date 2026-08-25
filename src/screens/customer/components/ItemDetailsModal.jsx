@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { X, Check } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { flushSync } from "react-dom";
+import { X, Check, AlertCircle } from "lucide-react";
 import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { fmtPrice } from "../../../lib/format.js";
@@ -54,6 +55,12 @@ export default function ItemDetailsModal({
   /* choiceErrors: { [choiceGroupId]: true } for required groups missing a selection */
   const [choiceErrors, setChoiceErrors] = useState({});
   const { t } = useLanguage();
+
+  /* Phase 35 — the modal element itself is the scroll container
+     (.item-modal has overflow-y:auto), and each required group registers its
+     section here so a failed validation can bring the right one into view. */
+  const modalRef = useRef(null);
+  const groupRefs = useRef({});
 
   /* Reset all local state whenever a different item is opened */
   useEffect(() => {
@@ -144,21 +151,97 @@ export default function ItemDetailsModal({
     });
   }
 
+  /* Validates every required group (so all invalid ones get marked), but also
+     reports the FIRST one in display order — that is the only one the guest
+     is sent to. `choices` is already in menu order, so "first" means the one
+     highest up the modal. */
   function validateRequired() {
     const errors = {};
-    let ok = true;
+    let firstInvalidId = null;
     for (const group of choices) {
       if (group.required && (choiceSelections[group.id] || []).length === 0) {
         errors[group.id] = true;
-        ok = false;
+        if (!firstInvalidId) firstInvalidId = group.id;
       }
     }
     setChoiceErrors(errors);
-    return ok;
+    return { ok: !firstInvalidId, firstInvalidId };
+  }
+
+  /* Distance kept between the top of the scroll area and the group being
+     revealed, so it never sits flush against the edge (or under the close
+     button when we happen to land near the top of the sheet). */
+  const SCROLL_MARGIN = 64;
+
+  /**
+   * Phase 35 — bring a failed required group into view and move focus to it.
+   *
+   * Scrolls the MODAL's own scroll container by adjusting its scrollTop
+   * directly, rather than calling element.scrollIntoView(): scrollIntoView
+   * walks up and scrolls every scrollable ancestor, which would also move the
+   * page behind the sheet. This touches nothing but the sheet.
+   *
+   * Runs synchronously, immediately after flushSync has committed the error
+   * to the DOM (see handleAddClick). Measuring settled layout directly is
+   * more dependable than deferring with requestAnimationFrame: rAF does not
+   * fire at all while a tab is hidden, which would leave a returning customer
+   * looking at an unscrolled sheet. Showing the error also shifts layout
+   * above the viewport, and .item-modal sets overflow-anchor:none so the
+   * browser's scroll-anchoring correction cannot fight the scroll we issue.
+   *
+   * focus() uses preventScroll so the browser does not add its own scroll on
+   * top of ours.
+   */
+  function revealInvalidGroup(groupId) {
+    const el = groupRefs.current[groupId];
+    if (!el) return;
+
+    const scroller = modalRef.current;
+    if (scroller) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const fullyVisible =
+        elRect.top >= scrollerRect.top + SCROLL_MARGIN &&
+        elRect.bottom <= scrollerRect.bottom;
+
+      /* Only scroll when it is actually out of view — jumping the sheet when
+         the group is already on screen would be disorienting. */
+      if (!fullyVisible) {
+        const target =
+          scroller.scrollTop + (elRect.top - scrollerRect.top) - SCROLL_MARGIN;
+        const top = Math.max(0, target);
+
+        /* Smooth only when it will actually run and is wanted. A smooth
+           scroll is driven by the rendering loop, so it does nothing while
+           the document is hidden — and it is unwelcome under reduced-motion.
+           In either case scroll instantly, because the guest seeing the
+           problem matters more than the animation. */
+        const prefersReducedMotion =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const canAnimate = document.visibilityState === "visible" && !prefersReducedMotion;
+
+        scroller.scrollTo({ top, behavior: canAnimate ? "smooth" : "auto" });
+      }
+    }
+
+    el.focus({ preventScroll: true });
   }
 
   function handleAddClick() {
-    if (!validateRequired()) return;
+    /* flushSync forces the error state to commit before the next line runs,
+       so revealInvalidGroup measures a DOM that already contains the error
+       paragraph. Without it React would batch the update and we would measure
+       stale layout, scrolling to slightly the wrong place. */
+    let result;
+    flushSync(() => {
+      result = validateRequired();
+    });
+
+    if (!result.ok) {
+      revealInvalidGroup(result.firstInvalidId);
+      return;
+    }
 
     /* Resolve full structured payload — this is what makes the cart item
        reusable later as the order-item payload for kitchen/admin/tracking.
@@ -198,7 +281,7 @@ export default function ItemDetailsModal({
       className="item-modal__overlay"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="item-modal" role="dialog" aria-modal="true" aria-label={item.name}>
+      <div className="item-modal" role="dialog" aria-modal="true" aria-label={item.name} ref={modalRef}>
         <div className="item-modal__handle" />
 
         <button
@@ -282,12 +365,26 @@ export default function ItemDetailsModal({
                 const isSingle  = group.maxSelections === 1;
                 const selected  = choiceSelections[group.id] || [];
                 const hasError  = !!choiceErrors[group.id];
+                const titleId   = `cust-${group.id}-title`;
+                const errorId   = `cust-${group.id}-error`;
                 return (
                   <div key={group.id}>
                     <div className="divider" />
-                    <div className="cust-section">
+                    {/* Phase 35 — the focus/scroll target for a failed
+                        required group. role="group" + aria-labelledby means a
+                        screen reader announces the group's name when focus
+                        lands here, and aria-describedby adds the reason. */}
+                    <div
+                      className={`cust-section ${hasError ? "cust-section--invalid" : ""}`}
+                      ref={(el) => { groupRefs.current[group.id] = el; }}
+                      tabIndex={-1}
+                      role="group"
+                      aria-labelledby={titleId}
+                      aria-invalid={hasError || undefined}
+                      aria-describedby={hasError ? errorId : undefined}
+                    >
                       <div className="cust-section__head">
-                        <h3 className="cust-section__title">{group.name}</h3>
+                        <h3 className="cust-section__title" id={titleId}>{group.name}</h3>
                         {group.required ? (
                           <span className="badge badge--gold cust-req-badge">{t("common.required", "Required")}</span>
                         ) : (
@@ -311,6 +408,9 @@ export default function ItemDetailsModal({
                               key={opt.id}
                               type="button"
                               disabled={capped}
+                              /* Selection state announced, not conveyed by the
+                                 visual mark alone. */
+                              aria-pressed={isChecked}
                               className={`cust-option ${isChecked ? "cust-option--active" : ""} ${
                                 isSingle ? "cust-option--radio" : "cust-option--checkbox"
                               }`}
@@ -332,7 +432,8 @@ export default function ItemDetailsModal({
                         })}
                       </div>
                       {hasError && (
-                        <p className="cust-section__error">
+                        <p className="cust-section__error" id={errorId} role="alert">
+                          <AlertCircle size={13} strokeWidth={2.4} aria-hidden="true" />
                           {t("customer.selectOptionRequired", "Please select an option for")} {group.name.toLowerCase()}.
                         </p>
                       )}

@@ -522,6 +522,11 @@ button{font-family:var(--font-body)}
   .item-modal__overlay{align-items:center;padding:24px}
 }
 .item-modal{
+  /* Phase 35 — overflow-anchor:none stops the browser adjusting scrollTop
+     when the validation error is inserted above the viewport. That anchoring
+     adjustment otherwise cancels the smooth scroll that brings the invalid
+     group into view. */
+  overflow-anchor:none;
   width:100%;max-width:480px;max-height:92vh;max-height:92dvh;overflow-y:auto;
   background:var(--surface-1);border:1px solid var(--border-strong);
   border-radius:var(--r-xl) var(--r-xl) 0 0;
@@ -618,6 +623,22 @@ button{font-family:var(--font-body)}
 .cust-section__error{
   font-size:12.5px;color:var(--canceled);margin:8px 0 0;
   display:flex;align-items:center;gap:5px}
+
+/* Phase 35 — invalid required group. The written message above is what
+   actually communicates the problem; this tint and edge are a secondary cue
+   so the group is findable at a glance after the sheet scrolls to it. Uses
+   inset-inline-start so the edge sits on the correct side in RTL. */
+.cust-section--invalid{
+  border-inline-start:2px solid var(--canceled);
+  background:var(--canceled-soft);
+  border-radius:0 var(--r-md) var(--r-md) 0;
+  padding-inline-start:12px;margin-inline-start:-14px;
+  scroll-margin-top:64px}
+[dir="rtl"] .cust-section--invalid{border-radius:var(--r-md) 0 0 var(--r-md)}
+/* The section is focus-target only (tabIndex -1); show a ring for keyboard
+   users landing here, and nothing for the programmatic focus we trigger. */
+.cust-section:focus{outline:none}
+.cust-section:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:var(--r-md)}
 
 /* removable ingredient pills */
 .cust-pills{display:flex;flex-wrap:wrap;gap:8px}
