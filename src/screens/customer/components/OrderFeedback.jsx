@@ -6,6 +6,7 @@ import StarRating from "../../../components/ui/StarRating.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useOrderFeedback } from "../../../lib/useFeedback.js";
 import { createFeedback, MAX_COMMENT_LENGTH } from "../../../lib/feedbackData.js";
+import { orderBelongsToSession } from "../../../lib/customerIdentity.js";
 
 /**
  * OrderFeedback — Phase 29, customer side.
@@ -58,13 +59,16 @@ export default function OrderFeedback({ order, session }) {
   /* Gate 1 — only a delivered order can be rated. */
   if (!order || order.status !== "delivered") return null;
 
-  /* Gate 2 — and only by the session that placed it. */
-  const ownsOrder =
-    !!session &&
-    order.customerName === session.customerName &&
-    order.qrToken === session.qrToken &&
-    order.restaurantSlug === session.restaurantSlug;
-  if (!ownsOrder) return null;
+  /* Gate 2 — and only by the session that placed it.
+
+     Phase 38 — this is the same shared helper "My Orders" filters with, so the
+     two surfaces can never disagree: any order visible in the list is one this
+     form will accept. That matters most right after a lost session, where the
+     guest re-enters their name with different capitalization — previously the
+     list could show a delivered order whose feedback form silently refused to
+     render. Table context is still required; only the name comparison is
+     formatting-insensitive. */
+  if (!orderBelongsToSession(order, session)) return null;
 
   /* Already rated → read-only, whether it was submitted a second ago in this
      tab or a minute ago in another one. */

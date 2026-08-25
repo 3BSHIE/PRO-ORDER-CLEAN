@@ -16,7 +16,11 @@
  *     orderId,                // "ORD-0001", "ORD-0002", ...
  *     restaurantId, restaurantSlug, restaurantName,
  *     tableId, tableNumber, qrToken,
- *     customerName,
+ *     customerName,           // exactly as the guest typed it — the only form displayed
+ *     customerIdentityKey,    // Phase 38 — normalized name, used ONLY for ownership
+ *                             // matching. Absent on pre-Phase-38 orders, which are
+ *                             // matched by normalizing customerName at read time
+ *                             // instead; no historical order is ever rewritten.
  *     status,                 // "received" (only status this phase creates)
  *     statusHistory: [
  *       { status, at, label }
@@ -41,6 +45,8 @@
  * To swap storage later (real backend, order API):
  *   Replace only the functions below — callers only need get/save/create/update.
  */
+
+import { normalizeCustomerName } from "./customerIdentity.js";
 
 const ORDERS_KEY = "pro_order_mock_orders";
 const ORDER_SEQ_KEY = "pro_order_mock_order_seq";
@@ -217,6 +223,10 @@ export function createCustomerOrder({
     tableNumber: table.tableNumber,
     qrToken,
     customerName,
+    /* Phase 38 — frozen alongside the display name so ownership matching does
+       not have to re-derive it on every read. The displayed name above is
+       untouched; this is machinery. */
+    customerIdentityKey: normalizeCustomerName(customerName),
     status: "received",
     statusHistory: [
       { status: "received", at: now, label: "Order received" },

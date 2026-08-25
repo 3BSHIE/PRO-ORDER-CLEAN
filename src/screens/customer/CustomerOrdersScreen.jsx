@@ -11,6 +11,7 @@ import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import StarRating         from "../../components/ui/StarRating.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import { getIdentityKey, orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -133,7 +134,6 @@ export default function CustomerOrdersScreen({
     <OrdersShell
       restaurant={result.restaurant}
       table={result.table}
-      qrToken={qrToken}
       session={session}
       onBackToMenu={onBackToMenu}
       onTrackOrder={onTrackOrder}
@@ -142,7 +142,7 @@ export default function CustomerOrdersScreen({
 }
 
 /* ── Orders shell — owns filtering, tabs, and the live-refreshing read ──── */
-function OrdersShell({ restaurant, table, qrToken, session, onBackToMenu, onTrackOrder }) {
+function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder }) {
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
   const [activeTab, setActiveTab] = useState("all");
   const { t } = useLanguage();
@@ -162,19 +162,33 @@ function OrdersShell({ restaurant, table, qrToken, session, onBackToMenu, onTrac
   }, [refresh]);
 
   /* Restrict to this exact table/session's orders — restaurant + table +
-     qrToken + customerName must all match, so the demo's "My Orders" never
-     leaks other guests' orders even though everything lives in one
-     localStorage bucket. */
+     qrToken + customer identity must all match, so "My Orders" never leaks
+     other guests' orders even though everything lives in one localStorage
+     bucket.
+
+     Phase 38 — the name half of that comparison now goes through the shared
+     ownership helper, so a guest who lost their session and re-entered "omar"
+     instead of "Omar" still finds their own orders. The table context is
+     unchanged and still mandatory. The same helper backs the feedback
+     ownership gate, so the two can never disagree.
+
+     Destructured into primitives because getCustomerSession() hands back a
+     fresh object every render — memoizing on the object itself would recompute
+     on every single render. */
+  const { restaurantSlug: sSlug, qrToken: sToken, tableNumber: sTable } = session;
+  const sKey = getIdentityKey(session);
+
   const myOrders = useMemo(
     () =>
-      allOrders.filter(
-        (o) =>
-          o.restaurantSlug === restaurant.slug &&
-          o.tableNumber    === table.tableNumber &&
-          o.qrToken        === qrToken &&
-          o.customerName   === session.customerName
+      allOrders.filter((o) =>
+        orderBelongsToSession(o, {
+          restaurantSlug: sSlug,
+          qrToken: sToken,
+          tableNumber: sTable,
+          customerIdentityKey: sKey,
+        })
       ),
-    [allOrders, restaurant.slug, table.tableNumber, qrToken, session.customerName]
+    [allOrders, sSlug, sToken, sTable, sKey]
   );
 
   const activeTabDef = FILTER_TABS.find((tab) => tab.key === activeTab);

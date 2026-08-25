@@ -10,15 +10,26 @@
  *   Replace only the three functions below — nothing else needs to change.
  */
 
+import { normalizeCustomerName } from "./customerIdentity.js";
+
 const SESSION_KEY = "pro_order_customer_session";
 
 /**
  * Save a new customer session.
+ *
+ * Phase 38 — also stores `customerIdentityKey`, the normalized form of the
+ * entered name used purely for order-ownership matching. `customerName` keeps
+ * exactly what the guest typed and remains the only value ever displayed.
+ *
  * @param {{ restaurantId, restaurantSlug, tableId, tableNumber, qrToken, customerName }} session
  */
 export function saveCustomerSession(session) {
   try {
-    const full = { ...session, startedAt: new Date().toISOString() };
+    const full = {
+      ...session,
+      customerIdentityKey: normalizeCustomerName(session.customerName),
+      startedAt: new Date().toISOString(),
+    };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(full));
   } catch {
     // sessionStorage unavailable (private browsing, storage full, etc.) — fail silently
