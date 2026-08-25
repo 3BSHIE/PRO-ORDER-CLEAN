@@ -1,4 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600;700&display=swap');
+/* Playfair Display + DM Sans are the shipped defaults. DM Serif Display and
+   Inter are the two additional curated faces a restaurant may pick in
+   Settings (Phase 31) — the other options in that list are system fonts and
+   need no download. The list is deliberately short; this is a curated set,
+   not a font library. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&family=Inter:wght@400;500;600;700&display=swap');
 
 :root{
   /* surfaces */
@@ -14,6 +19,16 @@
   --gold-bright:#eccf8d;
   --gold-soft:rgba(212,169,78,.13);
   --gold-line:rgba(212,169,78,.35);
+
+  /* Phase 31 — the primary gradient and the text that sits on it used to be
+     hardcoded in ~9 rules, which meant the accent colour could not be themed
+     no matter what --gold said. These hold the EXACT previous literals, so
+     every untouched screen renders identically; src/lib/theme.js overrides
+     them only inside the customer scope, and only when a restaurant has
+     actually chosen a different colour. */
+  --btn-primary-from:#e6c176;
+  --btn-primary-to:#c99e3f;
+  --on-primary:#181203;
 
   /* order status */
   --received:#6ea8fe;   --received-soft:rgba(110,168,254,.13);
@@ -71,8 +86,8 @@ button{font-family:var(--font-body)}
 .btn--sm{padding:8px 15px;font-size:13px}
 .btn--lg{padding:14px 26px;font-size:15px}
 .btn--full{width:100%}
-.btn--primary{color:#181203;
-  background:linear-gradient(180deg,#e6c176,#c99e3f);
+.btn--primary{color:var(--on-primary);
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
   box-shadow:0 8px 22px rgba(212,169,78,.22),inset 0 1px 0 rgba(255,255,255,.3)}
 .btn--primary:hover:not(:disabled){filter:brightness(1.08)}
 .btn--outline{background:transparent;color:var(--text-1);
@@ -435,8 +450,8 @@ button{font-family:var(--font-body)}
   color:var(--gold);font-weight:600;letter-spacing:-.01em}
 .item-card__add{
   width:30px;height:30px;flex:none;border-radius:8px;
-  background:linear-gradient(180deg,#e6c176,#c99e3f);
-  color:#181203;border:none;cursor:pointer;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
+  color:var(--on-primary);border:none;cursor:pointer;
   font-size:20px;font-weight:700;
   display:grid;place-items:center;line-height:1;
   transition:filter .15s,transform .15s}
@@ -639,10 +654,10 @@ button{font-family:var(--font-body)}
   border-color:var(--gold);background:var(--gold);
   position:relative}
 .cust-option--radio.cust-option--active .cust-option__mark::after{
-  content:"";position:absolute;inset:4px;border-radius:50%;background:#181203}
+  content:"";position:absolute;inset:4px;border-radius:50%;background:var(--on-primary)}
 .cust-option--checkbox.cust-option--active .cust-option__mark::after{
   content:"✓";position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:center;font-size:11px;font-weight:800;color:#181203}
+  justify-content:center;font-size:11px;font-weight:800;color:var(--on-primary)}
 .cust-option__name{flex:1;font-weight:500}
 .cust-option--active .cust-option__name{color:var(--text-1);font-weight:600}
 .cust-option__price{
@@ -664,7 +679,7 @@ button{font-family:var(--font-body)}
 .cust-addon--active .cust-addon__mark{border-color:var(--gold);background:var(--gold)}
 .cust-addon--active .cust-addon__mark::after{
   content:"✓";position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:center;font-size:11px;font-weight:800;color:#181203}
+  justify-content:center;font-size:11px;font-weight:800;color:var(--on-primary)}
 .cust-addon__name{flex:1;font-weight:500}
 .cust-addon--active .cust-addon__name{color:var(--text-1);font-weight:600}
 .cust-addon__price{font-size:12px;font-weight:600;color:var(--gold);white-space:nowrap}
@@ -685,7 +700,7 @@ button{font-family:var(--font-body)}
   position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);
   z-index:150;display:inline-flex;align-items:center;gap:12px;
   padding:13px 20px 13px 14px;border:none;border-radius:999px;cursor:pointer;
-  background:linear-gradient(180deg,#e6c176,#c99e3f);color:#181203;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));color:var(--on-primary);
   box-shadow:0 10px 32px rgba(212,169,78,.38),0 2px 8px rgba(0,0,0,.35);
   font-family:var(--font-body);
   transition:transform .18s var(--ease),box-shadow .18s var(--ease);
@@ -696,9 +711,9 @@ button{font-family:var(--font-body)}
 .cart-fab__icon-wrap{position:relative;display:flex;align-items:center;justify-content:center}
 .cart-fab__count{
   position:absolute;top:-9px;right:-10px;min-width:18px;height:18px;
-  padding:0 4px;border-radius:999px;background:#181203;color:#e6c176;
+  padding:0 4px;border-radius:999px;background:var(--on-primary);color:var(--btn-primary-from);
   font-size:10.5px;font-weight:800;display:flex;align-items:center;
-  justify-content:center;line-height:1;border:2px solid #e6c176}
+  justify-content:center;line-height:1;border:2px solid var(--btn-primary-from)}
 .cart-fab__label{font-size:14px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
 .cart-fab__total{
   font-family:var(--font-display);font-size:14.5px;font-weight:700;
@@ -887,7 +902,7 @@ button{font-family:var(--font-body)}
   flex:none;width:22px;height:22px;border-radius:50%;
   border:1.5px solid var(--border-strong);
   display:flex;align-items:center;justify-content:center;
-  color:#181203;margin-top:1px;transition:background .15s,border-color .15s}
+  color:var(--on-primary);margin-top:1px;transition:background .15s,border-color .15s}
 .pm-method--active .pm-method__mark{background:var(--gold);border-color:var(--gold)}
 
 .pm-modal__actions{display:flex;flex-direction:column;gap:8px}
@@ -1542,8 +1557,8 @@ button{font-family:var(--font-body)}
   transition:background .18s,color .18s}
 .lang-switcher__option:hover{color:var(--text-1)}
 .lang-switcher__option--active{
-  background:linear-gradient(180deg,#e6c176,#c99e3f);color:#181203}
-.lang-switcher__option--active:hover{color:#181203}
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));color:var(--on-primary)}
+.lang-switcher__option--active:hover{color:var(--on-primary)}
 
 /* Placement on the four Phase-19.5A screens */
 .access__lang-switcher,
@@ -1813,12 +1828,12 @@ button{font-family:var(--font-body)}
 .call-staff--subtle{padding:7px 14px;font-size:12.5px}
 
 .call-staff--prominent{
-  padding:13px 26px;font-size:14.5px;color:#181203;border-color:transparent;
-  background:linear-gradient(180deg,#e6c176,#c99e3f);
+  padding:13px 26px;font-size:14.5px;color:var(--on-primary);border-color:transparent;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
   box-shadow:0 8px 22px rgba(212,169,78,.22),inset 0 1px 0 rgba(255,255,255,.3)}
 .call-staff--prominent:hover{
-  filter:brightness(1.08);color:#181203;border-color:transparent;
-  background:linear-gradient(180deg,#e6c176,#c99e3f)}
+  filter:brightness(1.08);color:var(--on-primary);border-color:transparent;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
 
 /* Already-called state — calm confirmation, never an error. Pressing it
    again is still allowed; it just re-shows the "already called" message. */
@@ -1860,7 +1875,7 @@ button{font-family:var(--font-body)}
 /* Live open-call count on the shared admin nav item */
 .ad-nav__count{
   min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;
-  border-radius:999px;background:var(--gold);color:#181203;
+  border-radius:999px;background:var(--gold);color:var(--on-primary);
   font-size:10.5px;font-weight:700;line-height:1}
 
 /* RTL — the table number is a digit that must stay LTR-readable inside an
@@ -2013,6 +2028,64 @@ button{font-family:var(--font-body)}
    Arabic board, exactly like order IDs and prices. This is the opposite of
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
+
+/* ══ Phase 31 — Restaurant theme customization ════════════════════════════ */
+
+/* Scope element for the customer experience. `display: contents` means it
+   generates no box whatsoever — children lay out exactly as if it were not
+   in the tree, so the sticky Topbar and every customer layout are untouched —
+   while CSS custom properties still inherit through it. Admin and Kitchen are
+   simply never wrapped in this, which is what structurally prevents them from
+   inheriting a restaurant's colours or fonts. */
+.customer-theme{
+  display:contents;
+  /* Re-declare the body face HERE, not just the variable. font-family is an
+     inherited property, so plain text inside this scope would otherwise
+     inherit the already-computed stack from <body> — which sits outside the
+     scope and therefore resolves --font-body to the platform default. Only
+     elements that set font-family themselves (buttons, inputs) would have
+     picked up a restaurant's choice. Declaring it on the scope makes every
+     descendant inherit the themed face. Headings need no equivalent because
+     the h1/h2/h3 rule already re-resolves --font-display on elements that are
+     themselves inside the scope. Inheritance passes through display:contents
+     normally. */
+  font-family:var(--font-body)}
+
+/* ── Admin: theme controls & preview ─────────────────────────────────────── */
+.th-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.th-row{grid-template-columns:1fr}}
+
+/* Compact preview — shows the accent, both faces, and a primary button so an
+   admin can judge the choice. Deliberately NOT a replica of the customer
+   menu; it renders inside its own scoped variable set so what is on screen is
+   produced by exactly the same code path the customer gets. */
+.th-preview{
+  padding:16px;border-radius:var(--r-lg);
+  background:var(--surface-2);border:1px solid var(--border);
+  display:flex;flex-direction:column;gap:10px}
+.th-preview__heading{
+  font-family:var(--font-display);font-size:20px;font-weight:700;
+  color:var(--text-1);margin:0;line-height:1.2}
+.th-preview__body{
+  font-family:var(--font-body);font-size:13px;color:var(--text-2);
+  line-height:1.6;margin:0}
+.th-preview__row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.th-preview__btn{
+  display:inline-flex;align-items:center;border-radius:999px;
+  padding:9px 18px;font-family:var(--font-body);font-size:13px;font-weight:600;
+  color:var(--on-primary);border:1px solid transparent;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
+.th-preview__chip{
+  display:inline-flex;align-items:center;padding:6px 13px;border-radius:999px;
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  background:var(--gold-soft);border:1px solid var(--gold-line);color:var(--gold)}
+.th-preview__swatch{
+  width:26px;height:26px;border-radius:8px;flex:none;
+  border:1px solid var(--border-strong);background:var(--gold)}
+
+.th-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.th-note{
+  margin:0;font-size:11.5px;color:var(--text-3);line-height:1.5}
 
 /* ══ Phase 30 — Dashboard drill-down details ══════════════════════════════ */
 

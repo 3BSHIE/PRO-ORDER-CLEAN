@@ -40,6 +40,12 @@ function defaultSettings(restaurantSlug) {
     description: "",
     primaryColor: "#d4a94e",   // matches the app's existing gold
     accentColor: "#0d0d0d",    // matches the app's existing charcoal
+    /* Phase 31 — customer-facing typography. Keys into the curated sets in
+       src/lib/theme.js, not raw font-family strings, so a restaurant can only
+       ever select a face that has been checked against this design (and that
+       carries Arabic-capable fallbacks). */
+    headingFont: "playfair",
+    bodyFont: "dmSans",
     serviceChargePercent: null, // null = fall back to RESTAURANT.serviceChargePercent
     currency: "JOD",
     timeZone: "Asia/Amman",

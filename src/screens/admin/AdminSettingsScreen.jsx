@@ -10,6 +10,13 @@ import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import {
+  buildCustomerThemeVars,
+  defaultThemeFields,
+  isDefaultTheme,
+  HEADING_FONTS,
+  BODY_FONTS,
+} from "../../lib/theme.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminSettingsScreen — Phase 23
@@ -98,7 +105,22 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     setToastVisible(true);
   }
 
+  /* Phase 31 — restores ONLY the four theme fields on the draft. Identity,
+     menu, tables, orders, payment, contact, hours and every operational
+     setting are left exactly as they are, because this spreads over the
+     existing draft rather than replacing it. It deliberately does not save
+     on its own: like every other control here, the change is a draft until
+     the admin presses Save, so navigating away discards it. */
+  function handleResetTheme() {
+    setDraft((prev) => ({ ...prev, ...defaultThemeFields() }));
+    setError(null);
+  }
+
   const previewName = draft.name.trim() || restaurant.name;
+  /* The preview is rendered through the SAME function the customer screens
+     use, so what an admin sees here cannot drift from what guests get. */
+  const themePreviewVars = buildCustomerThemeVars(draft);
+  const themeIsDefault = isDefaultTheme(draft);
 
   return (
     <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="settings" onNavigate={onNavigate}>
@@ -128,16 +150,6 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
         {/* ── Branding ─────────────────────────────────────────────────── */}
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.branding", "Branding")}</h3>
-          <div className="mm-row-2">
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.primaryColor", "Primary Color")}</span>
-              <input type="color" className="ad-settings__color" value={draft.primaryColor} onChange={(e) => setField("primaryColor", e.target.value)} />
-            </label>
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.accentColor", "Accent Color")}</span>
-              <input type="color" className="ad-settings__color" value={draft.accentColor} onChange={(e) => setField("accentColor", e.target.value)} />
-            </label>
-          </div>
 
           {/* Live preview — PRO·ORDER always appears together with the
               restaurant's own branding, never replaced by it. */}
@@ -148,6 +160,86 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               {draft.logoUrl && <img src={draft.logoUrl} alt="" className="ad-brand-preview__logo" />}
               <span className="ad-brand-preview__name">{previewName}</span>
             </div>
+          </div>
+          <p className="ad-settings__hint">
+            {t("admin.brandLockupHint", "PRO·ORDER always appears alongside your restaurant's identity.")}
+          </p>
+        </Card>
+
+        {/* ── Theme (Phase 31) ─────────────────────────────────────────────
+            The colour fields moved here from Branding — same draft, same
+            save, just grouped with the typography they combine with so the
+            whole customer look lives in one place. Branding above keeps the
+            PRO·ORDER + restaurant lockup, which is about brand protection
+            rather than theming. */}
+        <Card className="ad-settings__section">
+          <h3 className="mm-section-title">{t("admin.theme", "Theme")}</h3>
+          <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
+            {t("admin.themeHint", "Applies to your customer menu and ordering screens only.")}
+          </p>
+
+          <div className="th-row">
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.primaryColor", "Primary Color")}</span>
+              <input type="color" className="ad-settings__color" value={draft.primaryColor} onChange={(e) => setField("primaryColor", e.target.value)} />
+            </label>
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.accentColor", "Accent Color")}</span>
+              <input type="color" className="ad-settings__color" value={draft.accentColor} onChange={(e) => setField("accentColor", e.target.value)} />
+            </label>
+          </div>
+
+          <div className="th-row" style={{ marginTop: 12 }}>
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.headingFont", "Heading Font")}</span>
+              <select
+                className="mm-select mm-select--full"
+                value={draft.headingFont}
+                onChange={(e) => setField("headingFont", e.target.value)}
+              >
+                {Object.entries(HEADING_FONTS).map(([key, font]) => (
+                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.bodyFont", "Body Font")}</span>
+              <select
+                className="mm-select mm-select--full"
+                value={draft.bodyFont}
+                onChange={(e) => setField("bodyFont", e.target.value)}
+              >
+                {Object.entries(BODY_FONTS).map(([key, font]) => (
+                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {/* Compact preview of the DRAFT values, produced by the same
+              buildCustomerThemeVars() the customer screens run through. */}
+          <span className="field__label" style={{ display: "block", margin: "14px 0 8px" }}>
+            {t("admin.preview", "Preview")}
+          </span>
+          <div className="th-preview" style={themePreviewVars}>
+            <h4 className="th-preview__heading">{previewName}</h4>
+            <p className="th-preview__body">
+              {t("admin.themePreviewText", "Your guests see this typography and accent while ordering.")}
+            </p>
+            <div className="th-preview__row">
+              <span className="th-preview__swatch" />
+              <span className="th-preview__btn">{t("customer.addToCart", "Add to cart")}</span>
+              <span className="th-preview__chip">{t("customer.popular", "Popular")}</span>
+            </div>
+          </div>
+
+          <div className="th-actions">
+            <Button variant="outline" size="sm" onClick={handleResetTheme} disabled={themeIsDefault}>
+              {t("admin.resetToDefault", "Reset to Default")}
+            </Button>
+            <p className="th-note">
+              {t("admin.themeResetNote", "Restores theme colors and fonts only. Save to apply.")}
+            </p>
           </div>
         </Card>
 

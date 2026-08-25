@@ -24,22 +24,29 @@ import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
 import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js";
 import DemoSwitcher                      from "./components/demo/DemoSwitcher.jsx";
+import CustomerTheme                     from "./components/theme/CustomerTheme.jsx";
 
 function HomeRoute() {
   const navigate = useNavigate();
   return <HomeScreen onNavigate={(to) => navigate(to)} />;
 }
 
+/* Phase 31 — every customer route is wrapped in <CustomerTheme>, and no
+   Admin or Kitchen route is. That placement is the access control for the
+   restaurant theme: operational screens cannot inherit a restaurant's colours
+   or fonts because they are never inside the scope element. */
 function CustomerAccessRoute() {
   const { restaurantSlug, qrToken } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerAccessScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      onHome={() => navigate("/")}
-      onEnterMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerAccessScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        onHome={() => navigate("/")}
+        onEnterMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
+      />
+    </CustomerTheme>
   );
 }
 
@@ -47,14 +54,16 @@ function CustomerMenuRoute() {
   const { restaurantSlug, qrToken } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerMenuScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      onHome={() => navigate("/")}
-      onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
-      onViewCart={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/cart`)}
-      onViewOrders={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/orders`)}
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerMenuScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        onHome={() => navigate("/")}
+        onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
+        onViewCart={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/cart`)}
+        onViewOrders={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/orders`)}
+      />
+    </CustomerTheme>
   );
 }
 
@@ -62,16 +71,18 @@ function CustomerCartRoute() {
   const { restaurantSlug, qrToken } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerCartScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      onHome={() => navigate("/")}
-      onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
-      onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
-      onOrderCreated={(orderId) =>
-        navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/confirmation`)
-      }
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerCartScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        onHome={() => navigate("/")}
+        onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
+        onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
+        onOrderCreated={(orderId) =>
+          navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/confirmation`)
+        }
+      />
+    </CustomerTheme>
   );
 }
 
@@ -79,16 +90,18 @@ function CustomerOrdersRoute() {
   const { restaurantSlug, qrToken } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerOrdersScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      onHome={() => navigate("/")}
-      onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
-      onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
-      onTrackOrder={(orderId) =>
-        navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/tracking`)
-      }
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerOrdersScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        onHome={() => navigate("/")}
+        onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
+        onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
+        onTrackOrder={(orderId) =>
+          navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/tracking`)
+        }
+      />
+    </CustomerTheme>
   );
 }
 
@@ -96,17 +109,19 @@ function CustomerOrderConfirmationRoute() {
   const { restaurantSlug, qrToken, orderId } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerOrderConfirmationScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      orderId={orderId}
-      onHome={() => navigate("/")}
-      onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
-      onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
-      onViewTracking={() =>
-        navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/tracking`)
-      }
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerOrderConfirmationScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        orderId={orderId}
+        onHome={() => navigate("/")}
+        onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
+        onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
+        onViewTracking={() =>
+          navigate(`/r/${restaurantSlug}/table/${qrToken}/orders/${orderId}/tracking`)
+        }
+      />
+    </CustomerTheme>
   );
 }
 
@@ -114,14 +129,16 @@ function CustomerOrderTrackingRoute() {
   const { restaurantSlug, qrToken, orderId } = useParams();
   const navigate = useNavigate();
   return (
-    <CustomerOrderTrackingScreen
-      restaurantSlug={restaurantSlug}
-      qrToken={qrToken}
-      orderId={orderId}
-      onHome={() => navigate("/")}
-      onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
-      onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
-    />
+    <CustomerTheme restaurantSlug={restaurantSlug}>
+      <CustomerOrderTrackingScreen
+        restaurantSlug={restaurantSlug}
+        qrToken={qrToken}
+        orderId={orderId}
+        onHome={() => navigate("/")}
+        onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
+        onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
+      />
+    </CustomerTheme>
   );
 }
 
