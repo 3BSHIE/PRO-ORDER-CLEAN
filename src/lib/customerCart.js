@@ -166,6 +166,38 @@ export function updateCartItemQuantity(cartItemId, quantity) {
 }
 
 /**
+ * Phase 37 — apply the CURRENT menu pricing to one cart line, after the guest
+ * has explicitly accepted it.
+ *
+ * Only ever called from the "Update Price" action; nothing in the app repri­ces
+ * a line on its own. Everything the guest actually chose — quantity, notes,
+ * ingredient removals, which options are selected — is preserved untouched;
+ * only the money fields move, and lineTotal is recomputed from the existing
+ * quantity so the arithmetic stays consistent.
+ *
+ * @param {string} cartItemId
+ * @param {{basePrice:number, unitPrice:number, selectedChoices?:object[], selectedPaidAddOns?:object[]}} pricing
+ * @returns {Array<object>} the updated cart (also persisted)
+ */
+export function applyCurrentPricing(cartItemId, pricing) {
+  const cart = getCustomerCart();
+  const nextCart = cart.map((line) => {
+    if (line.cartItemId !== cartItemId) return line;
+    const unitPrice = Number(pricing.unitPrice) || 0;
+    return {
+      ...line,
+      basePrice: Number(pricing.basePrice) || line.basePrice,
+      unitPrice,
+      lineTotal: parseFloat((unitPrice * line.quantity).toFixed(3)),
+      selectedChoices: pricing.selectedChoices || line.selectedChoices,
+      selectedPaidAddOns: pricing.selectedPaidAddOns || line.selectedPaidAddOns,
+    };
+  });
+  saveCustomerCart(nextCart);
+  return nextCart;
+}
+
+/**
  * Remove a single cart line entirely.
  * @param {string} cartItemId
  * @returns {Array<object>} the updated cart (also persisted)

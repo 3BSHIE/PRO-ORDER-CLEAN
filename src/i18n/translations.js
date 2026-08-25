@@ -447,6 +447,18 @@ export const translations = {
       prepConfigSaved: "Preparation time settings saved",
       invalidMinutes: "Please enter a whole number of minutes (0–240).",
     },
+    /* Phase 37 — cart revalidation against the live menu */
+    cart: {
+      currentlyUnavailable: "Currently unavailable",
+      notAvailableAtThisTime: "Not available at this time",
+      optionsUnavailable: "Some selected options are no longer available",
+      priceChanged: "Price changed",
+      previousPrice: "Previous",
+      currentPrice: "Now",
+      updatePrice: "Update Price",
+      priceUpdated: "Price updated",
+      reviewChanges: "Please review the changes in your cart before continuing.",
+    },
     /* Phase 29 — Post-delivery feedback & ratings */
     feedback: {
       feedback: "Feedback",
@@ -904,6 +916,18 @@ export const translations = {
       configAdminOnly: "يمكن لحسابات المدير فقط تغيير هذه القيم.",
       prepConfigSaved: "تم حفظ إعدادات وقت التحضير",
       invalidMinutes: "يرجى إدخال عدد صحيح من الدقائق (0–240).",
+    },
+    /* Phase 37 — cart revalidation against the live menu */
+    cart: {
+      currentlyUnavailable: "غير متاح حاليًا",
+      notAvailableAtThisTime: "غير متاح في هذا الوقت",
+      optionsUnavailable: "بعض الخيارات المختارة لم تعد متاحة",
+      priceChanged: "تم تغيير السعر",
+      previousPrice: "السابق",
+      currentPrice: "الآن",
+      updatePrice: "تحديث السعر",
+      priceUpdated: "تم تحديث السعر",
+      reviewChanges: "يرجى مراجعة التغييرات في سلة الطلب قبل المتابعة.",
     },
     /* Phase 29 — Post-delivery feedback & ratings */
     feedback: {

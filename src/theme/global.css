@@ -2050,6 +2050,41 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 37 — Cart revalidation & price safety ══════════════════════════ */
+
+/* A flagged line keeps its normal layout — the guest's selection is still
+   theirs — and gains an edge plus the notice below. */
+.cart-line--flagged{border-color:rgba(245,158,75,.38)}
+
+.cart-issue{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+  text-align:start}
+.cart-issue__msg{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:600;line-height:1.4;flex:1 1 auto;min-width:0}
+.cart-issue--price .cart-issue__msg{color:var(--preparing)}
+.cart-issue--blocking .cart-issue__msg{color:var(--canceled)}
+
+/* Old and new price shown together so accepting is an informed choice, never
+   a surprise. The struck-through previous value plus the explicit "Previous"
+   / "Now" labels mean the meaning does not rest on styling alone. */
+.cart-issue__prices{
+  display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:12px;font-variant-numeric:tabular-nums}
+.cart-issue__old{color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
+.cart-issue__new{color:var(--text-1);font-weight:700}
+
+/* Blocking notice above the checkout button. */
+.cart-bottom-bar__notice{
+  display:flex;align-items:center;gap:7px;margin:0 0 10px;
+  font-size:12px;line-height:1.45;color:var(--preparing);text-align:start}
+
+/* Money stays LTR-readable inside an Arabic cart, matching the convention
+   used for prices everywhere else. */
+[dir="rtl"] .cart-issue__old,
+[dir="rtl"] .cart-issue__new{direction:ltr;unicode-bidi:isolate}
+
 /* ══ Phase 36 — Canceled order payment clarity ════════════════════════════ */
 
 /* A canceled order's total is historical context, not a bill. Struck through

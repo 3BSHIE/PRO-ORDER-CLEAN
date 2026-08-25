@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ShoppingCart, X } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { ArrowLeft, ShoppingCart, X, AlertTriangle } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -12,8 +12,10 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import {
   getCustomerCart, updateCartItemQuantity, removeCartItem,
-  clearCustomerCart, getCartTotal,
+  clearCustomerCart, getCartTotal, applyCurrentPricing,
 } from "../../lib/customerCart.js";
+import { getMenuItems, getCategories } from "../../lib/menuData.js";
+import { validateCart, CART_ISSUE } from "../../lib/cartValidation.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -111,6 +113,32 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
      never locked out of retrying. */
   const createLock = useRef(false);
 
+  /* Phase 37 — the cart is reconciled against the live menu. useMenuData
+     already re-reads on the menu-change event and on window focus, so an
+     Admin edit reaches an open cart with no extra machinery. The tick below
+     only exists for category SCHEDULES, which change with the clock rather
+     than with any event — same 30s cadence the menu screen uses. */
+  const { items: liveItems, categories: liveCategories } = useMenuData(restaurant.slug);
+  const [scheduleTick, setScheduleTick] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setScheduleTick(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const validation = useMemo(
+    () =>
+      validateCart(cart, {
+        items: liveItems,
+        categories: liveCategories,
+        timeZone: settings.timeZone,
+        now: new Date(scheduleTick),
+      }),
+    // scheduleTick is an intentional dependency — it is what re-evaluates a
+    // scheduled category whose window closes while the cart sits open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cart, liveItems, liveCategories, settings.timeZone, scheduleTick]
+  );
+
   const isEmpty = cart.length === 0;
   const subtotal = getCartTotal(cart);
   /* Phase 23 — a restaurant can override its service charge % in Settings;
@@ -136,7 +164,32 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
      is still imported and used below by the real checkout flow, which empties
      the cart once an order has actually been created. */
 
+  /* Phase 37 — the ONLY path that reprices a line, and it runs solely from
+     the guest tapping "Update Price". Nothing reprices silently. */
+  function handleAcceptPrice(cartItemId) {
+    const result = validation.byLine[cartItemId];
+    if (!result || result.currentUnitPrice === null) return;
+
+    setCart(
+      applyCurrentPricing(cartItemId, {
+        basePrice: result.currentBasePrice,
+        unitPrice: result.currentUnitPrice,
+        selectedChoices: result.currentChoices,
+        selectedPaidAddOns: result.currentAddOns,
+      })
+    );
+    setToastMessage(t("cart.priceUpdated", "Price updated"));
+    setToastVisible(true);
+  }
+
   function handlePayClick() {
+    /* Cheap guard so the sheet cannot even be opened over a stale cart; the
+       authoritative check still runs at the mutation itself. */
+    if (!validation.canCheckout) {
+      setToastMessage(t("cart.reviewChanges", "Please review the changes in your cart before continuing."));
+      setToastVisible(true);
+      return;
+    }
     setPaymentModalOpen(true);
   }
 
@@ -158,6 +211,35 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     if (cart.length === 0) return { ok: false };
 
     createLock.current = true;
+
+    /* ── Phase 37: authoritative pre-order revalidation ──────────────────
+       Deliberately re-reads the menu from storage rather than trusting the
+       hook's state or the memo above. Both could be seconds stale, and this
+       is exactly the window that matters: the guest opens the payment sheet,
+       an admin reprices or 86s the dish, the guest taps Place order. Reading
+       fresh here means even a tab that has sat open for an hour cannot push a
+       stale order through.
+
+       On failure nothing is created and NOTHING is cleared — the lock is
+       released, the sheet is closed, and the cart is left exactly as it was
+       so the guest can resolve the issue and retry. */
+    const freshValidation = validateCart(cart, {
+      items: getMenuItems(restaurant.slug),
+      categories: getCategories(restaurant.slug),
+      timeZone: settings.timeZone,
+      now: new Date(),
+    });
+
+    if (!freshValidation.canCheckout) {
+      createLock.current = false;
+      setPaymentModalOpen(false);
+      setScheduleTick(Date.now()); // force the on-screen cart to re-reconcile
+      setToastMessage(t("cart.reviewChanges", "Please review the changes in your cart before continuing."));
+      setToastVisible(true);
+      /* handled:true tells the payment sheet this was dealt with here, so it
+         does not also raise its own generic error. */
+      return { ok: false, handled: true };
+    }
 
     let order;
     try {
@@ -236,8 +318,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
                   key={line.cartItemId}
                   line={line}
                   restaurantSlug={restaurant.slug}
+                  validation={validation.byLine[line.cartItemId]}
                   onQuantityChange={(q) => handleQuantityChange(line.cartItemId, q)}
                   onRemove={() => handleRemove(line.cartItemId)}
+                  onAcceptPrice={() => handleAcceptPrice(line.cartItemId)}
                 />
               ))}
             </div>
@@ -268,11 +352,20 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
       {!isEmpty && (
         <div className="cart-bottom-bar">
           <div className="cart-bottom-bar__inner">
+            {/* Phase 37 — checkout is blocked while any line disagrees with
+                the live menu, and the reason is stated rather than leaving a
+                disabled button with no explanation. */}
+            {validation.needsReview && (
+              <p className="cart-bottom-bar__notice" role="status">
+                <AlertTriangle size={13} strokeWidth={2.3} aria-hidden="true" />
+                {t("cart.reviewChanges", "Please review the changes in your cart before continuing.")}
+              </p>
+            )}
             <div className="cart-bottom-bar__total">
               <span className="cart-bottom-bar__total-label">{t("common.total", "Total")}</span>
               <span className="cart-bottom-bar__total-value">{fmtPrice(total)}</span>
             </div>
-            <Button size="lg" full onClick={handlePayClick}>
+            <Button size="lg" full onClick={handlePayClick} disabled={!validation.canCheckout}>
               {t("customer.continueToPayment", "Continue to payment")}
             </Button>
           </div>
@@ -297,7 +390,59 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
 }
 
 /* ── Cart line card ──────────────────────────────────────────────────────── */
-function CartLineCard({ line, restaurantSlug, onQuantityChange, onRemove }) {
+/* Phase 37 — inline state for a line the live menu no longer agrees with.
+   Blocking issues offer Remove; a price change offers Update Price with the
+   old and new figures shown side by side, so the guest always sees exactly
+   what they are accepting. */
+function CartLineIssue({ result, onRemove, onAcceptPrice }) {
+  const { t } = useLanguage();
+  if (!result || result.issues.length === 0) return null;
+
+  const has = (code) => result.issues.includes(code);
+
+  if (result.blocking) {
+    const message = has(CART_ISSUE.CATEGORY_SCHEDULED)
+      ? t("cart.notAvailableAtThisTime", "Not available at this time")
+      : has(CART_ISSUE.OPTION_MISSING)
+      ? t("cart.optionsUnavailable", "Some selected options are no longer available")
+      : t("cart.currentlyUnavailable", "Currently unavailable");
+
+    return (
+      <div className="cart-issue cart-issue--blocking" role="status">
+        <span className="cart-issue__msg">
+          <AlertTriangle size={14} strokeWidth={2.3} aria-hidden="true" />
+          {message}
+        </span>
+        <Button variant="danger" size="sm" onClick={onRemove}>
+          {t("common.remove", "Remove")}
+        </Button>
+      </div>
+    );
+  }
+
+  /* Price-only change — resolvable in place. */
+  return (
+    <div className="cart-issue cart-issue--price" role="status">
+      <span className="cart-issue__msg">
+        <AlertTriangle size={14} strokeWidth={2.3} aria-hidden="true" />
+        {t("cart.priceChanged", "Price changed")}
+      </span>
+      <span className="cart-issue__prices">
+        <span className="cart-issue__old">
+          {t("cart.previousPrice", "Previous")}: {fmtPrice(result.previousUnitPrice)}
+        </span>
+        <span className="cart-issue__new">
+          {t("cart.currentPrice", "Now")}: {fmtPrice(result.currentUnitPrice)}
+        </span>
+      </span>
+      <Button size="sm" onClick={onAcceptPrice}>
+        {t("cart.updatePrice", "Update Price")}
+      </Button>
+    </div>
+  );
+}
+
+function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRemove, onAcceptPrice }) {
   const [imgErr, setImgErr] = useState(false);
   const { categories } = useMenuData(restaurantSlug);
   const category = categories.find((c) => c.id === line.categoryId);
@@ -319,8 +464,10 @@ function CartLineCard({ line, restaurantSlug, onQuantityChange, onRemove }) {
     }
   }
 
+  const hasIssue = !!validation && validation.issues.length > 0;
+
   return (
-    <Card className="cart-line">
+    <Card className={`cart-line ${hasIssue ? "cart-line--flagged" : ""}`}>
       <div className="cart-line__top">
         <div className="cart-line__img-wrap">
           {useImg ? (
@@ -393,6 +540,8 @@ function CartLineCard({ line, restaurantSlug, onQuantityChange, onRemove }) {
           max={20}
         />
       </div>
+
+      <CartLineIssue result={validation} onRemove={onRemove} onAcceptPrice={onAcceptPrice} />
     </Card>
   );
 }

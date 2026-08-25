@@ -137,7 +137,13 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
     if (!result || result.ok !== true) {
       submitLock.current = false;
       setIsSubmitting(false);
-      setError(t("payment.orderFailed", "Something went wrong. Please try again."));
+      /* Phase 37 — `handled` means the parent already closed this sheet and
+         explained the problem (a stale cart needing review). Showing a
+         generic "something went wrong" on top of that would be both wrong
+         and confusing. */
+      if (!result?.handled) {
+        setError(t("payment.orderFailed", "Something went wrong. Please try again."));
+      }
     }
     /* On success the parent closes this sheet and navigates; the lock stays
        set for the remainder of this instance's life so taps during the
