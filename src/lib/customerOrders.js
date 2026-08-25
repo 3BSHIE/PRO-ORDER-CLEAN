@@ -99,6 +99,52 @@ function nextOrderId() {
   return `ORD-${String(seq).padStart(4, "0")}`;
 }
 
+/* ── Phase 34: last-line defence against duplicate order creation ─────────
+   The UI owns the real guard (a synchronous lock in the payment sheet and
+   again around the mutation in the cart screen). This is a cheap backstop for
+   anything that slips past it — a re-render, a remount, a second tab.
+
+   Why the signature is safe against false positives:
+     it includes every cart line's cartItemId, and those ids are generated
+     fresh each time an item is added to the cart. A genuine re-order of the
+     identical dish happens only after the first order cleared the cart and
+     the guest added the item again, which produces new cartItemIds and
+     therefore a different signature. So this can only ever match a resubmit
+     of the *same cart instance* — never a legitimate second order.
+
+   The time window is belt-and-braces on top of that. */
+const DUPLICATE_WINDOW_MS = 5000;
+
+function buildOrderSignature({ restaurant, table, customerName, cartItems, total, paymentMethod }) {
+  const lines = (cartItems || [])
+    .map((line) => `${line.cartItemId}x${line.quantity}`)
+    .join(",");
+  return [
+    restaurant?.slug,
+    table?.id,
+    (customerName || "").trim(),
+    paymentMethod?.paymentMethodId,
+    total,
+    lines,
+  ].join("|");
+}
+
+/**
+ * An order created moments ago from this exact cart, if one exists.
+ * Returning it (rather than creating a second) makes createCustomerOrder
+ * idempotent for a rapid resubmit: the caller navigates to the order that
+ * genuinely exists instead of minting a duplicate.
+ */
+function findRecentDuplicate(signature, now) {
+  return (
+    getCustomerOrders().find(
+      (o) =>
+        o.__signature === signature &&
+        now - new Date(o.createdAt).getTime() < DUPLICATE_WINDOW_MS
+    ) || null
+  );
+}
+
 /** Maps a payment method id to the paymentStatus stored on the order. */
 function resolvePaymentStatus(paymentMethodId) {
   switch (paymentMethodId) {
@@ -144,6 +190,21 @@ export function createCustomerOrder({
   paymentMethod,
   estimatedPrepMinutes,
 }) {
+  /* Phase 34 — backstop: if this exact cart was submitted moments ago, hand
+     back the order that already exists rather than creating a second one.
+     Deliberately before nextOrderId(), so a blocked duplicate does not even
+     consume an order number. */
+  const signature = buildOrderSignature({
+    restaurant,
+    table,
+    customerName,
+    cartItems,
+    total,
+    paymentMethod,
+  });
+  const existing = findRecentDuplicate(signature, Date.now());
+  if (existing) return existing;
+
   const now = new Date().toISOString();
   const orderId = nextOrderId();
 
@@ -178,6 +239,10 @@ export function createCustomerOrder({
     paymentStatus: resolvePaymentStatus(paymentMethod.paymentMethodId),
     createdAt: now,
     updatedAt: now,
+    /* Phase 34 — internal duplicate-detection key. Underscore-prefixed to
+       mark it as machinery rather than order data; nothing displays it, and
+       the customer-facing snapshot fields above are unchanged. */
+    __signature: signature,
   };
 
   const orders = getCustomerOrders();

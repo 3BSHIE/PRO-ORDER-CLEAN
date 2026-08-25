@@ -2029,6 +2029,15 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 34 — Checkout submit feedback ══════════════════════════════════ */
+
+/* Inline failure message in the payment sheet. Matches the existing form
+   error treatment (see .fb-error) rather than introducing a new pattern. */
+.pm-modal__error{
+  margin:0 0 12px;padding:10px 13px;border-radius:var(--r-md);
+  background:var(--canceled-soft);border:1px solid rgba(241,106,106,.3);
+  color:var(--canceled);font-size:13px;line-height:1.5;text-align:start}
+
 /* ══ Phase 31 — Restaurant theme customization ════════════════════════════ */
 
 /* Scope element for the customer experience. `display: contents` means it

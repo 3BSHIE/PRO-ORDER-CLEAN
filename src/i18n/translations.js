@@ -389,6 +389,9 @@ export const translations = {
       choosePaymentMethod: "Choose payment method",
       selectHowToPay: "Select how you'd like to pay for this order.",
       placeOrder: "Place order",
+      /* Phase 34 — checkout submit states */
+      placingOrder: "Placing order…",
+      orderFailed: "Something went wrong. Please try again.",
     },
     status: {
       received: "Received",
@@ -839,6 +842,9 @@ export const translations = {
       choosePaymentMethod: "اختر طريقة الدفع",
       selectHowToPay: "اختر طريقة الدفع لهذا الطلب.",
       placeOrder: "تأكيد الطلب",
+      /* Phase 34 — checkout submit states */
+      placingOrder: "جارٍ إرسال الطلب…",
+      orderFailed: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     },
     status: {
       received: "تم الاستلام",

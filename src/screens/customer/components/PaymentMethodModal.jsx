@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Check } from "lucide-react";
 import { PAYMENT_METHODS } from "../../../data/paymentMethods.js";
 import { useSettingsData } from "../../../lib/useSettingsData.js";
@@ -49,8 +49,18 @@ const METHOD_DESC_KEY = {
 export default function PaymentMethodModal({ open, total, restaurantSlug, onClose, onContinue }) {
   const [selectedId, setSelectedId] = useState(null);
   const [hint, setHint] = useState(null);
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurantSlug);
+
+  /* Phase 34 — SYNCHRONOUS submit lock.
+     `isSubmitting` alone cannot stop a double-tap: setState is asynchronous,
+     so two clicks dispatched in the same event-loop tick both read the old
+     value and both proceed. A ref flips immediately within the first click's
+     own execution, so the second click sees it already set and returns. The
+     state exists purely to drive the visible processing feedback. */
+  const submitLock = useRef(false);
 
   /* Only the methods Admin has left visible in Settings — defaults to
      visible if the toggle was never touched, so an existing restaurant
@@ -64,15 +74,27 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
     if (open) {
       setSelectedId(null);
       setHint(null);
+      setError(null);
+      setIsSubmitting(false);
+      submitLock.current = false;
     }
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose?.();
+    /* Ignore Escape while an order is being placed — see the Cancel button. */
+    const onKey = (e) => e.key === "Escape" && !submitLock.current && onClose?.();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  /* Every dismissal path funnels through here so none of them can bypass the
+     in-flight check — closing during the mutation is the one way a guest
+     could end up with an order created but a cart still full. */
+  function handleDismiss() {
+    if (submitLock.current) return;
+    onClose?.();
+  }
 
   if (!open) return null;
 
@@ -86,27 +108,51 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
   }
 
   function handleContinue() {
+    /* Synchronous gate FIRST — before any await, state update, or work. */
+    if (submitLock.current) return;
     if (!selectedId) return;
     const method = PAYMENT_METHODS.find((m) => m.id === selectedId);
     if (!method) return;
 
-    onContinue?.({
-      paymentMethodId: method.id,
-      paymentMethodLabel: method.label,
-      paymentMethodType: method.id, // stable machine-readable type for future order payload
-      selectedAt: new Date().toISOString(),
-    });
+    submitLock.current = true;
+    setIsSubmitting(true);
+    setError(null);
+
+    /* onContinue performs the real mutation and reports back whether an order
+       was actually created. Anything other than a clear success releases the
+       lock so the guest can retry — never leave them stuck on "Placing
+       order…" with a cart they cannot submit. */
+    let result;
+    try {
+      result = onContinue?.({
+        paymentMethodId: method.id,
+        paymentMethodLabel: method.label,
+        paymentMethodType: method.id, // stable machine-readable type for future order payload
+        selectedAt: new Date().toISOString(),
+      });
+    } catch {
+      result = { ok: false };
+    }
+
+    if (!result || result.ok !== true) {
+      submitLock.current = false;
+      setIsSubmitting(false);
+      setError(t("payment.orderFailed", "Something went wrong. Please try again."));
+    }
+    /* On success the parent closes this sheet and navigates; the lock stays
+       set for the remainder of this instance's life so taps during the
+       navigation frame cannot re-enter. */
   }
 
   return (
     <div
       className="pm-modal__overlay"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+      onMouseDown={(e) => e.target === e.currentTarget && handleDismiss()}
     >
       <div className="pm-modal" role="dialog" aria-modal="true" aria-label={t("payment.choosePaymentMethod", "Choose payment method")}>
         <div className="pm-modal__handle" />
 
-        <button type="button" className="pm-modal__x" onClick={onClose} aria-label="Close">
+        <button type="button" className="pm-modal__x" onClick={handleDismiss} disabled={isSubmitting} aria-label="Close">
           <X size={16} strokeWidth={2.4} />
         </button>
 
@@ -162,16 +208,31 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
             })}
           </div>
 
+          {error && (
+            <p className="pm-modal__error" role="alert">{error}</p>
+          )}
+
           <div className="pm-modal__actions">
             <button
               type="button"
               className="btn btn--primary btn--lg btn--full"
-              disabled={!selectedId}
+              disabled={!selectedId || isSubmitting}
+              aria-busy={isSubmitting}
               onClick={handleContinue}
             >
-              {t("payment.placeOrder", "Place order")}
+              {isSubmitting
+                ? t("payment.placingOrder", "Placing order…")
+                : t("payment.placeOrder", "Place order")}
             </button>
-            <button type="button" className="btn btn--ghost btn--md btn--full" onClick={onClose}>
+            {/* Cancel is disabled while submitting so the sheet cannot be
+                closed mid-mutation, which would strand the guest between a
+                created order and a cleared cart. */}
+            <button
+              type="button"
+              className="btn btn--ghost btn--md btn--full"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               {t("common.cancel", "Cancel")}
             </button>
           </div>

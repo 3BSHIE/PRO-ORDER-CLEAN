@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, ShoppingCart, X } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -14,7 +14,7 @@ import {
   getCustomerCart, updateCartItemQuantity, removeCartItem,
   clearCustomerCart, getCartTotal,
 } from "../../lib/customerCart.js";
-import { createCustomerOrder } from "../../lib/customerOrders.js";
+import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
@@ -105,6 +105,12 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
 
+  /* Phase 34 — synchronous lock around order creation. Held for the life of
+     this screen instance once an order succeeds, so taps landing during the
+     navigation frame cannot re-enter. Released only on failure, so a guest is
+     never locked out of retrying. */
+  const createLock = useRef(false);
+
   const isEmpty = cart.length === 0;
   const subtotal = getCartTotal(cart);
   /* Phase 23 — a restaurant can override its service charge % in Settings;
@@ -134,33 +140,69 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     setPaymentModalOpen(true);
   }
 
-  /* Called when the customer picks a method and taps "Continue in next phase".
-     Creates a real mock order from the current cart + totals + payment
-     method, clears the cart, and navigates to the confirmation screen. */
+  /* Called when the customer picks a method and taps Place order. Creates the
+     order from the current cart + totals + payment method, clears the cart,
+     and navigates to the confirmation screen.
+
+     Phase 34 — this is the REAL final mutation point, so the authoritative
+     lock lives here rather than only on the button that happens to call it.
+     `cart.length === 0` was never sufficient: `cart` comes from the render
+     closure, so two clicks in the same tick both read the same non-empty
+     array and both passed. The ref below flips synchronously inside the first
+     call, so the second returns before reaching createCustomerOrder.
+
+     Returns {ok:boolean} so the payment sheet knows whether to release its
+     own lock and let the guest retry. */
   function handlePaymentContinue(paymentPayload) {
-    if (cart.length === 0) return; // guard: nothing to order
+    if (createLock.current) return { ok: false };
+    if (cart.length === 0) return { ok: false };
 
-    const order = createCustomerOrder({
-      restaurant: { ...restaurant, serviceChargePercent },
-      table,
-      qrToken,
-      customerName: session.customerName,
-      cartItems: cart,
-      subtotal,
-      serviceCharge,
-      total,
-      paymentMethod: paymentPayload,
-      /* Phase 26 — read the estimate exactly once, here, at the instant the
-         order is created, so it can be frozen onto the order. Deliberately
-         NOT read from a hook/state higher up: that could hold a value from
-         seconds earlier, and this number is a promise made to the guest. */
-      estimatedPrepMinutes: getEstimatedPrepMinutes(restaurant.slug),
-    });
+    createLock.current = true;
 
+    let order;
+    try {
+      order = createCustomerOrder({
+        restaurant: { ...restaurant, serviceChargePercent },
+        table,
+        qrToken,
+        customerName: session.customerName,
+        cartItems: cart,
+        subtotal,
+        serviceCharge,
+        total,
+        paymentMethod: paymentPayload,
+        /* Phase 26 — read the estimate exactly once, here, at the instant the
+           order is created, so it can be frozen onto the order. Deliberately
+           NOT read from a hook/state higher up: that could hold a value from
+           seconds earlier, and this number is a promise made to the guest. */
+        estimatedPrepMinutes: getEstimatedPrepMinutes(restaurant.slug),
+      });
+    } catch {
+      order = null;
+    }
+
+    /* Confirm the order is genuinely retrievable before touching the cart.
+       saveCustomerOrders() swallows storage errors by design, so a full or
+       unavailable localStorage would otherwise hand back a perfectly-formed
+       order object that was never persisted — and we would clear the cart for
+       an order that does not exist, stranding the guest on a "not found"
+       confirmation with nothing to re-submit. Reading it back is the only
+       honest test of "actually created". */
+    const persisted = order?.orderId ? getOrderById(order.orderId) : null;
+
+    /* Nothing was created — release the lock, leave the cart completely
+       untouched, and let the guest try again. */
+    if (!persisted) {
+      createLock.current = false;
+      return { ok: false };
+    }
+
+    /* Only now, once an order provably exists, is it safe to empty the cart. */
     clearCustomerCart();
     setCart([]);
     setPaymentModalOpen(false);
     onOrderCreated?.(order.orderId);
+    return { ok: true };
   }
 
   return (
