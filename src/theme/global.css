@@ -2433,3 +2433,108 @@ button{font-family:var(--font-body)}
   color:var(--text-3);font-weight:600;
   font-variant-numeric:tabular-nums}
 [dir="rtl"] .ka-volume__value{direction:ltr;unicode-bidi:isolate}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 40 — Mobile touch targets (CUSTOMER ONLY)
+
+   Every rule below is scoped under .customer-theme, the wrapper Phase 31
+   put around customer routes and nothing else. Admin and Kitchen are never
+   wrapped, so the classes they genuinely share with the guest UI — .chip
+   (Settings' closed-days picker), .btn--sm and .btn--md (20 uses across
+   staff screens), .lang-switcher__option — grow for guests while every
+   operational screen renders byte-identically.
+
+   Two techniques, chosen per control rather than applied uniformly:
+
+     A) Icon-only controls keep their exact visual size and gain an
+        invisible, centred ::after that carries the extra hit area. The
+        pseudo-element belongs to the real <button>, so the target is the
+        actual interactive element and never a decoration.
+
+     B) Text and pill controls take min-height instead. For a pill, ~44px
+        IS the ordinary mobile size, and a pseudo-element would push
+        invisible hit areas into the neighbouring pill in a scroll row —
+        exactly the overlap this phase has to avoid.
+
+   Nothing here changes behavior, hierarchy or spacing rules; only hit
+   geometry and, for group B, a few pixels of height.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── A) Icon-only — visual size unchanged, hit area expanded ──────────── */
+
+/* Only the statically-positioned ones need a positioning context. NOT
+   .item-modal__x or .menu-search__clear — both are already
+   position:absolute, and re-declaring them relative would drop them out of
+   their overlay placement and back into normal flow. */
+.customer-theme .item-card__add,
+.customer-theme .qty-stepper__btn,
+.customer-theme .cart-line__remove{position:relative}
+
+.customer-theme .item-card__add::after,
+.customer-theme .item-modal__x::after,
+.customer-theme .qty-stepper__btn::after,
+.customer-theme .cart-line__remove::after{
+  content:"";position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:44px;height:44px}
+
+/* Clearances measured at 375px before choosing 44px:
+     .item-card__add   30x30, 13px to the card's right edge and 14px to the
+                       bottom, inside a 12px grid gutter — the expansion
+                       stays within the card (which is overflow:hidden) and
+                       cannot reach the neighbouring card. It is also the
+                       ONLY focusable control inside a card, so there is no
+                       sibling to steal taps from.
+     .item-modal__x    34x34 floating over the modal image, nothing
+                       interactive within 5px.
+     .qty-stepper__btn 34x34 with 54px of clear space between the pair
+                       (14px gap + 26px value + 14px gap); at 44px each the
+                       two hit areas still sit 44px apart.
+     .cart-line__remove 26x26, the smallest icon control — its nearest
+                       interactive neighbour is the quantity stepper far
+                       below the customization rows. */
+
+/* Search clear: deliberately 40px wide, not 44. The input reserves exactly
+   40px of right padding for it, so 40 fills that reservation precisely
+   while 44 would push the hit area 4px into the text-entry zone and steal
+   taps meant to place the cursor. 40x44 is still ~5x the old 19x18 area.
+   Width is symmetric in the input, so this holds when RTL flips the button
+   to the left. */
+.customer-theme .menu-search__clear::after{
+  content:"";position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:40px;height:44px}
+
+/* Feedback stars — the one case where a pseudo-element is actively wrong:
+   five 30px options sit 4px apart, so a 44px box around each would overlap
+   both neighbours and a tap near an edge would land on the wrong rating.
+   Instead the options become real flex cells that divide the row, so their
+   hit areas are adjacent by construction and mathematically cannot
+   overlap. The star glyph keeps its size and simply centres in its cell.
+   flex-basis 0 with a 40px floor keeps five cells on one line down to
+   320px rather than overflowing. Read-only ratings (order cards) are
+   excluded — they are not interactive. */
+.customer-theme .star-rating:not(.star-rating--readonly) .star-rating__stars{
+  gap:0;flex:1}
+.customer-theme .star-rating:not(.star-rating--readonly) .star-rating__option{
+  flex:1 1 0;min-width:40px;max-width:56px;min-height:44px;padding:0;
+  align-items:center;justify-content:center}
+
+/* ── B) Text and pill controls — min-height ───────────────────────────── */
+
+.customer-theme .chip,
+.customer-theme .cust-pill,
+.customer-theme .cust-addon,
+.customer-theme .call-staff,
+.customer-theme .cart-back-btn,
+.customer-theme .onboard__back,
+.customer-theme .btn--sm,
+.customer-theme .btn--md{min-height:44px}
+
+/* These four are plain <button>s with no display of their own; giving them
+   inline-flex centring means the added height grows around the label
+   instead of letting it drift off-centre. */
+.customer-theme .orders-tab,
+.customer-theme .lang-switcher__option,
+.customer-theme .order-card__rate-prompt{
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
