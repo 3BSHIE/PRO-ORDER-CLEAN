@@ -11,17 +11,20 @@ import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
+import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CustomerOrderConfirmationScreen — Phase 11
 
-   Guards (unchanged since Phase 10):
+   Guards:
      • QR token must be valid → else InvalidView
      • Customer session must exist → else redirect to onboarding
      • Order must exist (looked up in localStorage via customerOrders.js)
        → else a polished "Order not found" state
+     • Phase 39 — order must BELONG to this session → else that same
+       "Order not found" state, deliberately indistinguishable
 
    What's new in Phase 11:
      • "View tracking in next phase" is now "View order tracking" and
@@ -76,6 +79,21 @@ export default function CustomerOrderConfirmationScreen({
 
   const order = getOrderById(orderId);
 
+  /* ── Phase 39 — order ownership guard ──────────────────────────────────
+     Same gap and same fix as the tracking screen: existing until this phase,
+     any valid session could read any order's confirmation by editing the id
+     in the URL. Ownership is decided by the shared Phase 38 helper, so this
+     screen, tracking, My Orders and the feedback form cannot disagree.
+
+     The guest who just checked out is unaffected — their order was built
+     from this very session, so restaurant, token, table and identity all
+     match by construction.
+
+     A missing order and an order belonging to someone else both become
+     `null` and render the identical "Order not found" state; telling them
+     apart would confirm which ids exist. */
+  const visibleOrder = orderBelongsToSession(order, session) ? order : null;
+
   return (
     <>
       <Topbar
@@ -83,8 +101,8 @@ export default function CustomerOrderConfirmationScreen({
         right={<Badge tone="gold">{t("orders.orderBadge", "Order")}</Badge>}
       />
       <main className="container">
-        {order ? (
-          <ConfirmationView order={order} onBackToMenu={onBackToMenu} onViewTracking={onViewTracking} />
+        {visibleOrder ? (
+          <ConfirmationView order={visibleOrder} onBackToMenu={onBackToMenu} onViewTracking={onViewTracking} />
         ) : (
           <OrderNotFoundView onBackToMenu={onBackToMenu} />
         )}

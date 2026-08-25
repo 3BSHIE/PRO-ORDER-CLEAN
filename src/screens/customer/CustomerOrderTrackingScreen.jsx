@@ -14,6 +14,7 @@ import OrderFeedback     from "./components/OrderFeedback.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
+import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -83,6 +84,8 @@ const STATUS_HISTORY_LABEL_KEY = {
      • QR token must be valid → else InvalidView
      • Customer session must exist → else redirect to onboarding
      • Order must exist → else polished "Order not found" state
+     • Phase 39 — order must BELONG to this session → else that same
+       "Order not found" state, deliberately indistinguishable
 
    Read-only: this screen never writes to customerOrders.js. It only re-reads
    the order — on mount, on window focus, and on a light interval — so status
@@ -183,6 +186,26 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
     };
   }, [refresh]);
 
+  /* ── Phase 39 — order ownership guard ──────────────────────────────────
+     Until this phase the screen rendered whatever getOrderById returned, so
+     a guest could edit the order id in the URL and read another table's
+     order in full: customer name, items, total and payment state included.
+     A valid session for *some* table was the only thing being checked.
+
+     The order now has to belong to THIS session, using the same Phase 38
+     helper that filters My Orders and gates the feedback form — so all three
+     surfaces agree on ownership, and there is no second implementation to
+     drift.
+
+     Deriving it on every render rather than filtering once at load means the
+     4s poll re-checks too.
+
+     A missing order and someone else's order deliberately collapse into the
+     same `null`, so both produce the identical "Order not found" state
+     below. Distinguishing them would confirm to a probing guest that an id
+     exists, which is exactly the leak this guard closes. */
+  const visibleOrder = orderBelongsToSession(order, session) ? order : null;
+
   return (
     <>
       <Topbar
@@ -194,9 +217,9 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
         right={<Logo variant="icon" size="nav" />}
       />
       <main className="container">
-        {order ? (
+        {visibleOrder ? (
           <TrackingView
-            order={order}
+            order={visibleOrder}
             restaurantSlug={restaurantSlug}
             table={table}
             session={session}
