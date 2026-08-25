@@ -9,6 +9,7 @@ import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import StarRating         from "../../components/ui/StarRating.jsx";
+import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
@@ -241,6 +242,7 @@ function OrdersShell({ restaurant, table, qrToken, session, onBackToMenu, onTrac
 /* ── Single order summary card ───────────────────────────────────────────── */
 function OrderCard({ order, onTrackOrder }) {
   const { t } = useLanguage();
+  const isCanceled = order.status === "canceled";
   const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
   const paymentLabel =
     order.paymentStatus === "paid"
@@ -267,12 +269,24 @@ function OrderCard({ order, onTrackOrder }) {
         {SHORT_MSG_KEY[order.status] ? t(SHORT_MSG_KEY[order.status], STATUS_SHORT_MESSAGE[order.status]) : ""}
       </p>
 
+      {/* Phase 36 — a canceled card drops the "Pending at table" wording that
+          read as an outstanding bill, and states the payment position
+          directly instead. Every other status keeps its existing meta line. */}
       <div className="order-card__meta">
         <span>{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
-        <span className="order-card__dot">&middot;</span>
-        <span>{paymentMethodLabel}</span>
-        <span className="order-card__dot">&middot;</span>
-        <span>{paymentLabel}</span>
+        {isCanceled ? (
+          <>
+            <span className="order-card__dot">&middot;</span>
+            <CanceledPaymentNotice order={order} variant="inline" />
+          </>
+        ) : (
+          <>
+            <span className="order-card__dot">&middot;</span>
+            <span>{paymentMethodLabel}</span>
+            <span className="order-card__dot">&middot;</span>
+            <span>{paymentLabel}</span>
+          </>
+        )}
       </div>
 
       {/* Phase 26 — compact variant; self-hides for finished orders and for
@@ -285,7 +299,9 @@ function OrderCard({ order, onTrackOrder }) {
       <OrderCardFeedback order={order} onTrackOrder={onTrackOrder} />
 
       <div className="order-card__bottom">
-        <span className="order-card__total">{fmtPrice(order.total)}</span>
+        <span className={`order-card__total ${isCanceled ? "order-card__total--void" : ""}`}>
+          {fmtPrice(order.total)}
+        </span>
         <Button size="sm" onClick={() => onTrackOrder(order.orderId)}>
           {t("orders.trackOrder", "Track order")}
         </Button>

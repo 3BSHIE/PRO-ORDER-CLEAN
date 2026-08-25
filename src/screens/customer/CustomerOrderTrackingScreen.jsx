@@ -11,6 +11,7 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CallStaffButton   from "./components/CallStaffButton.jsx";
 import PrepTimeEstimate  from "./components/PrepTimeEstimate.jsx";
 import OrderFeedback     from "./components/OrderFeedback.jsx";
+import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -320,23 +321,45 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
             <span>{fmtPrice(order.serviceCharge)}</span>
           </div>
           <div className="track__summary-divider" />
-          <div className="track__summary-row track__summary-row--total">
-            <span>{t("common.total", "Total")}</span>
+
+          {/* Phase 36 — a canceled order's total is history, not a bill, so it
+              is relabelled and struck through rather than presented as an
+              amount owed. The stored value is untouched. */}
+          <div className={`track__summary-row track__summary-row--total ${isCanceled ? "track__summary-row--void" : ""}`}>
+            <span>
+              {isCanceled
+                ? t("payment.canceledOrderTotal", "Canceled order total")
+                : t("common.total", "Total")}
+            </span>
             <span>{fmtPrice(order.total)}</span>
           </div>
+
           <div className="track__summary-divider" />
-          <div className="track__summary-row">
-            <span>{t("payment.paymentMethod", "Payment method")}</span>
-            <span>{paymentMethodLabel}</span>
-          </div>
-          <div className="track__summary-row">
-            <span>{t("payment.paymentStatus", "Payment status")}</span>
-            <span className="track__payment-status">
-              {order.paymentStatus === "paid"
-                ? t("payment.paid", "Paid")
-                : t("payment.pendingAtTable", "Pending at table")}
-            </span>
-          </div>
+
+          {/* Payment method stays visible for a normal order, and for a
+              canceled-but-paid one where it is useful historical context when
+              the guest speaks to staff. For a canceled unpaid order it adds
+              nothing and only invites "do I still owe this?", so it is
+              dropped in favour of the notice below. */}
+          {(!isCanceled || order.paymentStatus === "paid") && (
+            <div className="track__summary-row">
+              <span>{t("payment.paymentMethod", "Payment method")}</span>
+              <span>{paymentMethodLabel}</span>
+            </div>
+          )}
+
+          {isCanceled ? (
+            <CanceledPaymentNotice order={order} />
+          ) : (
+            <div className="track__summary-row">
+              <span>{t("payment.paymentStatus", "Payment status")}</span>
+              <span className="track__payment-status">
+                {order.paymentStatus === "paid"
+                  ? t("payment.paid", "Paid")
+                  : t("payment.pendingAtTable", "Pending at table")}
+              </span>
+            </div>
+          )}
         </div>
       </Card>
     </div>

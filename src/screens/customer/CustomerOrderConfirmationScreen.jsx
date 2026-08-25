@@ -8,6 +8,7 @@ import Badge   from "../../components/ui/Badge.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
+import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -105,6 +106,14 @@ const METHOD_LABEL_KEY = {
 /* ── Confirmed order view ────────────────────────────────────────────────── */
 function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
   const { t } = useLanguage();
+  /* Phase 36 — this route stays reachable after an order is canceled (browser
+     back, or a bookmarked link), and it used to keep asserting "Order
+     received … Pending at table" for an order that no longer exists as a
+     live one. Showing "No payment due" while the header still claimed the
+     order had been received would have been contradictory, so the canceled
+     case now states the cancellation as well. Every other status renders
+     exactly as before. */
+  const isCanceled = order.status === "canceled";
   const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
   const paymentLabel =
     order.paymentStatus === "paid"
@@ -117,16 +126,28 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
 
   return (
     <div className="confirm anim-rise">
-      <span className="confirm__icon">✓</span>
+      <span className={`confirm__icon ${isCanceled ? "confirm__icon--canceled" : ""}`}>
+        {isCanceled ? "✕" : "✓"}
+      </span>
 
       <p className="confirm__rest">{order.restaurantName}</p>
       <p className="confirm__table">{t("customer.yourTable", "Table")} #{order.tableNumber}</p>
 
-      <h1 className="confirm__title">{t("orders.orderReceived", "Order received")}</h1>
-      <p className="confirm__msg">{t("orders.orderReceivedMsg", "Your order has been sent to the restaurant.")}</p>
+      <h1 className="confirm__title">
+        {isCanceled
+          ? t("orders.canceledBanner", "This order was canceled.")
+          : t("orders.orderReceived", "Order received")}
+      </h1>
+      <p className="confirm__msg">
+        {isCanceled
+          ? t("orders.trackingMsgCanceled", "This order was canceled. Please contact the staff if you need help.")
+          : t("orders.orderReceivedMsg", "Your order has been sent to the restaurant.")}
+      </p>
 
       <div className="confirm__meta-row">
-        <Badge tone="received" dot>{t("status.received", "Received")}</Badge>
+        <Badge tone={isCanceled ? "canceled" : "received"} dot>
+          {isCanceled ? t("status.canceled", "Canceled") : t("status.received", "Received")}
+        </Badge>
         <span className="confirm__order-id">{order.orderId}</span>
       </div>
       <p className="confirm__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
@@ -150,19 +171,29 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
           <span>{fmtPrice(order.serviceCharge)}</span>
         </div>
         <div className="confirm__summary-divider" />
-        <div className="confirm__summary-row confirm__summary-row--total">
-          <span>{t("common.total", "Total")}</span>
+        <div className={`confirm__summary-row confirm__summary-row--total ${isCanceled ? "track__summary-row--void" : ""}`}>
+          <span>
+            {isCanceled
+              ? t("payment.canceledOrderTotal", "Canceled order total")
+              : t("common.total", "Total")}
+          </span>
           <span>{fmtPrice(order.total)}</span>
         </div>
         <div className="confirm__summary-divider" />
-        <div className="confirm__summary-row">
-          <span>{t("payment.paymentMethod", "Payment method")}</span>
-          <span>{paymentMethodLabel}</span>
-        </div>
-        <div className="confirm__summary-row">
-          <span>{t("payment.paymentStatus", "Payment status")}</span>
-          <span className="confirm__payment-status">{paymentLabel}</span>
-        </div>
+        {(!isCanceled || order.paymentStatus === "paid") && (
+          <div className="confirm__summary-row">
+            <span>{t("payment.paymentMethod", "Payment method")}</span>
+            <span>{paymentMethodLabel}</span>
+          </div>
+        )}
+        {isCanceled ? (
+          <CanceledPaymentNotice order={order} />
+        ) : (
+          <div className="confirm__summary-row">
+            <span>{t("payment.paymentStatus", "Payment status")}</span>
+            <span className="confirm__payment-status">{paymentLabel}</span>
+          </div>
+        )}
       </Card>
 
       <div className="confirm__actions">

@@ -392,6 +392,13 @@ export const translations = {
       /* Phase 34 — checkout submit states */
       placingOrder: "Placing order…",
       orderFailed: "Something went wrong. Please try again.",
+      /* Phase 36 — canceled-order payment clarity. Deliberately never says
+         "Refunded": the app records no refunds, so claiming one would be a
+         promise it cannot keep. */
+      noPaymentDue: "No payment due",
+      canceledOrderTotal: "Canceled order total",
+      paidBeforeCancellation: "Payment was recorded before cancellation.",
+      contactStaffAboutPayment: "Please contact staff regarding the payment.",
     },
     status: {
       received: "Received",
@@ -845,6 +852,11 @@ export const translations = {
       /* Phase 34 — checkout submit states */
       placingOrder: "جارٍ إرسال الطلب…",
       orderFailed: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+      /* Phase 36 — canceled-order payment clarity */
+      noPaymentDue: "لا يوجد مبلغ مستحق",
+      canceledOrderTotal: "إجمالي الطلب الملغى",
+      paidBeforeCancellation: "تم تسجيل الدفع قبل إلغاء الطلب.",
+      contactStaffAboutPayment: "يرجى التواصل مع الموظف بخصوص عملية الدفع.",
     },
     status: {
       received: "تم الاستلام",

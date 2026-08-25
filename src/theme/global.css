@@ -2050,6 +2050,47 @@ button{font-family:var(--font-body)}
    the Phase 26 "About {n} minutes" case, which is a full sentence. */
 [dir="rtl"] .kb-timer{direction:ltr;unicode-bidi:isolate}
 
+/* ══ Phase 36 — Canceled order payment clarity ════════════════════════════ */
+
+/* A canceled order's total is historical context, not a bill. Struck through
+   AND relabelled ("Canceled order total") so the meaning never rests on the
+   styling alone. */
+.track__summary-row--void span,
+.order-card__total--void{
+  text-decoration:line-through;
+  text-decoration-thickness:1px;
+  color:var(--text-3)}
+
+/* The notice itself. Neutral surface, not the red "error" treatment — a
+   cancellation is not the guest's mistake, and the text carries the meaning
+   without relying on colour. */
+.cx-pay-note{
+  display:flex;align-items:flex-start;gap:9px;
+  margin-top:10px;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border);
+  text-align:start}
+.cx-pay-note__icon{display:grid;place-items:center;color:var(--text-3);flex:none;margin-top:1px}
+.cx-pay-note__text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cx-pay-note__title{font-size:13px;font-weight:600;color:var(--text-1);line-height:1.45}
+.cx-pay-note__sub{font-size:12px;color:var(--text-2);line-height:1.5}
+
+/* Paid-then-canceled needs slightly more presence: there is money involved
+   and the guest is being asked to speak to someone. */
+.cx-pay-note--paid{
+  background:var(--preparing-soft);border-color:rgba(245,158,75,.3)}
+.cx-pay-note--paid .cx-pay-note__icon{color:var(--preparing)}
+
+/* Compact form for the My Orders card meta line. */
+.cx-pay-inline{color:var(--text-2);font-weight:600}
+.cx-pay-inline--paid{color:var(--preparing)}
+
+/* The confirmation route stays reachable after cancellation; its success tick
+   becomes a neutral canceled mark so the page does not celebrate an order
+   that no longer stands. */
+.confirm__icon--canceled{
+  background:var(--canceled-soft);color:var(--canceled);
+  border-color:rgba(241,106,106,.35)}
+
 /* ══ Phase 34 — Checkout submit feedback ══════════════════════════════════ */
 
 /* Inline failure message in the payment sheet. Matches the existing form
