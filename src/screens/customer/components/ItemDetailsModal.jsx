@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { X, Check, AlertCircle } from "lucide-react";
 import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
+import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
 
 /**
@@ -81,6 +82,13 @@ export default function ItemDetailsModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  /* Phase 41 — freeze the menu behind this sheet and put the guest back on
+     the same pixel when it closes. The condition mirrors the early return
+     below exactly, so the lock is held for precisely as long as something is
+     actually on screen. Must sit above that return, like every other hook
+     here. */
+  useBodyScrollLock(open && !!item);
 
   /* ── Price math (must run before any early return — hooks rule) ──────── */
   const choices    = item?.choices || [];

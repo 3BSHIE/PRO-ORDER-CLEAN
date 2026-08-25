@@ -2538,3 +2538,18 @@ button{font-family:var(--font-body)}
 .customer-theme .lang-switcher__option,
 .customer-theme .order-card__rate-prompt{
   min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 41 — Customer sheet overscroll containment
+
+   Stops a flick that reaches the end of the sheet's own scroll from
+   chaining into the page behind it. The body is already frozen while a
+   sheet is open (see useBodyScrollLock), so this is the second half of the
+   same guarantee: the lock stops the page moving, and this stops the
+   browser looking for something else to scroll in the first place.
+
+   Deliberately only these two customer sheets — not a global rule, and not
+   components/ui/Modal.jsx, which belongs to Admin and the HomeScreen kit.
+   ═══════════════════════════════════════════════════════════════════════ */
+.customer-theme .item-modal,
+.customer-theme .pm-modal{overscroll-behavior:contain}

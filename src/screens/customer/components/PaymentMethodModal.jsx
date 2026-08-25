@@ -3,6 +3,7 @@ import { X, Check } from "lucide-react";
 import { PAYMENT_METHODS } from "../../../data/paymentMethods.js";
 import { useSettingsData } from "../../../lib/useSettingsData.js";
 import { useLanguage } from "../../../i18n/useLanguage.js";
+import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
 
 /* Maps each payment method's stable id to a translation key — this lets the
@@ -87,6 +88,13 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  /* Phase 41 — freeze the cart behind this sheet, and restore its position
+     when the guest backs out. On a successful order the parent navigates
+     away, so the restore lands on a screen that is about to be replaced —
+     harmless, and it keeps the lock symmetric rather than special-casing
+     the success path. Must sit above the early return below. */
+  useBodyScrollLock(open);
 
   /* Every dismissal path funnels through here so none of them can bypass the
      in-flight check — closing during the mutation is the one way a guest
