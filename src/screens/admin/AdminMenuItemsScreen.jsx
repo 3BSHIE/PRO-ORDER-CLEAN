@@ -36,6 +36,51 @@ import { fmtPrice } from "../../lib/format.js";
    frozen snapshot of name/price/customizations at purchase time.
    ═══════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Phase 47 — strict price parsing for the product editor.
+ *
+ * The form previously did `parseFloat(price) || 0`, which is permissive in
+ * three separate ways, each of which published a bad product silently:
+ *   ""      → 0        an empty field became a free item
+ *   "abc"   → 0        so did anything unparseable
+ *   "12.5o" → 12.5     parseFloat stops at the first bad character, so a
+ *                      typo saved a *different* price than was typed
+ *   "-5"    → -5       negatives passed straight through and subtract from
+ *                      the cart total
+ *
+ * A regex is used rather than Number()/parseFloat because the requirement is
+ * about the *string the manager typed*, not about what JavaScript is willing
+ * to coerce. Number(" 12 ") is 12 and Number("1e3") is 1000; neither is a
+ * price a person meant to enter. Only plain decimal notation is accepted, so
+ * partial parsing cannot happen at all — a malformed string has no valid
+ * prefix to salvage.
+ *
+ * Note the input is type="number", so most junk never reaches state (the DOM
+ * reports "" for unparseable content). This does not rely on that: the same
+ * value can arrive by paste, autofill, or a future change of input type, and
+ * the rule should hold wherever it comes from.
+ *
+ * @param {unknown} raw — the field's current string value
+ * @returns {number|null} a finite Number > 0, or null if the input is invalid
+ */
+/* Stable id so a failed validation can focus the field it belongs to. Only
+   one product editor is ever mounted at a time, so a constant is safe. */
+const PRICE_FIELD_ID = "mm-product-price";
+
+export function parseProductPrice(raw) {
+  const text = String(raw ?? "").trim();
+  /* Plain decimal only: digits, optionally one dot and more digits. Rejects
+     "", "abc", "12.5o", "-5", "+5", "1e3", "Infinity", "NaN", ".5" and "5.". */
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+
+  const value = Number(text);
+  /* isFinite is belt-and-braces after the regex; the > 0 test is the real
+     rule, and it is what rejects "0" and "0.00". */
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return value;
+}
+
 export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { categories, items } = useMenuData(restaurant.slug);
   const { t } = useLanguage();
@@ -258,6 +303,10 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   const [choices, setChoices] = useState(item.choices || []);
   const [paidAddOns, setPaidAddOns] = useState(item.paidAddOns || []);
   const [error, setError] = useState(null);
+  /* Phase 47 — kept separate from `error` so the message can render against
+     the price field itself rather than under the item name, which is where
+     the shared `error` state is displayed. */
+  const [priceError, setPriceError] = useState(null);
 
   /* ── Ingredients ──────────────────────────────────────────────────────── */
   function handleAddIngredient() {
@@ -324,10 +373,23 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     if (!name.trim()) { setError(t("admin.productNameRequired", "Please enter an item name.")); return; }
     if (!categoryId) { setError(t("admin.productCategoryRequired", "Please choose a category.")); return; }
 
+    /* Phase 47 — the save is abandoned before onSave, so nothing is written
+       and every other field the manager filled in stays exactly as typed;
+       the editor simply stays open with the price flagged. */
+    const parsedPrice = parseProductPrice(price);
+    if (parsedPrice === null) {
+      setPriceError(t("admin.productPriceInvalid", "Enter a valid price greater than 0."));
+      /* Bring the field into view — the editor is a tall scrolling modal and
+         the price row can easily be off-screen when Save is pressed. */
+      document.getElementById(PRICE_FIELD_ID)?.focus();
+      return;
+    }
+
     onSave({
       name: name.trim(),
       description: description.trim(),
-      price: parseFloat(price) || 0,
+      /* Already a validated finite Number > 0 — storage shape is unchanged. */
+      price: parsedPrice,
       categoryId,
       imageUrl: imageUrl.trim(),
       sortOrder: sortOrder !== "" ? parseInt(sortOrder, 10) : undefined,
@@ -377,12 +439,24 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
 
         <div className="mm-row-2">
           <Input
+            id={PRICE_FIELD_ID}
             label={t("admin.productPrice", "Price")}
             type="number"
             step="0.01"
-            min="0"
+            /* Phase 47 — min is 0.01 rather than 0 so the browser's own
+               spinner and native hints agree with the rule actually enforced
+               on save. It is a hint, not the guard: parseProductPrice is
+               what decides, since min is trivially bypassed by typing. */
+            min="0.01"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            error={priceError}
+            aria-invalid={priceError ? "true" : undefined}
+            onChange={(e) => {
+              setPrice(e.target.value);
+              /* Phase 47 — clear as soon as the value becomes valid, so a
+                 corrected price re-enables Save without pressing it first. */
+              if (priceError && parseProductPrice(e.target.value) !== null) setPriceError(null);
+            }}
           />
           <label className="field mm-field">
             <span className="field__label">{t("admin.productCategory", "Category")}</span>
