@@ -78,6 +78,9 @@ export const translations = {
       nameTooLong: "Name must be 30 characters or fewer.",
       browseMenuMsg: "Browse the menu and add a few things you'd like to order.",
       clearSearch: "Clear search",
+      /* Phase 44 — the product card's "+" accessible name. Was a hardcoded
+         template literal, so Phase 43's quoted-string sweep never saw it. */
+      openItem: "Open {name}",
       nothingMatched: "Nothing matched",
       tryDifferentWord: "Try a different word or browse by category.",
       /* Counted phrases — see src/i18n/counts.js for why the two languages
@@ -578,6 +581,7 @@ export const translations = {
       nameTooLong: "يجب ألا يزيد الاسم عن 30 حرفًا.",
       browseMenuMsg: "تصفّح القائمة وأضف ما ترغب بطلبه.",
       clearSearch: "مسح البحث",
+      openItem: "افتح {name}",
       nothingMatched: "لم يطابق البحث",
       tryDifferentWord: "جرّب كلمة أخرى أو تصفّح حسب الفئة.",
       /* The plural forms put the number after a fixed noun phrase so they

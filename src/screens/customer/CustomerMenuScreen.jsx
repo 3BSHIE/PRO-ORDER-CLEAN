@@ -473,21 +473,40 @@ function ItemCard({ item, categories, onOpen }) {
   const cat = categories.find((c) => c.id === item.categoryId);
   const available = item.isAvailable;
   const { t } = useLanguage();
+  const oosId = `oos-${item.id}`;
+
+  /* Phase 44 — an unavailable card is not a control.
+     It keeps its place in the menu and stays readable, but sheds role,
+     tabIndex and both handlers entirely rather than guarding inside them.
+     Spreading nothing is what actually removes it from the tab order and
+     stops a screen reader announcing "button": leaving role="button" and
+     merely ignoring the click would still promise an action that never
+     happens. Opening the sheet only to say "you cannot order this" was the
+     behavior this phase removes. */
+  const cardInteraction = available
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick: () => onOpen(item),
+        onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && onOpen(item),
+      }
+    : {};
 
   return (
     <article
       className={`item-card ${available ? "item-card--available" : "item-card--unavailable"}`}
-      onClick={() => onOpen(item)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(item)}
+      {...cardInteraction}
     >
       {/* Image / emoji placeholder */}
       <ItemImage src={item.imageUrl} alt={item.name} emoji={cat?.emoji || "🍽️"} />
 
-      {/* Out of stock overlay badge */}
+      {/* Out of stock overlay badge. Carries an id so the disabled "+" can
+          point at it instead of repeating the wording — one source of truth
+          for the status text, in whichever language is active. */}
       {!available && (
-        <span className="item-card__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>
+        <span className="item-card__oos-badge" id={oosId}>
+          {t("common.outOfStock", "Out of Stock")}
+        </span>
       )}
 
       {/* Body */}
@@ -508,6 +527,11 @@ function ItemCard({ item, categories, onOpen }) {
         <p className="item-card__desc">{item.description}</p>
         <div className="item-card__foot">
           <span className="item-card__price">{fmtPrice(item.price)}</span>
+          {/* Unchanged behavior for an available item: this opens Item
+              Details, exactly as before, and never quick-adds. When the item
+              is out of stock the button is disabled and describes itself by
+              pointing at the badge, so assistive tech reads the name, then
+              the status, then "dimmed" — the reason, not just the refusal. */}
           <button
             type="button"
             className="item-card__add"
@@ -516,7 +540,12 @@ function ItemCard({ item, categories, onOpen }) {
               e.stopPropagation();
               if (available) onOpen(item);
             }}
-            aria-label={`Open ${item.name}`}
+            aria-label={
+              available
+                ? t("customer.openItem", "Open {name}").replace("{name}", item.name)
+                : item.name
+            }
+            aria-describedby={available ? undefined : oosId}
           >
             +
           </button>

@@ -402,7 +402,18 @@ button{font-family:var(--font-body)}
   border-color:var(--gold-line);
   transform:translateY(-2px);
   box-shadow:0 8px 24px rgba(0,0,0,.4)}
-.item-card--unavailable{opacity:.46;cursor:pointer}
+/* Phase 44 — an out-of-stock card is no longer clickable, so it must not
+   advertise itself as such: cursor:pointer here was promising an interaction
+   that now (correctly) does nothing.
+
+   The muting also moved off the card root. A flat opacity on the whole card
+   dimmed the "Out of Stock" badge along with everything else, which is the
+   one element that has to stay legible. Muting the image and body instead
+   leaves the badge at full strength against faded content — the card is
+   clearly inactive but still readable, and never disappears. */
+.item-card--unavailable{cursor:default}
+.item-card--unavailable .item-card__img-wrap,
+.item-card--unavailable .item-card__body{opacity:.5}
 
 /* card image / emoji placeholder */
 .item-card__img-wrap{
