@@ -62,6 +62,10 @@ export default function ItemDetailsModal({
      section here so a failed validation can bring the right one into view. */
   const modalRef = useRef(null);
   const groupRefs = useRef({});
+  /* Phase 42 — the sticky footer overlays the bottom of the scroll container,
+     so Phase 35 has to treat that strip as not-visible when deciding whether
+     a required group needs scrolling into view. */
+  const footRef = useRef(null);
 
   /* Reset all local state whenever a different item is opened */
   useEffect(() => {
@@ -208,9 +212,20 @@ export default function ItemDetailsModal({
     if (scroller) {
       const scrollerRect = scroller.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
+
+      /* Phase 42 — the sticky footer sits over the bottom of the scrollport,
+         so the genuinely visible area ends where the footer starts. Without
+         this, a group tucked behind the footer would satisfy the old
+         "fully visible" test and the sheet would refuse to scroll, leaving
+         the guest staring at an error they cannot see. Measured live rather
+         than hardcoded, because the footer's height changes with font size
+         and the safe-area inset. */
+      const footHeight = footRef.current?.getBoundingClientRect().height || 0;
+      const visibleBottom = scrollerRect.bottom - footHeight;
+
       const fullyVisible =
         elRect.top >= scrollerRect.top + SCROLL_MARGIN &&
-        elRect.bottom <= scrollerRect.bottom;
+        elRect.bottom <= visibleBottom;
 
       /* Only scroll when it is actually out of view — jumping the sheet when
          the group is already on screen would be disorienting. */
@@ -519,29 +534,16 @@ export default function ItemDetailsModal({
                   <span>× {quantity}</span>
                 </div>
               </div>
-              <div className="item-modal__total-row">
-                <span className="item-modal__total-label">{t("common.total", "Total")}</span>
-                <span className="item-modal__total-value">{fmtPrice(total)}</span>
-              </div>
             </>
           )}
 
-          {/* Actions */}
-          <div className="item-modal__actions">
-            {available ? (
-              <button
-                type="button"
-                className="btn btn--primary btn--lg btn--full"
-                onClick={handleAddClick}
-              >
-                {t("customer.addToCart", "Add to cart")}
-              </button>
-            ) : (
-              <button type="button" className="btn btn--outline btn--lg btn--full" onClick={onClose}>
-                {t("common.close", "Close")}
-              </button>
-            )}
-            {available && (
+          {/* Phase 42 — the primary CTA moved to the sticky footer below, so
+              the only thing left here is the secondary dismiss. Keeping it in
+              the scrolling flow rather than the footer keeps the footer to one
+              compact row plus one button, and leaves a single obvious primary
+              action on screen at all times. */}
+          {available && (
+            <div className="item-modal__actions">
               <button
                 type="button"
                 className="btn btn--ghost btn--md btn--full"
@@ -549,8 +551,42 @@ export default function ItemDetailsModal({
               >
                 {t("common.cancel", "Cancel")}
               </button>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sticky footer (Phase 42) ──────────────────────────────────────
+            A sibling of the body and the last child in flow, so it is sticky
+            rather than fixed: while the guest is mid-scroll it pins to the
+            bottom of the sheet, and once they reach the end it simply sits in
+            its natural place. That is what keeps it from ever permanently
+            covering the last field.
+
+            `total` is the same value the body's breakdown is derived from and
+            the same one handleAddClick writes to the cart — read straight from
+            the existing calculation, not recomputed here. */}
+        <div className="item-modal__foot" ref={footRef}>
+          {available ? (
+            <>
+              <div className="item-modal__foot-total">
+                <span className="item-modal__total-label">{t("common.total", "Total")}</span>
+                <span className="item-modal__total-value">{fmtPrice(total)}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary btn--lg btn--full"
+                onClick={handleAddClick}
+              >
+                {t("customer.addToCart", "Add to cart")}
+              </button>
+            </>
+          ) : (
+            /* Unavailable is unchanged: no total, no way to add, just a way
+               out — the same single Close button as before. */
+            <button type="button" className="btn btn--outline btn--lg btn--full" onClick={onClose}>
+              {t("common.close", "Close")}
+            </button>
+          )}
         </div>
       </div>
     </div>

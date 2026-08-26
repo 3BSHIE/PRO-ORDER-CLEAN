@@ -596,14 +596,35 @@ button{font-family:var(--font-body)}
 .item-modal__textarea::placeholder{color:var(--text-3)}
 .item-modal__textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
 
-.item-modal__total-row{
-  display:flex;align-items:center;justify-content:space-between;
-  margin:18px 0 22px}
 .item-modal__total-label{font-size:13.5px;color:var(--text-2);font-weight:500}
 .item-modal__total-value{
   font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--gold)}
 
-.item-modal__actions{display:flex;flex-direction:column;gap:8px}
+.item-modal__actions{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+
+/* ── Phase 42 — sticky Add to cart footer ────────────────────────────────
+   position:sticky, not fixed, and the last child of the scroll container:
+   mid-scroll it pins to the bottom of the sheet, and at the end of the
+   content it settles into its natural place after the body. That is what
+   stops it permanently covering the last field, so no compensating bottom
+   padding is needed.
+
+   Opaque background because customization rows scroll underneath it, and
+   z-index so it stays above them. Both colours are theme tokens, so a
+   restaurant's accent flows through exactly like the rest of the sheet.
+
+   The bottom padding takes whichever is larger: the normal 14px, or the
+   device's home-indicator inset. On a phone with no inset, and on desktop
+   where the sheet is centred rather than docked to the viewport edge,
+   env() is 0 and the footer stays compact. */
+.item-modal__foot{
+  position:sticky;bottom:0;z-index:3;
+  display:flex;flex-direction:column;gap:10px;
+  padding:14px 24px max(14px,env(safe-area-inset-bottom,0px));
+  background:var(--surface-1);
+  border-top:1px solid var(--border)}
+.item-modal__foot-total{
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
 
 /* ══ Phase 6 — Item Customization ═══════════════════════════════════════════ */
 
@@ -1631,6 +1652,7 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .cart-fab__total,
 [dir="rtl"] .cart-summary__row--total span:last-child,
 [dir="rtl"] .cart-bottom-bar__total-value,
+[dir="rtl"] .item-modal__total-value,
 [dir="rtl"] .confirm__summary-row--total span:last-child,
 [dir="rtl"] .track__summary-row--total span:last-child,
 [dir="rtl"] .kb-card__total,
