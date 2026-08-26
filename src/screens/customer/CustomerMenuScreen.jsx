@@ -8,6 +8,8 @@ import Button  from "../../components/ui/Button.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatItemCount, formatResultCount } from "../../i18n/counts.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
@@ -270,9 +272,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
   return (
     <>
-      {/* ── Topbar ──────────────────────────────────────────────────────── */}
+      {/* ── Topbar ──────────────────────────────────────────────────────────
+          Phase 45 — the PRO·ORDER mark is gone from here. On this screen the
+          restaurant's own identity sits immediately below in the header, so a
+          platform logo in the topbar would be the louder of the two brands and
+          would also repeat a mark the footer already carries. */}
       <Topbar
-        left={<Logo variant="icon" size="nav" />}
         right={
           <div className="menu-topbar-right">
             <span className="menu-table-pill">{t("customer.yourTable", "Table")} #{table.tableNumber}</span>
@@ -292,15 +297,22 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
       <main className={`container ${hasCartItems ? "container--with-fab" : ""}`}>
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header className="menu-header anim-rise">
-          <p className="menu-header__rest">{restaurant.name}</p>
-          {/* Phase 43 — the greeting word is translated; the name stays
-              exactly as the guest typed it and is never localized. */}
-          <h1 className="menu-header__greeting">
-            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i> 👋
-          </h1>
+          {/* Phase 45 — the restaurant is now the headline. It was an 11px
+              uppercase eyebrow above a 26px greeting, which made the software's
+              copy louder than the venue the guest is sitting in.
+
+              The greeting and table number merged into the single secondary
+              line below: they are context, not the title, and separating them
+              across two lines cost ~38px before any food appeared. The
+              greeting word is translated; the name is never localized. */}
+          <RestaurantIdentity
+            name={restaurant.name}
+            logoUrl={settings.logoUrl}
+            variant="hero"
+          />
           <p className="menu-header__meta">
-            {t("customer.yourTable", "Table")} #{table.tableNumber} &middot;{" "}
-            {t("customer.whatAreYouHaving", "What are you having today?")}
+            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i> &middot;{" "}
+            {t("customer.yourTable", "Table")} #{table.tableNumber}
           </p>
 
           {/* Phase 25 — quiet, always-available way to ask for a person.
@@ -397,6 +409,10 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           <ItemGrid items={filteredItems} categories={categories} onOpen={handleOpenItem} />
         )}
 
+        {/* Inside the container so the existing cart-FAB bottom padding keeps
+            protecting it — the footer scrolls with the content and never sits
+            under the floating cart button. */}
+        <CustomerFooter />
       </main>
 
       {/* ── Floating cart button ────────────────────────────────────────── */}

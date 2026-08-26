@@ -12,6 +12,9 @@ import StarRating         from "../../components/ui/StarRating.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getIdentityKey, orderBelongsToSession } from "../../lib/customerIdentity.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -144,6 +147,8 @@ export default function CustomerOrdersScreen({
 
 /* ── Orders shell — owns filtering, tabs, and the live-refreshing read ──── */
 function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder }) {
+  /* Phase 45 — for the restaurant's logo in the compact topbar identity. */
+  const { settings } = useSettingsData(restaurant.slug);
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
   const [activeTab, setActiveTab] = useState("all");
   const { t } = useLanguage();
@@ -203,17 +208,27 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
 
   return (
     <>
+      {/* Phase 45 — restaurant identity replaces the PRO·ORDER mark, and the
+          page's own restaurant eyebrow went with it so the name appears once
+          per viewport rather than twice. */}
       <Topbar
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
             <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
           </button>
         }
-        right={<Logo variant="icon" size="nav" />}
+        right={
+          <RestaurantIdentity
+            /* Settings override first, matching every other customer surface —
+               this screen was the one place still showing the raw seed name. */
+            name={settings.name.trim() || restaurant.name}
+            logoUrl={settings.logoUrl}
+            variant="compact"
+          />
+        }
       />
       <main className="container">
         <header className="orders-header anim-rise">
-          <p className="orders-header__rest">{restaurant.name}</p>
           <p className="orders-header__table">{t("customer.yourTable", "Table")} #{table.tableNumber}</p>
           <h1 className="orders-header__greeting">
             {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
@@ -249,6 +264,8 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
             )}
           </>
         )}
+
+        <CustomerFooter />
       </main>
     </>
   );

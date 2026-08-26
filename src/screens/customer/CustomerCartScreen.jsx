@@ -7,6 +7,8 @@ import Card    from "../../components/ui/Card.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import QuantityStepper from "../../components/ui/QuantityStepper.jsx";
 import PaymentMethodModal from "./components/PaymentMethodModal.jsx";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
@@ -289,18 +291,29 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
 
   return (
     <>
+      {/* Phase 45 — the topbar's PRO·ORDER mark is replaced by the restaurant's
+          own compact identity, so the venue stays present on a deeper screen
+          without a second full header competing with "Your order". The page's
+          separate restaurant eyebrow went with it: the name now lives in the
+          topbar, and printing it twice on one viewport was the exact
+          repetition this phase set out to remove. */}
       <Topbar
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
             <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
           </button>
         }
-        right={<Logo variant="icon" size="nav" />}
+        right={
+          <RestaurantIdentity
+            name={settings.name.trim() || restaurant.name}
+            logoUrl={settings.logoUrl}
+            variant="compact"
+          />
+        }
       />
 
       <main className={`container ${!isEmpty ? "container--with-cart-bar" : ""}`}>
         <header className="cart-header anim-rise">
-          <p className="cart-header__rest">{settings.name.trim() || restaurant.name}</p>
           <h1 className="cart-header__title">{t("orders.yourOrder", "Your order")}</h1>
           <p className="cart-header__meta">
             {t("customer.yourTable", "Table")} #{table.tableNumber} &middot; {session.customerName}
@@ -346,6 +359,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
 
           </>
         )}
+
+        {/* Inside the container, which already reserves bottom padding for the
+            sticky payment bar — so the attribution never sits under it. */}
+        <CustomerFooter />
       </main>
 
       {/* ── Sticky bottom payment bar ─────────────────────────────────── */}

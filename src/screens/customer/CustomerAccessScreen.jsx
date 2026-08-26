@@ -12,6 +12,8 @@ import { useSettingsData } from "../../lib/useSettingsData.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 
 /* Name validation — trimmed, 2–30 chars.
    Phase 43 — takes `t` rather than reaching for the language module itself, so
@@ -55,8 +57,15 @@ export default function CustomerAccessScreen({
 
   return (
     <>
+      {/* Phase 45 — this topbar is shared by the invalid-QR view and the
+          welcome/onboarding flow, so the PRO·ORDER mark is conditional. On an
+          invalid code there is no restaurant to identify and PRO·ORDER is the
+          only brand available, which is exactly when showing it is right. Once
+          the table resolves, the restaurant's hero identity sits immediately
+          below and a 40px platform logo above it would be the larger of the
+          two marks — the inversion this phase exists to fix. */}
       <Topbar
-        left={<Logo variant="icon" size="nav" />}
+        left={result.ok ? null : <Logo variant="icon" size="nav" />}
         right={<Badge tone={result.ok ? "gold" : "canceled"}>{t("common.qrAccess", "QR access")}</Badge>}
       />
       <main className="container">
@@ -97,14 +106,16 @@ function WelcomeView({ restaurant, table, onContinue }) {
   return (
     <div className="access anim-rise">
       <LanguageSwitcher className="access__lang-switcher" />
-      {/* PRO·ORDER's own logo always renders first and stays — the
-          restaurant's own logo (if configured in Settings) appears
-          alongside its name below, never replacing this. */}
-      <Logo variant="full" size="md" style={{ marginBottom: 22 }} />
-      <div className="access__restaurant-row">
-        {restaurant.logoUrl && <img src={restaurant.logoUrl} alt="" className="access__restaurant-logo" />}
-        <p className="access__restaurant">{restaurant.name}</p>
-      </div>
+      {/* Phase 45 — this is the guest's first impression of the venue, so the
+          restaurant owns it. It used to open with PRO·ORDER's full logo at
+          100px above a 22px restaurant logo and a 12px uppercase name, which
+          read as the software introducing itself. The restaurant's mark is now
+          the hero and PRO·ORDER moved to the footer attribution below. */}
+      <RestaurantIdentity
+        name={restaurant.name}
+        logoUrl={restaurant.logoUrl}
+        variant="hero"
+      />
       <h1 className="access__table">
         {t("customer.welcomeToTable", "Welcome to Table")} <i>#{table.tableNumber}</i>
       </h1>
@@ -112,6 +123,7 @@ function WelcomeView({ restaurant, table, onContinue }) {
       <Button size="lg" icon={ArrowRight} onClick={onContinue}>
         {t("common.continue", "Continue")}
       </Button>
+      <CustomerFooter />
     </div>
   );
 }

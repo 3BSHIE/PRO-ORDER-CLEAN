@@ -24,6 +24,10 @@ export const translations = {
       subtotal: "Subtotal",
       serviceCharge: "Service charge",
       quantity: "Quantity",
+      /* Phase 45 — platform attribution. "PRO·ORDER" itself is a brand name
+         and stays untranslated in both languages. */
+      poweredBy: "Powered by",
+      platformTagline: "Digital ordering technology for restaurants",
       /* Phase 43 — QuantityStepper's accessible labels. The component is
          customer-only (item modal + cart), so translating it touches no
          operational screen. */
@@ -530,6 +534,8 @@ export const translations = {
       subtotal: "المجموع الفرعي",
       serviceCharge: "رسوم الخدمة",
       quantity: "الكمية",
+      poweredBy: "مدعوم بواسطة",
+      platformTagline: "تقنية الطلب الرقمي للمطاعم",
       decreaseQuantity: "إنقاص الكمية",
       increaseQuantity: "زيادة الكمية",
       notes: "ملاحظات",

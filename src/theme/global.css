@@ -312,13 +312,14 @@ button{font-family:var(--font-body)}
   border-radius:999px;padding:4px 10px}
 
 /* menu header */
-.menu-header{padding:28px 0 20px}
-.menu-header__rest{font-size:11px;font-weight:700;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--gold);margin:0 0 8px}
-.menu-header__greeting{font-family:var(--font-display);
-  font-size:clamp(26px,5.5vw,40px);font-weight:700;margin:0 0 8px;line-height:1.15}
-.menu-header__greeting i{font-style:italic;color:var(--gold)}
-.menu-header__meta{font-size:13.5px;color:var(--text-2);margin:0}
+/* Phase 45 — compacted. Was 28px/20px padding around a three-line stack
+   (11px eyebrow → 26px greeting → meta), which pushed the first food card to
+   y=492 at 375px. The restaurant identity now carries the top line and the
+   greeting folded into the meta, so the guest reaches food sooner without the
+   header feeling crowded. */
+.menu-header{padding:18px 0 14px}
+.menu-header__meta{font-size:13.5px;color:var(--text-2);margin:8px 0 0}
+.menu-header__meta i{font-style:normal;font-weight:600;color:var(--text-1)}
 
 /* search bar */
 .menu-search{position:relative;margin-bottom:20px}
@@ -2586,3 +2587,71 @@ button{font-family:var(--font-body)}
    ═══════════════════════════════════════════════════════════════════════ */
 .customer-theme .item-modal,
 .customer-theme .pm-modal{overscroll-behavior:contain}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 45 — Restaurant-first customer branding
+
+   The hierarchy this replaces: PRO·ORDER sat in every customer topbar at
+   40px and opened the Welcome screen at 100px, while the restaurant got a
+   22px logo and an 11px uppercase eyebrow. The guest was shown the software
+   more prominently than the venue they were sitting in.
+
+   Now the restaurant owns the customer surfaces and PRO·ORDER appears once
+   per screen as footer attribution. Everything here is scoped under
+   .customer-theme, so Admin and Kitchen keep their PRO·ORDER-first
+   operational branding untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Restaurant identity ─────────────────────────────────────────────── */
+.customer-theme .rest-identity{
+  display:flex;align-items:center;min-width:0}
+
+/* Hero — Welcome and the Menu header. The name is the largest text on the
+   screen and uses the restaurant's own heading font and accent from Phase 31,
+   so a venue's theme choice is what the guest actually notices first. */
+.customer-theme .rest-identity--hero{gap:12px}
+.customer-theme .rest-identity--hero .rest-identity__logo{
+  width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
+.customer-theme .rest-identity--hero .rest-identity__name{
+  font-family:var(--font-display);
+  font-size:clamp(24px,5.4vw,34px);font-weight:700;line-height:1.15;
+  color:var(--gold);
+  /* Long names wrap onto a second line rather than overflowing or being
+     clipped; min-width:0 lets the flex child actually shrink to allow it. */
+  min-width:0;overflow-wrap:anywhere}
+
+/* Compact — deeper screens, sitting in a topbar slot beside a back button.
+   Small enough not to compete with the page's own title, present enough that
+   the guest always knows whose ordering experience they are in. */
+.customer-theme .rest-identity--compact{gap:8px;max-width:52vw}
+.customer-theme .rest-identity--compact .rest-identity__logo{
+  width:24px;height:24px;border-radius:6px;object-fit:cover;flex:none}
+.customer-theme .rest-identity--compact .rest-identity__name{
+  font-family:var(--font-display);
+  font-size:14px;font-weight:700;letter-spacing:.01em;color:var(--gold);
+  /* One line in a topbar — a long name truncates here instead of wrapping
+     and pushing the bar taller. */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* ── PRO·ORDER attribution footer ────────────────────────────────────── */
+/* Deliberately outside the restaurant's accent: attribution should read as a
+   quiet credit line, not as branding competing for the same visual weight. */
+.customer-theme .cust-footer{
+  margin-top:36px;padding:18px 0 4px;
+  border-top:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
+.customer-theme .cust-footer__mark{
+  display:flex;align-items:center;gap:7px;opacity:.72}
+.customer-theme .cust-footer__logo{height:16px !important;width:auto}
+.customer-theme .cust-footer__powered{
+  font-size:11.5px;font-weight:500;color:var(--text-3);letter-spacing:.02em}
+.customer-theme .cust-footer__powered strong{
+  font-weight:700;color:var(--text-2)}
+.customer-theme .cust-footer__tagline{
+  font-size:10.5px;color:var(--text-3);opacity:.75;margin:0;line-height:1.5}
+
+/* ── Busy notice — Phase 45 compaction ───────────────────────────────────
+   Same meaning and same logic, less vertical cost so it cannot push food far
+   down the screen when the kitchen is busy. */
+.customer-theme .busy-notice{
+  margin-bottom:12px;padding:7px 12px;font-size:12px;gap:8px}

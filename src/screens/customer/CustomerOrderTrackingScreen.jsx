@@ -16,6 +16,9 @@ import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useMenuData } from "../../lib/useMenuData.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -151,6 +154,10 @@ export default function CustomerOrderTrackingScreen({
 
 /* ── Tracking shell — owns the live-refreshing order read ──────────────── */
 function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }) {
+  /* Phase 45 — live Settings drive the topbar identity's logo and name. The
+     order's own frozen restaurantName stays the fallback, so an order placed
+     before a rename still resolves to something sensible. */
+  const { settings } = useSettingsData(restaurantSlug);
   const [order, setOrder] = useState(() => getOrderById(orderId));
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -214,7 +221,13 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
             <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
           </button>
         }
-        right={<Logo variant="icon" size="nav" />}
+        right={
+          <RestaurantIdentity
+            name={settings.name.trim() || order?.restaurantName || restaurantSlug}
+            logoUrl={settings.logoUrl}
+            variant="compact"
+          />
+        }
       />
       <main className="container">
         {visibleOrder ? (
@@ -228,6 +241,8 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
         ) : (
           <OrderNotFoundView onBackToMenu={onBackToMenu} />
         )}
+
+        <CustomerFooter />
       </main>
 
       <Toast

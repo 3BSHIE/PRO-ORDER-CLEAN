@@ -12,6 +12,9 @@ import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
+import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -47,6 +50,7 @@ export default function CustomerOrderConfirmationScreen({
   const result  = resolveTableAccess(restaurantSlug, qrToken);
   const session = getCustomerSession();
   const { t } = useLanguage();
+  const { settings } = useSettingsData(restaurantSlug);
 
   const hasValidSession =
     result.ok &&
@@ -97,8 +101,19 @@ export default function CustomerOrderConfirmationScreen({
 
   return (
     <>
+      {/* Phase 45 — restaurant identity in place of the PRO·ORDER mark. The
+          confirmation body keeps its own restaurant line: unlike the other
+          deeper screens that is the order's FROZEN restaurantName, which is
+          order history rather than live branding, so the two are not
+          duplicates of each other. */}
       <Topbar
-        left={<Logo variant="icon" size="nav" />}
+        left={
+          <RestaurantIdentity
+            name={settings.name.trim() || restaurantSlug}
+            logoUrl={settings.logoUrl}
+            variant="compact"
+          />
+        }
         right={<Badge tone="gold">{t("orders.orderBadge", "Order")}</Badge>}
       />
       <main className="container">
@@ -107,6 +122,8 @@ export default function CustomerOrderConfirmationScreen({
         ) : (
           <OrderNotFoundView onBackToMenu={onBackToMenu} />
         )}
+
+        <CustomerFooter />
       </main>
     </>
   );
