@@ -311,7 +311,7 @@ export default function ItemDetailsModal({
           type="button"
           className="item-modal__x"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("common.close", "Close")}
         >
           <X size={16} strokeWidth={2.4} />
         </button>

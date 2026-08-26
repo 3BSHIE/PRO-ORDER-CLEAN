@@ -15,6 +15,7 @@ import { getIdentityKey, orderBelongsToSession } from "../../lib/customerIdentit
 import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
 
 const STATUS_LABEL = {
@@ -215,7 +216,7 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
           <p className="orders-header__rest">{restaurant.name}</p>
           <p className="orders-header__table">{t("customer.yourTable", "Table")} #{table.tableNumber}</p>
           <h1 className="orders-header__greeting">
-            Hi, <i>{session.customerName}</i>
+            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
           </h1>
           <h2 className="orders-header__title">{t("customer.myOrders", "My Orders")}</h2>
         </header>
@@ -287,7 +288,7 @@ function OrderCard({ order, onTrackOrder }) {
           read as an outstanding bill, and states the payment position
           directly instead. Every other status keeps its existing meta line. */}
       <div className="order-card__meta">
-        <span>{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+        <span>{formatItemCount(t, itemCount)}</span>
         {isCanceled ? (
           <>
             <span className="order-card__dot">&middot;</span>

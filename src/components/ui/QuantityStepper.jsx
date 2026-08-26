@@ -1,5 +1,11 @@
+import { useLanguage } from "../../i18n/useLanguage.js";
+
 /**
  * QuantityStepper — minus / number / plus control.
+ *
+ * Phase 43 — the two accessible labels were the only English left in this
+ * component. It is used solely by the customer item modal and cart, so
+ * translating it reaches no operational screen.
  *
  * Props:
  *   value     — current quantity
@@ -15,6 +21,7 @@ export default function QuantityStepper({
   max = 20,
   disabled = false,
 }) {
+  const { t } = useLanguage();
   const dec = () => onChange(Math.max(min, value - 1));
   const inc = () => onChange(Math.min(max, value + 1));
 
@@ -25,7 +32,7 @@ export default function QuantityStepper({
         className="qty-stepper__btn"
         onClick={dec}
         disabled={disabled || value <= min}
-        aria-label="Decrease quantity"
+        aria-label={t("common.decreaseQuantity", "Decrease quantity")}
       >
         −
       </button>
@@ -37,7 +44,7 @@ export default function QuantityStepper({
         className="qty-stepper__btn"
         onClick={inc}
         disabled={disabled || value >= max}
-        aria-label="Increase quantity"
+        aria-label={t("common.increaseQuantity", "Increase quantity")}
       >
         +
       </button>

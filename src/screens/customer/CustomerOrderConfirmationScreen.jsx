@@ -13,6 +13,7 @@ import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -178,7 +179,7 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
         <h3 className="confirm__summary-title">{t("orders.orderSummary", "Order summary")}</h3>
         <div className="confirm__summary-row">
           <span>{t("orders.items", "Items")}</span>
-          <span>{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+          <span>{formatItemCount(t, itemCount)}</span>
         </div>
         <div className="confirm__summary-row">
           <span>{t("common.subtotal", "Subtotal")}</span>

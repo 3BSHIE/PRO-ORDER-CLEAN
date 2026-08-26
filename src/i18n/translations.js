@@ -24,6 +24,11 @@ export const translations = {
       subtotal: "Subtotal",
       serviceCharge: "Service charge",
       quantity: "Quantity",
+      /* Phase 43 — QuantityStepper's accessible labels. The component is
+         customer-only (item modal + cart), so translating it touches no
+         operational screen. */
+      decreaseQuantity: "Decrease quantity",
+      increaseQuantity: "Increase quantity",
       notes: "Notes",
       extrasLabel: "Extras",
       noteLabel: "Note",
@@ -62,6 +67,32 @@ export const translations = {
       yourName: "Your name",
       identifyOrderMsg: "We'll use your name to identify your order at Table",
       continueToMenu: "Continue to menu",
+
+      /* ── Phase 43 — copy that was hardcoded in JSX until now ─────────── */
+      greeting: "Hi,",
+      whatAreYouHaving: "What are you having today?",
+      almostReadyToOrder: "You're almost ready to order.",
+      namePlaceholder: "e.g. Mohammad",
+      nameRequired: "Please enter your name.",
+      nameTooShort: "Name must be at least 2 characters.",
+      nameTooLong: "Name must be 30 characters or fewer.",
+      browseMenuMsg: "Browse the menu and add a few things you'd like to order.",
+      clearSearch: "Clear search",
+      nothingMatched: "Nothing matched",
+      tryDifferentWord: "Try a different word or browse by category.",
+      /* Counted phrases — see src/i18n/counts.js for why the two languages
+         are shaped differently. */
+      itemCountOne: "1 item",
+      itemCountOther: "{n} items",
+      resultCountOne: '1 result for "{q}"',
+      resultCountOther: '{n} results for "{q}"',
+      /* These two existed only under `common`, but every customer surface
+         asks for them as customer.* — so they silently fell through to the
+         English fallback in Arabic. Defining them here fixes the item cards,
+         the item modal and Settings' theme preview at once, with no component
+         change. */
+      popular: "Popular",
+      featured: "Featured",
       menu: "Menu",
       myOrders: "My Orders",
       addToCart: "Add to cart",
@@ -496,6 +527,8 @@ export const translations = {
       subtotal: "المجموع الفرعي",
       serviceCharge: "رسوم الخدمة",
       quantity: "الكمية",
+      decreaseQuantity: "إنقاص الكمية",
+      increaseQuantity: "زيادة الكمية",
       notes: "ملاحظات",
       extrasLabel: "إضافات",
       noteLabel: "ملاحظة",
@@ -534,6 +567,27 @@ export const translations = {
       yourName: "اسمك",
       identifyOrderMsg: "سنستخدم اسمك لتمييز طلبك في الطاولة",
       continueToMenu: "المتابعة إلى القائمة",
+
+      /* ── Phase 43 ─────────────────────────────────────────────────────── */
+      greeting: "مرحبًا،",
+      whatAreYouHaving: "ماذا ترغب اليوم؟",
+      almostReadyToOrder: "أنت على وشك البدء بطلبك.",
+      namePlaceholder: "مثال: محمد",
+      nameRequired: "يرجى إدخال اسمك.",
+      nameTooShort: "يجب ألا يقل الاسم عن حرفين.",
+      nameTooLong: "يجب ألا يزيد الاسم عن 30 حرفًا.",
+      browseMenuMsg: "تصفّح القائمة وأضف ما ترغب بطلبه.",
+      clearSearch: "مسح البحث",
+      nothingMatched: "لم يطابق البحث",
+      tryDifferentWord: "جرّب كلمة أخرى أو تصفّح حسب الفئة.",
+      /* The plural forms put the number after a fixed noun phrase so they
+         stay grammatical for every count — see src/i18n/counts.js. */
+      itemCountOne: "صنف واحد",
+      itemCountOther: "الأصناف: {n}",
+      resultCountOne: 'نتيجة واحدة للبحث عن "{q}"',
+      resultCountOther: 'نتائج البحث عن "{q}": {n}',
+      popular: "الأكثر طلباً",
+      featured: "مميز",
       menu: "القائمة",
       myOrders: "طلباتي",
       addToCart: "أضف إلى السلة",

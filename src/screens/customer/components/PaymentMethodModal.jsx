@@ -166,7 +166,7 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
       <div className="pm-modal" role="dialog" aria-modal="true" aria-label={t("payment.choosePaymentMethod", "Choose payment method")}>
         <div className="pm-modal__handle" />
 
-        <button type="button" className="pm-modal__x" onClick={handleDismiss} disabled={isSubmitting} aria-label="Close">
+        <button type="button" className="pm-modal__x" onClick={handleDismiss} disabled={isSubmitting} aria-label={t("common.close", "Close")}>
           <X size={16} strokeWidth={2.4} />
         </button>
 

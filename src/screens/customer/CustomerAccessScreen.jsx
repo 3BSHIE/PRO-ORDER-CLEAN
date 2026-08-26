@@ -13,12 +13,15 @@ import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
 
-/* Name validation — trimmed, 2–30 chars */
-function validateName(raw) {
+/* Name validation — trimmed, 2–30 chars.
+   Phase 43 — takes `t` rather than reaching for the language module itself, so
+   the message it returns is in whatever language is active at the moment the
+   caller validates. The rules are unchanged; only the wording is translated. */
+function validateName(raw, t) {
   const name = raw.trim();
-  if (!name)          return "Please enter your name.";
-  if (name.length < 2) return "Name must be at least 2 characters.";
-  if (name.length > 30) return "Name must be 30 characters or fewer.";
+  if (!name)           return t("customer.nameRequired", "Please enter your name.");
+  if (name.length < 2)  return t("customer.nameTooShort", "Name must be at least 2 characters.");
+  if (name.length > 30) return t("customer.nameTooLong", "Name must be 30 characters or fewer.");
   return null; // valid
 }
 
@@ -105,7 +108,7 @@ function WelcomeView({ restaurant, table, onContinue }) {
       <h1 className="access__table">
         {t("customer.welcomeToTable", "Welcome to Table")} <i>#{table.tableNumber}</i>
       </h1>
-      <p className="access__msg">You're almost ready to order.</p>
+      <p className="access__msg">{t("customer.almostReadyToOrder", "You're almost ready to order.")}</p>
       <Button size="lg" icon={ArrowRight} onClick={onContinue}>
         {t("common.continue", "Continue")}
       </Button>
@@ -122,12 +125,12 @@ function NameOnboardingView({ restaurant, table, onBack, onSubmit }) {
 
   function handleChange(e) {
     setName(e.target.value);
-    if (touched) setError(validateName(e.target.value));
+    if (touched) setError(validateName(e.target.value, t));
   }
 
   function handleSubmit() {
     setTouched(true);
-    const err = validateName(name);
+    const err = validateName(name, t);
     if (err) { setError(err); return; }
     onSubmit(name.trim());
   }
@@ -152,7 +155,7 @@ function NameOnboardingView({ restaurant, table, onBack, onSubmit }) {
 
         <Input
           label={t("customer.yourName", "Your name")}
-          placeholder="e.g. Mohammad"
+          placeholder={t("customer.namePlaceholder", "e.g. Mohammad")}
           value={name}
           error={error}
           autoFocus

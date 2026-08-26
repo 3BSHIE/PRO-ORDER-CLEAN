@@ -9,6 +9,7 @@ import Toast   from "../../components/ui/Toast.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatItemCount, formatResultCount } from "../../i18n/counts.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
@@ -204,14 +205,17 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     if (activeCategory && !activeCat) setActiveCategory(null);
   }, [activeCategory, activeCat]);
 
+  /* Phase 43 — both counted labels go through the shared formatters so each
+     language picks its own shape. The category branch is untouched: emoji and
+     name are Admin-entered content, not UI copy. */
   const sectionTitle = isSearching
-    ? `${filteredItems.length} result${filteredItems.length !== 1 ? "s" : ""} for "${searchQuery.trim()}"`
+    ? formatResultCount(t, filteredItems.length, searchQuery.trim())
     : activeCat
     ? `${activeCat.emoji} ${activeCat.name}`
     : t("customer.menu", "Menu");
   const sectionCount = isSearching
     ? null
-    : `${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""}`;
+    : formatItemCount(t, filteredItems.length);
 
   /* Open the modal for any tapped item (available or not) */
   const handleOpenItem = useCallback((item) => setSelectedItem(item), []);
@@ -289,11 +293,14 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header className="menu-header anim-rise">
           <p className="menu-header__rest">{restaurant.name}</p>
+          {/* Phase 43 — the greeting word is translated; the name stays
+              exactly as the guest typed it and is never localized. */}
           <h1 className="menu-header__greeting">
-            Hi, <i>{session.customerName}</i> 👋
+            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i> 👋
           </h1>
           <p className="menu-header__meta">
-            {t("customer.yourTable", "Table")} #{table.tableNumber} &middot; What are you having today?
+            {t("customer.yourTable", "Table")} #{table.tableNumber} &middot;{" "}
+            {t("customer.whatAreYouHaving", "What are you having today?")}
           </p>
 
           {/* Phase 25 — quiet, always-available way to ask for a person.
@@ -343,7 +350,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               type="button"
               className="menu-search__clear"
               onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
+              aria-label={t("customer.clearSearch", "Clear search")}
             >
               ✕
             </button>
@@ -425,6 +432,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
 /* ── Grouped view (All, no search) ─────────────────────────────────────── */
 function GroupedView({ items, categories, onOpen }) {
+  const { t } = useLanguage();
   return (
     <>
       {/* Receives the already visibility-filtered category list. */}
@@ -438,7 +446,7 @@ function GroupedView({ items, categories, onOpen }) {
                 {cat.emoji} {cat.name}
               </h2>
               <span className="menu-cat-section__count">
-                {catItems.length} item{catItems.length !== 1 ? "s" : ""}
+                {formatItemCount(t, catItems.length)}
               </span>
             </div>
             <ItemGrid items={catItems} categories={categories} onOpen={onOpen} />
@@ -548,9 +556,12 @@ function SearchEmpty({ query }) {
     <div className="menu-search-empty anim-rise">
       <div className="menu-search-empty__icon">🔍</div>
       <h3 className="menu-search-empty__title">{t("customer.noItemsFound", "No items found")}</h3>
+      {/* Phase 43 — the query keeps its own <strong> so it stays visually
+          distinct in both languages, and is never translated. */}
       <p className="menu-search-empty__sub">
-        Nothing matched <strong>"{query.trim()}"</strong>.<br />
-        Try a different word or browse by category.
+        {t("customer.nothingMatched", "Nothing matched")}{" "}
+        <strong>"{query.trim()}"</strong>.<br />
+        {t("customer.tryDifferentWord", "Try a different word or browse by category.")}
       </p>
     </div>
   );

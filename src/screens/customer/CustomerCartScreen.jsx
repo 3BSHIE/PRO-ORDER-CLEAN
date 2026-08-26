@@ -556,7 +556,7 @@ function EmptyCartView({ onBackToMenu }) {
       </span>
       <h2 className="cart-empty__title">{t("customer.yourCartEmpty", "Your cart is empty.")}</h2>
       <p className="cart-empty__sub">
-        Browse the menu and add a few things you'd like to order.
+        {t("customer.browseMenuMsg", "Browse the menu and add a few things you'd like to order.")}
       </p>
       <Button size="lg" icon={ArrowLeft} onClick={onBackToMenu}>
         {t("common.backToMenu", "Back to menu")}
