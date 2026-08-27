@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ChevronDown, PackageSearch, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -241,6 +241,11 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     setPendingCancelOrder(null);
   }
 
+  /* Phase 50 - is the order awaiting cancel confirmation already paid?
+     Read from the order snapshot, so the dialog always reflects the real
+     payment state rather than anything assumed at click time. */
+  const cancelTargetIsPaid = pendingCancelOrder?.paymentStatus === "paid";
+
   return (
     <AdminLayout
       restaurant={restaurant}
@@ -290,6 +295,19 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         </div>
       )}
 
+      {/* Phase 50 - the cancel confirmation is now payment-aware.
+
+          An unpaid order keeps exactly the dialog it always had: no money is
+          involved, so a financial warning would only be noise.
+
+          A PAID order is the case this phase exists for. The app has no
+          refund operation at all, so cancelling one silently leaves a
+          customer who has already settled a bill for an order that no longer
+          exists, and staff were never told. The warning states plainly that
+          no refund happens automatically, and the details are shown so the
+          employee can see exactly which paid order they are cancelling.
+          Nothing here claims a refund was made, matching the customer-side
+          wording Phase 36 settled on. */}
       <Modal
         open={!!pendingCancelOrder}
         onClose={handleDismissCancel}
@@ -300,7 +318,9 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               {t("common.keepOrder", "Keep order")}
             </Button>
             <Button variant="danger" onClick={handleConfirmCancel}>
-              {t("admin.cancelOrderModalBtn", "Cancel order")}
+              {cancelTargetIsPaid
+                ? t("admin.cancelPaidOrderBtn", "Cancel Paid Order")
+                : t("admin.cancelOrderModalBtn", "Cancel order")}
             </Button>
           </>
         }
@@ -308,8 +328,63 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         <p className="ad-cancel-modal__msg">
           {t("admin.cancelNotifyMsg", "This will notify the customer that the order was canceled.")}
         </p>
-        {pendingCancelOrder && (
+
+        {pendingCancelOrder && !cancelTargetIsPaid && (
           <p className="ad-cancel-modal__order">{pendingCancelOrder.orderId}</p>
+        )}
+
+        {pendingCancelOrder && cancelTargetIsPaid && (
+          <>
+            <div className="ad-paid-warn" role="alert">
+              <AlertTriangle size={15} strokeWidth={2.2} aria-hidden="true" />
+              <div>
+                <p className="ad-paid-warn__title">
+                  {t("admin.paidCancelWarnTitle", "Payment already recorded")}
+                </p>
+                <p className="ad-paid-warn__msg">
+                  {t(
+                    "admin.paidCancelWarnMsg",
+                    "This order is marked as paid. Canceling it will not refund the customer automatically - please handle any refund separately."
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Same detail rows as the Phase 49 payment dialog, so the two
+                money-related confirmations read identically. */}
+            <div className="ad-paid-modal__details">
+              <div className="ad-paid-modal__row">
+                <span>{t("orders.orderBadge", "Order")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">{pendingCancelOrder.orderId}</span>
+              </div>
+              <div className="ad-paid-modal__row">
+                <span>{t("customer.yourTable", "Table")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">#{pendingCancelOrder.tableNumber}</span>
+              </div>
+              {pendingCancelOrder.customerName && (
+                <div className="ad-paid-modal__row">
+                  <span>{t("common.forCustomer", "For")}</span>
+                  <span className="ad-paid-modal__value">{pendingCancelOrder.customerName}</span>
+                </div>
+              )}
+              <div className="ad-paid-modal__row">
+                <span>{t("payment.paymentMethod", "Payment method")}</span>
+                <span className="ad-paid-modal__value">
+                  {t(METHOD_LABEL_KEY[pendingCancelOrder.paymentMethod.id], pendingCancelOrder.paymentMethod.label)}
+                </span>
+              </div>
+              <div className="ad-paid-modal__row">
+                <span>{t("payment.paymentStatus", "Payment status")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--paid">
+                  {t("payment.paid", "Paid")}
+                </span>
+              </div>
+              <div className="ad-paid-modal__row ad-paid-modal__row--total">
+                <span>{t("common.total", "Total")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">{fmtPrice(pendingCancelOrder.total)}</span>
+              </div>
+            </div>
+          </>
         )}
       </Modal>
 

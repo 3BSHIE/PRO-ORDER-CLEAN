@@ -211,6 +211,12 @@ export const translations = {
       cancelThisOrder: "Cancel this order?",
       cancelNotifyMsg: "This will notify the customer that the order was canceled.",
       cancelOrderModalBtn: "Cancel order",
+      /* Phase 50 - shown only when the order being cancelled is already paid.
+         Never says "refunded": the app performs no refund, and claiming one
+         would contradict what the customer is told (Phase 36). */
+      paidCancelWarnTitle: "Payment already recorded",
+      paidCancelWarnMsg: "This order is marked as paid. Canceling it will not refund the customer automatically - please handle any refund separately.",
+      cancelPaidOrderBtn: "Cancel Paid Order",
       noOrdersFound: "No orders found.",
       noReceivedOrders: "No received orders.",
       noPreparingOrders: "No preparing orders.",
@@ -719,6 +725,9 @@ export const translations = {
       cancelThisOrder: "إلغاء هذا الطلب؟",
       cancelNotifyMsg: "سيتم إخطار العميل بأن الطلب قد أُلغي.",
       cancelOrderModalBtn: "إلغاء الطلب",
+      paidCancelWarnTitle: "تم تسجيل الدفع مسبقًا",
+      paidCancelWarnMsg: "هذا الطلب محدد كمدفوع. إلغاؤه لن يؤدي إلى استرداد المبلغ تلقائيًا - يرجى معالجة أي استرداد بشكل منفصل.",
+      cancelPaidOrderBtn: "إلغاء الطلب المدفوع",
       noOrdersFound: "لم يتم العثور على طلبات.",
       noReceivedOrders: "لا توجد طلبات مستلمة.",
       noPreparingOrders: "لا توجد طلبات قيد التحضير.",

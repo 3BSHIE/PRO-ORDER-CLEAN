@@ -2695,3 +2695,25 @@ button{font-family:var(--font-body)}
   font-size:14px}
 .ad-paid-modal__row--total .ad-paid-modal__value{
   font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--gold)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 50 — paid-order cancellation warning
+
+   Uses the "canceled" tone rather than the accent: this is a financial
+   consequence the employee is being asked to accept, not a neutral notice.
+   The icon is decorative — the meaning lives in the text, so the warning
+   never depends on colour alone.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ad-paid-warn{
+  display:flex;align-items:flex-start;gap:10px;
+  margin-top:12px;padding:11px 13px;border-radius:var(--r-md);
+  background:rgba(224,90,90,.09);
+  border:1px solid var(--canceled);
+  color:var(--canceled)}
+.ad-paid-warn__title{
+  margin:0 0 3px;font-size:13px;font-weight:700;line-height:1.35}
+.ad-paid-warn__msg{
+  margin:0;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+
+/* The paid state itself, in the detail rows below the warning. */
+.ad-paid-modal__value--paid{color:var(--canceled);font-weight:700}
