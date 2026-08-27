@@ -101,8 +101,16 @@ export default function CategoryVisibilityCard({ restaurant }) {
                 className={`cv-toggle ${manuallyOn ? "cv-toggle--on" : ""}`}
                 onClick={() => setCategoryVisible(restaurant.slug, category.id, !manuallyOn)}
                 aria-pressed={manuallyOn}
+                /* Phase 51 — this ternary was inverted: a category that was ON
+                   announced itself as "Hidden", directly contradicting the
+                   aria-pressed="true" sitting beside it, the Eye icon, the
+                   --on class and the "ON" text, all of which read manuallyOn
+                   the other way round. A screen-reader user toggling
+                   categories mid-service was told the opposite of the truth.
+                   The label now states the toggle's own state, so it agrees
+                   with aria-pressed rather than fighting it. */
                 aria-label={`${category.name} — ${
-                  manuallyOn ? t("admin.hidden", "Hidden") : t("admin.visible", "Visible")
+                  manuallyOn ? t("admin.visible", "Visible") : t("admin.hidden", "Hidden")
                 }`}
               >
                 {manuallyOn ? <Eye size={14} strokeWidth={2.2} /> : <EyeOff size={14} strokeWidth={2.2} />}
