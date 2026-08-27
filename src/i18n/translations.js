@@ -419,6 +419,10 @@ export const translations = {
       paymentStatus: "Payment status",
       markAsPaid: "Mark as Paid",
       paymentMarkedPaidToast: "Payment marked as paid",
+      /* Phase 49 — Mark as Paid confirmation. */
+      markPaidConfirmTitle: "Mark order as paid?",
+      markPaidConfirmMsg: "Confirm that payment has been received for this order.",
+      confirmPayment: "Confirm Payment",
       pendingAtTable: "Pending at table",
       paid: "Paid",
       unpaid: "Unpaid",
@@ -920,8 +924,16 @@ export const translations = {
     payment: {
       paymentMethod: "طريقة الدفع",
       paymentStatus: "حالة الدفع",
-      markAsPaid: "تأكيد الدفع",
+      /* Phase 49 — was "تأكيد الدفع" ("confirm payment"), which is what the
+         new confirmation button in the dialog now says. Two different actions
+         reading identically in Arabic defeated the point of the extra step,
+         so the card trigger takes the wording its English label always had:
+         mark as paid, i.e. open the dialog. */
+      markAsPaid: "تحديد كمدفوع",
       paymentMarkedPaidToast: "تم تأكيد الدفع",
+      markPaidConfirmTitle: "تأكيد استلام الدفع؟",
+      markPaidConfirmMsg: "أكد أنه تم استلام قيمة هذا الطلب.",
+      confirmPayment: "تأكيد الدفع",
       pendingAtTable: "بانتظار الدفع عند الطاولة",
       paid: "مدفوع",
       unpaid: "غير مدفوع",

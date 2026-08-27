@@ -2668,3 +2668,30 @@ button{font-family:var(--font-body)}
 .mm-group-card--invalid{
   border-color:var(--canceled);
   box-shadow:0 0 0 1px var(--canceled) inset}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 49 — Mark as Paid confirmation details
+
+   A compact label/value list of the bill being settled. Deliberately quiet
+   type: the point is that the staff member can check the table and amount
+   at a glance before an irreversible write, not that the dialog shouts.
+   Scoped to the Admin surface, so no customer screen is affected.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ad-paid-modal__details{
+  display:flex;flex-direction:column;gap:7px;
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.ad-paid-modal__row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  font-size:13px;color:var(--text-2)}
+.ad-paid-modal__value{
+  color:var(--text-1);font-weight:600;text-align:end}
+/* Only the BARE numeric tokens are LTR-isolated — order id, table number and
+   amount. The customer name and payment method are ordinary text and must
+   follow the document direction: forcing an Arabic name to LTR would reorder
+   it, which is the mistake this codebase already learned to avoid. */
+.ad-paid-modal__value--num{direction:ltr;unicode-bidi:isolate}
+.ad-paid-modal__row--total{
+  margin-top:2px;padding-top:8px;border-top:1px solid var(--border);
+  font-size:14px}
+.ad-paid-modal__row--total .ad-paid-modal__value{
+  font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--gold)}

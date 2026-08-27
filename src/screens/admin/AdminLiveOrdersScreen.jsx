@@ -110,6 +110,9 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      built from this app's own components has no such restriction and works
      identically in the real deployed app and in any preview environment. */
   const [pendingCancelOrder, setPendingCancelOrder] = useState(null);
+  /* Phase 49 — the order awaiting Mark-as-Paid confirmation, or null. Same
+     shape and same reasoning as pendingCancelOrder above. */
+  const [pendingPaidOrder, setPendingPaidOrder] = useState(null);
 
   const refresh = useCallback(() => {
     setAllOrders(getCustomerOrders());
@@ -168,8 +171,32 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      only valid for non-canceled orders whose payment is still pending, and
      updateCustomerOrderPaymentStatus itself is idempotent (a no-op if the
      order is already marked "paid"). */
-  function handleMarkAsPaid(order) {
+  /* Phase 49 — Step 1: ask, do not act. Marking a bill paid is the one staff
+     action with no way back in the UI: the action disappears once it lands,
+     and the app has no un-mark and no refund. A mistap on the wrong table
+     therefore records an unpaid bill as settled, permanently. The same
+     business guards as before run here, so an ineligible order cannot even
+     open the dialog. Nothing is written at this point. */
+  function handleRequestMarkAsPaid(order) {
     if (order.paymentStatus !== "pending_at_table" || order.status === "canceled" || updatingOrderId === order.orderId) return;
+    setPendingPaidOrder(order);
+  }
+
+  /* Step 2a: confirmed — perform the write. Clearing pendingPaidOrder FIRST
+     is the duplicate guard: a second Confirm tap in the same burst finds it
+     already null and returns before touching anything. This mirrors
+     handleConfirmCancel, and sits on top of the existing updatingOrderId
+     guard and the idempotent data-layer write. */
+  function handleConfirmMarkAsPaid() {
+    const order = pendingPaidOrder;
+    setPendingPaidOrder(null);
+    if (!order) return;
+
+    /* Re-check rather than trust the snapshot the dialog was opened with —
+       another tab could have cancelled or settled this order while the
+       dialog sat open. */
+    if (order.paymentStatus !== "pending_at_table" || order.status === "canceled") return;
+
     setUpdatingOrderId(order.orderId);
     const updated = updateCustomerOrderPaymentStatus(order.orderId, "paid");
     if (updated) {
@@ -178,6 +205,11 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
       setToastVisible(true);
     }
     setUpdatingOrderId(null);
+  }
+
+  /* Step 2b: dismissed by Cancel, X, overlay or Escape — nothing changes. */
+  function handleDismissMarkAsPaid() {
+    setPendingPaidOrder(null);
   }
 
   /* Step 1: open the confirmation modal for a cancelable order. The actual
@@ -252,7 +284,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               isUpdating={updatingOrderId === order.orderId}
               onMarkDelivered={() => handleMarkDelivered(order)}
               onCancelOrder={() => handleRequestCancel(order)}
-              onMarkAsPaid={() => handleMarkAsPaid(order)}
+              onMarkAsPaid={() => handleRequestMarkAsPaid(order)}
             />
           ))}
         </div>
@@ -278,6 +310,62 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         </p>
         {pendingCancelOrder && (
           <p className="ad-cancel-modal__order">{pendingCancelOrder.orderId}</p>
+        )}
+      </Modal>
+
+      {/* Phase 49 — Mark as Paid confirmation.
+
+          Every field is read from the order snapshot, never hardcoded, and
+          shows exactly what the collapsed card and expanded detail already
+          show for the same order — so the dialog cannot disagree with the
+          bill the staff member is looking at. The point is to make choosing
+          the wrong table obvious BEFORE the irreversible write, which is why
+          table and customer are here alongside the amount. */}
+      <Modal
+        open={!!pendingPaidOrder}
+        onClose={handleDismissMarkAsPaid}
+        title={t("payment.markPaidConfirmTitle", "Mark order as paid?")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={handleDismissMarkAsPaid}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button onClick={handleConfirmMarkAsPaid}>
+              {t("payment.confirmPayment", "Confirm Payment")}
+            </Button>
+          </>
+        }
+      >
+        <p className="ad-cancel-modal__msg">
+          {t("payment.markPaidConfirmMsg", "Confirm that payment has been received for this order.")}
+        </p>
+        {pendingPaidOrder && (
+          <div className="ad-paid-modal__details">
+            <div className="ad-paid-modal__row">
+              <span>{t("orders.orderBadge", "Order")}</span>
+              <span className="ad-paid-modal__value ad-paid-modal__value--num">{pendingPaidOrder.orderId}</span>
+            </div>
+            <div className="ad-paid-modal__row">
+              <span>{t("customer.yourTable", "Table")}</span>
+              <span className="ad-paid-modal__value ad-paid-modal__value--num">#{pendingPaidOrder.tableNumber}</span>
+            </div>
+            {pendingPaidOrder.customerName && (
+              <div className="ad-paid-modal__row">
+                <span>{t("common.forCustomer", "For")}</span>
+                <span className="ad-paid-modal__value">{pendingPaidOrder.customerName}</span>
+              </div>
+            )}
+            <div className="ad-paid-modal__row">
+              <span>{t("payment.paymentMethod", "Payment method")}</span>
+              <span className="ad-paid-modal__value">
+                {t(METHOD_LABEL_KEY[pendingPaidOrder.paymentMethod.id], pendingPaidOrder.paymentMethod.label)}
+              </span>
+            </div>
+            <div className="ad-paid-modal__row ad-paid-modal__row--total">
+              <span>{t("common.total", "Total")}</span>
+              <span className="ad-paid-modal__value ad-paid-modal__value--num">{fmtPrice(pendingPaidOrder.total)}</span>
+            </div>
+          </div>
         )}
       </Modal>
 
