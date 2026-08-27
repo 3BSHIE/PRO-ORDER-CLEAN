@@ -2655,3 +2655,16 @@ button{font-family:var(--font-body)}
    down the screen when the kitchen is busy. */
 .customer-theme .busy-notice{
   margin-bottom:12px;padding:7px 12px;font-size:12px;gap:8px}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 48 — invalid choice group
+
+   Marks the whole group card, not just the field, so a manager scrolling a
+   long product form can find the groups that need attention without reading
+   every label. The per-field messages inside carry the actual reason, so
+   this border is a locator rather than the error itself — state is never
+   conveyed by colour alone.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mm-group-card--invalid{
+  border-color:var(--canceled);
+  box-shadow:0 0 0 1px var(--canceled) inset}

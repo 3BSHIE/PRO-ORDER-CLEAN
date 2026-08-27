@@ -67,6 +67,95 @@ import { fmtPrice } from "../../lib/format.js";
    one product editor is ever mounted at a time, so a constant is safe. */
 const PRICE_FIELD_ID = "mm-product-price";
 
+/* Phase 48 — per-group field ids, same purpose as PRICE_FIELD_ID above. */
+const groupNameFieldId = (groupId) => `mm-group-name-${groupId}`;
+const groupMaxFieldId  = (groupId) => `mm-group-max-${groupId}`;
+
+/**
+ * Phase 48 — strict parsing for a choice group's selection limit.
+ *
+ * The editor previously coerced this on every keystroke with
+ * `parseInt(value, 10) || 1`, which destroyed the manager's input before it
+ * could ever be judged:
+ *   ""    -> 1     an emptied field silently became "choose one"
+ *   "0"   -> 1     so did zero
+ *   "abc" -> 1     and anything unparseable
+ *   "1.5" -> 1     a decimal was truncated without a word
+ *   "-1"  -> -1    negative survived, because parseInt("-1") is truthy
+ *
+ * Whole numbers only — a selection limit of 2.5 has no meaning — so the
+ * regex rejects any decimal point rather than rounding one away.
+ *
+ * @param {unknown} raw
+ * @returns {number|null} an integer >= 1, or null if invalid
+ */
+export function parseSelectionLimit(raw) {
+  const text = String(raw ?? "").trim();
+  /* Digits only: rejects "", "1.5", "-1", "+1", "abc", "1e2", " ". */
+  if (!/^\d+$/.test(text)) return null;
+
+  const value = Number(text);
+  /* The >= 1 test is what rejects "0" and "00". */
+  if (!Number.isInteger(value) || value < 1) return null;
+
+  return value;
+}
+
+/**
+ * Phase 48 — validate every choice group the save would actually persist.
+ *
+ * Judged against the FINAL options, not the visible rows: the save filters
+ * out blank-named options, so a group showing three empty rows really has
+ * zero options and is treated that way. That is the exact case Phase 46
+ * found — a required group could be saved with nothing to choose from, and
+ * the customer then met a required question with no answers and an item that
+ * could never be added to the cart.
+ *
+ * Blank-NAMED groups are skipped, not flagged: the save already discards
+ * them entirely, so an untouched leftover row is not the manager's problem.
+ * A group that HAS a name is a stated intention, and an intention with no
+ * options is incomplete rather than ignorable — see the empty-optional-group
+ * note in handleSubmit.
+ *
+ * Returns error codes rather than sentences so this stays pure and testable;
+ * the component maps them to translated copy.
+ *
+ * @param {Array<object>} choices — draft choice groups
+ * @returns {{ok:boolean, errors:Record<string,{max?:string,options?:string}>,
+ *            firstInvalidGroupId:string|null}}
+ */
+export function validateChoiceGroups(choices) {
+  const errors = {};
+  let firstInvalidGroupId = null;
+
+  for (const group of choices || []) {
+    if (!(group.name || "").trim()) continue; // dropped on save anyway
+
+    const validOptions = (group.options || []).filter((o) => (o.name || "").trim());
+    const limit = parseSelectionLimit(group.maxSelections);
+    const groupError = {};
+
+    if (validOptions.length === 0) {
+      groupError.options = group.required ? "requiredNeedsOption" : "needsOption";
+    }
+
+    if (limit === null) {
+      groupError.max = "invalid";
+    } else if (validOptions.length > 0 && limit > validOptions.length) {
+      /* Only meaningful once options exist — otherwise the empty-group error
+         above is the real problem and this would just add noise. */
+      groupError.max = "tooHigh";
+    }
+
+    if (Object.keys(groupError).length > 0) {
+      errors[group.id] = groupError;
+      if (!firstInvalidGroupId) firstInvalidGroupId = group.id;
+    }
+  }
+
+  return { ok: !firstInvalidGroupId, errors, firstInvalidGroupId };
+}
+
 export function parseProductPrice(raw) {
   const text = String(raw ?? "").trim();
   /* Plain decimal only: digits, optionally one dot and more digits. Rejects
@@ -307,6 +396,10 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
      the price field itself rather than under the item name, which is where
      the shared `error` state is displayed. */
   const [priceError, setPriceError] = useState(null);
+  /* Phase 48 — { [groupId]: { max?: code, options?: code } }. Keyed by group
+     so every invalid group keeps its own error rather than one shared banner
+     losing all but the last problem. */
+  const [groupErrors, setGroupErrors] = useState({});
 
   /* ── Ingredients ──────────────────────────────────────────────────────── */
   function handleAddIngredient() {
@@ -385,6 +478,24 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       return;
     }
 
+    /* Phase 48 — every named group must be orderable before anything is
+       written. All invalid groups are marked at once so fixing one does not
+       hide the next; focus goes to the first, in display order. */
+    const groupCheck = validateChoiceGroups(choices);
+    if (!groupCheck.ok) {
+      setGroupErrors(groupCheck.errors);
+      const bad = groupCheck.errors[groupCheck.firstInvalidGroupId];
+      /* Focus the field that is actually wrong. focus() makes the browser
+         reveal it inside the modal's own scroll container, which is why this
+         does not need scrollIntoView (that would also move the page behind
+         the editor). */
+      const targetId = bad.max
+        ? groupMaxFieldId(groupCheck.firstInvalidGroupId)
+        : groupNameFieldId(groupCheck.firstInvalidGroupId);
+      document.getElementById(targetId)?.focus();
+      return;
+    }
+
     onSave({
       name: name.trim(),
       description: description.trim(),
@@ -399,9 +510,20 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       removableIngredients,
       // Drop any choice group left with an empty name, or an option left with
       // an empty name — a half-filled row shouldn't silently save as blank.
+      //
+      // Phase 48: maxSelections is normalised back to a Number here. The
+      // field now holds the raw string while editing (so invalid input can be
+      // judged instead of silently coerced), but storage keeps the numeric
+      // shape the customer modal and Phase 37 already expect. Spreading `g`
+      // and the untouched option objects preserves every existing group and
+      // option id, which Phase 37's cart matching depends on.
       choices: choices
         .filter((g) => g.name.trim())
-        .map((g) => ({ ...g, options: g.options.filter((o) => o.name.trim()) })),
+        .map((g) => ({
+          ...g,
+          maxSelections: parseSelectionLimit(g.maxSelections),
+          options: g.options.filter((o) => o.name.trim()),
+        })),
       paidAddOns: paidAddOns.filter((a) => a.name.trim()),
     });
   }
@@ -533,27 +655,78 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
 
         {/* ── Choice groups ──────────────────────────────────────────────── */}
         <h4 className="mm-section-title">{t("admin.choiceGroups", "Choice groups")}</h4>
-        {choices.map((group) => (
-          <Card key={group.id} className="mm-group-card">
+        {choices.map((group) => {
+          /* Phase 48 — this group's outstanding problems, if any. */
+          const gErr = groupErrors[group.id] || {};
+          const maxErrorText =
+            gErr.max === "invalid"
+              ? t("admin.maxSelectionsInvalid", "Enter a valid selection limit.")
+              : gErr.max === "tooHigh"
+              ? t("admin.maxSelectionsTooHigh", "Selection limit cannot exceed the number of options.")
+              : null;
+          const optionsErrorText =
+            gErr.options === "requiredNeedsOption"
+              ? t("admin.requiredGroupNeedsOption", "Required groups must have at least one option.")
+              : gErr.options === "needsOption"
+              ? t("admin.groupNeedsOption", "Add at least one option, or remove this group.")
+              : null;
+
+          /* Re-run validation for THIS group after any edit to it, so a fixed
+             group clears immediately and a still-broken one keeps its message
+             — without touching the other groups' errors. */
+          const revalidateGroup = (patchedGroup) => {
+            setGroupErrors((prev) => {
+              const { errors } = validateChoiceGroups([patchedGroup]);
+              const next = { ...prev };
+              if (errors[patchedGroup.id]) next[patchedGroup.id] = errors[patchedGroup.id];
+              else delete next[patchedGroup.id];
+              return next;
+            });
+          };
+
+          return (
+          <Card key={group.id} className={`mm-group-card ${gErr.max || gErr.options ? "mm-group-card--invalid" : ""}`}>
             <div className="mm-row-2">
               <Input
+                id={groupNameFieldId(group.id)}
                 label={t("admin.groupName", "Group name")}
                 value={group.name}
-                onChange={(e) => handleUpdateChoiceGroup(group.id, { name: e.target.value })}
+                error={optionsErrorText}
+                aria-invalid={optionsErrorText ? "true" : undefined}
+                onChange={(e) => {
+                  handleUpdateChoiceGroup(group.id, { name: e.target.value });
+                  revalidateGroup({ ...group, name: e.target.value });
+                }}
               />
               <Input
+                id={groupMaxFieldId(group.id)}
                 label={t("admin.maxSelections", "Max selections")}
                 type="number"
                 min="1"
+                step="1"
+                /* Phase 48 — the raw string is kept in state now. Coercing
+                   here with `parseInt(v) || 1` was what made "", "0", "abc"
+                   and "1.5" all silently become 1 before anything could
+                   check them. */
                 value={group.maxSelections}
-                onChange={(e) => handleUpdateChoiceGroup(group.id, { maxSelections: parseInt(e.target.value, 10) || 1 })}
+                error={maxErrorText}
+                aria-invalid={maxErrorText ? "true" : undefined}
+                onChange={(e) => {
+                  handleUpdateChoiceGroup(group.id, { maxSelections: e.target.value });
+                  revalidateGroup({ ...group, maxSelections: e.target.value });
+                }}
               />
             </div>
             <label className="mm-toggle-row">
               <input
                 type="checkbox"
                 checked={!!group.required}
-                onChange={(e) => handleUpdateChoiceGroup(group.id, { required: e.target.checked })}
+                onChange={(e) => {
+                  handleUpdateChoiceGroup(group.id, { required: e.target.checked });
+                  /* Toggling Required changes which message applies to an
+                     empty group, so re-judge it immediately. */
+                  revalidateGroup({ ...group, required: e.target.checked });
+                }}
               />
               <span>{t("common.required", "Required")}</span>
             </label>
@@ -565,7 +738,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                     className="input"
                     value={opt.name}
                     placeholder={t("admin.optionName", "Option name")}
-                    onChange={(e) => handleUpdateOption(group.id, opt.id, { name: e.target.value })}
+                    onChange={(e) => {
+                      handleUpdateOption(group.id, opt.id, { name: e.target.value });
+                      /* Naming a blank option is what turns an empty group
+                         valid, so this is the edit that most often clears
+                         the error. */
+                      revalidateGroup({
+                        ...group,
+                        options: group.options.map((o) =>
+                          o.id === opt.id ? { ...o, name: e.target.value } : o
+                        ),
+                      });
+                    }}
                   />
                   <input
                     className="input mm-option-row__price"
@@ -578,7 +762,14 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                   <button
                     type="button"
                     className="mm-icon-btn mm-icon-btn--danger"
-                    onClick={() => handleRemoveOption(group.id, opt.id)}
+                    onClick={() => {
+                      handleRemoveOption(group.id, opt.id);
+                      /* Removing the last option can invalidate the group. */
+                      revalidateGroup({
+                        ...group,
+                        options: group.options.filter((o) => o.id !== opt.id),
+                      });
+                    }}
                     aria-label={t("common.remove", "Remove")}
                   >
                     <X size={14} strokeWidth={2.4} />
@@ -590,12 +781,27 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
               <Button type="button" variant="outline" size="sm" onClick={() => handleAddOption(group.id)}>
                 {t("admin.addOption", "Add option")}
               </Button>
-              <Button type="button" variant="danger" size="sm" onClick={() => handleRemoveChoiceGroup(group.id)}>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  handleRemoveChoiceGroup(group.id);
+                  /* Drop the removed group's error with it, so a deleted
+                     group cannot keep blocking Save from the shadows. */
+                  setGroupErrors((prev) => {
+                    const next = { ...prev };
+                    delete next[group.id];
+                    return next;
+                  });
+                }}
+              >
                 {t("admin.removeGroup", "Remove group")}
               </Button>
             </div>
           </Card>
-        ))}
+          );
+        })}
         <Button type="button" variant="outline" size="sm" icon={Plus} onClick={handleAddChoiceGroup}>
           {t("admin.addChoiceGroup", "Add choice group")}
         </Button>
