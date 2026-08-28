@@ -359,6 +359,31 @@ export const translations = {
       visible: "Visible",
       hidden: "Hidden",
       offSchedule: "Off schedule",
+
+      /* ── Phase 54 — restaurant-facing wording for the two category
+         switches. The stored fields are still isActive / isVisible; only
+         what a manager reads changed. "Active" and "Visible" were near
+         synonyms in English and gave no hint that one overrides the other. */
+      onMenu: "On the Menu",
+      onMenuHint: "Turn this off to remove the category from the customer menu entirely.",
+      availableNow: "Available Now",
+      availableNowHint: "Temporarily show or hide this category during service.",
+      scheduleExplainer: "Can automatically make it unavailable at certain times.",
+
+      /* Effective customer-facing outcome, one badge per row. These replace
+         a pair of badges where "Hidden" meant two different things. */
+      stateAvailableNow: "Available Now",
+      stateUnavailable: "Unavailable",
+      stateOutsideHours: "Outside hours",
+      stateOffMenu: "Off Menu",
+
+      /* Shown under the operational toggle when the manual switch is on but
+         the schedule is currently keeping the category off the menu. */
+      outsideScheduledHours: "Outside scheduled hours",
+      /* Accessible-name fragments for the toggle (Phase 51 keeps
+         aria-pressed on the MANUAL state; this only adds context). */
+      availableNowOn: "Available Now: On",
+      availableNowOff: "Available Now: Off",
       alwaysAvailable: "Always available",
       scheduled: "Scheduled",
       startTime: "Start time",
@@ -878,6 +903,22 @@ export const translations = {
       visible: "ظاهر",
       hidden: "مخفي",
       offSchedule: "خارج وقت الظهور",
+
+      /* ── Phase 54 ─────────────────────────────────────────────────────── */
+      onMenu: "موجود في المنيو",
+      onMenuHint: "أوقف هذا الخيار لإزالة التصنيف من منيو العملاء نهائيًا.",
+      availableNow: "متاح حاليًا",
+      availableNowHint: "إظهار أو إخفاء التصنيف مؤقتًا أثناء الخدمة.",
+      scheduleExplainer: "يمكن أن يجعله غير متاح تلقائيًا في أوقات محددة.",
+
+      stateAvailableNow: "متاح حاليًا",
+      stateUnavailable: "غير متاح",
+      stateOutsideHours: "خارج ساعات التوفر",
+      stateOffMenu: "خارج المنيو",
+
+      outsideScheduledHours: "خارج ساعات التوفر المحددة",
+      availableNowOn: "متاح حاليًا: مفعّل",
+      availableNowOff: "متاح حاليًا: متوقف",
       alwaysAvailable: "متاح دائمًا",
       scheduled: "حسب الوقت",
       startTime: "وقت البدء",

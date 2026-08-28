@@ -55,7 +55,7 @@ export default function CategoryVisibilityCard({ restaurant }) {
   return (
     <Card className="cv-card">
       <div className="cv-card__head">
-        <h2 className="cv-card__title">{t("admin.categoryVisibility", "Category Visibility")}</h2>
+        <h2 className="cv-card__title">{t("admin.availableNow", "Available Now")}</h2>
         <p className="cv-card__sub">
           {t("admin.categoryVisibilityHint", "Turn categories on or off for service.")}
         </p>
@@ -89,11 +89,18 @@ export default function CategoryVisibilityCard({ restaurant }) {
                   its window, the reason is spelled out so nobody hunts for a
                   broken switch. */}
               {state.visible ? (
-                <Badge tone="ready" dot>{t("admin.visible", "Visible")}</Badge>
+                <Badge tone="ready" dot>{t("admin.stateAvailableNow", "Available Now")}</Badge>
               ) : state.reason === "schedule" ? (
-                <Badge tone="preparing" dot>{t("admin.offSchedule", "Off schedule")}</Badge>
+                <Badge tone="preparing" dot>{t("admin.stateOutsideHours", "Outside hours")}</Badge>
+              ) : state.reason === "inactive" ? (
+                /* Phase 54 — defensive, and normally unreachable: the list
+                   above filters out categories that are off the menu, so a
+                   cashier is never shown a switch that cannot work. Kept so
+                   this badge cannot fall through to "Unavailable" and imply
+                   a temporary state if that filter ever changes. */
+                <Badge tone="neutral">{t("admin.stateOffMenu", "Off Menu")}</Badge>
               ) : (
-                <Badge tone="canceled" dot>{t("admin.hidden", "Hidden")}</Badge>
+                <Badge tone="canceled" dot>{t("admin.stateUnavailable", "Unavailable")}</Badge>
               )}
 
               <button
@@ -109,9 +116,25 @@ export default function CategoryVisibilityCard({ restaurant }) {
                    categories mid-service was told the opposite of the truth.
                    The label now states the toggle's own state, so it agrees
                    with aria-pressed rather than fighting it. */
-                aria-label={`${category.name} — ${
-                  manuallyOn ? t("admin.visible", "Visible") : t("admin.hidden", "Hidden")
-                }`}
+                /* Phase 54 — builds on Phase 51. aria-pressed still reports the
+                   MANUAL switch, and the name now leads with that same manual
+                   state so the two can never disagree. Effective context is
+                   appended only when it would otherwise contradict what the
+                   control appears to say: switched on, yet customers cannot
+                   see it because of the schedule or because the category is
+                   off the menu. A plainly-on or plainly-off category adds
+                   nothing, keeping the name short. */
+                aria-label={[
+                  category.name,
+                  manuallyOn
+                    ? t("admin.availableNowOn", "Available Now: On")
+                    : t("admin.availableNowOff", "Available Now: Off"),
+                  manuallyOn && !state.visible
+                    ? state.reason === "schedule"
+                      ? t("admin.outsideScheduledHours", "Outside scheduled hours")
+                      : t("admin.stateOffMenu", "Off Menu")
+                    : null,
+                ].filter(Boolean).join(" — ")}
               >
                 {manuallyOn ? <Eye size={14} strokeWidth={2.2} /> : <EyeOff size={14} strokeWidth={2.2} />}
                 <span>{manuallyOn ? t("prep.on", "ON") : t("prep.off", "OFF")}</span>

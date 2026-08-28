@@ -25,11 +25,27 @@ function CategoryStateBadge({ category, timeZone }) {
   const { t } = useLanguage();
   const { visible, reason } = getCategoryVisibilityState(category, { timeZone });
 
-  if (visible) return <Badge tone="ready" dot>{t("admin.visible", "Visible")}</Badge>;
+  /* Phase 54 — ONE badge stating the current customer-facing outcome.
+
+     Previously this rendered "Visible" / "Off schedule" / "Hidden" beside a
+     second Active/Inactive badge. That pair was the confusion Phase 46
+     found: "Active" and "Visible" read as synonyms, nothing said which one
+     wins, and "Hidden" was shown for two genuinely different situations —
+     a category taken off the menu entirely, and one merely switched off for
+     this service. They are now separate words.
+
+     Because the badge reports the EFFECTIVE state, precedence becomes
+     visible for free: isActive === false always resolves to "Off Menu",
+     whatever the operational switch says. The second badge is therefore
+     redundant and was removed rather than reworded. */
+  if (visible) return <Badge tone="ready" dot>{t("admin.stateAvailableNow", "Available Now")}</Badge>;
   if (reason === "schedule") {
-    return <Badge tone="preparing" dot>{t("admin.offSchedule", "Off schedule")}</Badge>;
+    return <Badge tone="preparing" dot>{t("admin.stateOutsideHours", "Outside hours")}</Badge>;
   }
-  return <Badge tone="canceled" dot>{t("admin.hidden", "Hidden")}</Badge>;
+  if (reason === "inactive") {
+    return <Badge tone="neutral">{t("admin.stateOffMenu", "Off Menu")}</Badge>;
+  }
+  return <Badge tone="canceled" dot>{t("admin.stateUnavailable", "Unavailable")}</Badge>;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -188,10 +204,6 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
                   category regardless of visibility. */}
               <CategoryStateBadge category={cat} timeZone={settings.timeZone} />
 
-              <Badge tone={cat.isActive ? "gold" : "neutral"}>
-                {cat.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
-              </Badge>
-
               <div className="mm-cat-row__actions">
                 <button
                   type="button"
@@ -332,27 +344,36 @@ function CategoryEditorModal({ category, onSave, onClose }) {
         placeholder="https://…"
         style={{ marginBottom: 14 }}
       />
+      {/* Phase 54 — same isActive field, wording a manager can act on. */}
       <label className="mm-toggle-row">
         <input
           type="checkbox"
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
         />
-        <span>{t("admin.active", "Active")}</span>
+        <span>{t("admin.onMenu", "On the Menu")}</span>
       </label>
+      <p className="mm-toggle-hint">{t("admin.onMenuHint", "Turn this off to remove the category from the customer menu entirely.")}</p>
 
       {/* ── Phase 28: Category Visibility ──────────────────────────────── */}
       <div className="mm-divider" style={{ margin: "16px 0 12px" }} />
-      <h4 className="mm-section-title">{t("admin.categoryVisibility", "Category Visibility")}</h4>
+      <h4 className="mm-section-title">{t("admin.availableNow", "Available Now")}</h4>
 
-      <label className="mm-toggle-row" style={{ marginBottom: 12 }}>
+      {/* Phase 54 — the operational switch always reads "Available Now", so
+          the checkbox states what it CONTROLS rather than renaming itself
+          between Visible/Hidden as it is toggled. */}
+      <label className="mm-toggle-row">
         <input
           type="checkbox"
           checked={isVisible}
           onChange={(e) => setIsVisible(e.target.checked)}
         />
-        <span>{isVisible ? t("admin.visible", "Visible") : t("admin.hidden", "Hidden")}</span>
+        <span>{t("admin.availableNow", "Available Now")}</span>
       </label>
+      <p className="mm-toggle-hint">{t("admin.availableNowHint", "Temporarily show or hide this category during service.")}</p>
+      <p className="mm-toggle-hint" style={{ marginBottom: 12 }}>
+        {t("admin.scheduleExplainer", "Can automatically make it unavailable at certain times.")}
+      </p>
 
       <label className="field mm-field" style={{ marginBottom: 12 }}>
         <span className="field__label">{t("admin.visibilityMode", "Availability")}</span>

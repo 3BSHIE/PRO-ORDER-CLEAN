@@ -2746,3 +2746,14 @@ button{font-family:var(--font-body)}
 .ad-pay-pill--pending{
   color:var(--preparing);background:var(--preparing-soft);
   border-color:rgba(245,158,75,.28)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 54 — one-line explanation under a category switch
+
+   Quiet by design: the switch label already says what the control is, and
+   this only answers "what does turning it off actually do". Kept to a
+   single line so the editor does not turn into a help panel.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mm-toggle-hint{
+  margin:4px 0 0 26px;font-size:11.5px;line-height:1.5;color:var(--text-3)}
+[dir="rtl"] .mm-toggle-hint{margin-left:0;margin-right:26px}
