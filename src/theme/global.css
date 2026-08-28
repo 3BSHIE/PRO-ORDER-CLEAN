@@ -2717,3 +2717,32 @@ button{font-family:var(--font-body)}
 
 /* The paid state itself, in the detail rows below the warning. */
 .ad-paid-modal__value--paid{color:var(--canceled);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 52 — payment state on the collapsed Live Orders card
+
+   Sits beside the lifecycle status badge but deliberately quieter than it:
+   smaller type, flat tint, no dot. Order status stays the primary signal
+   and payment reads as the secondary one, which is the hierarchy the card
+   already implied.
+
+   Both states always render their word, so the colour is reinforcement
+   rather than the message itself.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ad-live-card__badges{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+.ad-pay-pill{
+  display:inline-flex;align-items:center;
+  padding:2px 7px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;white-space:nowrap;
+  border:1px solid transparent}
+/* Settled — the positive token already used for "ready". */
+.ad-pay-pill--paid{
+  color:var(--ready);background:var(--ready-soft);
+  border-color:rgba(93,191,138,.28)}
+/* Still owed — the warning token already used for "preparing". */
+.ad-pay-pill--pending{
+  color:var(--preparing);background:var(--preparing-soft);
+  border-color:rgba(245,158,75,.28)}

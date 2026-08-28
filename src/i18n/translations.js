@@ -431,6 +431,10 @@ export const translations = {
       confirmPayment: "Confirm Payment",
       pendingAtTable: "Pending at table",
       paid: "Paid",
+      /* Phase 52 — compact form for the collapsed Live Orders card. The full
+         "Pending at table" is too long for a pill sitting beside the status
+         badge; the detail view still uses the long wording. */
+      pendingShort: "Pending",
       unpaid: "Unpaid",
       cashAtTable: "Cash at the table",
       cardAtTable: "Card / Visa at the table",
@@ -945,6 +949,7 @@ export const translations = {
       confirmPayment: "تأكيد الدفع",
       pendingAtTable: "بانتظار الدفع عند الطاولة",
       paid: "مدفوع",
+      pendingShort: "بانتظار الدفع",
       unpaid: "غير مدفوع",
       cashAtTable: "الدفع نقداً على الطاولة",
       cardAtTable: "بطاقة / فيزا على الطاولة",

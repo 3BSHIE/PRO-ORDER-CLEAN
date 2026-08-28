@@ -492,9 +492,32 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
         </div>
 
         <div className="ad-live-card__summary-mid">
-          <Badge tone={STATUS_BADGE_TONE[order.status] || "neutral"} dot>
-            {t(`status.${order.status}`, STATUS_LABEL[order.status] || order.status)}
-          </Badge>
+          <div className="ad-live-card__badges">
+            <Badge tone={STATUS_BADGE_TONE[order.status] || "neutral"} dot>
+              {t(`status.${order.status}`, STATUS_LABEL[order.status] || order.status)}
+            </Badge>
+
+            {/* Phase 52 — payment state on the collapsed card.
+
+                Until now a cashier scanning the list could not tell which
+                bills were still owed without opening every card in turn;
+                three delivered orders looked identical whether or not anyone
+                had paid. Payment is a separate axis from order.status, so it
+                gets its own indicator rather than being inferred - a
+                delivered order is NOT assumed paid.
+
+                Deliberately a lighter pill than the status Badge beside it:
+                the lifecycle status stays the primary signal and this reads
+                as the secondary one. The state is always spelled out in
+                words, so it never depends on colour alone. */}
+            <span
+              className={`ad-pay-pill ${isPaid ? "ad-pay-pill--paid" : "ad-pay-pill--pending"}`}
+            >
+              {isPaid
+                ? t("payment.paid", "Paid")
+                : t("payment.pendingShort", "Pending")}
+            </span>
+          </div>
           <span className="ad-live-card__time">{formatTimestamp(order.createdAt)}</span>
         </div>
 
