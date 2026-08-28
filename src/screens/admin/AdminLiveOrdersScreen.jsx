@@ -94,9 +94,15 @@ const CANCELABLE_STATUSES = ["received", "preparing", "ready"];
    management, payment-paid workflow, backend, kitchen-initiated delivered.
    ═══════════════════════════════════════════════════════════════════════ */
 
-export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, onNavigate }) {
+export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, onNavigate, initialFilter }) {
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
-  const [activeFilter, setActiveFilter] = useState("all");
+  /* Phase 53 — a Dashboard status card can open this screen already filtered.
+     Only an initial value: the tabs stay fully in charge afterwards, and the
+     screen remounts on every admin-page change, so this applies exactly once
+     per visit. Anything unrecognised falls back to "all". */
+  const [activeFilter, setActiveFilter] = useState(
+    () => (FILTER_TABS.some((tab) => tab.key === initialFilter) ? initialFilter : "all")
+  );
   const [expandedId, setExpandedId] = useState(null);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);

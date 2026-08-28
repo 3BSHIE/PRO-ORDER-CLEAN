@@ -190,6 +190,20 @@ function AdminRoute() {
   /* Which admin page is showing — the URL stays /admin/:restaurantSlug for
      both; this is in-page navigation via AdminLayout's nav shell. */
   const [adminPage, setAdminPage] = useState("overview");
+  /* Phase 53 — a filter the Dashboard can hand to Live Orders when a status
+     card is used as a shortcut. Kept here rather than inside Live Orders
+     because the screen unmounts when the admin page changes, so the intent
+     has to survive the switch. */
+  const [liveOrdersFilter, setLiveOrdersFilter] = useState(null);
+
+  /* Every admin screen and the sidebar navigate through this. The second
+     argument is optional: plain navigation (a nav click, the drill-down's
+     "View in Live Orders") passes nothing and CLEARS any previous filter, so
+     a shortcut used earlier can never silently narrow a later visit. */
+  function navigateAdmin(page, options) {
+    setLiveOrdersFilter(options?.ordersFilter ?? null);
+    setAdminPage(page);
+  }
 
   const restaurant = findRestaurantBySlug(restaurantSlug);
   if (!restaurant) {
@@ -241,7 +255,8 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
+        initialFilter={liveOrdersFilter}
       />
     );
   }
@@ -256,7 +271,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -267,7 +282,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -278,7 +293,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -289,7 +304,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -300,7 +315,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -311,7 +326,7 @@ function AdminRoute() {
         restaurant={restaurant}
         session={session}
         onSignOut={handleSignOut}
-        onNavigate={setAdminPage}
+        onNavigate={navigateAdmin}
       />
     );
   }
@@ -321,7 +336,7 @@ function AdminRoute() {
       restaurant={restaurant}
       session={session}
       onSignOut={handleSignOut}
-      onNavigate={setAdminPage}
+      onNavigate={navigateAdmin}
     />
   );
 }

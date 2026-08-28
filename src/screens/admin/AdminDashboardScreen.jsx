@@ -138,6 +138,36 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
                       here would be a second orders screen, not a drill-down. */
   const INTERACTIVE_CARDS = ["revenueToday", "ordersToday"];
 
+  /* Phase 53 — status cards that are shortcuts into Live Orders.
+     The values are the EXISTING filter keys from AdminLiveOrdersScreen's
+     FILTER_TABS, which are just the order statuses, so no filtering logic is
+     duplicated here - this only names a destination.
+
+     The counts agree by construction: these five cards read allTimeStatuses,
+     and Live Orders filters the same unscoped restaurant order list. The two
+     "Today" cards are the only date-scoped ones, and they keep their Phase 30
+     drill-downs instead.
+
+     activeOrders is deliberately absent - see below. */
+  const CARD_TO_ORDER_FILTER = {
+    waitingPrep:  "received",
+    preparing:    "preparing",
+    readyToServe: "ready",
+    completed:    "delivered",
+    canceled:     "canceled",
+  };
+
+  /* Accessible names for the shortcuts. The visible label is a bare count and
+     a noun ("4", "Preparing"), which tells a screen reader nothing about what
+     activating it does. */
+  const FILTER_CARD_ARIA = {
+    waitingPrep:  ["admin.viewReceivedOrders",  "View received orders"],
+    preparing:    ["admin.viewPreparingOrders", "View preparing orders"],
+    readyToServe: ["admin.viewReadyOrders",     "View ready orders"],
+    completed:    ["admin.viewDeliveredOrders", "View delivered orders"],
+    canceled:     ["admin.viewCanceledOrders",  "View canceled orders"],
+  };
+
   const STAT_CARDS = [
     { key: "ordersToday",  label: "Orders Today",  value: todayStatuses.total,           tone: "gold" },
     { key: "revenueToday", label: "Revenue Today", value: fmtPrice(todayRevenue.total),  tone: "gold" },
@@ -223,6 +253,43 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
             );
           }
 
+          /* Phase 53 — status cards navigate to Live Orders with their filter
+             already applied. Rendered with the same button treatment the
+             drill-down cards already use, so the two kinds of interactive
+             card look and behave alike; a real <button> also gives Tab focus
+             and Enter/Space for free, with no mouse-only handler. No
+             aria-haspopup here - this navigates rather than opening a
+             dialog. */
+          const orderFilter = CARD_TO_ORDER_FILTER[stat.key];
+          if (orderFilter) {
+            const [ariaKey, ariaFallback] = FILTER_CARD_ARIA[stat.key];
+            return (
+              <button
+                key={stat.key}
+                type="button"
+                className="card ad-stat ad-stat--interactive"
+                onClick={() => onNavigate("liveOrders", { ordersFilter: orderFilter })}
+                aria-label={t(ariaKey, ariaFallback)}
+              >
+                <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+                <span className="ad-stat__value">{stat.value}</span>
+                <span className="ad-stat__label">{label}</span>
+                <ChevronRight
+                  className="ad-stat__chevron"
+                  size={14}
+                  strokeWidth={2.4}
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          }
+
+          /* Still static: Active Orders. Live Orders has no "active" tab -
+             its filters are All plus one per real status - and Active is the
+             sum of Waiting Prep + Preparing + Ready. Sending it to "all"
+             would show delivered and canceled orders too, which is not what
+             the number counts, and inventing an active filter would be a new
+             filtering system this phase is not for. Left alone deliberately. */
           return (
             <Card key={stat.key} className="ad-stat">
               <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />

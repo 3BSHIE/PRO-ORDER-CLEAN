@@ -193,6 +193,14 @@ export const translations = {
       revenueToday: "Revenue Today",
       activeOrders: "Active Orders",
       waitingPrep: "Waiting Prep",
+      /* Phase 53 — accessible names for the Dashboard status shortcuts. The
+         visible label is a bare count plus a noun, which does not tell a
+         screen reader what activating the card does. */
+      viewReceivedOrders: "View received orders",
+      viewPreparingOrders: "View preparing orders",
+      viewReadyOrders: "View ready orders",
+      viewDeliveredOrders: "View delivered orders",
+      viewCanceledOrders: "View canceled orders",
       readyToServe: "Ready to Serve",
       completed: "Completed",
       recentOrders: "Recent orders",
@@ -711,6 +719,11 @@ export const translations = {
       revenueToday: "إيرادات اليوم",
       activeOrders: "الطلبات النشطة",
       waitingPrep: "بانتظار التحضير",
+      viewReceivedOrders: "عرض الطلبات المستلمة",
+      viewPreparingOrders: "عرض الطلبات قيد التحضير",
+      viewReadyOrders: "عرض الطلبات الجاهزة",
+      viewDeliveredOrders: "عرض الطلبات المسلّمة",
+      viewCanceledOrders: "عرض الطلبات الملغاة",
       readyToServe: "جاهز للتقديم",
       completed: "مكتملة",
       recentOrders: "الطلبات الأخيرة",
