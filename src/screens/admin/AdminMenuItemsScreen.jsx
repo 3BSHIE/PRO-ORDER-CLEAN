@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -462,6 +462,48 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     setPaidAddOns(paidAddOns.map((a) => (a.id === addOnId ? { ...a, ...patch } : a)));
   }
 
+  /* ── Phase 55 — unsaved-changes guard ──────────────────────────────────
+     This editor can hold dozens of fields across nested choice groups and
+     add-ons, and every dismissal path used to close it instantly, so a
+     mis-aimed click on the backdrop threw the lot away without a word.
+
+     Dirtiness is decided by serialising the whole draft and comparing it
+     with the FIRST serialisation of this mount. Capturing the baseline from
+     the state itself, rather than rebuilding it from `item`, is what keeps
+     it honest: on the first render the state IS the initial values, so the
+     two can never drift apart as fields are added, and the normalisation
+     the form applies (stored numbers becoming input strings) is already
+     baked into both sides. Opening a product and touching nothing therefore
+     cannot register as dirty.
+
+     Covers everything editable, nested structures included — a renamed
+     choice option or a flipped Required toggle counts exactly like a
+     changed product name. */
+  const draftSignature = JSON.stringify({
+    name, description, price, categoryId, imageUrl, sortOrder,
+    isAvailable, isFeatured, isPopular,
+    removableIngredients, choices, paidAddOns,
+  });
+  const initialSignature = useRef(null);
+  if (initialSignature.current === null) initialSignature.current = draftSignature;
+  const isDirty = draftSignature !== initialSignature.current;
+
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  /* Every dismissal path — X, overlay, Escape and Cancel — comes through
+     here, because this component owns both the Modal and its footer. A clean
+     form closes straight away; only unsaved work is worth interrupting for.
+
+     The showDiscard check is what keeps Escape sane while the confirmation
+     is open: both modals listen on window, so one keypress reaches both.
+     Returning early lets the confirmation close on its own without this
+     handler immediately reopening it. */
+  function handleRequestClose() {
+    if (showDiscard) return;
+    if (isDirty) { setShowDiscard(true); return; }
+    onClose();
+  }
+
   function handleSubmit() {
     if (!name.trim()) { setError(t("admin.productNameRequired", "Please enter an item name.")); return; }
     if (!categoryId) { setError(t("admin.productCategoryRequired", "Please choose a category.")); return; }
@@ -529,13 +571,14 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   }
 
   return (
+    <>
     <Modal
       open
-      onClose={onClose}
+      onClose={handleRequestClose}
       title={isNew ? t("admin.addProduct", "Add Item") : t("admin.editProduct", "Edit Item")}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>{t("common.cancel", "Cancel")}</Button>
+          <Button variant="ghost" onClick={handleRequestClose}>{t("common.cancel", "Cancel")}</Button>
           <Button onClick={handleSubmit}>{t("common.save", "Save")}</Button>
         </>
       }
@@ -843,5 +886,43 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
         </Button>
       </div>
     </Modal>
+
+    {/* Phase 55 — discard confirmation, rendered ABOVE the editor rather than
+        replacing it, so the draft stays mounted and every field, validation
+        error and scroll position is exactly where it was if the manager
+        decides to carry on.
+
+        Dismissing THIS dialog (its own X, overlay or Escape) only closes the
+        dialog — discarding is reachable solely through the explicit button,
+        so a stray backdrop click can never destroy the draft it is warning
+        about. */}
+    {showDiscard && (
+      <Modal
+        open
+        onClose={() => setShowDiscard(false)}
+        title={t("admin.discardChangesTitle", "Discard changes?")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowDiscard(false)}>
+              {t("admin.keepEditing", "Keep Editing")}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => { setShowDiscard(false); onClose(); }}
+            >
+              {t("admin.discardChanges", "Discard Changes")}
+            </Button>
+          </>
+        }
+      >
+        <p className="ad-cancel-modal__msg">
+          {t(
+            "admin.discardChangesMsg",
+            "You have unsaved changes. If you leave now, your changes will be lost."
+          )}
+        </p>
+      </Modal>
+    )}
+    </>
   );
 }
