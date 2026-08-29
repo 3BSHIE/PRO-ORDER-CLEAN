@@ -677,6 +677,16 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   useEffect(() => {
     return registerNavigationGuard((proceed) => {
       if (!isDirty) return false; // nothing to lose — let it through
+
+      /* Phase 60 — first intent wins. If a destination is already parked,
+         a second click while the dialog is open is ignored rather than
+         silently retargeting the answer the Admin is in the middle of
+         giving: they read "Discard changes?" having asked for Overview, so
+         Discard must go to Overview. Choosing Keep Editing clears the park,
+         after which a different destination is accepted normally. Read from
+         a ref, not state, so it is never a render behind. */
+      if (pendingNavRef.current) return true;
+
       pendingNavRef.current = proceed;
       setShowDiscard(true);
       return true; // this dialog owns the decision now
@@ -689,9 +699,17 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     setShowDiscard(false);
     const pending = pendingNavRef.current;
     pendingNavRef.current = null;
-    if (!discard) return;               // Keep Editing — draft and editor stay
-    if (pending) { pending(); return; } // navigation was waiting on this
-    onClose();                          // ordinary close
+
+    if (!discard) return; // Keep Editing — draft, errors and editor all stay
+
+    /* Phase 60 — close first, then navigate, in that order and once only.
+       Closing unmounts this modal and unregisters the guard, so the parked
+       proceed cannot be re-intercepted on its way out. It also covers the
+       case where the destination is the page already showing (clicking
+       "Menu" from Menu): nothing would unmount, and without this the editor
+       would sit there still holding the draft the Admin just discarded. */
+    onClose();
+    if (pending) pending();
   }
 
 

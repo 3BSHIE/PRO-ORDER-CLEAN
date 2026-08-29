@@ -20,6 +20,7 @@ import AdminTablesScreen                  from "./screens/admin/AdminTablesScree
 import AdminSettingsScreen                from "./screens/admin/AdminSettingsScreen.jsx";
 import AdminFeedbackScreen                from "./screens/admin/AdminFeedbackScreen.jsx";
 import { ADMIN_ONLY_NAV_KEYS }            from "./screens/admin/AdminLayout.jsx";
+import { requestNavigation } from "./lib/navigationGuard.js";
 import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
 import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js";
@@ -200,9 +201,22 @@ function AdminRoute() {
      argument is optional: plain navigation (a nav click, the drill-down's
      "View in Live Orders") passes nothing and CLEARS any previous filter, so
      a shortcut used earlier can never silently narrow a later visit. */
+  /* Phase 60 — every in-app Admin page change goes through here, so this is
+     the one place that has to ask permission. Wrapping the body (rather than
+     each of the ~12 call sites) means the sidebar, the Phase 53 dashboard
+     shortcuts, the Phase 30 drill-down, the "Back to Overview" buttons and
+     the Phase 59 alert are all covered by construction — including any
+     future caller, which cannot forget to ask.
+
+     The page and options arguments are captured in the closure, so a
+     deferred navigation resumes with the exact destination AND filter that
+     was originally requested: discarding a draft after clicking the
+     Preparing card still lands on Live Orders filtered to Preparing. */
   function navigateAdmin(page, options) {
-    setLiveOrdersFilter(options?.ordersFilter ?? null);
-    setAdminPage(page);
+    requestNavigation(() => {
+      setLiveOrdersFilter(options?.ordersFilter ?? null);
+      setAdminPage(page);
+    });
   }
 
   const restaurant = findRestaurantBySlug(restaurantSlug);
@@ -226,9 +240,15 @@ function AdminRoute() {
     );
   }
 
+  /* Phase 60 — signing out unmounts the whole admin tree, so it discards a
+     dirty draft exactly like a page change does. It is not routed through
+     navigateAdmin, so it needs the same ask. This covers the in-app button
+     only; closing the tab remains unprotected and is out of scope. */
   const handleSignOut = () => {
-    clearAdminSession();
-    setSessionTick((t) => t + 1);
+    requestNavigation(() => {
+      clearAdminSession();
+      setSessionTick((t) => t + 1);
+    });
   };
 
   /* Phase 21 architecture review — Menu Management and Categories

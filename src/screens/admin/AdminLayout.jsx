@@ -13,7 +13,6 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
 import { playAlertSound } from "../../lib/alertSound.js";
-import { requestNavigation } from "../../lib/navigationGuard.js";
 import StaffCallAlert from "./StaffCallAlert.jsx";
 
 const ROLE_LABEL = { admin: "Admin", cashier: "Cashier" };
@@ -152,17 +151,26 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
      detection above only ever looks at arrivals. */
   const alertCall = alertCallId ? openCalls.find((c) => c.id === alertCallId) : null;
 
-  /* View Call must not be a back door around the Phase 55 unsaved-changes
-     guard. requestNavigation hands the decision to whatever screen is
-     mounted: with a clean editor (or none) it navigates immediately; with a
-     dirty Product draft the editor's own "Discard changes?" dialog opens and
-     navigation only completes if the Admin chooses to discard. */
+  /* Phase 60 — this used to call requestNavigation itself. Now that
+     navigateAdmin guards every page change centrally, wrapping here as well
+     would ask twice: the outer ask would park a proceed that, when run,
+     called onNavigate and asked AGAIN — reopening the dialog the Admin had
+     just answered. So this simply navigates, and the one guard in App.jsx
+     decides. Behaviour for a dirty draft is unchanged.
+
+     The banner is cleared by the effect below rather than here, so choosing
+     "Keep Editing" no longer silently dismisses the alert it came from. */
   function handleViewCalls() {
-    requestNavigation(() => {
-      setAlertCallId(null);
-      onNavigate("staffCalls");
-    });
+    onNavigate("staffCalls");
   }
+
+  /* Reaching the Staff Calls page supersedes the banner — the authoritative
+     list is now on screen. Covers arriving by any route, including the
+     sidebar, so a stale banner can never sit on top of the list it
+     duplicates. */
+  useEffect(() => {
+    if (activeKey === "staffCalls") setAlertCallId(null);
+  }, [activeKey]);
 
 
   /* Admin-only nav items (Menu, Categories) are simply not rendered for a
