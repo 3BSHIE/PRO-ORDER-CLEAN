@@ -1385,10 +1385,18 @@ button{font-family:var(--font-body)}
 
 /* ══ Phase 17 — Admin Overview Dashboard ══════════════════════════════════════ */
 
-.ad-topbar-right{display:flex;align-items:center;gap:10px}
+/* Phase 61 — these two are the only unbounded dynamic strings in the admin
+   chrome. Both were white-space:nowrap with no shrink allowance, so a
+   restaurant or operator name longer than the seed data widened the whole
+   viewport instead of ellipsing. min-width:0 is what actually lets a flex
+   item shrink past its content; the ellipsis is what makes that readable.
+   With short names nothing truncates, so desktop is unchanged. */
+.ad-topbar-right{display:flex;align-items:center;gap:10px;min-width:0}
 .ad-topbar-rest{font-size:12.5px;font-weight:700;color:var(--text-2);
-  letter-spacing:.02em;white-space:nowrap}
-.ad-topbar-user{font-size:12px;color:var(--text-3);white-space:nowrap}
+  letter-spacing:.02em;white-space:nowrap;
+  min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ad-topbar-user{font-size:12px;color:var(--text-3);white-space:nowrap;
+  min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){.ad-topbar-rest,.ad-topbar-user{display:none}}
 
 .container--admin{max-width:1200px}
@@ -1817,6 +1825,52 @@ button{font-family:var(--font-body)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb-row__meta{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-3)}
 .tb-row__meta-label{flex:none}
+/* ══ Phase 61 — Admin topbar at narrow widths ═════════════════════════════
+
+   The defect: at 375px the admin topbar's right-hand group needed 333px of
+   intrinsic width (role badge 63 + language switcher 143 + Sign out 107 +
+   two 10px gaps) but only ~301px was available after the logo and the
+   container's 20px padding. As a flex item it carries the default
+   min-width:auto, so it could not shrink below its content and simply sat
+   12px outside the content box — pushing the page's scrollWidth past its
+   clientWidth on every Admin screen.
+
+   The nav strip below it was NEVER the problem: .ad-nav sets overflow-x:auto
+   and scrolls its own 1019px of tabs internally, which is intentional.
+
+   Fixed by reducing the intrinsic width of the chrome at narrow widths and
+   giving the row somewhere to go if that is still not enough — not by
+   clipping. Every control keeps its label, its hit area and its position in
+   the tab order; nothing is hidden, and no global overflow-x rule is used,
+   because that would leave the button genuinely unreachable rather than
+   merely off-screen.
+
+   All selectors are scoped to the admin topbar so customer and kitchen
+   chrome render byte-identically, and everything sits inside the existing
+   640px breakpoint where .ad-topbar-rest/.ad-topbar-user already hide.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width:640px){
+  /* Reclaim 16px of side padding and 4px of gap from the bar itself. Height
+     becomes a minimum rather than a fixed 60px so that the wrap below can
+     actually happen instead of overflowing the bar vertically. */
+  .topbar__inner{
+    padding-inline:12px;gap:8px;
+    flex-wrap:wrap;height:auto;min-height:60px;padding-block:8px}
+
+  /* min-width:0 lets the group shrink instead of forcing the row wider;
+     flex-wrap is the safety valve for viewports too narrow even for the
+     tightened controls (~320px), where the group drops to its own line
+     rather than off the edge. */
+  .ad-topbar-right{
+    gap:6px;min-width:0;flex-wrap:wrap;justify-content:flex-end}
+
+  /* Horizontal padding only — the vertical box, and therefore the touch
+     target height, is untouched. */
+  .ad-topbar-right .badge{padding-inline:8px}
+  .ad-topbar-right .btn--sm{padding-inline:12px}
+  .ad-topbar-lang-switcher .lang-switcher__option{padding-inline:9px}
+}
+
 /* ══ Phase 59 — Staff Call alert banner ═══════════════════════════════════
 
    Fixed to the bottom of the viewport rather than pushed into the document:
@@ -1909,7 +1963,14 @@ button{font-family:var(--font-body)}
   color:var(--canceled);font-size:13.5px;margin-bottom:16px}
 .ad-settings__grid{
   display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-@media(max-width:860px){.ad-settings__grid{grid-template-columns:1fr}}
+/* Phase 61 — minmax(0,1fr), not 1fr. A bare 1fr track is minmax(auto,1fr),
+   and that auto minimum is the item's min-content width, so the single
+   column refused to go narrower than the widest card's content (513px in a
+   335px container) and pushed the whole Settings page sideways. Allowing a
+   zero minimum lets the track take the container's width and the cards
+   wrap their own content, which is what the two-column rule above already
+   gets for free by having two tracks to share. */
+@media(max-width:860px){.ad-settings__grid{grid-template-columns:minmax(0,1fr)}}
 .ad-settings__section{padding:20px;display:flex;flex-direction:column;gap:14px}
 .ad-settings__hint{font-size:12px;color:var(--text-3);line-height:1.5;margin:-6px 0 0}
 .ad-settings__color{
