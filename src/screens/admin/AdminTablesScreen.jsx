@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pencil, Trash2, Plus, QrCode, Copy, ExternalLink, RefreshCw } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Pencil, Trash2, Plus, QrCode, Copy, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -16,6 +16,7 @@ import {
   regenerateQrToken,
 } from "../../lib/tableData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatTableCount } from "../../i18n/counts.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminTablesScreen — Phase 22
@@ -42,9 +43,61 @@ function customerUrl(restaurantSlug, qrToken) {
   return `${origin}/r/${restaurantSlug}/table/${qrToken}`;
 }
 
+/**
+ * Phase 58 — search normalisation for the table list.
+ *
+ * Trim, collapse inner runs of whitespace, lowercase. Applied to BOTH the
+ * query and the value it is compared against, so "  terrace   1 " finds
+ * "Terrace 1" without either side having to be typed precisely.
+ */
+function normalizeSearchText(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Phase 58 — does one table match the manager's query?
+ *
+ * Matches the two things a manager actually knows about a table: what it is
+ * called and what number it carries. It deliberately never reads qrToken —
+ * the token is security/implementation data, and making it searchable would
+ * turn a convenience field into a way to confirm a guessed token.
+ *
+ * An empty query matches everything, so the caller can pass it unconditionally.
+ *
+ * @param {object} table
+ * @param {string} normalizedQuery — already through normalizeSearchText
+ */
+export function tableMatchesQuery(table, normalizedQuery) {
+  if (!normalizedQuery) return true;
+  if (normalizeSearchText(table?.displayName).includes(normalizedQuery)) return true;
+  /* Substring, not equality: typing "1" while looking for "12" should keep
+     narrowing rather than jump to an exact-match-only empty state. */
+  return String(table?.tableNumber ?? "").includes(normalizedQuery);
+}
+
+/**
+ * Phase 58 — does a table match the Active/Inactive filter?
+ *
+ * Reads the existing isActive field and introduces no new state. The
+ * `!== false` test mirrors how the rest of the screen treats the flag, so a
+ * legacy row saved without it still counts as active rather than vanishing.
+ */
+export function tableMatchesStatus(table, statusFilter) {
+  if (statusFilter === "active") return table?.isActive !== false;
+  if (statusFilter === "inactive") return table?.isActive === false;
+  return true;
+}
+
 export default function AdminTablesScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { tables } = useTableData(restaurant.slug);
   const { t } = useLanguage();
+
+  /* Phase 58 — view-only list controls. Held in component state and never
+     persisted: a search string is a momentary intent, not a setting, and
+     writing it to storage would mean a manager returns to a filtered list
+     with no memory of why. */
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // all | active | inactive
 
   const [editingTable, setEditingTable] = useState(null); // table object, or {} for "new"
   const [previewTable, setPreviewTable] = useState(null);
@@ -52,6 +105,21 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   const [pendingDelete, setPendingDelete] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  /* Phase 58 — filter only; deliberately no sort. The order useTableData
+     hands back is the order the manager already knows, and Array.filter
+     preserves it, so narrowing the list never reshuffles what remains.
+
+     Derived straight from `tables`, so every live write — an edit, a
+     deactivation, a delete, a new row — re-runs this on the next render.
+     A table that stops matching simply stops being rendered, which is what
+     makes "deactivate under the Active filter" behave correctly for free. */
+  const visibleTables = useMemo(() => {
+    const q = normalizeSearchText(searchQuery);
+    return tables.filter((tb) => tableMatchesStatus(tb, statusFilter) && tableMatchesQuery(tb, q));
+  }, [tables, searchQuery, statusFilter]);
+
+  const isNarrowed = visibleTables.length !== tables.length;
 
   /* Phase 21-pattern architecture guard — redundant, defense-in-depth. The
      App root's route guard already refuses to render this component at all
@@ -175,11 +243,61 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
         </p>
       </header>
 
+      {/* Phase 58 — the same toolbar shape Menu Management already uses:
+          search, a native select, then the primary action. .mm-toolbar wraps,
+          so on a narrow Admin viewport these stack instead of overflowing. */}
       <div className="mm-toolbar anim-rise">
+        <div className="mm-search">
+          <Search size={15} strokeWidth={2} aria-hidden="true" />
+          <input
+            type="search"
+            /* The field has no visible label in this compact toolbar, so the
+               accessible name has to come from here. */
+            aria-label={t("admin.searchTables", "Search tables")}
+            placeholder={t("admin.searchTables", "Search tables")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
+          />
+          {/* An explicit control rather than the browser's native search
+              cancel button: that one is unlabelled, keyboard-unreachable in
+              Chrome, and renders as a near-invisible grey X on this dark
+              surface. Clearing the text leaves statusFilter untouched. */}
+          {searchQuery && (
+            <button
+              type="button"
+              className="tb-search__clear"
+              onClick={() => setSearchQuery("")}
+              aria-label={t("admin.clearSearch", "Clear search")}
+            >
+              <X size={14} strokeWidth={2.4} />
+            </button>
+          )}
+        </div>
+        {/* A native select carries its own selected state to assistive tech
+            and cannot overflow the way a row of chips can. */}
+        <select
+          className="mm-select"
+          aria-label={t("admin.filterByStatus", "Filter by status")}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">{t("admin.allTables", "All tables")}</option>
+          <option value="active">{t("admin.active", "Active")}</option>
+          <option value="inactive">{t("admin.inactive", "Inactive")}</option>
+        </select>
         <Button icon={Plus} onClick={() => setEditingTable({})}>
           {t("admin.addTable", "Add Table")}
         </Button>
       </div>
+
+      {/* Phase 58 — count. aria-live so a screen-reader user hears the list
+          shrink as they type, rather than having to go and count the rows. */}
+      {tables.length > 0 && (
+        <p className="tb-count anim-rise" role="status" aria-live="polite">
+          {formatTableCount(t, visibleTables.length, tables.length)}
+        </p>
+      )}
 
       {tables.length === 0 ? (
         <div className="ad-empty anim-rise">
@@ -188,9 +306,20 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
           </span>
           <h3 className="ad-empty__title">{t("admin.noTablesYet", "No tables yet.")}</h3>
         </div>
+      ) : visibleTables.length === 0 ? (
+        /* Phase 58 — a distinct state. "No tables yet" would be a lie here:
+           tables exist, this search just does not reach them, and the fix is
+           to change the query rather than to create something. */
+        <div className="ad-empty anim-rise">
+          <span className="ad-empty__icon">
+            <Search size={28} strokeWidth={1.7} />
+          </span>
+          <h3 className="ad-empty__title">{t("admin.noTablesMatch", "No tables match your search.")}</h3>
+          <p className="ad-empty__sub">{t("admin.noTablesMatchHint", "Try a different name or number, or change the status filter.")}</p>
+        </div>
       ) : (
         <div className="mm-cat-list anim-rise">
-          {tables.map((table) => (
+          {visibleTables.map((table) => (
             <Card key={table.id} className="tb-row">
               <div className="tb-row__main">
                 <div className="tb-row__id">

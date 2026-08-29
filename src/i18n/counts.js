@@ -49,3 +49,29 @@ export function formatResultCount(t, n, query) {
       : t("customer.resultCountOther", '{n} results for "{q}"');
   return template.replace("{n}", n).replace("{q}", query);
 }
+/**
+ * "24 tables" / "1 table"  ·  "الطاولات: 24" / "طاولة واحدة"
+ * filtered: "3 of 24 tables"  ·  "3 من أصل 24 طاولة"
+ *
+ * Phase 58. Same sidestep as the two helpers above — the Arabic plural puts
+ * the number after a fixed noun phrase instead of inflecting the noun, so one
+ * string is grammatical for every value of n.
+ *
+ * When `shown` is less than `total` the phrase names both numbers: that
+ * difference is the signal that a search or filter is currently narrowing
+ * the list, which is the whole reason the count is on screen.
+ *
+ * @param {(key:string, fallback?:string)=>string} t
+ * @param {number} shown  — rows after search + filter
+ * @param {number} total  — rows before either
+ */
+export function formatTableCount(t, shown, total) {
+  if (shown !== total) {
+    return t("admin.tableCountFiltered", "{n} of {total} tables")
+      .replace("{n}", shown)
+      .replace("{total}", total);
+  }
+  return shown === 1
+    ? t("admin.tableCountOne", "1 table")
+    : t("admin.tableCountOther", "{n} tables").replace("{n}", shown);
+}
