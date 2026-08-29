@@ -1791,7 +1791,13 @@ button{font-family:var(--font-body)}
 .mm-group-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:12px}
 .mm-group-card__actions{display:flex;gap:8px;flex-wrap:wrap}
 .mm-options-list{display:flex;flex-direction:column;gap:8px}
-.mm-option-row{display:flex;align-items:center;gap:8px}
+.mm-option-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Phase 56 — a customization price error sits on its own line under the row
+   it belongs to. flex-basis:100% is what wraps it below the three columns
+   instead of squeezing them; the row is otherwise unchanged, so a row with
+   no error lays out exactly as before. Direction-agnostic, so it starts on
+   the correct side in Arabic without an RTL override. */
+.mm-option-row__error{flex-basis:100%;margin:-2px 0 0}
 .mm-option-row .input{flex:1}
 .mm-option-row__price{max-width:100px;flex:none}
 

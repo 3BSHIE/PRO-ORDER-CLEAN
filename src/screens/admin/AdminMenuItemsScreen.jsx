@@ -170,6 +170,126 @@ export function parseProductPrice(raw) {
   return value;
 }
 
+/* Phase 56 — per-row field ids for the customization price inputs, so a
+   failed save can focus the exact one that is wrong. Composite for options
+   because an option id is only unique within its group. */
+const optionPriceFieldId = (groupId, optionId) => `mm-option-price-${groupId}-${optionId}`;
+const addOnPriceFieldId  = (addOnId) => `mm-addon-price-${addOnId}`;
+const optionErrorKey     = (groupId, optionId) => `${groupId}:${optionId}`;
+
+/**
+ * Phase 56 — strict parsing for a CHOICE OPTION's extra price.
+ *
+ * Zero is a real, common answer here, not a failure: 30 of the seeded
+ * options are priced 0, and the customer modal renders a price badge only
+ * `if (opt.price > 0)`, so a 0 option deliberately shows no surcharge at
+ * all. "Rare / Medium / Well done" cost the same, and that is the point.
+ * The rule is therefore >= 0, unlike the base price's > 0.
+ *
+ * Blank is normalised to 0 rather than rejected, because that is already
+ * the user-facing meaning today: the row is created with price 0, the input
+ * is type="number", and clearing it produced 0 via `parseFloat("") || 0`.
+ * Phase 56 keeps that behaviour and drops the mechanism — an explicit
+ * "empty means no extra charge" instead of an accident of `|| 0` that
+ * happened to turn "abc" and "12.5o" into prices as well.
+ *
+ * @param {unknown} raw
+ * @returns {number|null} a finite Number >= 0, or null if invalid
+ */
+export function parseChoiceOptionPrice(raw) {
+  const text = String(raw ?? "").trim();
+  /* The one deliberate difference from the add-on rule below. */
+  if (text === "") return 0;
+
+  /* Plain decimal only — same shape as Phase 47, so "-1", "1e3", "Infinity",
+     "NaN", "1,5", "2.5x", ".5" and "5." are all rejected outright rather
+     than partially salvaged. */
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+
+  const value = Number(text);
+  if (!Number.isFinite(value) || value < 0) return null;
+
+  return value;
+}
+
+/**
+ * Phase 56 — strict parsing for a PAID ADD-ON's price.
+ *
+ * Audited against the actual model before choosing the rule: all 19 seeded
+ * add-ons are priced above 0, the section is labelled "Paid add-ons" for the
+ * manager and "Add extras" for the guest, and the customer modal prints
+ * `+{price}` unconditionally — with no `> 0` guard of the kind the options
+ * have. A free add-on would therefore render "+ JOD 0.000", which is not a
+ * thing the UI was built to say. Free extras belong in a choice group, which
+ * already supports them properly.
+ *
+ * So > 0 is required, and blank is invalid rather than 0: a named add-on
+ * with no price is exactly the silent free-item bug this phase exists to
+ * stop. No existing data is broken by this, because none of it is free.
+ *
+ * @param {unknown} raw
+ * @returns {number|null} a finite Number > 0, or null if invalid
+ */
+export function parseAddOnPrice(raw) {
+  const text = String(raw ?? "").trim();
+  /* No blank exemption here — "" falls through the regex and is rejected. */
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+
+  const value = Number(text);
+  /* The > 0 test is what rejects "0" and "0.00". */
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return value;
+}
+
+/**
+ * Phase 56 — judge every customization price the save would actually persist.
+ *
+ * Scoped to what survives handleSubmit, exactly like Phase 48: groups with a
+ * blank name are dropped, and so are options and add-ons with a blank name.
+ * Judging them anyway would mean clicking "Add option" and then Save was
+ * blocked by a row the save was about to discard.
+ *
+ * Every invalid row is collected in one pass so fixing the first does not
+ * reveal the second one problem at a time.
+ *
+ * @param {Array<object>} choices
+ * @param {Array<object>} paidAddOns
+ * @returns {{ok:boolean, optionErrors:Record<string,true>,
+ *            addOnErrors:Record<string,true>, firstInvalidFieldId:string|null}}
+ */
+export function validateCustomizationPrices(choices, paidAddOns) {
+  const optionErrors = {};
+  const addOnErrors  = {};
+  let firstInvalidFieldId = null;
+
+  for (const group of choices || []) {
+    if (!(group.name || "").trim()) continue; // dropped on save anyway
+    for (const opt of group.options || []) {
+      if (!(opt.name || "").trim()) continue; // dropped on save anyway
+      if (parseChoiceOptionPrice(opt.price) === null) {
+        optionErrors[optionErrorKey(group.id, opt.id)] = true;
+        if (!firstInvalidFieldId) firstInvalidFieldId = optionPriceFieldId(group.id, opt.id);
+      }
+    }
+  }
+
+  for (const addon of paidAddOns || []) {
+    if (!(addon.name || "").trim()) continue; // dropped on save anyway
+    if (parseAddOnPrice(addon.price) === null) {
+      addOnErrors[addon.id] = true;
+      if (!firstInvalidFieldId) firstInvalidFieldId = addOnPriceFieldId(addon.id);
+    }
+  }
+
+  return {
+    ok: firstInvalidFieldId === null,
+    optionErrors,
+    addOnErrors,
+    firstInvalidFieldId,
+  };
+}
+
 export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { categories, items } = useMenuData(restaurant.slug);
   const { t } = useLanguage();
@@ -400,6 +520,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
      so every invalid group keeps its own error rather than one shared banner
      losing all but the last problem. */
   const [groupErrors, setGroupErrors] = useState({});
+  /* Phase 56 — one entry per invalid customization price, so every bad row
+     keeps its own message instead of a single banner showing only the last
+     one. Options are keyed by group id + option id, because an option id
+     is only unique inside its own group; add-ons are keyed by their own id. */
+  const [optionPriceErrors, setOptionPriceErrors] = useState({});
+  const [addOnPriceErrors,  setAddOnPriceErrors]  = useState({});
 
   /* ── Ingredients ──────────────────────────────────────────────────────── */
   function handleAddIngredient() {
@@ -460,6 +586,33 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   }
   function handleUpdateAddOn(addOnId, patch) {
     setPaidAddOns(paidAddOns.map((a) => (a.id === addOnId ? { ...a, ...patch } : a)));
+  }
+
+  /* ── Phase 56 — clearing a customization price error ──────────────────
+     Deliberately one-directional: a keystroke can CLEAR a price error but
+     never raise one. Errors are introduced only by a Save attempt, so a
+     manager halfway through typing "1." — momentarily invalid — is not
+     interrupted, while a corrected field stops complaining the instant it
+     becomes valid. Each row clears only its own key, so fixing one price
+     leaves the other invalid rows flagged. */
+  function clearOptionPriceError(groupId, optionId, nextValue) {
+    if (parseChoiceOptionPrice(nextValue) === null) return;
+    const key = optionErrorKey(groupId, optionId);
+    setOptionPriceErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+  function clearAddOnPriceError(addOnId, nextValue) {
+    if (parseAddOnPrice(nextValue) === null) return;
+    setAddOnPriceErrors((prev) => {
+      if (!prev[addOnId]) return prev;
+      const next = { ...prev };
+      delete next[addOnId];
+      return next;
+    });
   }
 
   /* ── Phase 55 — unsaved-changes guard ──────────────────────────────────
@@ -538,6 +691,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       return;
     }
 
+    /* Phase 56 — last of the three price/structure checks, so Phase 47 and
+       Phase 48 keep judging first and their behaviour is untouched. Every
+       invalid customization price is marked in one pass; focus goes to the
+       first in document order (options before add-ons, as displayed). */
+    const priceCheck = validateCustomizationPrices(choices, paidAddOns);
+    if (!priceCheck.ok) {
+      setOptionPriceErrors(priceCheck.optionErrors);
+      setAddOnPriceErrors(priceCheck.addOnErrors);
+      document.getElementById(priceCheck.firstInvalidFieldId)?.focus();
+      return;
+    }
+
     onSave({
       name: name.trim(),
       description: description.trim(),
@@ -564,9 +729,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
         .map((g) => ({
           ...g,
           maxSelections: parseSelectionLimit(g.maxSelections),
-          options: g.options.filter((o) => o.name.trim()),
+          /* Phase 56: prices become Numbers here for the same reason
+             maxSelections does — the row holds the raw string while editing
+             so invalid input can be judged, and storage keeps the numeric
+             shape the customer modal and Phase 37 expect. Spreading the
+             existing option object preserves its id. */
+          options: g.options
+            .filter((o) => o.name.trim())
+            .map((o) => ({ ...o, price: parseChoiceOptionPrice(o.price) })),
         })),
-      paidAddOns: paidAddOns.filter((a) => a.name.trim()),
+      paidAddOns: paidAddOns
+        .filter((a) => a.name.trim())
+        .map((a) => ({ ...a, price: parseAddOnPrice(a.price) })),
     });
   }
 
@@ -775,7 +949,9 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
             </label>
 
             <div className="mm-options-list">
-              {group.options.map((opt) => (
+              {group.options.map((opt) => {
+                const optPriceError = !!optionPriceErrors[optionErrorKey(group.id, opt.id)];
+                return (
                 <div className="mm-option-row" key={opt.id}>
                   <input
                     className="input"
@@ -795,13 +971,31 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                     }}
                   />
                   <input
-                    className="input mm-option-row__price"
+                    id={optionPriceFieldId(group.id, opt.id)}
+                    className={`input mm-option-row__price ${optPriceError ? "input--error" : ""}`}
                     type="number"
                     step="0.01"
                     min="0"
+                    /* The field has no visible label — it sits in a bare
+                       three-column row — so the error below it would other-
+                       wise announce against nothing. */
+                    aria-label={t("admin.optionExtraPrice", "Extra price")}
+                    aria-invalid={optPriceError ? "true" : undefined}
+                    /* Phase 56 — the raw string is kept in state now. Coercing
+                       here with `parseFloat(v) || 0` is what turned "", "abc"
+                       and "-1" into a price before anything could check it,
+                       and silently saved "12.5o" as 12.5. */
                     value={opt.price}
-                    onChange={(e) => handleUpdateOption(group.id, opt.id, { price: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      handleUpdateOption(group.id, opt.id, { price: e.target.value });
+                      clearOptionPriceError(group.id, opt.id, e.target.value);
+                    }}
                   />
+                  {optPriceError && (
+                    <p className="field__hint field__hint--error mm-option-row__error" role="alert">
+                      {t("admin.optionPriceInvalid", "Enter a valid extra price of 0 or more.")}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="mm-icon-btn mm-icon-btn--danger"
@@ -818,7 +1012,8 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                     <X size={14} strokeWidth={2.4} />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mm-group-card__actions">
               <Button type="button" variant="outline" size="sm" onClick={() => handleAddOption(group.id)}>
@@ -854,7 +1049,9 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
         {/* ── Paid add-ons ───────────────────────────────────────────────── */}
         <h4 className="mm-section-title">{t("admin.paidAddOns", "Paid add-ons")}</h4>
         <div className="mm-options-list">
-          {paidAddOns.map((addon) => (
+          {paidAddOns.map((addon) => {
+            const addOnPriceError = !!addOnPriceErrors[addon.id];
+            return (
             <div className="mm-option-row" key={addon.id}>
               <input
                 className="input"
@@ -863,12 +1060,19 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                 onChange={(e) => handleUpdateAddOn(addon.id, { name: e.target.value })}
               />
               <input
-                className="input mm-option-row__price"
+                id={addOnPriceFieldId(addon.id)}
+                className={`input mm-option-row__price ${addOnPriceError ? "input--error" : ""}`}
                 type="number"
                 step="0.01"
                 min="0"
+                aria-label={t("admin.productPrice", "Price")}
+                aria-invalid={addOnPriceError ? "true" : undefined}
+                /* Phase 56 — raw string until Save, as above. */
                 value={addon.price}
-                onChange={(e) => handleUpdateAddOn(addon.id, { price: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  handleUpdateAddOn(addon.id, { price: e.target.value });
+                  clearAddOnPriceError(addon.id, e.target.value);
+                }}
               />
               <button
                 type="button"
@@ -878,8 +1082,14 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
               >
                 <X size={14} strokeWidth={2.4} />
               </button>
+              {addOnPriceError && (
+                <p className="field__hint field__hint--error mm-option-row__error" role="alert">
+                  {t("admin.addOnPriceInvalid", "Enter a valid price greater than 0.")}
+                </p>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
         <Button type="button" variant="outline" size="sm" icon={Plus} onClick={handleAddAddOn}>
           {t("admin.addAddOn", "Add add-on")}

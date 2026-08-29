@@ -288,6 +288,11 @@ export const translations = {
       groupName: "Group name",
       maxSelections: "Max selections",
       optionName: "Option name",
+      /* Phase 56 — customization price validation. The option rule is >= 0
+         because a free choice is legitimate; the add-on rule is > 0. */
+      optionExtraPrice: "Extra price",
+      optionPriceInvalid: "Enter a valid extra price of 0 or more.",
+      addOnPriceInvalid: "Enter a valid price greater than 0.",
       addOption: "Add option",
       removeGroup: "Remove group",
       addChoiceGroup: "Add choice group",
@@ -836,6 +841,9 @@ export const translations = {
       groupName: "اسم المجموعة",
       maxSelections: "الحد الأقصى للاختيارات",
       optionName: "اسم الخيار",
+      optionExtraPrice: "السعر الإضافي",
+      optionPriceInvalid: "أدخل سعرًا إضافيًا صحيحًا بقيمة 0 أو أكثر.",
+      addOnPriceInvalid: "أدخل سعرًا صحيحًا أكبر من 0.",
       addOption: "إضافة خيار",
       removeGroup: "إزالة المجموعة",
       addChoiceGroup: "إضافة مجموعة خيارات",
