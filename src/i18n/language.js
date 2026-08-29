@@ -101,15 +101,66 @@ export function applyRestaurantDefaultLanguageIfFirstVisit(restaurantDefaultLang
   setLanguage(restaurantDefaultLanguage);
 }
 
+/* Phase 64 — one warning per distinct bad key shape, so a mis-mapped value
+   inside a list of 40 orders reports itself once instead of 40 times per
+   render. Dev-only: a guest or a manager can do nothing with this, and it is
+   a programming error, not an operating condition. */
+const warnedInvalidKeys = new Set();
+
+function warnInvalidTranslationKey(key) {
+  try {
+    if (!import.meta.env?.DEV) return;
+    const shape = `${Object.prototype.toString.call(key)}:${String(key)}`;
+    if (warnedInvalidKeys.has(shape)) return;
+    warnedInvalidKeys.add(shape);
+    console.warn(
+      `[i18n] t() received a non-string key (${shape}). This usually means a ` +
+      `lookup like t(SOME_MAP[value], fallback) missed. Rendering the fallback.`
+    );
+  } catch {
+    /* Logging must never be the thing that breaks a render — String() on an
+       exotic value can itself throw. */
+  }
+}
+
 /**
  * t — look up a nested translation key against the CURRENT language.
+ *
  * @param {string} key — dot-separated, e.g. "admin.adminAccess"
  * @param {string} [fallback] — returned if the key isn't found for the
  *   current language; if omitted, the key itself is returned so missing
  *   translations are obvious during development rather than blank.
  * @returns {string}
+ *
+ * Phase 64 — invalid keys no longer throw.
+ *
+ *   Roughly two dozen call sites look up a key through a map, e.g.
+ *     t(METHOD_LABEL_KEY[order.paymentMethod.id], order.paymentMethod.label)
+ *   Every one of them already supplies a human-readable fallback, which is
+ *   exactly the right instinct. But when the map missed, the key arrived
+ *   here as undefined and `key.split(".")` threw before the fallback could
+ *   ever be used — and since a throw inside render unmounts the React tree,
+ *   one unrecognised payment-method id blanked the entire Admin interface.
+ *
+ *   So a non-string key is now treated as "no translation available",
+ *   which is what the caller already meant, and the fallback does its job.
+ *
+ * Deliberately unchanged: a valid string key that simply is not in the
+ * dictionary still returns the fallback, and still returns the key itself
+ * when no fallback was given. That behaviour makes missing translations
+ * visible during development and is not a crash, so it stays exactly as it
+ * was — this guard only covers keys that were never usable strings.
  */
 export function t(key, fallback) {
+  if (typeof key !== "string") {
+    warnInvalidTranslationKey(key);
+    /* Only a string fallback is safe to render. A number, object or array
+       here would surface as "[object Object]" or leak an internal value into
+       the UI, so anything else becomes an empty string: a missing label is
+       recoverable, a wrong one is not. */
+    return typeof fallback === "string" ? fallback : "";
+  }
+
   const language = getLanguage();
   const table = translations[language] || translations[DEFAULT_LANGUAGE];
 
