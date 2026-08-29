@@ -7,6 +7,7 @@ import Input   from "../../components/ui/Input.jsx";
 import Modal   from "../../components/ui/Modal.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
+import { QRCodeSVG } from "qrcode.react";
 import { useTableData } from "../../lib/useTableData.js";
 import {
   createTable,
@@ -105,16 +106,60 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
     setToastVisible(true);
   }
 
+  /* Phase 57 — copy with a real fallback, and honest feedback.
+     navigator.clipboard exists only in a secure context, so it is simply
+     absent when the app is served over plain http on a LAN — which is
+     exactly how a restaurant would reach this screen while testing a QR
+     from a phone. The execCommand path still works there. If both fail the
+     toast says so rather than claiming success: the URL is on screen to be
+     copied by hand, so a wrong "copied" is worse than an honest failure. */
+  async function copyText(text) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // fall through to the legacy path below
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      /* Off-screen but still focusable — execCommand ignores hidden nodes. */
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleCopyUrl(table) {
     const url = customerUrl(restaurant.slug, table.qrToken);
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      // clipboard API unavailable — the toast still confirms intent, URL is also shown in the QR preview modal
-    }
-    setToastMessage(t("admin.urlCopied", "Customer URL copied"));
+    const ok = await copyText(url);
+    setToastMessage(
+      ok
+        ? t("admin.urlCopied", "Customer URL copied")
+        : t("admin.urlCopyFailed", "Couldn't copy — select the URL above to copy it manually.")
+    );
     setToastVisible(true);
   }
+
+  /* Phase 57 — the preview holds a table object captured at click time.
+     Re-reading it from the live list means Regenerate QR (which replaces the
+     token) can never leave the modal showing a token that no longer exists.
+     Falls back to the snapshot only if the row has since been deleted. */
+  const previewLive = previewTable
+    ? tables.find((x) => x.id === previewTable.id) || previewTable
+    : null;
+  /* One source of truth for the modal: the SAME string is encoded into the
+     QR, printed beneath it, and written to the clipboard — they cannot drift
+     apart because there is only one of them. */
+  const previewUrl = previewLive ? customerUrl(restaurant.slug, previewLive.qrToken) : "";
 
   function handleOpenUrl(table) {
     const url = customerUrl(restaurant.slug, table.qrToken);
@@ -199,20 +244,51 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
         <TableEditorModal table={editingTable} onSave={handleSave} onClose={() => setEditingTable(null)} />
       )}
 
-      {previewTable && (
+      {/* Phase 57 — a real, scannable QR. `previewLive` is re-read from the
+          table list rather than trusted from the click-time snapshot, so the
+          code on screen always encodes the token that is stored right now —
+          a regeneration can never leave a stale QR being shown. Rendering
+          only; nothing here writes. */}
+      {previewLive && (
         <Modal
           open
           onClose={() => setPreviewTable(null)}
           title={t("admin.qrPreviewTitle", "Table QR Code")}
-          footer={<Button onClick={() => setPreviewTable(null)}>{t("common.close", "Close")}</Button>}
+          footer={
+            <>
+              <Button variant="ghost" icon={Copy} onClick={() => handleCopyUrl(previewLive)}>
+                {t("admin.copyLink", "Copy Link")}
+              </Button>
+              <Button onClick={() => setPreviewTable(null)}>{t("common.close", "Close")}</Button>
+            </>
+          }
         >
           <div className="tb-qr-preview">
             <p className="tb-qr-preview__restaurant">{restaurant.name}</p>
-            <p className="tb-qr-preview__table">{previewTable.displayName} (#{previewTable.tableNumber})</p>
+            <p className="tb-qr-preview__table">{previewLive.displayName} (#{previewLive.tableNumber})</p>
+            {/* The white plate is the quiet zone's carrier: the QR is always
+                black on white regardless of the Admin theme, because a scanner
+                reads reflectance, not our design tokens. marginSize={4} bakes
+                the spec's 4-module quiet zone into the SVG itself, so it holds
+                even if this box is ever restyled. */}
             <div className="tb-qr-preview__box">
-              <QrCode size={96} strokeWidth={1.2} />
+              <QRCodeSVG
+                className="tb-qr-preview__code"
+                value={previewUrl}
+                size={220}
+                level="M"
+                marginSize={4}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                role="img"
+                aria-label={`${t("admin.qrCodeOpensOrdering", "QR code that opens ordering for")} ${previewLive.displayName} (#${previewLive.tableNumber})`}
+              />
             </div>
-            <p className="tb-qr-preview__url">{customerUrl(restaurant.slug, previewTable.qrToken)}</p>
+            <p className="tb-qr-preview__scan">{t("admin.scanToOrder", "Scan to order")}</p>
+            {/* The same URL the code encodes, shown as text so the modal is
+                usable without a second phone — and readable to a screen
+                reader, which cannot scan anything. */}
+            <p className="tb-qr-preview__url">{previewUrl}</p>
           </div>
         </Modal>
       )}

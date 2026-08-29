@@ -326,8 +326,13 @@ export const translations = {
       tableDeleted: "Table deleted",
       qrRegenerated: "QR token regenerated",
       urlCopied: "Customer URL copied",
+      urlCopyFailed: "Couldn't copy — select the URL above to copy it manually.",
       openCustomerPage: "Open customer page",
       qrPreviewTitle: "Table QR Code",
+      /* Phase 57 — real scannable QR modal. */
+      scanToOrder: "Scan to order",
+      copyLink: "Copy Link",
+      qrCodeOpensOrdering: "QR code that opens ordering for",
 
       /* Phase 23 — Restaurant Settings */
       restaurantSettings: "Restaurant Settings",
@@ -877,8 +882,12 @@ export const translations = {
       tableDeleted: "تم حذف الطاولة",
       qrRegenerated: "تم إعادة إنشاء رمز QR",
       urlCopied: "تم نسخ رابط العميل",
+      urlCopyFailed: "تعذّر النسخ — حدد الرابط أعلاه لنسخه يدويًا.",
       openCustomerPage: "فتح صفحة العميل",
       qrPreviewTitle: "رمز QR للطاولة",
+      scanToOrder: "امسح الرمز لبدء الطلب",
+      copyLink: "نسخ الرابط",
+      qrCodeOpensOrdering: "رمز QR يفتح الطلب لـ",
 
       /* Phase 23 — Restaurant Settings */
       restaurantSettings: "إعدادات المطعم",
