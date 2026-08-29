@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from "react-router-dom";
 import "./theme/global.css";
 import HomeScreen                        from "./screens/HomeScreen.jsx";
 import CustomerAccessScreen              from "./screens/customer/CustomerAccessScreen.jsx";
@@ -26,6 +26,7 @@ import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
 import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js";
 import DemoSwitcher                      from "./components/demo/DemoSwitcher.jsx";
+import ErrorBoundary                     from "./components/system/ErrorBoundary.jsx";
 import CustomerTheme                     from "./components/theme/CustomerTheme.jsx";
 
 function HomeRoute() {
@@ -171,15 +172,21 @@ function KitchenRoute() {
   }
 
   return (
-    <KitchenBoardScreen
-      restaurant={restaurant}
-      session={session}
-      onSignOut={() => {
-        clearKitchenSession();
-        setSessionTick((t) => t + 1);
-      }}
-      onHome={() => navigate("/")}
-    />
+    /* Phase 65 — the Kitchen board renders its own Topbar, so unlike Admin
+       there is no chrome to preserve separately; this guards the whole
+       surface. A malformed order must never leave a kitchen staring at a
+       blank screen mid-service. */
+    <ErrorBoundary label="kitchen" resetKey={restaurantSlug}>
+      <KitchenBoardScreen
+        restaurant={restaurant}
+        session={session}
+        onSignOut={() => {
+          clearKitchenSession();
+          setSessionTick((t) => t + 1);
+        }}
+        onHome={() => navigate("/")}
+      />
+    </ErrorBoundary>
   );
 }
 
@@ -383,6 +390,23 @@ function AdminRoute() {
   );
 }
 
+/* Phase 65 — the last line of defence, under every route. The three surface
+   boundaries (Admin content, CustomerTheme, Kitchen) handle the common case
+   and preserve more context; this one exists for the case they cannot cover:
+   a screen that throws BEFORE it renders its own layout, or a failure in a
+   login / invalid-access view that sits outside all three.
+
+   It must be inside BrowserRouter to read the location, which is what lets a
+   route change clear a previous failure instead of stranding the user. */
+function RoutedErrorBoundary({ children }) {
+  const location = useLocation();
+  return (
+    <ErrorBoundary label="app" resetKey={location.pathname}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <div className="app">
@@ -394,6 +418,7 @@ export default function App() {
             rather than merely hidden. The component carries the same guard
             internally as a second layer. */}
         {import.meta.env.DEV && <DemoSwitcher />}
+        <RoutedErrorBoundary>
         <Routes>
           <Route path="/"                                                          element={<HomeRoute />} />
           <Route path="/kitchen/:restaurantSlug"                                  element={<KitchenRoute />} />
@@ -406,6 +431,7 @@ export default function App() {
           <Route path="/r/:restaurantSlug/table/:qrToken/orders/:orderId/tracking"     element={<CustomerOrderTrackingRoute />} />
           <Route path="*"                                                          element={<Navigate to="/" replace />} />
         </Routes>
+        </RoutedErrorBoundary>
       </BrowserRouter>
     </div>
   );

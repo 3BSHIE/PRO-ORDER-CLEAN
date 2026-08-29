@@ -14,6 +14,7 @@ import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
 import { playAlertSound } from "../../lib/alertSound.js";
 import StaffCallAlert from "./StaffCallAlert.jsx";
+import ErrorBoundary from "../../components/system/ErrorBoundary.jsx";
 
 const ROLE_LABEL = { admin: "Admin", cashier: "Cashier" };
 /* Translation keys for the role badge, keyed by session.role. */
@@ -228,7 +229,19 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
           ))}
         </nav>
 
-        {children}
+        {/* Phase 65 — the boundary sits HERE, not around the screen, because
+            every Admin screen renders its own AdminLayout: the chrome is a
+            child of the screen, not its parent. Wrapping only the content
+            area means a failed Live Orders still leaves the topbar, the nav,
+            the staff-call badge and Sign out usable, so the operator can
+            navigate out instead of reloading.
+
+            resetKey is the active page: moving to another Admin page clears
+            a previous failure automatically (§13), so one broken screen can
+            never trap someone. */}
+        <ErrorBoundary label={`admin:${activeKey}`} resetKey={activeKey}>
+          {children}
+        </ErrorBoundary>
       </main>
 
       {/* Phase 59 — rendered here in the shared chrome, not inside a screen,

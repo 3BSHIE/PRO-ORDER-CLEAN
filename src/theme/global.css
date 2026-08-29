@@ -1825,6 +1825,27 @@ button{font-family:var(--font-body)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb-row__meta{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-3)}
 .tb-row__meta-label{flex:none}
+/* ══ Phase 65 — Error Boundary recovery state ═════════════════════════════
+
+   Deliberately quiet. This is not a crash screen: it is one section of the
+   app reporting that it could not draw, while everything around it keeps
+   working. Centred in whatever container it lands in, so the same markup
+   suits the Admin content area, a customer route and the Kitchen board
+   without three variants. Nothing here is direction-specific, so RTL needs
+   no override.
+   ═══════════════════════════════════════════════════════════════════════ */
+.eb-fallback{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:10px;padding:44px 20px;margin:0 auto;max-width:420px;box-sizing:border-box}
+.eb-fallback__icon{
+  display:grid;place-items:center;width:52px;height:52px;border-radius:50%;
+  background:var(--surface-2);color:var(--text-3);margin-bottom:2px}
+.eb-fallback__title{
+  margin:0;font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--text-1)}
+.eb-fallback__msg{margin:0;font-size:14px;color:var(--text-2)}
+.eb-fallback__actions{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:12px}
+
 /* ══ Phase 61 — Admin topbar at narrow widths ═════════════════════════════
 
    The defect: at 375px the admin topbar's right-hand group needed 333px of

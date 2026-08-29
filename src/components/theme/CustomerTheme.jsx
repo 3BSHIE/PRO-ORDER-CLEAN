@@ -1,5 +1,6 @@
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { buildCustomerThemeVars } from "../../lib/theme.js";
+import ErrorBoundary from "../system/ErrorBoundary.jsx";
 
 /**
  * CustomerTheme — Phase 31. Applies one restaurant's saved theme to the
@@ -32,7 +33,13 @@ export default function CustomerTheme({ restaurantSlug, children }) {
 
   return (
     <div className="customer-theme" style={themeVars}>
-      {children}
+      {/* Phase 65 — inside the theme wrapper rather than outside it, so a
+          guest meeting a failure still sees the restaurant own colours and
+          fonts rather than being dropped onto an unbranded page. One
+          placement covers all six customer routes. */}
+      <ErrorBoundary label={`customer:${restaurantSlug}`} resetKey={restaurantSlug}>
+        {children}
+      </ErrorBoundary>
     </div>
   );
 }
