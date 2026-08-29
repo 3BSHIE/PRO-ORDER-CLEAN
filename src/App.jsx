@@ -20,6 +20,7 @@ import AdminTablesScreen                  from "./screens/admin/AdminTablesScree
 import AdminSettingsScreen                from "./screens/admin/AdminSettingsScreen.jsx";
 import AdminFeedbackScreen                from "./screens/admin/AdminFeedbackScreen.jsx";
 import { ADMIN_ONLY_NAV_KEYS }            from "./screens/admin/AdminLayout.jsx";
+import { readAdminPage, writeAdminPage, clearAdminPage } from "./lib/adminPageState.js";
 import { requestNavigation } from "./lib/navigationGuard.js";
 import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
@@ -190,7 +191,16 @@ function AdminRoute() {
   const [sessionTick, setSessionTick] = useState(0);
   /* Which admin page is showing — the URL stays /admin/:restaurantSlug for
      both; this is in-page navigation via AdminLayout's nav shell. */
-  const [adminPage, setAdminPage] = useState("overview");
+  /* Phase 62 — restored from sessionStorage so a refresh returns to the page
+     the operator was on. The initializer reads the session directly because
+     `session` below is derived later in this same render; readAdminPage
+     validates the stored value against the CURRENT role, so a Cashier can
+     never resume an Admin-only page and an unknown key falls back to
+     Overview. Computing it here does not render it — the session check
+     further down still decides whether any admin page renders at all. */
+  const [adminPage, setAdminPage] = useState(() =>
+    readAdminPage(restaurantSlug, getAdminSession()?.role)
+  );
   /* Phase 53 — a filter the Dashboard can hand to Live Orders when a status
      card is used as a shortcut. Kept here rather than inside Live Orders
      because the screen unmounts when the admin page changes, so the intent
@@ -216,6 +226,12 @@ function AdminRoute() {
     requestNavigation(() => {
       setLiveOrdersFilter(options?.ordersFilter ?? null);
       setAdminPage(page);
+      /* Phase 62 — inside the guard's success path on purpose. A destination
+         the Phase 60 dialog is still holding has not been visited, so
+         persisting it here would let "Keep Editing" be remembered as a move.
+         The Live Orders filter is deliberately NOT persisted: this phase
+         restores a page, not a moment. */
+      writeAdminPage(restaurantSlug, session?.role, page);
     });
   }
 
@@ -246,6 +262,12 @@ function AdminRoute() {
      only; closing the tab remains unprotected and is out of scope. */
   const handleSignOut = () => {
     requestNavigation(() => {
+      /* Phase 62 — cleared only once the guard has allowed the sign-out, and
+         before the session goes, since the key is scoped by that role. The
+         next login therefore starts at Overview rather than resuming the
+         previous operator screen. Choosing "Keep Editing" never reaches
+         here, so the remembered page survives a refused sign-out. */
+      clearAdminPage(restaurantSlug, session?.role);
       clearAdminSession();
       setSessionTick((t) => t + 1);
     });
