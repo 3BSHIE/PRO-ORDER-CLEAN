@@ -7,6 +7,7 @@ import Toast   from "../../components/ui/Toast.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
+import StaffCallAlertsCard from "./StaffCallAlertsCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -337,6 +338,19 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             control changes, so it is intentionally NOT wired to the Save
             button below (which commits the general-settings draft only). */}
         <KitchenAlertsCard
+          restaurant={restaurant}
+          onNotify={(message) => {
+            setToastMessage(message);
+            setToastVisible(true);
+          }}
+        />
+
+        {/* ── Staff Call Alerts (Phase 59) ─────────────────────────────────
+            Sits beside Kitchen Alerts because they are the same kind of
+            control, but writes to its own key and is likewise not wired to
+            the Save button. Front-of-house and kitchen are tuned separately
+            on purpose — different rooms, different noise. */}
+        <StaffCallAlertsCard
           restaurant={restaurant}
           onNotify={(message) => {
             setToastMessage(message);

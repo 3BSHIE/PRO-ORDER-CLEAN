@@ -1,12 +1,13 @@
 import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
-import { updateKitchenAlertSettings } from "../../lib/kitchenAlertData.js";
+import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
+import { updateStaffCallAlertSettings } from "../../lib/staffCallAlertData.js";
 import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
-/* Translation keys for the three built-in voices, keyed by their stable id. */
+/* Translation keys for the three built-in voices, keyed by their stable id.
+   Shared wording with the Kitchen card — they are the same three sounds. */
 const SOUND_LABEL_KEY = {
   bell: "kitchen.soundBell",
   chime: "kitchen.soundChime",
@@ -15,34 +16,39 @@ const SOUND_LABEL_KEY = {
 const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
 
 /**
- * KitchenAlertsCard — Phase 27, Admin-only configuration of the kitchen's
- * new-order alert sound. Rendered inside AdminSettingsScreen, which is
- * already route-guarded to Admin, so Cashier can never reach it and Kitchen
- * only ever consumes the result.
+ * StaffCallAlertsCard — Phase 59, Admin-only configuration of the sound
+ * played when a guest rings for a waiter. Deliberately the twin of
+ * KitchenAlertsCard: same controls, same apply-on-change behaviour, same
+ * 0–100 slider over a 0..1 stored volume — but a separate storage key, so
+ * Kitchen at Chime/30% and Staff Calls at Bell/80% coexist without either
+ * touching the other.
  *
- * Apply-on-change, deliberately:
- *   Every control writes immediately instead of feeding the page's main
- *   "Save" button. Two reasons — a sound setting is only meaningfully
- *   evaluated by *hearing* it, so Test Sound must reflect what you just
- *   picked; and this card writes to a different storage key than the rest of
- *   the settings page, so sharing one Save button would imply a transaction
- *   that doesn't exist. Each write is a surgical field patch.
+ * Rendered inside AdminSettingsScreen, which is already route-guarded to
+ * Admin, so a Cashier can never reach these controls — while still hearing
+ * whatever the Admin chose.
+ *
+ * Apply-on-change, deliberately (same reasoning as Phase 27): a sound is
+ * only meaningfully judged by hearing it, so Test Sound must reflect the
+ * selection immediately; and this card writes to a different key than the
+ * page's main Save button, so sharing that button would imply a transaction
+ * that does not exist.
  *
  * Props:
  *   restaurant — { slug, ... }
  *   onNotify   — (message: string) => void; parent owns the Toast
  */
-export default function KitchenAlertsCard({ restaurant, onNotify }) {
+export default function StaffCallAlertsCard({ restaurant, onNotify }) {
   const { t } = useLanguage();
-  const { settings } = useKitchenAlertSettings(restaurant.slug);
+  const { settings } = useStaffCallAlertSettings(restaurant.slug);
 
   function apply(patch, message) {
-    updateKitchenAlertSettings(restaurant.slug, patch);
+    updateStaffCallAlertSettings(restaurant.slug, patch);
     if (message) onNotify?.(message);
   }
 
-  /* Preview always uses the values as they stand right now, so what the
-     admin hears is exactly what the kitchen will hear. */
+  /* Preview uses the values exactly as stored right now, so what the Admin
+     hears here is what the floor will hear. Playing a sound touches no staff
+     call data whatsoever — it cannot create, resolve or modify a call. */
   function handleTest() {
     const played = playAlertSound(settings.soundType, settings.volume);
     onNotify?.(
@@ -56,15 +62,16 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
 
   return (
     <Card className="ad-settings__section">
-      <h3 className="mm-section-title">{t("kitchen.kitchenAlerts", "Kitchen Alerts")}</h3>
+      <h3 className="mm-section-title">{t("staff.staffCallAlerts", "Staff Call Alerts")}</h3>
       <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
         {t(
-          "kitchen.kitchenAlertsHint",
-          "Played on the Kitchen board when a new order arrives. Changes apply immediately."
+          "staff.staffCallAlertsHint",
+          "Played for Admin and Cashier when a guest requests assistance. Separate from Kitchen Alerts. Changes apply immediately."
         )}
       </p>
 
-      {/* On/off */}
+      {/* On/off — the master switch. Turning it off silences audio only; the
+          on-screen alert still appears, so nothing is missed. */}
       <div className="mm-toggles">
         <label className="mm-toggle-row">
           <input
@@ -74,12 +81,12 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
               apply(
                 { soundEnabled: e.target.checked },
                 e.target.checked
-                  ? t("kitchen.alertsEnabledToast", "Kitchen alert sound turned on")
-                  : t("kitchen.alertsDisabledToast", "Kitchen alert sound turned off")
+                  ? t("staff.alertsEnabledToast", "Staff call sound turned on")
+                  : t("staff.alertsDisabledToast", "Staff call sound turned off")
               )
             }
           />
-          <span>{t("kitchen.alertSoundEnabled", "Play a sound for new orders")}</span>
+          <span>{t("staff.alertSoundEnabled", "Play a sound for new staff calls")}</span>
         </label>
       </div>
 
@@ -88,6 +95,7 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
         <span className="field__label">{t("kitchen.sound", "Sound")}</span>
         <select
           className="mm-select mm-select--full"
+          aria-label={t("kitchen.sound", "Sound")}
           value={settings.soundType}
           disabled={!settings.soundEnabled}
           onChange={(e) => {
@@ -105,19 +113,22 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
         </select>
       </label>
 
-      {/* Volume */}
+      {/* Volume — 0 is allowed and is genuinely silent, matching Phase 27.
+          The toggle above is the intended way to turn alerts off; a 0 here
+          simply behaves the way it reads. */}
       <label className="field mm-field" style={{ marginTop: 12 }}>
         <span className="field__label">
           {t("kitchen.volume", "Volume")} <span className="ka-volume__value">{volumePercent}%</span>
         </span>
         <div className="ka-volume">
-          <Volume2 size={15} strokeWidth={2} />
+          <Volume2 size={15} strokeWidth={2} aria-hidden="true" />
           <input
             className="ka-volume__slider"
             type="range"
             min="0"
             max="100"
             step="5"
+            aria-label={t("kitchen.volume", "Volume")}
             value={volumePercent}
             disabled={!settings.soundEnabled}
             onChange={(e) => apply({ volume: Number(e.target.value) / 100 })}

@@ -1,7 +1,14 @@
 /**
- * kitchenAlertSound — Phase 27 alert tones, synthesized with the Web Audio
- * API. No audio files, no network requests, no bundled binaries: every sound
- * is generated from oscillators at play time.
+ * alertSound — shared alert tones, synthesized with the Web Audio API. No
+ * audio files, no network requests, no bundled binaries: every sound is
+ * generated from oscillators at play time.
+ *
+ * Introduced for the Kitchen board in Phase 27 and renamed in Phase 59, when
+ * Staff Call alerts became a second consumer. Nothing in here was ever
+ * kitchen-specific — it takes a sound type and a volume and plays once — so
+ * the rename is the whole refactor: no behaviour changed, and the Kitchen
+ * board calls the identical function it always did. Each caller owns its own
+ * settings and decides WHEN to play; this module only decides how it sounds.
  *
  * Why synthesis instead of shipping .mp3/.wav assets:
  *   The phase explicitly rules out uploaded/custom audio. Generating the

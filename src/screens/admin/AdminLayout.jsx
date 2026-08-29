@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LogOut, LayoutDashboard, ClipboardList, UtensilsCrossed, Tags, QrCode, Settings, BellRing,
   MessageSquareHeart,
@@ -11,6 +11,10 @@ import Toast   from "../../components/ui/Toast.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
+import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
+import { playAlertSound } from "../../lib/alertSound.js";
+import { requestNavigation } from "../../lib/navigationGuard.js";
+import StaffCallAlert from "./StaffCallAlert.jsx";
 
 const ROLE_LABEL = { admin: "Admin", cashier: "Cashier" };
 /* Translation keys for the role badge, keyed by session.role. */
@@ -74,6 +78,92 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
      Admin/Cashier sitting on Overview or Live Orders still notices a new
      call without navigating anywhere or refreshing. */
   const { openCalls } = useStaffCalls(restaurant.slug);
+  const { settings: staffAlertSettings } = useStaffCallAlertSettings(restaurant.slug);
+  /* Which arrival the banner is currently naming; null = no banner. */
+  const [alertCallId, setAlertCallId] = useState(null);
+
+  /* ── Phase 59 — new staff-call detection ───────────────────────────────
+     Same three-part rule Phase 27 proved on the kitchen board, because the
+     failure it prevents is identical: a backlog must never announce itself
+     as news.
+
+       seenCallIdsRef — every open-call id this layout has ever observed. An
+                        id in here can never alert again, so the 4s poll, a
+                        tab refocus and any re-render all replay nothing.
+       hasSeededRef   — the FIRST pass after mount only records what is
+                        already waiting and returns silently. This is what
+                        makes a reload with four calls open produce a badge
+                        of 4 and zero sounds (§22).
+       open-only      — resolved calls are not in this list, so resolving
+                        something can never make a noise (§13), and history
+                        is structurally incapable of alerting.
+
+     Settings are read through a ref so that changing the volume does not
+     re-run detection and re-evaluate arrivals. */
+  const seenCallIdsRef = useRef(new Set());
+  const hasSeededRef = useRef(false);
+  const alertSettingsRef = useRef(staffAlertSettings);
+
+  useEffect(() => {
+    alertSettingsRef.current = staffAlertSettings;
+  }, [staffAlertSettings]);
+
+  /* openCalls is rebuilt on every render by useStaffCalls, so depending on
+     the array itself would re-run this effect constantly. The id list is the
+     only thing detection actually cares about, and it only changes when a
+     call is genuinely added or removed. */
+  const openCallIdsKey = openCalls.map((c) => c.id).join(",");
+
+  useEffect(() => {
+    const openIds = openCallIdsKey ? openCallIdsKey.split(",") : [];
+
+    if (!hasSeededRef.current) {
+      openIds.forEach((id) => seenCallIdsRef.current.add(id));
+      hasSeededRef.current = true;
+      return;
+    }
+
+    const arrivedIds = openIds.filter((id) => !seenCallIdsRef.current.has(id));
+    if (arrivedIds.length === 0) return;
+
+    // Mark as seen BEFORE anything else, so a throw could never cause a replay.
+    arrivedIds.forEach((id) => seenCallIdsRef.current.add(id));
+
+    /* Newest first out of useStaffCalls, so the head of the list is the call
+       worth naming. Storing the id (not the object) keeps the banner honest:
+       it is re-resolved from live data on every render, so a resolve
+       elsewhere updates it rather than leaving a stale table on screen. */
+    setAlertCallId(arrivedIds[arrivedIds.length - 1]);
+
+    const { soundEnabled, soundType, volume } = alertSettingsRef.current;
+    if (!soundEnabled) return;
+
+    /* One sound per detection cycle rather than one per call. Two guests
+       ringing inside the same 4s poll window would otherwise produce
+       overlapping tones that just smear into noise; the banner still counts
+       both, and separate arrivals in separate cycles each get their own
+       short sound. Never loops, never repeats while a call stays open. */
+    playAlertSound(soundType, volume);
+  }, [openCallIdsKey]);
+
+  /* Re-resolved from live data every render, which is what synchronises the
+     banner with a resolve (§13): the moment the call leaves openCalls this
+     becomes undefined and the banner unmounts. No resolve sound, because
+     detection above only ever looks at arrivals. */
+  const alertCall = alertCallId ? openCalls.find((c) => c.id === alertCallId) : null;
+
+  /* View Call must not be a back door around the Phase 55 unsaved-changes
+     guard. requestNavigation hands the decision to whatever screen is
+     mounted: with a clean editor (or none) it navigates immediately; with a
+     dirty Product draft the editor's own "Discard changes?" dialog opens and
+     navigation only completes if the Admin chooses to discard. */
+  function handleViewCalls() {
+    requestNavigation(() => {
+      setAlertCallId(null);
+      onNavigate("staffCalls");
+    });
+  }
+
 
   /* Admin-only nav items (Menu, Categories) are simply not rendered for a
      Cashier session — but this is a UX nicety, not the actual access
@@ -132,6 +222,17 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
 
         {children}
       </main>
+
+      {/* Phase 59 — rendered here in the shared chrome, not inside a screen,
+          so a call reaches Admin/Cashier wherever they happen to be. Kitchen
+          has its own layout and never mounts this. */}
+      <StaffCallAlert
+        key={alertCall?.id}
+        call={alertCall}
+        openCount={openCalls.length}
+        onView={handleViewCalls}
+        onDismiss={() => setAlertCallId(null)}
+      />
 
       <Toast
         visible={toastVisible}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -17,6 +17,7 @@ import {
   genAddOnId,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -657,6 +658,43 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     onClose();
   }
 
+  /* ── Phase 59 — protect this draft from navigation started elsewhere ────
+     The Phase 55 guard covers this modal's own four dismissal paths, but it
+     cannot see a click on the staff-call alert's "View Call" up in
+     AdminLayout: that sets adminPage, which unmounts this whole screen and
+     takes the draft with it silently.
+
+     Registering here closes that hole without the alert needing to know
+     anything about products. A clean draft declines the guard and navigation
+     proceeds untouched; a dirty one opens the very same "Discard changes?"
+     dialog, with the pending navigation parked until the Admin answers —
+     Discard Changes goes, Keep Editing stays and the draft survives.
+
+     Registered only while the editor is mounted, and only meaningful while
+     it is dirty. */
+  const pendingNavRef = useRef(null);
+
+  useEffect(() => {
+    return registerNavigationGuard((proceed) => {
+      if (!isDirty) return false; // nothing to lose — let it through
+      pendingNavRef.current = proceed;
+      setShowDiscard(true);
+      return true; // this dialog owns the decision now
+    });
+  }, [isDirty]);
+
+  /* Both discard-dialog outcomes funnel through here so a parked navigation
+     can never be left dangling: discarding runs it, keeping clears it. */
+  function resolveDiscard(discard) {
+    setShowDiscard(false);
+    const pending = pendingNavRef.current;
+    pendingNavRef.current = null;
+    if (!discard) return;               // Keep Editing — draft and editor stay
+    if (pending) { pending(); return; } // navigation was waiting on this
+    onClose();                          // ordinary close
+  }
+
+
   function handleSubmit() {
     if (!name.trim()) { setError(t("admin.productNameRequired", "Please enter an item name.")); return; }
     if (!categoryId) { setError(t("admin.productCategoryRequired", "Please choose a category.")); return; }
@@ -1109,16 +1147,16 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     {showDiscard && (
       <Modal
         open
-        onClose={() => setShowDiscard(false)}
+        onClose={() => resolveDiscard(false)}
         title={t("admin.discardChangesTitle", "Discard changes?")}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowDiscard(false)}>
+            <Button variant="ghost" onClick={() => resolveDiscard(false)}>
               {t("admin.keepEditing", "Keep Editing")}
             </Button>
             <Button
               variant="danger"
-              onClick={() => { setShowDiscard(false); onClose(); }}
+              onClick={() => resolveDiscard(true)}
             >
               {t("admin.discardChanges", "Discard Changes")}
             </Button>

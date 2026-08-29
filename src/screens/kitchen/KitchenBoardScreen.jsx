@@ -10,7 +10,7 @@ import { getCustomerOrders, updateCustomerOrderStatus } from "../../lib/customer
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
-import { playAlertSound } from "../../lib/kitchenAlertSound.js";
+import { playAlertSound } from "../../lib/alertSound.js";
 
 /* Board columns, in display order. Each maps to exactly one order.status. */
 const BOARD_COLUMNS = [
