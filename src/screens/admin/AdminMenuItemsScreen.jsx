@@ -17,6 +17,9 @@ import {
   genAddOnId,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+/* Phase 66 — the price rules moved to src/lib/menuPricing.js so the storage
+   boundary can enforce the identical rules. Behaviour here is unchanged. */
+import { parseProductPrice, parseChoiceOptionPrice, parseAddOnPrice } from "../../lib/menuPricing.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -157,19 +160,6 @@ export function validateChoiceGroups(choices) {
   return { ok: !firstInvalidGroupId, errors, firstInvalidGroupId };
 }
 
-export function parseProductPrice(raw) {
-  const text = String(raw ?? "").trim();
-  /* Plain decimal only: digits, optionally one dot and more digits. Rejects
-     "", "abc", "12.5o", "-5", "+5", "1e3", "Infinity", "NaN", ".5" and "5.". */
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-
-  const value = Number(text);
-  /* isFinite is belt-and-braces after the regex; the > 0 test is the real
-     rule, and it is what rejects "0" and "0.00". */
-  if (!Number.isFinite(value) || value <= 0) return null;
-
-  return value;
-}
 
 /* Phase 56 — per-row field ids for the customization price inputs, so a
    failed save can focus the exact one that is wrong. Composite for options
@@ -178,70 +168,6 @@ const optionPriceFieldId = (groupId, optionId) => `mm-option-price-${groupId}-${
 const addOnPriceFieldId  = (addOnId) => `mm-addon-price-${addOnId}`;
 const optionErrorKey     = (groupId, optionId) => `${groupId}:${optionId}`;
 
-/**
- * Phase 56 — strict parsing for a CHOICE OPTION's extra price.
- *
- * Zero is a real, common answer here, not a failure: 30 of the seeded
- * options are priced 0, and the customer modal renders a price badge only
- * `if (opt.price > 0)`, so a 0 option deliberately shows no surcharge at
- * all. "Rare / Medium / Well done" cost the same, and that is the point.
- * The rule is therefore >= 0, unlike the base price's > 0.
- *
- * Blank is normalised to 0 rather than rejected, because that is already
- * the user-facing meaning today: the row is created with price 0, the input
- * is type="number", and clearing it produced 0 via `parseFloat("") || 0`.
- * Phase 56 keeps that behaviour and drops the mechanism — an explicit
- * "empty means no extra charge" instead of an accident of `|| 0` that
- * happened to turn "abc" and "12.5o" into prices as well.
- *
- * @param {unknown} raw
- * @returns {number|null} a finite Number >= 0, or null if invalid
- */
-export function parseChoiceOptionPrice(raw) {
-  const text = String(raw ?? "").trim();
-  /* The one deliberate difference from the add-on rule below. */
-  if (text === "") return 0;
-
-  /* Plain decimal only — same shape as Phase 47, so "-1", "1e3", "Infinity",
-     "NaN", "1,5", "2.5x", ".5" and "5." are all rejected outright rather
-     than partially salvaged. */
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-
-  const value = Number(text);
-  if (!Number.isFinite(value) || value < 0) return null;
-
-  return value;
-}
-
-/**
- * Phase 56 — strict parsing for a PAID ADD-ON's price.
- *
- * Audited against the actual model before choosing the rule: all 19 seeded
- * add-ons are priced above 0, the section is labelled "Paid add-ons" for the
- * manager and "Add extras" for the guest, and the customer modal prints
- * `+{price}` unconditionally — with no `> 0` guard of the kind the options
- * have. A free add-on would therefore render "+ JOD 0.000", which is not a
- * thing the UI was built to say. Free extras belong in a choice group, which
- * already supports them properly.
- *
- * So > 0 is required, and blank is invalid rather than 0: a named add-on
- * with no price is exactly the silent free-item bug this phase exists to
- * stop. No existing data is broken by this, because none of it is free.
- *
- * @param {unknown} raw
- * @returns {number|null} a finite Number > 0, or null if invalid
- */
-export function parseAddOnPrice(raw) {
-  const text = String(raw ?? "").trim();
-  /* No blank exemption here — "" falls through the regex and is rejected. */
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-
-  const value = Number(text);
-  /* The > 0 test is what rejects "0" and "0.00". */
-  if (!Number.isFinite(value) || value <= 0) return null;
-
-  return value;
-}
 
 /**
  * Phase 56 — judge every customization price the save would actually persist.
@@ -337,12 +263,25 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
     );
   }
 
+  /* Phase 66 — the data layer can now refuse a write, so the result is
+     checked instead of assumed. In normal use this never fires: Phases 47,
+     48 and 56 catch every bad value inline, with a message against the exact
+     field, and that remains the primary experience. This is the case where
+     something reached storage that the form did not anticipate — and the one
+     outcome that must never happen is a cheerful "Item saved" over a write
+     that did not occur. The editor stays open with the draft intact so the
+     work is recoverable. */
   function handleSave(data) {
-    if (editingItem?.id) {
-      updateMenuItem(restaurant.slug, editingItem.id, data);
-    } else {
-      createMenuItem(restaurant.slug, data);
+    const result = editingItem?.id
+      ? updateMenuItem(restaurant.slug, editingItem.id, data)
+      : createMenuItem(restaurant.slug, data);
+
+    if (!result.ok) {
+      setToastMessage(t("admin.productSaveFailed", "Couldn't save this item. Please check the prices and try again."));
+      setToastVisible(true);
+      return; // editor stays open, draft preserved
     }
+
     setToastMessage(t("admin.productSaved", "Item saved"));
     setToastVisible(true);
     setEditingItem(null);

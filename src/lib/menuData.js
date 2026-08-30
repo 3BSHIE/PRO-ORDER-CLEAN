@@ -39,6 +39,7 @@
  */
 
 import { CATEGORIES as SEED_CATEGORIES, MENU_ITEMS as SEED_ITEMS } from "../data/mockMenu.js";
+import { validateItemPrices } from "./menuPricing.js";
 
 const CATEGORIES_KEY_PREFIX = "pro_order_menu_categories";
 const ITEMS_KEY_PREFIX = "pro_order_menu_items";
@@ -303,9 +304,23 @@ export function moveCategory(restaurantSlug, categoryId, direction) {
  *   canonical shape): { categoryId, name, description, price, imageUrl,
  *   isAvailable, isFeatured, isPopular, sortOrder, removableIngredients,
  *   choices, paidAddOns }
- * @returns {object} the created item
+ * @returns {{ok:true, item:object} | {ok:false, reason:string, field:string}}
+ *   Phase 66 — a write can now FAIL. Invalid money is rejected rather than
+ *   coerced to 0, so callers must check .ok instead of assuming success.
  */
 export function createMenuItem(restaurantSlug, data) {
+  /* Phase 66 — money is validated BEFORE anything is built or written. A
+     price is required on create: an item with no price is not a draft, it is
+     a free item waiting to happen. Nothing is persisted unless every
+     monetary field passes, so a rejected create leaves the menu untouched
+     and no half-item behind. */
+  const priced = validateItemPrices({
+    price: data.price,
+    choices: Array.isArray(data.choices) ? data.choices : [],
+    paidAddOns: Array.isArray(data.paidAddOns) ? data.paidAddOns : [],
+  }, { requirePrice: true });
+  if (!priced.ok) return { ok: false, reason: priced.reason, field: priced.field };
+
   const items = getMenuItems(restaurantSlug);
   const sameCat = items.filter((i) => i.categoryId === data.categoryId);
   const maxSort = sameCat.reduce((max, i) => Math.max(max, i.sortOrder || 0), 0);
@@ -315,38 +330,56 @@ export function createMenuItem(restaurantSlug, data) {
     categoryId: data.categoryId,
     name: (data.name || "").trim(),
     description: (data.description || "").trim(),
-    price: Number(data.price) || 0,
+    /* Already a validated finite Number — no coercion left in this module. */
+    price: priced.price,
     imageUrl: (data.imageUrl || "").trim() || null,
     isAvailable: data.isAvailable !== false,
     isFeatured: !!data.isFeatured,
     isPopular: !!data.isPopular,
     sortOrder: data.sortOrder != null ? Number(data.sortOrder) : maxSort + 1,
     removableIngredients: Array.isArray(data.removableIngredients) ? data.removableIngredients : [],
-    choices: Array.isArray(data.choices) ? data.choices : [],
-    paidAddOns: Array.isArray(data.paidAddOns) ? data.paidAddOns : [],
+    /* The validated copies: same objects, same ids, prices normalised to
+       Numbers. */
+    choices: priced.choices,
+    paidAddOns: priced.paidAddOns,
   };
   saveMenuItems(restaurantSlug, [...items, item]);
-  return item;
+  return { ok: true, item };
 }
 
 /**
  * @param {string} restaurantSlug
  * @param {string} itemId
  * @param {object} patch — any subset of the item fields (see createMenuItem)
- * @returns {object|null} the updated item, or null if not found
+ * @returns {{ok:true, item:object} | {ok:false, reason:string, field?:string}}
+ *   Phase 66 — "not_found" replaces the old null return, and invalid money
+ *   is rejected atomically: on failure the stored item is unchanged.
  */
 export function updateMenuItem(restaurantSlug, itemId, patch) {
   const items = getMenuItems(restaurantSlug);
   const idx = items.findIndex((i) => i.id === itemId);
-  if (idx === -1) return null;
+  if (idx === -1) return { ok: false, reason: "not_found" };
+
+  /* Phase 66 — validate every monetary field the patch carries before
+     touching storage. Only fields actually present are judged, so a patch
+     that never mentions price (a rename, a visibility toggle) is unaffected.
+
+     ATOMIC: the check runs to completion first and one bad nested price
+     fails the entire write. Partially applying a patch — new base price
+     saved, one malformed add-on dropped — would leave a product nobody
+     asked for, so the stored item is left byte-for-byte unchanged instead. */
+  const priced = validateItemPrices(patch);
+  if (!priced.ok) return { ok: false, reason: priced.reason, field: priced.field };
 
   const updated = { ...items[idx], ...patch };
-  if (patch.price !== undefined) updated.price = Number(patch.price) || 0;
+  if (patch.price !== undefined) updated.price = priced.price;
+  if (patch.choices !== undefined) updated.choices = priced.choices;
+  if (patch.paidAddOns !== undefined) updated.paidAddOns = priced.paidAddOns;
   if (patch.sortOrder !== undefined) updated.sortOrder = Number(patch.sortOrder) || 0;
 
   const next = items.map((i, idx2) => (idx2 === idx ? updated : i));
   saveMenuItems(restaurantSlug, next);
-  return updated;
+  return { ok: true, item: updated };
 }
 
 /**

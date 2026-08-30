@@ -264,6 +264,9 @@ export const translations = {
       deleteProduct: "Delete Item",
       noProductsYet: "No items yet.",
       productSaved: "Item saved",
+      /* Phase 66 — storage-boundary rejection; the inline field errors from
+         Phases 47/48/56 remain the primary, specific messages. */
+      productSaveFailed: "Couldn't save this item. Please check the prices and try again.",
       productDeleted: "Item deleted",
       /* Phase 55 — product editor unsaved-changes guard. */
       discardChangesTitle: "Discard changes?",
@@ -850,6 +853,7 @@ export const translations = {
       deleteProduct: "حذف العنصر",
       noProductsYet: "لا توجد عناصر بعد.",
       productSaved: "تم حفظ العنصر",
+      productSaveFailed: "تعذر حفظ هذا العنصر. يرجى التحقق من الأسعار والمحاولة مرة أخرى.",
       productDeleted: "تم حذف العنصر",
       discardChangesTitle: "تجاهل التغييرات؟",
       discardChangesMsg: "لديك تغييرات غير محفوظة. إذا خرجت الآن، سيتم فقدانها.",
