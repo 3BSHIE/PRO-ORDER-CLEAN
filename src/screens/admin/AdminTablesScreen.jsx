@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Pencil, Trash2, Plus, QrCode, Copy, ExternalLink, RefreshCw, Search, X } from "lucide-react";
+import { Pencil, Trash2, Plus, QrCode, Copy, ExternalLink, RefreshCw, Search, X, Printer } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -8,7 +8,9 @@ import Modal   from "../../components/ui/Modal.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import { QRCodeSVG } from "qrcode.react";
+import TableQrPrintCard from "./TableQrPrintCard.jsx";
 import { useTableData } from "../../lib/useTableData.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
 import {
   createTable,
   updateTable,
@@ -90,6 +92,9 @@ export function tableMatchesStatus(table, statusFilter) {
 
 export default function AdminTablesScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { tables } = useTableData(restaurant.slug);
+  /* Phase 69 — the printed stand carries the restaurant identity the guest
+     sees: the settings name, logo and accent, not the static record. */
+  const { settings } = useSettingsData(restaurant.slug);
   const { t } = useLanguage();
 
   /* Phase 58 — view-only list controls. Held in component state and never
@@ -228,6 +233,13 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
      QR, printed beneath it, and written to the clipboard — they cannot drift
      apart because there is only one of them. */
   const previewUrl = previewLive ? customerUrl(restaurant.slug, previewLive.qrToken) : "";
+
+  /* Phase 69 — the cards are already in the DOM and print CSS decides what
+     reaches paper, so this only has to open the dialog. Nothing is written,
+     generated or fetched; printing mutates no table data. */
+  function handlePrintStand() {
+    window.print();
+  }
 
   function handleOpenUrl(table) {
     const url = customerUrl(restaurant.slug, table.qrToken);
@@ -388,6 +400,9 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               <Button variant="ghost" icon={Copy} onClick={() => handleCopyUrl(previewLive)}>
                 {t("admin.copyLink", "Copy Link")}
               </Button>
+              <Button variant="outline" icon={Printer} onClick={handlePrintStand}>
+                {t("admin.printTableStand", "Print Table Stand")}
+              </Button>
               <Button onClick={() => setPreviewTable(null)}>{t("common.close", "Close")}</Button>
             </>
           }
@@ -418,6 +433,36 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 usable without a second phone — and readable to a screen
                 reader, which cannot scan anything. */}
             <p className="tb-qr-preview__url">{previewUrl}</p>
+            {/* Phase 69 — an inactive table can still be printed; the stand
+                is a physical object and the restaurant may be preparing a
+                table before opening it. This warns the Admin on screen only
+                and never appears on the card itself. */}
+            {previewLive.isActive === false && (
+              <p className="tb-qr-preview__warning" role="status">
+                {t("admin.printInactiveWarning", "This table is currently inactive.")}
+              </p>
+            )}
+          </div>
+
+          {/* Phase 69 — the two printable faces. Off-screen normally, shown
+              only by print media. Both are fed the SAME previewUrl, so the
+              English face, the Arabic face, the preview above and Copy Link
+              can never encode different links. */}
+          <div className="qr-stand-sheet" aria-hidden="true">
+            <TableQrPrintCard
+              restaurant={restaurant}
+              settings={settings}
+              table={previewLive}
+              qrUrl={previewUrl}
+              language="en"
+            />
+            <TableQrPrintCard
+              restaurant={restaurant}
+              settings={settings}
+              table={previewLive}
+              qrUrl={previewUrl}
+              language="ar"
+            />
           </div>
         </Modal>
       )}

@@ -12,6 +12,10 @@
 
 export const translations = {
   en: {
+    print: {
+      /* Phase 69 — wording that appears on the physical A6 card. */
+      table: "Table",
+    },
     common: {
       english: "English",
       arabic: "Arabic",
@@ -352,6 +356,9 @@ export const translations = {
       /* Phase 57 — real scannable QR modal. */
       scanToOrder: "Scan to order",
       copyLink: "Copy Link",
+      /* Phase 69 — printable bilingual table stand. */
+      printTableStand: "Print Table Stand",
+      printInactiveWarning: "This table is currently inactive.",
       qrCodeOpensOrdering: "QR code that opens ordering for",
 
       /* Phase 23 — Restaurant Settings */
@@ -622,6 +629,9 @@ export const translations = {
     },
   },
   ar: {
+    print: {
+      table: "الطاولة",
+    },
     common: {
       english: "الإنجليزية",
       arabic: "العربية",
@@ -934,6 +944,8 @@ export const translations = {
       qrPreviewTitle: "رمز QR للطاولة",
       scanToOrder: "امسح الرمز لبدء الطلب",
       copyLink: "نسخ الرابط",
+      printTableStand: "طباعة ستاند الطاولة",
+      printInactiveWarning: "هذه الطاولة غير مفعّلة حالياً.",
       qrCodeOpensOrdering: "رمز QR يفتح الطلب لـ",
 
       /* Phase 23 — Restaurant Settings */

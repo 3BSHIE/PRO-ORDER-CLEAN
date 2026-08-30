@@ -177,7 +177,11 @@ button{font-family:var(--font-body)}
   border:1px solid var(--border);border-radius:50%;transition:color .2s,border-color .2s}
 .modal__x:hover{color:var(--text-1);border-color:var(--border-strong)}
 .modal__body{color:var(--text-2);font-size:14px;line-height:1.6}
-.modal__foot{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+/* Phase 69 — the footer wraps. A third action (Print Table Stand) makes
+   three buttons exceed a 375px dialog, and with nowrap the first was pushed
+   off the left edge and clipped. Wrapping only engages when the row cannot
+   fit, so every existing two-button footer is unchanged. */
+.modal__foot{flex-wrap:wrap;display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 
 /* ── home: hero ── */
 .hero{padding:60px 0 10px;text-align:center}
@@ -1973,6 +1977,9 @@ button{font-family:var(--font-body)}
   background:#fff;padding:10px;margin-bottom:12px}
 .tb-qr-preview__code{width:100%;height:auto;display:block}
 .tb-qr-preview__scan{font-size:13.5px;color:var(--text-2);margin:0 0 8px}
+/* Phase 69 — screen-only notice; never printed on the card. */
+.tb-qr-preview__warning{
+  font-size:12.5px;color:var(--canceled);margin:8px 0 0}
 .tb-qr-preview__url{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--text-2);
   direction:ltr;unicode-bidi:isolate;word-break:break-all;max-width:100%}
@@ -2914,3 +2921,149 @@ button{font-family:var(--font-body)}
 .mm-toggle-hint{
   margin:4px 0 0 26px;font-size:11.5px;line-height:1.5;color:var(--text-3)}
 [dir="rtl"] .mm-toggle-hint{margin-left:0;margin-right:26px}
+
+/* ══ Phase 69 — Printable bilingual table stand ═══════════════════════════
+
+   Two A6 faces for one table: English, then Arabic. They are in the DOM only
+   while the QR modal is open, hidden on screen, and revealed exclusively by
+   print media — so the Admin sees its normal preview and the printer sees
+   two clean cards.
+
+   The card is light by design. The Admin UI is dark, and printing that would
+   flood an A6 card with ink and bury a black QR in a near-black field.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Off-screen rather than display:none — a display:none subtree is not
+   guaranteed to lay out, and the QR must be measured and rendered normally
+   so it is ready the instant the print dialog opens. */
+.qr-stand-sheet{position:absolute;left:-10000px;top:0;width:105mm}
+
+@media print{
+  /* ── Print isolation ───────────────────────────────────────────────────
+     Targeted, not global. The modal renders inline as the last child of
+     main.container--admin (no portal), so hiding the page chrome plus every
+     sibling of the overlay leaves exactly the two cards. The :not() rule is
+     self-maintaining: a screen that adds another section is hidden by it
+     automatically, without this block needing to learn the new class. */
+  .topbar,
+  .demo-switcher,
+  .toast-wrap,
+  .sc-alert{display:none !important}
+
+  .container--admin > *:not(.modal__overlay){display:none !important}
+
+  /* The admin container carries 20px of side padding, which would offset
+     both cards ~5mm into the page and clip them against a zero-margin A6
+     sheet. Neutralised for print only. */
+  .container--admin{padding:0 !important;margin:0 !important;
+    max-width:none !important;width:auto !important}
+
+  /* Strip the overlay and dialog back to plain boxes so nothing centres,
+     scrolls, dims or constrains the cards on paper. */
+  .modal__overlay,
+  .modal,
+  .modal__body{
+    display:block !important;position:static !important;
+    background:none !important;backdrop-filter:none !important;
+    box-shadow:none !important;border:none !important;border-radius:0 !important;
+    padding:0 !important;margin:0 !important;
+    width:auto !important;max-width:none !important;
+    height:auto !important;max-height:none !important;overflow:visible !important}
+
+  /* The dialog's own furniture and the on-screen preview are chrome, not the
+     artefact being printed. */
+  .modal__handle,
+  .modal__head,
+  .modal__foot,
+  .modal__x,
+  .tb-qr-preview{display:none !important}
+
+  /* An explicit width, not auto: the un-styled modal ancestors resolve to
+     zero width here, and relying on the cards overflowing a zero-width
+     parent is one stray overflow:hidden away from clipping the print. */
+  .qr-stand-sheet{
+    display:block !important;position:static !important;
+    left:auto !important;top:auto !important;width:105mm !important}
+
+  @page{size:105mm 148mm;margin:0}
+
+  html,body{background:#fff !important;margin:0 !important;padding:0 !important}
+
+  /* Each card is exactly one A6 page. The last must NOT force a break after
+     it, or the browser emits a third, blank page. */
+  .qr-stand{page-break-after:always;break-after:page}
+  .qr-stand:last-child{page-break-after:auto;break-after:auto}
+
+  /* Vector stays vector, and colours print as specified rather than being
+     "helpfully" lightened. */
+  .qr-stand,.qr-stand *{
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ── The card itself ─────────────────────────────────────────────────────
+   Fixed mm geometry so both faces are dimensionally identical and the QR
+   lands at the same coordinates on each — they may become opposite sides of
+   one physical stand. */
+.qr-stand{
+  box-sizing:border-box;
+  width:105mm;height:148mm;
+  display:flex;flex-direction:column;align-items:center;
+  padding:9mm 8mm 7mm;
+  background:#fffdf9;                 /* warm white, not clinical paper-white */
+  color:#1a1a1a;
+  text-align:center;
+  font-family:var(--font-body),system-ui,sans-serif;
+  overflow:hidden}
+
+/* Fixed height, not auto: Arabic and Latin text have different metrics, so
+   an auto-height header made the QR sit ~1mm lower on the Arabic face. These
+   two cards may end up as opposite sides of one physical stand, where a
+   visible offset between faces reads as a printing fault. Pinning the block
+   makes the QR start at an identical Y on both. */
+.qr-stand__top{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2.5mm;width:100%;height:32mm;flex:none}
+
+.qr-stand__logo{
+  max-height:16mm;max-width:52mm;width:auto;object-fit:contain;display:block}
+
+/* clamp() lets a long restaurant name shrink instead of overflowing the
+   card, and the two-line clamp stops a very long one pushing the QR down. */
+.qr-stand__restaurant{
+  margin:0;font-weight:700;letter-spacing:.01em;line-height:1.15;
+  font-size:clamp(4.4mm, 5.2mm, 6mm);
+  max-width:100%;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+.qr-stand__rule{display:block;width:14mm;height:0.6mm;border-radius:1mm;opacity:.85}
+
+.qr-stand__table{
+  margin:0;font-size:4.2mm;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:#3a3a3a}
+
+/* The QR box is the fixed anchor of the composition: same size, same place,
+   on both faces. margin:auto centres it in the leftover vertical space. */
+.qr-stand__qr{
+  margin:6mm 0 0;padding:3mm;background:#fff;
+  border-radius:2mm;line-height:0;flex:none}
+.qr-stand__qr-svg{width:52mm;height:52mm;display:block}
+
+/* Fixed height for the same reason as the header — the Arabic sentence wraps
+   differently, and the footer must not drift between faces. */
+.qr-stand__scan{
+  margin:0;font-size:3.9mm;font-weight:500;color:#2b2b2b;
+  padding-top:4mm;height:12mm;display:flex;align-items:center;justify-content:center;flex:none}
+
+.qr-stand__footer{
+  display:flex;align-items:center;justify-content:center;gap:1.8mm;
+  width:100%;margin-top:auto;padding-top:3mm}
+.qr-stand__brand-logo{height:5mm !important;width:auto}
+.qr-stand__powered{font-size:2.7mm;color:#6b6b6b;letter-spacing:.02em;white-space:nowrap}
+
+/* Arabic face: the composition is identical and only the text direction and
+   line-height change — Arabic glyphs need a little more vertical room. */
+.qr-stand[dir="rtl"] .qr-stand__restaurant{line-height:1.35}
+.qr-stand[dir="rtl"] .qr-stand__table{letter-spacing:0}
+.qr-stand[dir="rtl"] .qr-stand__scan{line-height:1.5}
+/* The attribution is a brand name and stays LTR on both faces. */
+.qr-stand[dir="rtl"] .qr-stand__powered{direction:ltr}
