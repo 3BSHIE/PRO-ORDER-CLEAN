@@ -20,6 +20,7 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 /* Phase 66 — the price rules moved to src/lib/menuPricing.js so the storage
    boundary can enforce the identical rules. Behaviour here is unchanged. */
 import { parseProductPrice, parseChoiceOptionPrice, parseAddOnPrice } from "../../lib/menuPricing.js";
+import { parseSortOrder } from "../../lib/menuSortOrder.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -70,6 +71,8 @@ import { fmtPrice } from "../../lib/format.js";
 /* Stable id so a failed validation can focus the field it belongs to. Only
    one product editor is ever mounted at a time, so a constant is safe. */
 const PRICE_FIELD_ID = "mm-product-price";
+/* Phase 67 — same purpose: a failed save can focus the field it belongs to. */
+const SORT_ORDER_FIELD_ID = "mm-product-sort-order";
 
 /* Phase 48 — per-group field ids, same purpose as PRICE_FIELD_ID above. */
 const groupNameFieldId = (groupId) => `mm-group-name-${groupId}`;
@@ -456,6 +459,9 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
      the price field itself rather than under the item name, which is where
      the shared `error` state is displayed. */
   const [priceError, setPriceError] = useState(null);
+  /* Phase 67 — kept separate from `error` for the same reason priceError is:
+     the message belongs beside the sort-order field, not under the name. */
+  const [sortOrderError, setSortOrderError] = useState(null);
   /* Phase 48 — { [groupId]: { max?: code, options?: code } }. Keyed by group
      so every invalid group keeps its own error rather than one shared banner
      losing all but the last problem. */
@@ -698,6 +704,23 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       return;
     }
 
+    /* Phase 67 — the position is judged before anything is written. Blank is
+       allowed and means "leave it to the data layer": on create that becomes
+       the next free position in the category, on edit it leaves the stored
+       value alone. Only a value the manager actually typed is validated.
+
+       parseInt used to run here, which truncated "1.5" to 1 and turned "abc"
+       into NaN — both saved without a word. */
+    const trimmedSortOrder = sortOrder.trim();
+    const parsedSortOrder = trimmedSortOrder === "" ? undefined : parseSortOrder(trimmedSortOrder);
+    if (parsedSortOrder === null) {
+      setSortOrderError(
+        t("admin.productSortOrderInvalid", "Enter a valid whole number of 0 or more.")
+      );
+      document.getElementById(SORT_ORDER_FIELD_ID)?.focus();
+      return;
+    }
+
     onSave({
       name: name.trim(),
       description: description.trim(),
@@ -705,7 +728,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       price: parsedPrice,
       categoryId,
       imageUrl: imageUrl.trim(),
-      sortOrder: sortOrder !== "" ? parseInt(sortOrder, 10) : undefined,
+      sortOrder: parsedSortOrder,
       isAvailable,
       isFeatured,
       isPopular,
@@ -814,10 +837,23 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
             placeholder="https://…"
           />
           <Input
+            id={SORT_ORDER_FIELD_ID}
             label={t("admin.productSortOrder", "Sort order")}
             type="number"
+            min="0"
+            step="1"
             value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
+            error={sortOrderError}
+            aria-invalid={sortOrderError ? "true" : undefined}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              /* Clear as soon as it becomes valid again — including when it
+                 is emptied, which is a legitimate "leave it to the system". */
+              const next = e.target.value.trim();
+              if (sortOrderError && (next === "" || parseSortOrder(next) !== null)) {
+                setSortOrderError(null);
+              }
+            }}
           />
         </div>
 

@@ -288,6 +288,8 @@ export const translations = {
       productCategory: "Category",
       productImageUrl: "Image URL",
       productSortOrder: "Sort order",
+      /* Phase 67 — sort order validation. */
+      productSortOrderInvalid: "Enter a valid whole number of 0 or more.",
       available: "Available",
       removableIngredientsLabel: "Removable ingredients",
       ingredientPlaceholder: "e.g. onions",
@@ -873,6 +875,7 @@ export const translations = {
       productCategory: "الفئة",
       productImageUrl: "رابط الصورة",
       productSortOrder: "ترتيب العرض",
+      productSortOrderInvalid: "أدخل رقمًا صحيحًا بدون كسور بقيمة 0 أو أكثر.",
       available: "متوفر",
       removableIngredientsLabel: "مكونات قابلة للإزالة",
       ingredientPlaceholder: "مثال: بصل",

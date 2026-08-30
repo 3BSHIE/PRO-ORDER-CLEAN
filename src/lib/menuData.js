@@ -40,6 +40,7 @@
 
 import { CATEGORIES as SEED_CATEGORIES, MENU_ITEMS as SEED_ITEMS } from "../data/mockMenu.js";
 import { validateItemPrices } from "./menuPricing.js";
+import { parseSortOrder } from "./menuSortOrder.js";
 
 const CATEGORIES_KEY_PREFIX = "pro_order_menu_categories";
 const ITEMS_KEY_PREFIX = "pro_order_menu_items";
@@ -325,6 +326,22 @@ export function createMenuItem(restaurantSlug, data) {
   const sameCat = items.filter((i) => i.categoryId === data.categoryId);
   const maxSort = sameCat.reduce((max, i) => Math.max(max, i.sortOrder || 0), 0);
 
+  /* Phase 67 — an omitted sort order still means "put it last", which is how
+     a new product gets a position without anyone typing one. Only a value
+     that was actually supplied is judged, and an invalid one fails the whole
+     create rather than being coerced to 0.
+
+     The old test was "data.sortOrder != null", which let NaN through: NaN is
+     not null, so Number(NaN) was stored and JSON later wrote it out as null.
+     Requiring a usable number closes that. */
+  let resolvedSortOrder = maxSort + 1;
+  if (data.sortOrder !== undefined && data.sortOrder !== null && data.sortOrder !== "") {
+    resolvedSortOrder = parseSortOrder(data.sortOrder);
+    if (resolvedSortOrder === null) {
+      return { ok: false, reason: "invalid_sort_order", field: "sortOrder" };
+    }
+  }
+
   const item = {
     id: genId("item"),
     categoryId: data.categoryId,
@@ -336,7 +353,7 @@ export function createMenuItem(restaurantSlug, data) {
     isAvailable: data.isAvailable !== false,
     isFeatured: !!data.isFeatured,
     isPopular: !!data.isPopular,
-    sortOrder: data.sortOrder != null ? Number(data.sortOrder) : maxSort + 1,
+    sortOrder: resolvedSortOrder,
     removableIngredients: Array.isArray(data.removableIngredients) ? data.removableIngredients : [],
     /* The validated copies: same objects, same ids, prices normalised to
        Numbers. */
@@ -375,7 +392,22 @@ export function updateMenuItem(restaurantSlug, itemId, patch) {
   if (patch.price !== undefined) updated.price = priced.price;
   if (patch.choices !== undefined) updated.choices = priced.choices;
   if (patch.paidAddOns !== undefined) updated.paidAddOns = priced.paidAddOns;
-  if (patch.sortOrder !== undefined) updated.sortOrder = Number(patch.sortOrder) || 0;
+  /* Phase 67 — validated, never coerced. Two behaviours worth naming:
+
+     An omitted or blank sort order means "leave the position alone", not
+     "move it to 0". The spread above copies patch.sortOrder even when it is
+     undefined, which silently wrote undefined into storage whenever the
+     editor was saved with the field cleared — so the stored value is
+     restored explicitly here rather than trusting the spread. */
+  if (patch.sortOrder === undefined || patch.sortOrder === null || patch.sortOrder === "") {
+    updated.sortOrder = items[idx].sortOrder;
+  } else {
+    const nextSortOrder = parseSortOrder(patch.sortOrder);
+    if (nextSortOrder === null) {
+      return { ok: false, reason: "invalid_sort_order", field: "sortOrder" };
+    }
+    updated.sortOrder = nextSortOrder;
+  }
 
   const next = items.map((i, idx2) => (idx2 === idx ? updated : i));
   saveMenuItems(restaurantSlug, next);
