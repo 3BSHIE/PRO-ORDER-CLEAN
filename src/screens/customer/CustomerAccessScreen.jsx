@@ -64,8 +64,20 @@ export default function CustomerAccessScreen({
           the table resolves, the restaurant's hero identity sits immediately
           below and a 40px platform logo above it would be the larger of the
           two marks — the inversion this phase exists to fix. */}
+      {/* Phase 73 §2 — the language control moved into this bar. It used to
+          float alone above the hero, align-self:flex-end inside the content
+          column, which read as a stray control rather than part of the
+          chrome. The topbar's left slot was empty on a valid table anyway
+          (the PRO·ORDER mark only appears for an invalid code), so this is
+          the natural home for it and it costs no vertical space.
+
+          The invalid-code branch is untouched: §41 defers those screens. */}
       <Topbar
-        left={result.ok ? null : <Logo variant="icon" size="nav" />}
+        left={
+          result.ok
+            ? <LanguageSwitcher className="access__lang-switcher" />
+            : <Logo variant="icon" size="nav" />
+        }
         right={<Badge tone={result.ok ? "gold" : "canceled"}>{t("common.qrAccess", "QR access")}</Badge>}
       />
       <main className="container">
@@ -104,25 +116,37 @@ export default function CustomerAccessScreen({
 function WelcomeView({ restaurant, table, onContinue }) {
   const { t } = useLanguage();
   return (
-    <div className="access anim-rise">
-      <LanguageSwitcher className="access__lang-switcher" />
+    /* Phase 73 §2/§3 — access--welcome is a scoped modifier, NOT a change to
+       .access itself: the same base class carries the Invalid QR and Inactive
+       Table screens, which §41 explicitly defers to a later phase. Only the
+       welcome composition moves. */
+    <div className="access access--welcome">
+      <div className="access__identity anim-enter-identity">
       {/* Phase 45 — this is the guest's first impression of the venue, so the
           restaurant owns it. It used to open with PRO·ORDER's full logo at
           100px above a 22px restaurant logo and a 12px uppercase name, which
           read as the software introducing itself. The restaurant's mark is now
           the hero and PRO·ORDER moved to the footer attribution below. */}
-      <RestaurantIdentity
-        name={restaurant.name}
-        logoUrl={restaurant.logoUrl}
-        variant="hero"
-      />
-      <h1 className="access__table">
-        {t("customer.welcomeToTable", "Welcome to Table")} <i>#{table.tableNumber}</i>
-      </h1>
-      <p className="access__msg">{t("customer.almostReadyToOrder", "You're almost ready to order.")}</p>
-      <Button size="lg" icon={ArrowRight} onClick={onContinue}>
-        {t("common.continue", "Continue")}
-      </Button>
+        <RestaurantIdentity
+          name={restaurant.name}
+          logoUrl={restaurant.logoUrl}
+          variant="hero"
+        />
+        {/* The table is the guest's own context and stays the headline here —
+            this is the one place it is stated on this screen, so §4's
+            "once, in the top area" is satisfied without a second pill. */}
+        <h1 className="access__table">
+          {t("customer.welcomeToTable", "Welcome to Table")} <i>#{table.tableNumber}</i>
+        </h1>
+      </div>
+
+      <div className="access__enter anim-enter-form">
+        <p className="access__msg">{t("customer.almostReadyToOrder", "You're almost ready to order.")}</p>
+        <Button size="lg" icon={ArrowRight} onClick={onContinue}>
+          {t("common.continue", "Continue")}
+        </Button>
+      </div>
+
       <CustomerFooter />
     </div>
   );
@@ -148,7 +172,7 @@ function NameOnboardingView({ restaurant, table, onBack, onSubmit }) {
   }
 
   return (
-    <div className="onboard anim-rise">
+    <div className="onboard anim-enter-form">
       {/* subtle back link */}
       <button
         type="button"

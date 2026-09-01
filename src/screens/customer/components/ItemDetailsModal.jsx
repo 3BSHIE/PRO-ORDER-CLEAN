@@ -118,7 +118,6 @@ export default function ItemDetailsModal({
 
   const unitPrice  = (item?.price || 0) + addOnsTotal + choicesTotal;
   const total      = unitPrice * quantity;
-  const extrasUnit = addOnsTotal + choicesTotal;
 
   if (!open || !item) return null;
 
@@ -340,7 +339,12 @@ export default function ItemDetailsModal({
           {(item.isPopular || item.isFeatured) && (
             <div className="item-modal__badges">
               {item.isPopular && <span className="badge badge--gold">{t("customer.popular", "Popular")}</span>}
-              {item.isFeatured && <span className="badge badge--received">{t("customer.featured", "Featured")}</span>}
+              {/* Phase 73 §8 — Featured leaves the blue "received" status colour
+                  here too. The one-badge rule in §7 is scoped to the product
+                  CARD; this detail sheet is where fuller information belongs,
+                  so both badges may still appear — they just both sit in the
+                  brand family now. */}
+              {item.isFeatured && <span className="badge badge--featured">{t("customer.featured", "Featured")}</span>}
             </div>
           )}
 
@@ -515,44 +519,21 @@ export default function ItemDetailsModal({
                 />
               </label>
 
-              <div className="divider" />
-
-              {/* Price breakdown + total */}
-              <div className="item-modal__breakdown">
-                <div className="item-modal__breakdown-row">
-                  <span>{t("customer.basePrice", "Base price")}</span>
-                  <span>{fmtPrice(item.price)}</span>
-                </div>
-                {extrasUnit > 0 && (
-                  <div className="item-modal__breakdown-row">
-                    <span>{t("customer.extrasPerItem", "Extras (per item)")}</span>
-                    <span>+{fmtPrice(extrasUnit)}</span>
-                  </div>
-                )}
-                <div className="item-modal__breakdown-row">
-                  <span>{t("common.quantity", "Quantity")}</span>
-                  <span>× {quantity}</span>
-                </div>
-              </div>
+              {/* Phase 73 §20 — the inline price breakdown that used to sit
+                  here was removed. It restated the base price, the extras and
+                  the quantity directly above a sticky footer already showing
+                  the live total, so the guest read the same arithmetic twice
+                  within one screen. Per-option prices remain on their own
+                  rows, where they actually inform a choice; the footer is now
+                  the single closing summary. */}
             </>
           )}
 
-          {/* Phase 42 — the primary CTA moved to the sticky footer below, so
-              the only thing left here is the secondary dismiss. Keeping it in
-              the scrolling flow rather than the footer keeps the footer to one
-              compact row plus one button, and leaves a single obvious primary
-              action on screen at all times. */}
-          {available && (
-            <div className="item-modal__actions">
-              <button
-                type="button"
-                className="btn btn--ghost btn--md btn--full"
-                onClick={onClose}
-              >
-                {t("common.cancel", "Cancel")}
-              </button>
-            </div>
-          )}
+          {/* Phase 73 §21 — the orphaned full-width "Cancel" that used to
+              close the sheet from here is gone. It was a second, weaker exit
+              competing with the X in the header while the real primary action
+              lived in the sticky footer below it. Dismissal is unchanged: the
+              X, the overlay and Escape all still close the sheet. */}
         </div>
 
         {/* ── Sticky footer (Phase 42) ──────────────────────────────────────

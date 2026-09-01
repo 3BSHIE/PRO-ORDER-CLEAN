@@ -350,11 +350,12 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
                 <span>{t("common.serviceCharge", "Service charge")} ({serviceChargePercent}%)</span>
                 <span>{fmtPrice(serviceCharge)}</span>
               </div>
-              <div className="cart-summary__divider" />
-              <div className="cart-summary__row cart-summary__row--total">
-                <span>{t("common.total", "Total")}</span>
-                <span>{fmtPrice(total)}</span>
-              </div>
+              {/* Phase 73 §26 — the grand total used to be printed here AND in
+                  the sticky bar directly beneath it, both visible at once, so
+                  the guest saw the same figure twice and neither read as the
+                  authoritative one. It now appears exactly once, in the sticky
+                  checkout bar where the payment decision is actually made.
+                  Nothing about the calculation changed. */}
             </Card>
 
           </>

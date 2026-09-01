@@ -1,11 +1,10 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
-  Search, ShoppingBag, ShoppingCart, Clock,
+  Search, SearchX, ShoppingBag, ShoppingCart, Clock, X,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
-import Toast   from "../../components/ui/Toast.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
@@ -151,9 +150,19 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   /* Cart state — loaded from sessionStorage on mount, kept in sync via customerCart.js */
   const [cart, setCart] = useState(() => getCustomerCart());
 
-  /* Toast state (shared message for cart / clear / FAB actions) */
-  const [toastVisible,  setToastVisible]  = useState(false);
-  const [toastMessage,  setToastMessage]  = useState("");
+  /* Phase 73 §23/§24 — the "Added to cart" toast is gone and nothing replaces
+     it. The Cart FAB is now the acknowledgement: it already shows the count
+     and the running total, which is strictly more information than the toast
+     carried, and it lives where the guest goes next.
+
+     fabVisibleRef records whether the FAB was on screen at the moment of the
+     add. §25 forbids stacking its entrance and its acknowledgement, so the
+     first item of an empty cart plays the entrance ONLY, and every later add
+     plays the acknowledgement ONLY. A ref rather than the `cart` state
+     because handleAddToCart is memoised with no deps and would otherwise
+     close over a stale count. */
+  const [fabAck, setFabAck] = useState(false);
+  const fabVisibleRef = useRef(false);
 
   const cartCount = getCartItemCount(cart);
   const cartTotal = getCartTotal(cart);
@@ -251,9 +260,20 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
     setCart(nextCart);
     setSelectedItem(null);
-    setToastMessage(t("customer.addedToCart", "Added to cart"));
-    setToastVisible(true);
+    /* Acknowledge only when the FAB was already there to acknowledge with. */
+    if (fabVisibleRef.current) setFabAck(true);
   }, []);
+
+  /* Clear the one-shot class so a later add can replay it. 340ms covers the
+     320ms animation with a little slack; it never loops. */
+  useEffect(() => {
+    if (!fabAck) return;
+    const id = setTimeout(() => setFabAck(false), 340);
+    return () => clearTimeout(id);
+  }, [fabAck]);
+
+  /* Kept in sync every render, read only inside the add handler. */
+  useEffect(() => { fabVisibleRef.current = hasCartItems; }, [hasCartItems]);
 
   /* FAB click — navigates to the real cart page (Phase 8) */
   const handleFabClick = useCallback(() => {
@@ -277,18 +297,45 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           restaurant's own identity sits immediately below in the header, so a
           platform logo in the topbar would be the louder of the two brands and
           would also repeat a mark the footer already carries. */}
+      {/* Phase 73 §32/§36 — the topbar is already position:sticky, so putting
+          Call Staff here is what makes it reachable at any scroll depth on a
+          3,400px menu without inventing a second floating button (the Cart FAB
+          owns that space). Table identity moves to the left so the right side
+          reads as one action cluster rather than a mixed toolbar, and the
+          labels collapse to icons on narrow phones — see .menu-topbar-right. */}
       <Topbar
+        left={
+          <span className="menu-table-pill">
+            {t("customer.yourTable", "Table")} #{table.tableNumber}
+          </span>
+        }
         right={
           <div className="menu-topbar-right">
-            <span className="menu-table-pill">{t("customer.yourTable", "Table")} #{table.tableNumber}</span>
+            <CallStaffButton
+              restaurantSlug={restaurant.slug}
+              tableId={table.id}
+              tableNumber={table.tableNumber}
+              customerName={session.customerName}
+              variant="compact"
+            />
+            {/* The label is wrapped so it can collapse on narrow phones
+                (§36) while the icon stays. aria-label carries the name in
+                that case, so the control never becomes an unlabelled icon.
+
+                Note: no className is passed — Button spreads ...rest AFTER
+                its own className, so supplying one would replace `btn
+                btn--ghost btn--sm` outright and strip the button's styling. */}
             <Button
               variant="ghost"
               size="sm"
               icon={ShoppingBag}
               onClick={onViewOrders}
+              aria-label={t("customer.myOrders", "My Orders")}
               style={{ fontSize: 13 }}
             >
-              {t("customer.myOrders", "My Orders")}
+              <span className="menu-orders-label">
+                {t("customer.myOrders", "My Orders")}
+              </span>
             </Button>
           </div>
         }
@@ -310,25 +357,14 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             logoUrl={settings.logoUrl}
             variant="hero"
           />
+          {/* Phase 73 §4 — the table number left this line. It is already in
+              the sticky topbar, where it stays visible the whole way down the
+              menu; repeating it here stated the same fact twice in the same
+              viewport. The greeting keeps the name, which is the part that is
+              actually personal. */}
           <p className="menu-header__meta">
-            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i> &middot;{" "}
-            {t("customer.yourTable", "Table")} #{table.tableNumber}
+            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
           </p>
-
-          {/* Phase 25 — quiet, always-available way to ask for a person.
-              Deliberately understated here: ordering is the primary task on
-              this screen, this is the fallback. */}
-          <CallStaffButton
-            restaurantSlug={restaurant.slug}
-            tableId={table.id}
-            tableNumber={table.tableNumber}
-            customerName={session.customerName}
-            variant="subtle"
-            onNotify={(message) => {
-              setToastMessage(message);
-              setToastVisible(true);
-            }}
-          />
         </header>
 
         {/* ── Busy notice (Phase 26) ──────────────────────────────────────
@@ -358,23 +394,31 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             autoComplete="off"
           />
           {searchQuery && (
+            /* Phase 73 §13 — the bare "✕" glyph rendered at a different weight
+               and baseline than every other icon on the screen. Lucide X keeps
+               the clear action in the same icon family as the search mark. */
             <button
               type="button"
               className="menu-search__clear"
               onClick={() => setSearchQuery("")}
               aria-label={t("customer.clearSearch", "Clear search")}
             >
-              ✕
+              <X size={15} strokeWidth={2.4} />
             </button>
           )}
         </div>
 
-        {/* ── Category chips ──────────────────────────────────────────── */}
+        {/* ── Category chips ────────────────────────────────────────────
+            Phase 73 §11/§12 — the emoji stays. It is Admin-entered content
+            that gives a restaurant its personality, not UI decoration, and
+            removing it was explicitly rejected by the owner. Only the active
+            treatment and the scroll behaviour changed. */}
         <div className="chips-row anim-rise" style={{ animationDelay: "120ms" }}>
           <button
             type="button"
             className={`chip ${!activeCategory ? "chip--active" : ""}`}
-            onClick={() => { setActiveCategory(null); setSearchQuery(""); }}
+            aria-pressed={!activeCategory}
+            onClick={(e) => { setActiveCategory(null); setSearchQuery(""); revealChip(e.currentTarget); }}
           >
             {t("common.all", "All")}
           </button>
@@ -385,7 +429,8 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               key={cat.id}
               type="button"
               className={`chip ${activeCategory === cat.id ? "chip--active" : ""}`}
-              onClick={() => { setActiveCategory(cat.id); setSearchQuery(""); }}
+              aria-pressed={activeCategory === cat.id}
+              onClick={(e) => { setActiveCategory(cat.id); setSearchQuery(""); revealChip(e.currentTarget); }}
             >
               {cat.emoji} {cat.name}
             </button>
@@ -406,7 +451,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         ) : filteredItems.length === 0 ? (
           <SearchEmpty query={searchQuery} />
         ) : (
-          <ItemGrid items={filteredItems} categories={categories} onOpen={handleOpenItem} />
+          <ItemGrid items={filteredItems} onOpen={handleOpenItem} />
         )}
 
         {/* Inside the container so the existing cart-FAB bottom padding keeps
@@ -417,7 +462,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
       {/* ── Floating cart button ────────────────────────────────────────── */}
       {hasCartItems && (
-        <button type="button" className="cart-fab" onClick={handleFabClick}>
+        <button
+          type="button"
+          className={`cart-fab ${fabAck ? "cart-fab--ack" : ""}`}
+          onClick={handleFabClick}
+        >
           <span className="cart-fab__icon-wrap">
             <ShoppingCart size={18} strokeWidth={2.2} />
             <span className="cart-fab__count">{cartCount}</span>
@@ -435,15 +484,35 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         onClose={handleCloseModal}
         onPlaceholderAdd={handleAddToCart}
       />
-
-      {/* ── Toast ───────────────────────────────────────────────────────── */}
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        onDone={() => setToastVisible(false)}
-      />
     </>
   );
+}
+
+/**
+ * Phase 73 §12 — bring a just-selected chip fully into the horizontal strip.
+ *
+ * `inline:"nearest"` is the whole point: a chip already fully visible does
+ * not move at all, so tapping the chip you are looking at never shifts the
+ * row under your finger. `block:"nearest"` keeps it from scrolling the page
+ * vertically as a side effect.
+ *
+ * Smooth scrolling is skipped outright when the guest asks for reduced
+ * motion — the global CSS rule collapses durations but cannot reach a
+ * scroll behaviour passed in JS.
+ */
+function revealChip(el) {
+  if (!el?.scrollIntoView) return;
+  let smooth = true;
+  try {
+    smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    /* matchMedia unavailable — fall back to smooth, which degrades safely. */
+  }
+  el.scrollIntoView({
+    behavior: smooth ? "smooth" : "auto",
+    inline: "nearest",
+    block: "nearest",
+  });
 }
 
 /* ── Grouped view (All, no search) ─────────────────────────────────────── */
@@ -465,7 +534,7 @@ function GroupedView({ items, categories, onOpen }) {
                 {formatItemCount(t, catItems.length)}
               </span>
             </div>
-            <ItemGrid items={catItems} categories={categories} onOpen={onOpen} />
+            <ItemGrid items={catItems} onOpen={onOpen} />
           </section>
         );
       })}
@@ -474,19 +543,18 @@ function GroupedView({ items, categories, onOpen }) {
 }
 
 /* ── Flat item grid ─────────────────────────────────────────────────────── */
-function ItemGrid({ items, categories, onOpen }) {
+function ItemGrid({ items, onOpen }) {
   return (
     <div className="menu-grid">
       {items.map((item) => (
-        <ItemCard key={item.id} item={item} categories={categories} onOpen={onOpen} />
+        <ItemCard key={item.id} item={item} onOpen={onOpen} />
       ))}
     </div>
   );
 }
 
 /* ── Product card ───────────────────────────────────────────────────────── */
-function ItemCard({ item, categories, onOpen }) {
-  const cat = categories.find((c) => c.id === item.categoryId);
+function ItemCard({ item, onOpen }) {
   const available = item.isAvailable;
   const { t } = useLanguage();
   const oosId = `oos-${item.id}`;
@@ -513,8 +581,10 @@ function ItemCard({ item, categories, onOpen }) {
       className={`item-card ${available ? "item-card--available" : "item-card--unavailable"}`}
       {...cardInteraction}
     >
-      {/* Image / emoji placeholder */}
-      <ItemImage src={item.imageUrl} alt={item.name} emoji={cat?.emoji || "🍽️"} />
+      {/* Phase 73 §10 — the category emoji is no longer used as a product
+          image stand-in. It said nothing about the dish and rendered the same
+          giant glyph across every item in a category. */}
+      <ItemImage src={item.imageUrl} alt={item.name} name={item.name} />
 
       {/* Out of stock overlay badge. Carries an id so the disabled "+" can
           point at it instead of repeating the wording — one source of truth
@@ -527,18 +597,27 @@ function ItemCard({ item, categories, onOpen }) {
 
       {/* Body */}
       <div className="item-card__body">
-        {(item.isPopular || item.isFeatured) && (
-          <div className="item-card__badges">
-            {item.isPopular && (
-              <span className="badge badge--gold item-card__badge">{t("customer.popular", "Popular")}</span>
-            )}
-            {item.isFeatured && (
-              <span className="badge badge--received item-card__badge">
-                {t("customer.featured", "Featured")}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Phase 73 §7 — at most ONE badge, priority Out of Stock > Popular >
+            Featured. The product's own isPopular/isFeatured flags are
+            untouched; this is purely which one the card is allowed to show.
+            Out of Stock wins by being handled above as the image overlay
+            (Phase 44, deliberately preserved), so an unavailable card shows
+            no body badge at all rather than two competing statuses.
+
+            The slot is always rendered, even when empty, so the product name
+            sits at the same height on every card in a row. */}
+        <div className="item-card__badges">
+          {available && item.isPopular && (
+            <span className="badge badge--gold item-card__badge">
+              {t("customer.popular", "Popular")}
+            </span>
+          )}
+          {available && !item.isPopular && item.isFeatured && (
+            <span className="badge badge--featured item-card__badge">
+              {t("customer.featured", "Featured")}
+            </span>
+          )}
+        </div>
         <p className="item-card__name">{item.name}</p>
         <p className="item-card__desc">{item.description}</p>
         <div className="item-card__foot">
@@ -571,8 +650,39 @@ function ItemCard({ item, categories, onOpen }) {
   );
 }
 
-/* ── Image with emoji fallback ──────────────────────────────────────────── */
-function ItemImage({ src, alt, emoji }) {
+/**
+ * Phase 73 §10 — initials for a product that has no photograph.
+ *
+ * Deterministic and content-derived: the same dish always yields the same
+ * mark, so a menu looks composed rather than random, and nothing needs to be
+ * stored or configured.
+ *
+ * Two words give two initials ("Rigatoni Pomodoro" -> RP). A single word
+ * gives its first two letters ("Tiramisu" -> TI), which reads better than one
+ * lonely glyph. Anything that yields nothing usable falls through to an empty
+ * string and the CSS simply shows the textured panel — never a broken box.
+ *
+ * Intl-safe by construction: it slices whole code points rather than UTF-16
+ * units, so an Arabic or accented name cannot be cut in half, and it never
+ * assumes a Latin alphabet.
+ */
+function productMonogram(name) {
+  const words = String(name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return "";
+
+  const firstOf = (word) => Array.from(word)[0] ?? "";
+
+  if (words.length === 1) {
+    return Array.from(words[0]).slice(0, 2).join("").toLocaleUpperCase();
+  }
+  return (firstOf(words[0]) + firstOf(words[1])).toLocaleUpperCase();
+}
+
+/* ── Image with monogram fallback ───────────────────────────────────────── */
+function ItemImage({ src, alt, name }) {
   const [imgErr, setImgErr] = useState(false);
   const useImg = src && !imgErr;
   return (
@@ -586,8 +696,10 @@ function ItemImage({ src, alt, emoji }) {
           onError={() => setImgErr(true)}
         />
       ) : (
-        <div className="item-card__emoji-wrap">
-          <span className="item-card__emoji">{emoji}</span>
+        /* aria-hidden: the product name is right below in real text, so
+           announcing "RP" as well would only add noise. */
+        <div className="item-card__mono-wrap" aria-hidden="true">
+          <span className="item-card__mono">{productMonogram(name)}</span>
         </div>
       )}
     </div>
@@ -598,8 +710,14 @@ function ItemImage({ src, alt, emoji }) {
 function SearchEmpty({ query }) {
   const { t } = useLanguage();
   return (
-    <div className="menu-search-empty anim-rise">
-      <div className="menu-search-empty__icon">🔍</div>
+    /* Phase 73 §14 — this state is specifically "the menu HAS products, this
+       query matched none", which is why it keeps its own component and copy
+       and is not merged with the (separate) no-products-at-all case. The raw
+       emoji became a Lucide SearchX inside the shared rounded-square mark. */
+    <div className="menu-search-empty anim-fade-in">
+      <span className="menu-search-empty__icon">
+        <SearchX size={26} strokeWidth={1.8} />
+      </span>
       <h3 className="menu-search-empty__title">{t("customer.noItemsFound", "No items found")}</h3>
       {/* Phase 43 — the query keeps its own <strong> so it stays visually
           distinct in both languages, and is never translated. */}

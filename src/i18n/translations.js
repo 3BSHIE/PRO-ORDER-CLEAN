@@ -545,6 +545,8 @@ export const translations = {
       callStaff: "Call Staff",
       callWaiterForHelp: "Call Waiter for Help",
       staffCalledShort: "Staff called",
+      /* Phase 73 §33 — the confirmed Call Staff state. */
+      staffNotified: "Staff notified",
       staffCalledMsg: "Staff has been called. Someone will assist you shortly.",
       staffAlreadyCalledMsg: "Staff has already been called.",
       staffCalls: "Staff Calls",
@@ -1122,6 +1124,7 @@ export const translations = {
       callStaff: "طلب موظف",
       callWaiterForHelp: "اطلب موظفًا للمساعدة",
       staffCalledShort: "تم طلب الموظف",
+      staffNotified: "تم إبلاغ طاقم الخدمة",
       staffCalledMsg: "تم طلب أحد الموظفين. سيتم مساعدتك قريبًا.",
       staffAlreadyCalledMsg: "تم طلب الموظف بالفعل.",
       staffCalls: "طلبات الموظفين",

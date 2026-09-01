@@ -1,10 +1,26 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 import { PAYMENT_METHODS } from "../../../data/paymentMethods.js";
 import { useSettingsData } from "../../../lib/useSettingsData.js";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
+
+/**
+ * Phase 73 §15 — the method's semantic icon key resolved to a Lucide mark.
+ *
+ * These are fixed system payment methods, so they belong to the same icon set
+ * as the rest of the product UI rather than to the emoji font, which rendered
+ * at a different weight and colour on every platform. An unknown key falls
+ * back to Wallet rather than rendering nothing, so adding a method to the data
+ * file can never leave a blank square in the list.
+ */
+const METHOD_ICON = {
+  banknote: Banknote,
+  card: CreditCard,
+  mobile: Smartphone,
+};
+
 
 /* Maps each payment method's stable id to a translation key — this lets the
    label/description shown to the customer be translated without touching
@@ -83,7 +99,8 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
 
   useEffect(() => {
     if (!open) return;
-    /* Ignore Escape while an order is being placed — see the Cancel button. */
+    /* Ignore Escape while an order is being placed: closing mid-mutation
+       would strand the guest between a created order and a cleared cart. */
     const onKey = (e) => e.key === "Escape" && !submitLock.current && onClose?.();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -183,6 +200,7 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
             {visibleMethods.map((method) => {
               const isSelected = selectedId === method.id;
               const isDisabled = !method.enabled;
+              const MethodIcon = METHOD_ICON[method.icon] || Wallet;
               return (
                 <button
                   key={method.id}
@@ -193,7 +211,9 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
                   onClick={() => handleSelect(method)}
                   aria-disabled={isDisabled}
                 >
-                  <span className="pm-method__icon">{method.icon}</span>
+                  <span className="pm-method__icon" aria-hidden="true">
+                    <MethodIcon size={18} strokeWidth={2} />
+                  </span>
                   <span className="pm-method__text">
                     <span className="pm-method__label-row">
                       <span className="pm-method__label">
@@ -238,17 +258,11 @@ export default function PaymentMethodModal({ open, total, restaurantSlug, onClos
                 ? t("payment.placingOrder", "Placing order…")
                 : t("payment.placeOrder", "Place order")}
             </button>
-            {/* Cancel is disabled while submitting so the sheet cannot be
-                closed mid-mutation, which would strand the guest between a
-                created order and a cleared cart. */}
-            <button
-              type="button"
-              className="btn btn--ghost btn--md btn--full"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              {t("common.cancel", "Cancel")}
-            </button>
+            {/* Phase 73 §31 — the orphaned "Cancel" was removed. The header X
+                already closes the sheet and remains disabled while submitting,
+                so the mid-mutation guard that Cancel used to carry is intact;
+                this only removes the duplicate exit sitting under the primary
+                action. */}
           </div>
         </div>
       </div>

@@ -329,28 +329,42 @@ button{font-family:var(--font-body)}
 .menu-search{position:relative;margin-bottom:20px}
 .menu-search__icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);
   color:var(--text-3);pointer-events:none}
+/* Phase 73 §13 — softer resting surface, and a focus state that is a border
+   plus a slight surface lift rather than a 3px halo. The old box-shadow ring
+   read as a glow against the dark theme and was the loudest thing on the
+   screen while typing. 140ms on both properties. */
 .menu-search__input{width:100%;padding:13px 40px 13px 40px;
-  background:var(--surface-2);border:1px solid var(--border);
+  background:var(--surface-1);border:1px solid var(--border);
   border-radius:999px;color:var(--text-1);font-family:var(--font-body);
-  font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
+  font-size:14px;outline:none;
+  transition:border-color .14s var(--ease),background .14s var(--ease)}
 .menu-search__input::placeholder{color:var(--text-3)}
-.menu-search__input:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.menu-search__input:focus{border-color:var(--gold-line);background:var(--surface-2)}
+/* The icon warms slightly on focus so the whole control acknowledges as one
+   piece instead of only its outline changing. */
+.menu-search:focus-within .menu-search__icon{color:var(--text-2)}
 .menu-search__clear{position:absolute;right:14px;top:50%;transform:translateY(-50%);
-  background:none;border:none;cursor:pointer;color:var(--text-3);font-size:14px;
-  padding:2px 4px;line-height:1;transition:color .15s}
+  background:none;border:none;cursor:pointer;color:var(--text-3);
+  padding:2px;line-height:0;display:flex;align-items:center;justify-content:center;
+  transition:color .14s var(--ease)}
 .menu-search__clear:hover{color:var(--text-1)}
 
 /* category chips */
 .chips-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
   margin-bottom:24px;scrollbar-width:none}
 .chips-row::-webkit-scrollbar{display:none}
+/* Phase 73 §12 — same chip architecture, clearer active state. The selected
+   chip now carries a full-strength gold border and cream-gold text instead of
+   a faint tinted outline, so which category is active is readable at a glance
+   in a scrolling strip. 150ms across the three properties that change. */
 .chip{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
   border-radius:999px;border:1px solid var(--border);background:transparent;
   color:var(--text-2);cursor:pointer;font-family:var(--font-body);
   font-size:13px;font-weight:500;white-space:nowrap;
-  transition:border-color .18s,color .18s,background .18s}
+  transition:border-color .15s var(--ease),color .15s var(--ease),
+    background .15s var(--ease)}
 .chip:hover{border-color:var(--border-strong);color:var(--text-1)}
-.chip--active{background:var(--gold-soft);border-color:var(--gold-line);
+.chip--active{background:var(--gold-soft);border-color:var(--gold);
   color:var(--gold);font-weight:600}
 
 /* section bar */
@@ -403,10 +417,15 @@ button{font-family:var(--font-body)}
   display:flex;flex-direction:column;
   transition:border-color .22s var(--ease),transform .22s var(--ease),
     box-shadow .22s var(--ease)}
-.item-card--available:hover{
-  border-color:var(--gold-line);
-  transform:translateY(-2px);
-  box-shadow:0 8px 24px rgba(0,0,0,.4)}
+/* Phase 73 §6 — hover is desktop-only and much quieter than it was. The card
+   no longer lifts and the heavy drop shadow is gone; the only movement is a
+   1.02 scale on the image itself, which suggests the photo is interactive
+   without shifting the grid around it. Gated on a real hover-capable, fine
+   pointer so a touch device never inherits a stuck hover state. */
+@media (hover:hover) and (pointer:fine){
+  .item-card--available:hover{border-color:var(--gold-line)}
+  .item-card--available:hover .item-card__img{transform:scale(1.02)}
+}
 /* Phase 44 — an out-of-stock card is no longer clickable, so it must not
    advertise itself as such: cursor:pointer here was promising an interaction
    that now (correctly) does nothing.
@@ -425,13 +444,33 @@ button{font-family:var(--font-body)}
   width:100%;aspect-ratio:4/3;overflow:hidden;
   background:var(--surface-3);flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
-.item-card__img{width:100%;height:100%;object-fit:cover;display:block}
-.item-card__emoji-wrap{
+.item-card__img{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform .18s var(--ease)}
+
+/* Phase 73 §10 — no-image products. The giant category emoji is replaced by
+   the dish's own initials on a charcoal panel with a very faint diagonal
+   sheen and a hairline accent underline. Deliberately quieter than a real
+   photograph: it has to fill the slot without competing with the cards that
+   do have images, so the monogram sits at a modest weight in the muted text
+   colour rather than in full gold. */
+.item-card__mono-wrap{
   width:100%;height:100%;display:flex;
-  align-items:center;justify-content:center}
-.item-card__emoji{
-  font-size:clamp(28px,7vw,44px);line-height:1;
-  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+  align-items:center;justify-content:center;position:relative;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.05) 0%,transparent 42%),
+    var(--surface-3)}
+.item-card__mono-wrap::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);
+  bottom:26%;width:26px;height:2px;border-radius:2px;
+  background:var(--gold);opacity:.42}
+.item-card__mono{
+  font-family:var(--font-display);
+  font-size:clamp(24px,6vw,34px);font-weight:700;
+  letter-spacing:.08em;line-height:1;
+  color:var(--text-2);
+  /* Nudged up by roughly the rule's own offset so the pair reads as one
+     centred lockup rather than text with something stuck under it. */
+  transform:translateY(-6%)}
 
 /* out of stock overlay badge */
 .item-card__oos-badge{
@@ -446,8 +485,14 @@ button{font-family:var(--font-body)}
 .item-card__body{
   padding:11px 12px 13px;
   display:flex;flex-direction:column;flex:1}
+/* Phase 73 §5/§7 — the slot is always in the layout, even when the product
+   has no badge, so the product name starts at the same y on every card in a
+   row. Previously the whole block was conditional and a badged card pushed
+   its neighbour's title down. min-height matches one badge's rendered height;
+   nowrap because only one badge can ever be here now. */
 .item-card__badges{
-  display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  display:flex;gap:4px;margin-bottom:6px;
+  min-height:16px;align-items:flex-start}
 .item-card__badge{
   font-size:9.5px!important;padding:2px 7px!important}
 .item-card__name{
@@ -480,9 +525,13 @@ button{font-family:var(--font-body)}
 /* ── Search empty state ── */
 .menu-search-empty{
   text-align:center;padding:56px 20px 40px}
+/* Phase 73 §14 — the shared rounded-square empty-state mark, matching the
+   treatment the No-Orders state already uses, in place of a bare emoji. */
 .menu-search-empty__icon{
-  font-size:44px;margin-bottom:16px;
-  filter:drop-shadow(0 2px 8px rgba(0,0,0,.4));display:block}
+  width:56px;height:56px;margin:0 auto 16px;
+  display:grid;place-items:center;border-radius:18px;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold)}
 .menu-search-empty__title{
   font-family:var(--font-display);font-size:22px;
   margin:0 0 10px;color:var(--text-1)}
@@ -582,7 +631,12 @@ button{font-family:var(--font-body)}
   font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
 
 /* body */
-.item-modal__body{padding:22px 24px 26px}
+/* Phase 73 §18 — bottom scroll padding so the LAST thing in the sheet (a
+   final choice group, an add-on, the notes field) can always come to rest
+   clear of the sticky footer instead of only being reachable by pinning the
+   scroll to its absolute end. Real padding on the scrolling content, not a
+   spacer element. */
+.item-modal__body{padding:22px 24px 26px;padding-bottom:96px}
 .item-modal__badges{display:flex;gap:6px;margin-bottom:12px}
 .item-modal__name{
   font-family:var(--font-display);font-size:clamp(21px,4.5vw,26px);
@@ -616,7 +670,6 @@ button{font-family:var(--font-body)}
 .item-modal__total-value{
   font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--gold)}
 
-.item-modal__actions{display:flex;flex-direction:column;gap:8px;margin-top:18px}
 
 /* ── Phase 42 — sticky Add to cart footer ────────────────────────────────
    position:sticky, not fixed, and the last child of the scroll container:
@@ -639,6 +692,15 @@ button{font-family:var(--font-body)}
   padding:14px 24px max(14px,env(safe-area-inset-bottom,0px));
   background:var(--surface-1);
   border-top:1px solid var(--border)}
+/* Phase 73 §19 — a 22px fade sitting directly on top of the footer so
+   content passing underneath dissolves instead of being cut by a hard edge.
+   Pointer-events off: it must never intercept a tap meant for the row it
+   overlaps. Deliberately a gradient and not a visible divider — the footer
+   already has its own 1px border. */
+.item-modal__foot::before{
+  content:"";position:absolute;left:0;right:0;top:-22px;height:22px;
+  pointer-events:none;
+  background:linear-gradient(to top,var(--surface-1),rgba(0,0,0,0))}
 .item-modal__foot-total{
   display:flex;align-items:center;justify-content:space-between;gap:12px}
 
@@ -697,15 +759,26 @@ button{font-family:var(--font-body)}
   padding:11px 14px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border);
   color:var(--text-1);cursor:pointer;font-family:var(--font-body);
-  font-size:13.5px;transition:border-color .15s,background .15s}
+  font-size:13.5px;
+  transition:border-color .14s var(--ease),background .14s var(--ease)}
 .cust-option:hover:not(:disabled){border-color:var(--gold-line)}
 .cust-option:disabled{opacity:.4;cursor:not-allowed}
+/* Phase 73 §16 — the selected row was a faint tint on a hairline border and
+   was easy to miss on a phone in a dim restaurant. It now carries a
+   full-strength 1.5px gold border and a ~7% gold fill. Text size is
+   unchanged and the row never becomes solid gold: this has to read as
+   "chosen", not as a button. */
 .cust-option--active{
-  background:var(--gold-soft);border-color:var(--gold-line)}
+  background:rgba(212,169,78,.07);
+  border-color:var(--gold);border-width:1.5px;
+  /* Compensate for the thicker border so the row does not grow by 1px and
+     nudge everything below it when selected. */
+  padding:10.5px 13.5px}
 .cust-option__mark{
   width:17px;height:17px;flex:none;
   border:1.5px solid var(--border-strong);
-  transition:border-color .15s,background .15s}
+  transition:border-color .14s var(--ease),background .14s var(--ease),
+    transform .14s var(--ease)}
 .cust-option--radio .cust-option__mark{border-radius:50%}
 .cust-option--checkbox .cust-option__mark{border-radius:5px}
 .cust-option--active .cust-option__mark{
@@ -743,11 +816,6 @@ button{font-family:var(--font-body)}
 .cust-addon__price{font-size:12px;font-weight:600;color:var(--gold);white-space:nowrap}
 
 /* price breakdown above the total */
-.item-modal__breakdown{margin:14px 0 10px;display:flex;flex-direction:column;gap:6px}
-.item-modal__breakdown-row{
-  display:flex;align-items:center;justify-content:space-between;
-  font-size:12.5px;color:var(--text-2)}
-
 /* ══ Phase 7 — Cart State + Floating Cart Button ═══════════════════════════ */
 
 /* extra bottom padding so the FAB never covers the last menu content */
@@ -938,13 +1006,30 @@ button{font-family:var(--font-body)}
   padding:14px 15px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border);
   color:var(--text-1);cursor:pointer;font-family:var(--font-body);
-  transition:border-color .18s,background .18s,transform .1s}
+  transition:border-color .14s var(--ease),background .14s var(--ease),
+    transform .1s var(--ease)}
 .pm-method:hover:not(.pm-method--disabled){border-color:var(--gold-line)}
 .pm-method:active:not(.pm-method--disabled){transform:scale(.99)}
-.pm-method--active{background:var(--gold-soft);border-color:var(--gold-line)}
+/* Phase 73 §28 — a real selectable card: full-strength gold border and a
+   gold tint, consistent with the Item Details choice rows so the same
+   gesture looks the same in both places. Padding compensates for the
+   thicker border so the list does not shift on selection. */
+.pm-method--active{
+  background:rgba(212,169,78,.07);
+  border-color:var(--gold);border-width:1.5px;
+  padding:13.5px 14.5px}
 .pm-method--disabled{opacity:.55;cursor:not-allowed}
 
-.pm-method__icon{font-size:24px;line-height:1;flex:none;margin-top:1px}
+/* Phase 73 §15 — sized for a Lucide mark rather than an emoji glyph. */
+.pm-method__icon{
+  flex:none;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:10px;
+  background:var(--surface-3);border:1px solid var(--border);
+  color:var(--text-2);
+  transition:color .14s var(--ease),background .14s var(--ease),
+    border-color .14s var(--ease)}
+.pm-method--active .pm-method__icon{
+  background:var(--gold-soft);border-color:var(--gold-line);color:var(--gold)}
 .pm-method__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .pm-method__label-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pm-method__label{font-size:14px;font-weight:600;color:var(--text-1)}
@@ -2100,11 +2185,37 @@ button{font-family:var(--font-body)}
   border-radius:999px;cursor:pointer;font-family:var(--font-body);
   font-weight:600;letter-spacing:.015em;white-space:nowrap;
   background:transparent;border:1px solid var(--border-strong);color:var(--text-2);
-  transition:transform .15s var(--ease),background .2s,border-color .2s,color .2s}
+  /* Phase 73 §33 — 240ms, so the move into the confirmed state reads as one
+     deliberate change rather than an instant repaint. */
+  transition:transform .15s var(--ease),background .24s var(--ease),
+    border-color .24s var(--ease),color .24s var(--ease)}
 .call-staff:hover{border-color:var(--gold-line);color:var(--gold);background:var(--gold-soft)}
 .call-staff:active{transform:scale(.97)}
 
+/* Phase 73 §33 — bell and check are both mounted and crossfaded in place.
+   The wrapper reserves the icon box (its size comes from the component, which
+   knows the variant's icon size) so neither the label nor the pill width
+   moves during the dissolve. */
+.call-staff__icons{position:relative;flex:none;display:block}
+.call-staff__icon{
+  position:absolute;inset:0;
+  transition:opacity .24s var(--ease)}
+.call-staff__icon--bell{opacity:1}
+.call-staff__icon--check{opacity:0}
+.call-staff--called .call-staff__icon--bell{opacity:0}
+.call-staff--called .call-staff__icon--check{opacity:1}
+
 .call-staff--subtle{padding:7px 14px;font-size:12.5px}
+
+/* Phase 73 §32/§36 — the sticky-topbar variant. It shares the bar with table
+   identity and My Orders, so it is icon-led and sheds its label on narrow
+   phones; the accessible name is supplied via aria-label in that case, so
+   nothing is lost to assistive tech. */
+.call-staff--compact{padding:7px 12px;font-size:12.5px;gap:6px}
+@media(max-width:359px){
+  .call-staff--compact{padding:7px;gap:0}
+  .call-staff--compact .call-staff__label{display:none}
+}
 
 .call-staff--prominent{
   padding:13px 26px;font-size:14.5px;color:var(--on-primary);border-color:transparent;
@@ -2123,7 +2234,6 @@ button{font-family:var(--font-body)}
 .call-staff--prominent.call-staff--called{box-shadow:none}
 
 /* Placement inside the customer Menu header */
-.menu-header .call-staff{margin-top:14px}
 
 /* Placement inside Order Tracking */
 .track__call-staff{display:flex;justify-content:center;margin:0 0 28px}
@@ -3148,3 +3258,155 @@ button{font-family:var(--font-body)}
 .qr-stand[dir="rtl"] .qr-stand__scan{line-height:1.5}
 /* The attribution is a brand name and stays LTR on both faces. */
 .qr-stand[dir="rtl"] .qr-stand__powered{direction:ltr}
+
+/* ══ Phase 73 — Customer Browse & Ordering Polish ═══════════════════════════
+
+   Everything below is scoped to customer browse/order surfaces. Nothing here
+   touches Tracking, Confirmation, My Orders, Feedback or the recovery states
+   (Invalid QR / Inactive Table / Error Boundary) — those are the next phase
+   (§37–§41), and .access keeps its original base rule for exactly that
+   reason.
+
+   The global .anim-rise (550ms) is deliberately untouched (§50). The entry
+   entrance below is a separate, shorter customer-only motion.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Entry / Welcome (§2, §3) ─────────────────────────────────────────── */
+
+/* One shared keyframe for both entry elements; only the duration differs, so
+   the identity settles just before the form does without a long stagger. */
+@keyframes cx-enter{from{opacity:0;transform:translateY(7px)}}
+.anim-enter-identity{animation:cx-enter .22s var(--ease) both}
+.anim-enter-form{animation:cx-enter .25s var(--ease) both}
+
+/* The welcome step no longer centres its content in the full viewport. That
+   centring is what produced the large empty black field above the restaurant
+   name: with this little content, justify-content:center pushed the identity
+   into the middle of a tall column. Anchoring to the top with a measured
+   offset brings the venue's name into the first thing the guest sees.
+
+   .access itself is NOT modified — it still carries the Invalid QR and
+   Inactive Table screens, which §41 defers. */
+.access--welcome{
+  justify-content:flex-start;
+  min-height:calc(100vh - 60px);
+  padding-top:34px}
+.access--welcome .access__identity{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  margin-bottom:22px}
+.access--welcome .access__table{margin:0}
+.access--welcome .access__enter{
+  display:flex;flex-direction:column;align-items:center;width:100%}
+/* Pushes the attribution to the bottom of the column rather than letting it
+   trail immediately under the button in the middle of an empty screen. */
+.access--welcome .cust-footer{margin-top:auto;width:100%}
+
+@media(max-width:360px){
+  .access--welcome{padding-top:24px}
+}
+
+/* ── Featured badge (§8) ──────────────────────────────────────────────── */
+
+/* Featured used to borrow .badge--received — the blue "order received"
+   status colour, which belongs to a completely different semantic family and
+   was the only cool colour anywhere on a product card. It moves into the
+   brand family as an OUTLINED gold badge, which keeps it clearly distinct
+   from Popular (a filled gold badge) without introducing a new hue. */
+.badge--featured{
+  color:var(--gold);
+  background:transparent;
+  border:1px solid var(--gold-line)}
+
+/* ── Search empty entrance (§14) ──────────────────────────────────────── */
+@keyframes cx-fade-in{from{opacity:0}}
+.anim-fade-in{animation:cx-fade-in .18s var(--ease) both}
+
+/* ── Menu topbar density (§36) ────────────────────────────────────────── */
+
+/* Three controls now share this bar (table identity on the left; Call Staff
+   and My Orders here). Gap tightens and the My Orders label drops on narrow
+   phones so the cluster never wraps or pushes the bar taller — the icon plus
+   the button's own accessible text carries it. */
+/* 375 keeps both labels — measured, they fit with room to spare. Only
+   genuinely narrow phones drop to icons, and only then does aria-label
+   become the accessible name. */
+@media(max-width:400px){
+  .menu-topbar-right{gap:6px}
+  .menu-topbar-right .btn--sm{padding-inline:10px}
+}
+@media(max-width:359px){
+  .menu-orders-label{display:none}
+}
+@media(max-width:340px){
+  .menu-table-pill{font-size:10.5px;padding-inline:8px}
+}
+
+/* ── Cart FAB acknowledgement (§24, §25) ──────────────────────────────── */
+
+/* Both keyframes carry translateX(-50%) because the FAB is centred with a
+   transform; omitting it would fling the button to the right mid-animation. */
+@keyframes cart-fab-ack{
+  0%{transform:translateX(-50%) scale(1)}
+  45%{transform:translateX(-50%) scale(1.055)}
+  100%{transform:translateX(-50%) scale(1)}
+}
+@keyframes cart-count-ack{
+  0%{transform:scale(1)}
+  45%{transform:scale(1.13)}
+  100%{transform:scale(1)}
+}
+
+/* fab-in is repeated here, first and unchanged, on purpose. Animations are
+   matched by name across a style change, so listing it again means the
+   entrance is NOT restarted when the ack class is added or removed — it
+   simply keeps its filled end state while the ack plays over it. Dropping it
+   from this list would replay the entrance every time the class was removed.
+
+   §25: the first item added to an empty cart mounts the FAB, so it plays the
+   entrance only — the component does not set --ack in that case, and the two
+   animations never stack. */
+.cart-fab--ack{
+  animation:fab-in .32s var(--ease) both, cart-fab-ack .31s var(--ease)}
+.cart-fab--ack .cart-fab__count{
+  animation:cart-count-ack .3s var(--ease)}
+
+/* ── Item Details selection mark (§17) ────────────────────────────────── */
+
+/* A tiny one-shot settle on the mark itself when a row becomes selected —
+   the row's border and fill carry the actual state change, this is only the
+   acknowledgement. No bounce, no pulse, no glow. */
+@keyframes cx-mark-pop{
+  0%{transform:scale(.86)}
+  60%{transform:scale(1.06)}
+  100%{transform:scale(1)}
+}
+.cust-option--active .cust-option__mark,
+.pm-method--active .pm-method__mark{
+  animation:cx-mark-pop .14s var(--ease)}
+
+/* ── Cart attribution footer (§27) ────────────────────────────────────── */
+
+/* The container already reserves 120px for the sticky checkout bar. Giving
+   the footer its own closing space stops it reading as content stranded in
+   that reserved gap: it ends the page, then the bar sits over its own
+   reserved band as a separate element. */
+/* The container already reserves space for the sticky bar; the footer only
+   needs its own closing margin so it reads as the end of the content rather
+   than as something stranded in that reserved band. No extra bottom padding
+   — that widened the gap instead of tightening it. */
+.container--with-cart-bar .cust-footer{margin-top:28px}
+
+/* ── Entry language control density (§2, §36) ─────────────────────────── */
+
+/* In the topbar this control sits opposite a small "QR access" badge, and at
+   its default size it was the loudest thing on the screen — competing with
+   the restaurant name it is supposed to sit above. Tightened horizontally
+   and in type size only: the 44px touch target from the customer theme is
+   untouched (§44), so it stays just as tappable. */
+.access__lang-switcher{padding:2px}
+.access__lang-switcher .lang-switcher__option{
+  padding:6px 10px;font-size:11.5px}
+
+/* The old placement rule pulled it out of the content column; it lives in
+   the topbar now, so the float is removed for this screen. */
+.access__lang-switcher{align-self:auto;margin-bottom:0}
