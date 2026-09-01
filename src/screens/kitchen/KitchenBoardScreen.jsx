@@ -8,7 +8,6 @@ import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import { getCustomerOrders, updateCustomerOrderStatus } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
-import { fmtPrice } from "../../lib/format.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
 import { playAlertSound } from "../../lib/alertSound.js";
 
@@ -53,15 +52,6 @@ const EMPTY_MSG_KEY = {
   preparing: "kitchen.noPreparingOrders",
   ready:     "kitchen.noReadyOrders",
   canceled:  "kitchen.noCanceledOrders",
-};
-/* order.paymentMethod.label is captured verbatim in English at order-creation
-   time (same as every other screen that displays it), so the kitchen board
-   re-resolves a live translation from the stable id instead, with that
-   frozen label as the fallback — identical pattern to the customer screens. */
-const METHOD_LABEL_KEY = {
-  cash_at_table: "payment.cashAtTable",
-  card_at_table: "payment.cardAtTable",
-  online_payment: "payment.onlinePayment",
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -191,6 +181,45 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
     playAlertSound(soundType, volume);
   }, [restaurantOrders]);
 
+  /* ── Phase 71 — one-shot entrance bookkeeping ──────────────────────────
+     Mirrors the audio seeding rule above and for the same reason: a board
+     that already has ten tickets must not animate all ten when the kitchen
+     opens, refreshes or regains focus. The first pass only records what is
+     already there.
+
+     After that, a ticket is either genuinely NEW (an id never seen) or MOVED
+     (a status that changed). Both mount into their column, which is where the
+     entrance plays; nothing travels between columns. The marks are cleared on
+     a timer so a later poll cannot replay them. */
+  const prevStatusRef = useRef(new Map());
+  const boardSeededRef = useRef(false);
+  const [enterKinds, setEnterKinds] = useState({});
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const next = new Map();
+    const kinds = {};
+
+    for (const order of restaurantOrders) {
+      next.set(order.orderId, order.status);
+      if (!boardSeededRef.current) continue;
+
+      const before = prev.get(order.orderId);
+      if (before === undefined) kinds[order.orderId] = "new";
+      else if (before !== order.status) kinds[order.orderId] = "moved";
+    }
+
+    prevStatusRef.current = next;
+    boardSeededRef.current = true;
+
+    if (Object.keys(kinds).length === 0) return;
+    setEnterKinds(kinds);
+    /* Long enough for the 220ms entrance and the ~600ms new-ticket accent to
+       finish, short enough that it cannot collide with the next 4s poll. */
+    const clear = setTimeout(() => setEnterKinds({}), 900);
+    return () => clearTimeout(clear);
+  }, [restaurantOrders]);
+
   /* Advance a single order to its next valid status. Guards against
      double-clicks by disabling the button for this order until the update
      (synchronous here, but written defensively) completes. */
@@ -251,12 +280,13 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
                   <span className="kb-column__count">{columnOrders.length}</span>
                 </div>
 
-                <div className="kb-column__body">
+                <div className={`kb-column__body kb-column__body--${col.status}`}>
                   {columnOrders.length === 0 ? (
                     <p className="kb-column__empty">{t(EMPTY_MSG_KEY[col.status], `No ${col.label.toLowerCase()} orders`)}</p>
                   ) : (
                     columnOrders.map((order) => (
                       <KitchenOrderCard
+                        enterKind={enterKinds[order.orderId]}
                         key={order.orderId}
                         order={order}
                         now={now}
@@ -282,44 +312,50 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut, onH
 }
 
 /* ── Single kitchen order card ───────────────────────────────────────────── */
-function KitchenOrderCard({ order, now, isUpdating, onAdvance }) {
+function KitchenOrderCard({ order, now, isUpdating, onAdvance, enterKind }) {
   const transition = TRANSITIONS[order.status];
   const isCanceled = order.status === "canceled";
   const isReady    = order.status === "ready";
   const { t } = useLanguage();
-  const paymentMethodLabel = t(
-    METHOD_LABEL_KEY[order.paymentMethod.id],
-    order.paymentMethod.label
-  );
 
   const timer = resolveTimer(order, now);
-  const isDelayed = isOrderDelayed(order, timer);
+  /* Phase 71 — three urgency levels instead of one. The old boolean only had
+     "delayed", which was rendered red; red now means genuinely late so amber
+     has somewhere to sit. */
+  const urgency = resolveTimerUrgency(order, timer);
+  const isDelayed = urgency !== "normal";
 
   return (
-    <Card className={`kb-card ${isDelayed ? "kb-card--delayed" : ""}`}>
+    /* Phase 71 — enterKind drives a ONE-SHOT entrance. A card changing status
+       unmounts from one column and mounts in the other, so the destination
+       mount is the natural hook: no card ever travels across the board and
+       staff never lose a ticket they were looking at. */
+    <Card
+      className={`kb-card ${isDelayed ? "kb-card--delayed" : ""} ${
+        enterKind ? `kb-card--enter kb-card--enter-${enterKind}` : ""
+      }`}
+    >
       <div className="kb-card__top">
-        <div>
-          <p className="kb-card__id">{order.orderId}</p>
-          <p className="kb-card__meta">
-            {t("customer.yourTable", "Table")} #{order.tableNumber} &middot; {order.customerName}
+        <div className="kb-card__ident">
+          {/* Phase 71 — the table is the headline. A cook reads this from a
+              pass several feet away; it used to be the smallest, most muted
+              text on the ticket while the bill total was the loudest. */}
+          <p className="kb-card__table">
+            {t("customer.yourTable", "Table")} #{order.tableNumber}
           </p>
+          <p className="kb-card__customer">{order.customerName}</p>
         </div>
 
-        {/* Prep timer — replaces the old coarse "2m ago" label with the live
-            mm:ss elapsed time this phase calls for. Same slot, same styling
-            language; it freezes for finished/canceled tickets. */}
         {timer && (
           <div className="kb-card__timer-wrap">
             <span
-              className={`kb-timer ${timer.running ? "" : "kb-timer--final"} ${
-                isDelayed ? "kb-timer--delayed" : ""
-              }`}
+              className={`kb-timer kb-timer--${urgency} ${timer.running ? "" : "kb-timer--final"}`}
             >
               <Timer size={12} strokeWidth={2.3} />
               {formatTimer(timer.elapsedMs)}
             </span>
             {isDelayed && (
-              <span className="kb-delayed">
+              <span className={`kb-delayed ${urgency === "critical" ? "kb-delayed--critical" : ""}`}>
                 <AlertTriangle size={11} strokeWidth={2.4} />
                 {t("kitchen.delayed", "Delayed")}
               </span>
@@ -328,15 +364,14 @@ function KitchenOrderCard({ order, now, isUpdating, onAdvance }) {
         )}
       </div>
 
+      {/* Order id demoted to a reference label — still present for
+          reconciliation, no longer competing with the table. */}
+      <p className="kb-card__id">{order.orderId}</p>
+
       <div className="kb-card__items">
         {order.items.map((line) => (
           <KitchenLineItem key={line.cartItemId} line={line} />
         ))}
-      </div>
-
-      <div className="kb-card__bottom">
-        <span className="kb-card__payment">{paymentMethodLabel}</span>
-        <span className="kb-card__total">{fmtPrice(order.total)}</span>
       </div>
 
       {/* ── Action area — the only part that changed this phase ──────────── */}
@@ -462,19 +497,29 @@ function resolveTimer(order, now) {
 }
 
 /**
- * Delayed = still being worked on, and past the estimate the guest was given
- * at checkout (Phase 26's frozen order.estimatedPrepMinutes).
+ * Phase 71 — how late is this ticket, in three steps.
  *
- * Only ACTIVE tickets are flagged: "Delayed" on a card is a call to action,
- * and a ready or canceled ticket has no action left. Orders created before
- * Phase 26 carry no estimate, so they simply show a plain timer with no
- * comparison — exactly as the phase requires.
+ * Built on the same frozen order.estimatedPrepMinutes the guest was quoted at
+ * checkout (Phase 26), so the kitchen and the customer are judged against one
+ * number. Only a running ticket can be late: a ready or canceled one has
+ * stopped, and colouring a finished card red would be noise.
+ *
+ *   normal    elapsed <= estimate            cream
+ *   delayed   estimate < elapsed < 150%      amber
+ *   critical  elapsed >= 150% of estimate    red
+ *
+ * The boundary is deliberate: at exactly the estimate the ticket is still on
+ * time. A 20-minute estimate turns amber at 20:01 and red at 30:00.
  */
-function isOrderDelayed(order, timer) {
-  if (!timer || !timer.running) return false;
+function resolveTimerUrgency(order, timer) {
+  if (!timer || !timer.running) return "normal";
   const estimate = order.estimatedPrepMinutes;
-  if (!Number.isInteger(estimate)) return false;
-  return timer.elapsedMs > estimate * 60000;
+  if (!Number.isInteger(estimate) || estimate <= 0) return "normal";
+
+  const estimateMs = estimate * 60000;
+  if (timer.elapsedMs >= estimateMs * 1.5) return "critical";
+  if (timer.elapsedMs > estimateMs) return "delayed";
+  return "normal";
 }
 
 /** mm:ss, widening to h:mm:ss only once an hour has passed. */

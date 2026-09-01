@@ -1221,8 +1221,13 @@ button{font-family:var(--font-body)}
 .kb-columns{
   display:flex;gap:16px;overflow-x:auto;padding-bottom:24px;
   align-items:flex-start}
+/* Phase 71 — columns share the board evenly instead of capping at 340px and
+   leaving most of a wide display empty. flex-basis:0 makes the split depend on
+   the grow factor rather than content, so all columns stay equal whatever they
+   hold; the min-width keeps a ticket readable before the mobile rule below
+   takes over. */
 .kb-column{
-  flex:1 1 280px;min-width:270px;max-width:340px;
+  flex:1 1 0;min-width:280px;
   display:flex;flex-direction:column;gap:12px}
 @media(max-width:860px){
   .kb-column{min-width:82vw;max-width:82vw;scroll-snap-align:start}
@@ -1257,10 +1262,21 @@ button{font-family:var(--font-body)}
   display:flex;align-items:flex-start;justify-content:space-between;
   gap:10px;margin-bottom:10px;padding-bottom:10px;
   border-bottom:1px solid var(--border)}
+/* Phase 71 — the ticket now reads table -> customer -> items, with the order
+   id demoted to a reference line. Sizes are chosen for legibility at a pass,
+   not for density on a designer screen. */
+.kb-card__ident{min-width:0}
+.kb-card__table{
+  font-size:21px;font-weight:700;color:var(--text-1);
+  line-height:1.15;margin:0;letter-spacing:-.01em;
+  overflow-wrap:anywhere}
+.kb-card__customer{
+  font-size:13px;font-weight:500;color:var(--text-2);
+  margin:3px 0 0;overflow-wrap:anywhere}
 .kb-card__id{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:13px;font-weight:700;color:var(--text-1);margin:0}
-.kb-card__meta{font-size:11.5px;color:var(--text-3);margin:2px 0 0}
+  font-size:11px;font-weight:600;color:var(--text-3);
+  letter-spacing:.04em;margin:0 0 10px}
 .kb-card__elapsed{
   font-size:11px;font-weight:600;color:var(--gold);
   white-space:nowrap;background:var(--gold-soft);
@@ -1269,20 +1285,65 @@ button{font-family:var(--font-body)}
 .kb-card__items{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
 .kb-item{display:flex;flex-direction:column;gap:2px}
 .kb-item__head{display:flex;align-items:baseline;gap:6px;margin:0}
-.kb-item__qty{font-size:12.5px;font-weight:700;color:var(--gold);flex:none}
-.kb-item__name{font-size:13px;font-weight:600;color:var(--text-1)}
+.kb-item__qty{font-size:14.5px;font-weight:700;color:var(--gold);flex:none}
+.kb-item__name{font-size:14.5px;font-weight:600;color:var(--text-1);line-height:1.3}
 .kb-item__custom{margin:2px 0 0 19px;display:flex;flex-direction:column;gap:1px}
-.kb-item__custom-row{font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0}
+.kb-item__custom-row{font-size:12.5px;color:var(--text-2);line-height:1.5;margin:0}
 .kb-item__custom-label{color:var(--text-3);font-weight:600}
 .kb-item__custom-row--note{color:var(--gold);font-style:italic}
 
-.kb-card__bottom{
-  display:flex;align-items:center;justify-content:space-between;
-  gap:10px;padding-top:10px;border-top:1px solid var(--border)}
-.kb-card__payment{font-size:11.5px;color:var(--text-3)}
-.kb-card__total{
-  font-family:var(--font-display);font-size:15px;
-  font-weight:700;color:var(--gold)}
+
+/* ══ Phase 71 — Kitchen ticket motion ═════════════════════════════════════
+
+   Two situations only: a ticket that has just arrived, and a ticket that has
+   just changed status. Both are one-shot, both play where the card mounts,
+   and neither moves a card across the board — staff track tickets spatially,
+   so a flying card costs more than it communicates.
+
+   Everything else on this board stays perfectly still: digits, existing
+   tickets, column positions.
+
+   The global prefers-reduced-motion rule already collapses every animation
+   and transition to ~0s, so a reduced-motion kitchen simply gets the new
+   card and the new colour with no movement — the state still changes, only
+   the travel is dropped.
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes kb-enter{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+/* Fades the accent back out so the highlight is a moment, not a state. */
+@keyframes kb-new-accent{
+  0%,55%{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-line) inset}
+  100%{border-color:var(--border);box-shadow:none}
+}
+
+@keyframes kb-ready-accent{
+  0%,55%{border-color:var(--ready);box-shadow:0 0 0 1px rgba(63,214,143,.32) inset}
+  100%{border-color:var(--border);box-shadow:none}
+}
+
+.kb-card--enter{animation:kb-enter .22s var(--ease) both}
+
+/* A genuinely new ticket also gets a brief gold accent — paired with the
+   Phase 27 sound, so the alert is heard AND seen exactly once. */
+.kb-card--enter-new{
+  animation:kb-enter .22s var(--ease) both,
+            kb-new-accent .65s var(--ease) .22s both}
+
+/* A ticket that moved columns gets the entrance only; its new status colour
+   is already carried by the column it landed in. */
+.kb-card--enter-moved{animation:kb-enter .2s var(--ease) both}
+
+/* Reaching Ready earns one short green confirmation, then nothing. */
+.kb-column__body--ready .kb-card--enter-moved{
+  animation:kb-enter .2s var(--ease) both,
+            kb-ready-accent .38s var(--ease) .2s both}
+
+/* Press feedback on the advance button. .btn already transitions transform
+   at .15s, so this only supplies the pressed value. */
+.kb-card__action .btn:active:not(:disabled){transform:scale(.98)}
 
 /* ══ Phase 15 — Kitchen Status Update Buttons ═════════════════════════════════ */
 
@@ -1679,7 +1740,6 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .item-modal__total-value,
 [dir="rtl"] .confirm__summary-row--total span:last-child,
 [dir="rtl"] .track__summary-row--total span:last-child,
-[dir="rtl"] .kb-card__total,
 [dir="rtl"] .ad-order__total,
 [dir="rtl"] .ad-live-card__total,
 [dir="rtl"] .ad-live-card__totals-row--total span:last-child,
@@ -2212,32 +2272,53 @@ button{font-family:var(--font-body)}
 .kb-card__timer-wrap{
   display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
 
+/* Phase 71 — the timer is the second thing a cook needs after the table, so
+   the base state is cream on a plain surface rather than muted grey. Size and
+   tabular figures are unchanged: the digits must stay perfectly still while
+   only the state colour moves. */
 .kb-timer{
   display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;border-radius:999px;
+  padding:4px 10px;border-radius:999px;
   background:var(--surface-3);border:1px solid var(--border);
-  color:var(--text-2);
+  color:var(--text-1);
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;
-  letter-spacing:.02em;white-space:nowrap}
+  font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;white-space:nowrap;
+  /* The only motion the timer is allowed: a colour/border cross-fade when it
+     crosses a threshold. Never a pulse, a blink or a digit animation. */
+  transition:background .26s var(--ease),border-color .26s var(--ease),color .26s var(--ease)}
 
 /* Frozen total for a ready/canceled ticket — visually quieter, since it's a
    record of what happened rather than something to watch. */
 .kb-timer--final{opacity:.62}
 
-/* Past the estimate the guest was given. Reuses the app's existing canceled
-   red at low saturation — attention-getting without shouting. */
+/* Past the estimate the guest was quoted, but not yet badly late. Amber is
+   the app's existing "preparing" hue, so it reads as pressure rather than
+   failure — and it leaves red free to mean something worse. */
 .kb-timer--delayed{
-  background:var(--canceled-soft);border-color:rgba(241,106,106,.35);
+  background:var(--preparing-soft);
+  border-color:rgba(245,158,75,.42);
+  color:var(--preparing)}
+
+/* 150% of the estimate or worse. Now the existing canceled red genuinely
+   means "this one needs attention now". */
+.kb-timer--critical{
+  background:var(--canceled-soft);border-color:rgba(241,106,106,.45);
   color:var(--canceled)}
 
+/* Phase 71 — the badge follows the timer tier. Leaving it permanently red
+   made the amber tier read as red anyway, which defeated splitting them. */
 .kb-delayed{
   display:inline-flex;align-items:center;gap:4px;
   padding:2px 8px;border-radius:999px;
-  background:var(--canceled-soft);border:1px solid rgba(241,106,106,.35);
-  color:var(--canceled);
+  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.42);
+  color:var(--preparing);
   font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-  white-space:nowrap}
+  white-space:nowrap;
+  transition:background .26s var(--ease),border-color .26s var(--ease),color .26s var(--ease)}
+.kb-delayed--critical{
+  background:var(--canceled-soft);border-color:rgba(241,106,106,.45);
+  color:var(--canceled)}
 
 /* A delayed card gets a subtle edge as well, so it reads at a glance from
    across a kitchen without the board being reordered. */
