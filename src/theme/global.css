@@ -4164,3 +4164,29 @@ button{font-family:var(--font-body)}
 .btn--warn:hover:not(:disabled){
   background:var(--preparing-soft);
   border-color:var(--preparing)}
+
+/* ══ Phase 76.2 — Admin confirmation touch targets ════════════════════════
+
+   Admin confirmation footers rendered their buttons at 41.2px — a shade
+   under the 44px minimum, on dialogs where the choice is often "mark this
+   paid" or "delete this table" and a mis-tap is expensive.
+
+   SCOPE, deliberately narrow. Three candidate rules were rejected:
+
+     .btn--md          used all over the Customer app (cart, item details,
+                       recovery screens); changing it would resize Phase
+                       73/74 surfaces this phase must not touch.
+     .modal__foot .btn also styles the Home demo-switcher dialog, which is
+                       not an Admin confirmation.
+     per-dialog class  the shared Modal takes no className, and special-
+                       casing one dialog is what §2 asks to avoid.
+
+   .container--admin is the real boundary: every Admin/Cashier modal renders
+   inside it (verified in the DOM — the overlay's parent chain is
+   .container.container--admin > .app), and no Customer screen ever does.
+   So this reaches exactly the confirmations named in §3 and nothing else.
+
+   min-height only: padding, font size, colour, order, spacing and the
+   hierarchy set in Phases 75/76/76.1 are all untouched, and a button whose
+   content already exceeds 44px is unaffected. */
+.container--admin .modal__foot .btn{min-height:44px}
