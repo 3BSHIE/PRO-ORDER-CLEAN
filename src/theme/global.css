@@ -3472,45 +3472,101 @@ button{font-family:var(--font-body)}
    the end of this block, without hiding any information (§21).
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Branded two-circle mark (§12–§15, §18) ───────────────────────────── */
+/* ── Tracking brand micro-mark (Phase 74.1) ───────────────────────────────
 
-/* A clipping window over the REAL logo PNG. The image is laid in at exactly
-   twice this box's height and pinned to the top or bottom edge, so one of
-   the two circles fills the window and the other is cropped away. Nothing is
-   redrawn, recoloured or distorted — both phases are the supplied artwork. */
+   Replaces Phase 74's cropped-PNG treatment. That approach could only show
+   one of the logo's two circles at a time and, because the stopwatch hand is
+   painted into the raster, the "clock" never actually turned — a gradient
+   swept over a static dial instead. This is a small purpose-drawn vector for
+   this one slot: both circles are present together, and the parts that
+   should move can.
+
+   Deliberately quiet. Per §19 this must sit BELOW the status pill, the
+   connector sweep and the Ready ring in the visual hierarchy, so the rings
+   are hairlines, the flow highlight is barely-there, and nothing glows. */
 .brand-mark{
-  position:relative;display:block;flex:none;
-  width:36px;height:30px;overflow:hidden}
-.brand-mark__img{
-  position:absolute;left:50%;transform:translateX(-50%);
-  height:60px;width:auto;display:block;user-select:none}
-/* Upper circle — the stopwatch. */
-.brand-mark--clock .brand-mark__img{top:0}
-/* Lower circle — the plate and cutlery. */
-.brand-mark--serve .brand-mark__img{bottom:0}
+  display:block;flex:none;width:27px;height:38px;line-height:0}
+.brand-mark__svg{width:27px;height:38px;display:block;overflow:visible}
 
-/* §14 — ambient brand motion, not a countdown. A soft gold sweep travels
-   slowly around the dial ON TOP of the untouched mark; the logo's own hand
-   is painted into the PNG and is never moved. One revolution per 10s,
-   linear and continuous: no tick, no per-second jump, no pulse, and no
-   relationship whatsoever to the estimate (§16).
+/* Shared stroke language: hairline, round-capped, no fills except the two
+   solid accents (pivot and plate centre). */
+.brand-mark__svg circle,
+.brand-mark__svg line,
+.brand-mark__svg path{
+  fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
 
-   Positioned over the dial face of the upper circle: the dial sits at
-   roughly 50% across and 28% down the full artwork, which in the 60px-tall
-   render lands at ~17px from the top. */
-.brand-mark__sweep{
-  position:absolute;left:50%;top:17px;
-  width:19px;height:19px;margin:-9.5px 0 0 -9.5px;
-  border-radius:50%;pointer-events:none;
-  background:conic-gradient(
-    from 0deg,
-    rgba(212,169,78,0) 0deg,
-    rgba(212,169,78,0) 250deg,
-    rgba(212,169,78,.45) 330deg,
-    rgba(255,232,170,.65) 358deg,
-    rgba(212,169,78,0) 360deg);
-  animation:brand-sweep 10s linear infinite}
-@keyframes brand-sweep{to{transform:rotate(360deg)}}
+.brand-mark__clock-ring,
+.brand-mark__plate-ring{stroke:var(--gold);stroke-width:1.35}
+/* Four ticks at 38px tall were sub-pixel mush rather than detail, so they
+   are hidden. §4 asks for ticks only "if useful" — here they were not, and
+   the dial reads more clearly as a clock without them. */
+.brand-mark__ticks{display:none}
+.brand-mark__hand{stroke:var(--text-1);stroke-width:1.3}
+.brand-mark__pivot{fill:var(--text-1);stroke:none}
+.brand-mark__plate-inner{stroke:var(--gold);stroke-width:1.05;opacity:.62}
+
+/* The figure-eight carrier. Invisible as a line; it exists so the highlight
+   below can travel the mark's real geometry. */
+.brand-mark__flow{
+  stroke:var(--gold);stroke-width:1.4;opacity:0;
+  stroke-dasharray:16 84;stroke-dashoffset:0}
+
+/* Both circles are always drawn; emphasis shifts by opacity rather than by
+   swapping shapes, so the symbol stays the same object throughout the order
+   (§9 — "it should still look like the SAME two-circle micro-mark"). */
+.brand-mark__clock,
+.brand-mark__plate{
+  transition:opacity .26s var(--ease)}
+.brand-mark--clock .brand-mark__plate{opacity:.55}
+.brand-mark--serve .brand-mark__clock{opacity:.32}
+.brand-mark--serve .brand-mark__plate-ring{stroke:var(--ready)}
+.brand-mark--serve .brand-mark__plate-inner{stroke:var(--ready);opacity:.62}
+
+/* ── Ambient motion, Received / Preparing only ────────────────────────── */
+
+/* §5 — 9s per revolution, linear and unbroken. Slow enough that you never
+   catch it stepping, which is the whole point: it must not read as a
+   countdown or a loader. transform-box:view-box lets the origin be the dial
+   centre in user units rather than the hands' own bounding box. */
+.brand-mark--live .brand-mark__hands{
+  transform-box:view-box;transform-origin:12px 10px;
+  animation:bm-hands 9s linear infinite}
+@keyframes bm-hands{to{transform:rotate(360deg)}}
+
+/* §6/§7 — the secondary flow: a short dash travelling the figure-eight once
+   every 7s at 0.5 opacity on an already-faint stroke. It reads as a slow
+   drift of light from the clock down toward the plate — preparation moving
+   toward service — and is easy to miss unless you look for it, which is
+   exactly the intended weight. */
+.brand-mark--live .brand-mark__flow{
+  opacity:.5;
+  animation:bm-flow 7s linear infinite}
+@keyframes bm-flow{to{stroke-dashoffset:-100}}
+
+/* ── Ready acknowledgement (§11) ──────────────────────────────────────── */
+
+/* One pulse on the plate, ~300ms, only under --served (a genuine advance —
+   the component gates that). */
+.brand-mark--served .brand-mark__plate{
+  transform-box:view-box;transform-origin:12px 24.6px;
+  animation:bm-plate-pulse .3s var(--ease)}
+@keyframes bm-plate-pulse{
+  0%{transform:scale(1)}
+  45%{transform:scale(1.07)}
+  100%{transform:scale(1)}
+}
+
+/* The optional soft ring. Present in the DOM only in the serve phase, and
+   animated only on the real advance, so it is static on a refresh. */
+.brand-mark__ready-ring{
+  stroke:var(--ready);stroke-width:1.2;opacity:0;
+  transform-box:view-box;transform-origin:12px 24.6px}
+.brand-mark--served .brand-mark__ready-ring{
+  animation:bm-ready-ring .34s var(--ease) forwards}
+@keyframes bm-ready-ring{
+  from{opacity:.5;transform:scale(1)}
+  to{opacity:0;transform:scale(1.5)}
+}
 
 /* ── Confirmation success moment (§3) ─────────────────────────────────── */
 
@@ -3671,7 +3727,14 @@ button{font-family:var(--font-body)}
    0.001s still spins, and a transform-based sweep still moves. State
    changes and semantic colours are untouched, so nothing is hidden. */
 @media(prefers-reduced-motion:reduce){
-  .brand-mark__sweep{animation:none;display:none}
+  .brand-mark--live .brand-mark__hands,
+  .brand-mark--live .brand-mark__flow,
+  .brand-mark--served .brand-mark__plate,
+  .brand-mark--served .brand-mark__ready-ring{animation:none}
+  /* the flow stroke only exists to be animated; with motion off it is just
+     a faint static line across the mark, so it is removed outright */
+  .brand-mark__flow{opacity:0}
+  .brand-mark__ready-ring{display:none}
   .track-timeline__step::after{display:none}
   .track-timeline__ring{display:none}
   .track-timeline--advanced .track-timeline__step--current .track-timeline__dot,
