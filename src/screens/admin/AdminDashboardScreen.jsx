@@ -4,6 +4,7 @@ import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
+import AcceptingOrdersCard from "./AcceptingOrdersCard.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
 import CategoryVisibilityCard from "./CategoryVisibilityCard.jsx";
 import DashboardDrillDown from "./DashboardDrillDown.jsx";
@@ -336,14 +337,29 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       </div>
 
       {/* ── Operations (Phase 75 §5) ──────────────────────────────────────
-          The two things a manager ACTS on, grouped under one heading so they
-          read as controls rather than as more statistics. Both remain
-          available to Admin and Cashier exactly as before; each card still
-          decides internally which controls a given role gets. */}
+          The things a manager ACTS on, grouped under one heading so they read
+          as controls rather than as more statistics. Each card still decides
+          internally which controls a given role gets.
+
+          Phase 79 §7 — Accepting Orders leads the section. Of the three it is
+          the only one that decides whether ordering happens at all: Busy Mode
+          adjusts how long it takes, Category Availability adjusts what is on
+          offer, and both are meaningless while the restaurant is closed. It
+          renders for Admin only (§30); Busy Mode and Category Availability
+          keep the Cashier access they already had, so a Cashier still sees a
+          populated Operations section, just without this card. */}
       <div className="ad-section-bar anim-rise">
         <h2 className="ad-section-title">{t("admin.operations", "Operations")}</h2>
       </div>
       <div className="ad-ops anim-rise">
+        <AcceptingOrdersCard
+          restaurant={restaurant}
+          session={session}
+          onNotify={(message) => {
+            setToastMessage(message);
+            setToastVisible(true);
+          }}
+        />
         <BusyModeCard
           restaurant={restaurant}
           session={session}

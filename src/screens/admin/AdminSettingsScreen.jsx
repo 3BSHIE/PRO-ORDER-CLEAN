@@ -314,6 +314,17 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
         {/* ── Working Hours ────────────────────────────────────────────── */}
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.workingHours", "Working Hours")}</h3>
+          {/* Phase 79 §31 — these fields had no effect on anything until this
+              phase, so the section said nothing about what they were for. Now
+              that Accepting Orders' Auto mode consumes them, the one sentence
+              a manager needs is which control reads them and where it lives.
+              The editor itself is unchanged. */}
+          <p className="ad-settings__hint" style={{ margin: "0 0 14px" }}>
+            {t(
+              "accepting.workingHoursHint",
+              "Used by Accepting Orders on the Overview page when its mode is set to Auto. A closing time earlier than the opening time means the restaurant stays open past midnight."
+            )}
+          </p>
           <div className="mm-row-2" style={{ marginBottom: 14 }}>
             <Input label={t("admin.openingTime", "Opening Time")} type="time" value={draft.workingHours.openTime}
               onChange={(e) => setNested("workingHours", "openTime", e.target.value)} />

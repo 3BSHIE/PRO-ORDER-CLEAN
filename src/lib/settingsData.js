@@ -55,7 +55,24 @@ function defaultSettings(restaurantSlug) {
     contactPhone: "",
     contactEmail: "",
     contactAddress: "",
-    workingHours: { openTime: "10:00", closeTime: "23:00", closedDays: [] },
+    /* Phase 79 — these hours became functional this phase: Accepting Orders'
+       Auto mode now reads them, and Auto is the default mode. The previous
+       10:00–23:00 default was inherited from Phase 23, when the fields were
+       inert and their value could not shut anything.
+
+       It cannot stay. A restaurant that signs up and has not yet opened
+       Settings would be silently dark for eleven hours a day — including,
+       when this phase was written, at the moment a developer opened the demo
+       (08:27 in Amman against a 10:00 opening). A seeded default must not be
+       the reason a venue cannot take orders.
+
+       openTime === closeTime is the module's "open around the clock" case
+       (see getWorkingHoursState), so this is an honest configuration a real
+       24-hour venue could hold rather than a special "unset" sentinel — and
+       it keeps the safe direction consistent with the fail-open principle
+       that governs the rest of the schedule logic. A restaurant with genuine
+       hours simply enters them; nothing about the editor changed. */
+    workingHours: { openTime: "00:00", closeTime: "00:00", closedDays: [] },
     updatedAt: null,
   };
 }

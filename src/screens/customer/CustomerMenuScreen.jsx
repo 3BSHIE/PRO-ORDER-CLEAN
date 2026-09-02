@@ -9,6 +9,7 @@ import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
+import RestaurantClosedNotice from "./components/RestaurantClosedNotice.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatItemCount, formatResultCount } from "../../i18n/counts.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
@@ -21,6 +22,7 @@ import {
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { usePrepTime } from "../../lib/usePrepTime.js";
+import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { isCategoryVisibleNow } from "../../lib/categoryVisibility.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -115,6 +117,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
      sees the notice appear when staff flip it, without reloading. */
   const { busyModeEnabled } = usePrepTime(restaurant.slug);
+  /* Phase 79 — whether the restaurant is taking NEW orders at all. Entirely
+     independent of Busy Mode above: that one only ever changes the estimate,
+     this one decides whether there is anything to estimate. The hook carries
+     its own poll and clock tick, so an Admin flipping the mode in another tab
+     and an auto-mode window simply closing both reach this screen without a
+     reload. */
+  const { accepting: acceptingOrders } = useAcceptingOrders(restaurant.slug);
   /* Phase 28 — the restaurant's own timezone drives schedule evaluation, not
      the guest's device clock (a tourist's phone on the wrong timezone must
      not see a different menu than the table next to them). */
@@ -379,8 +388,17 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
         {/* ── Busy notice (Phase 26) ──────────────────────────────────────
             Informational only — it never disables the menu, the item modal,
-            the cart, or checkout. Ordering stays fully open while busy. */}
-        {busyModeEnabled && (
+            the cart, or checkout. Ordering stays fully open while busy.
+
+            Phase 79 — withheld while the restaurant is not accepting orders,
+            because "orders may take a little longer" directly contradicts
+            "we're not accepting orders right now" and the guest would be
+            reading both in one viewport. This is presentation only: Busy Mode
+            itself is untouched, the prep estimate is untouched, and the Admin
+            card still shows and controls it exactly as before. Nothing about
+            the accepting-orders state writes to prep-time data, and nothing
+            about Busy Mode is consulted when deciding whether to accept. */}
+        {busyModeEnabled && acceptingOrders && (
           <div className="busy-notice anim-rise" role="status">
             <Clock size={14} strokeWidth={2.2} />
             <span>
@@ -399,7 +417,23 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             categories cannot do useful work, so they are withheld and one
             calm fallback takes their place. Restaurant identity and the
             header above are untouched. */}
-        {!hasAnyAvailableItem ? (
+        {/* Phase 79 §18 — while the restaurant is not accepting orders the
+            ordering area is replaced outright rather than left live-but-
+            disabled. A grid of tappable cards over a blocked checkout would
+            invite the guest to build a cart they cannot place; withholding
+            search, chips and the grid states the situation once, at the top,
+            where the food would have been.
+
+            Checked BEFORE the empty-menu fallback because it is the more
+            specific and more recoverable explanation: a closed restaurant
+            still has a full menu, and telling the guest it is "temporarily
+            unavailable" would be both wrong and less useful than telling them
+            when to come back. Nothing about the menu data is touched — this is
+            a render branch, and everything returns the moment the restaurant
+            reopens (§18, §24). */}
+        {!acceptingOrders ? (
+          <RestaurantClosedNotice />
+        ) : !hasAnyAvailableItem ? (
           <MenuUnavailable />
         ) : (
         <>

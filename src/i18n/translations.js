@@ -632,6 +632,40 @@ export const translations = {
       prepConfigSaved: "Preparation time settings saved",
       invalidMinutes: "Please enter a whole number of minutes (0–240).",
     },
+    /* Phase 79 — Accepting Orders (Auto / Open / Closed). Deliberately its
+       own namespace rather than an extension of `prep`: Busy Mode and
+       Accepting Orders are independent concepts and sharing a key prefix
+       would be the first step towards treating them as one. */
+    accepting: {
+      title: "Accepting Orders",
+      legend: "Accepting orders mode",
+      modeAuto: "Auto",
+      modeOpen: "Open",
+      modeClosed: "Closed",
+      modeAutoHint: "Follow working hours",
+      modeOpenHint: "Accept orders now",
+      modeClosedHint: "Stop new orders",
+      stateOn: "Accepting orders",
+      stateOff: "Not accepting orders",
+      detailFollowing: "Following working hours",
+      open24Hours: "Open 24 hours",
+      detailClosedDay: "Closed today.",
+      detailForcedOpen: "Manually open — working hours are being overridden.",
+      detailForcedClosed: "Manually closed — working hours are being overridden.",
+      detailInvalidSchedule:
+        "Working hours aren't set, so orders are being accepted. Add them in Settings.",
+      toastAuto: "Following working hours",
+      toastOpen: "Accepting new orders",
+      toastClosed: "New orders stopped",
+      workingHoursHint:
+        "Used by Accepting Orders on the Overview page when its mode is set to Auto. A closing time earlier than the opening time means the restaurant stays open past midnight.",
+      customerClosedTitle: "We're not accepting orders right now",
+      customerClosedSub:
+        "You can still view your existing orders. Please check again later or ask a staff member for help.",
+      cartBlockedNotice:
+        "The restaurant isn't accepting new orders right now. Your items are saved.",
+      cartBlockedToast: "New orders are paused right now.",
+    },
     /* Phase 37 — cart revalidation against the live menu */
     cart: {
       currentlyUnavailable: "Currently unavailable",
@@ -1237,6 +1271,36 @@ export const translations = {
       configAdminOnly: "يمكن لحسابات المدير فقط تغيير هذه القيم.",
       prepConfigSaved: "تم حفظ إعدادات وقت التحضير",
       invalidMinutes: "يرجى إدخال عدد صحيح من الدقائق (0–240).",
+    },
+    /* Phase 79 — استقبال الطلبات */
+    accepting: {
+      title: "استقبال الطلبات",
+      legend: "وضع استقبال الطلبات",
+      modeAuto: "تلقائي",
+      modeOpen: "مفتوح",
+      modeClosed: "مغلق",
+      modeAutoHint: "حسب ساعات العمل",
+      modeOpenHint: "استقبال الطلبات الآن",
+      modeClosedHint: "إيقاف الطلبات الجديدة",
+      stateOn: "نستقبل الطلبات",
+      stateOff: "لا نستقبل الطلبات",
+      detailFollowing: "حسب ساعات العمل",
+      open24Hours: "مفتوح 24 ساعة",
+      detailClosedDay: "مغلق اليوم.",
+      detailForcedOpen: "مفتوح يدويًا — تم تجاوز ساعات العمل.",
+      detailForcedClosed: "مغلق يدويًا — تم تجاوز ساعات العمل.",
+      detailInvalidSchedule:
+        "ساعات العمل غير محددة، لذلك يتم استقبال الطلبات. أضفها من الإعدادات.",
+      toastAuto: "يتم الآن اتباع ساعات العمل",
+      toastOpen: "يتم استقبال الطلبات الجديدة",
+      toastClosed: "تم إيقاف الطلبات الجديدة",
+      workingHoursHint:
+        "تستخدمها ميزة استقبال الطلبات في صفحة النظرة العامة عندما يكون وضعها تلقائيًا. إذا كان وقت الإغلاق أبكر من وقت الفتح، فهذا يعني أن المطعم يبقى مفتوحًا بعد منتصف الليل.",
+      customerClosedTitle: "لا نستقبل طلبات جديدة حاليًا",
+      customerClosedSub:
+        "لا يزال بإمكانك عرض طلباتك السابقة. يرجى المحاولة لاحقًا أو طلب المساعدة من أحد الموظفين.",
+      cartBlockedNotice: "المطعم لا يستقبل طلبات جديدة حاليًا. تم حفظ اختياراتك.",
+      cartBlockedToast: "الطلبات الجديدة متوقفة حاليًا.",
     },
     /* Phase 37 — cart revalidation against the live menu */
     cart: {

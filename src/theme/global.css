@@ -2510,10 +2510,26 @@ button{font-family:var(--font-body)}
 .cart-issue__old{color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
 .cart-issue__new{color:var(--text-1);font-weight:700}
 
-/* Blocking notice above the checkout button. */
+/* Blocking notice above the checkout button.
+
+   Phase 79 — it was never actually above it. .cart-bottom-bar__inner is a
+   non-wrapping flex row, so this paragraph became a THIRD item in that row,
+   squeezed into a narrow column beside the total while the button overflowed
+   the viewport. Phase 37's shorter sentence hid how bad it was; a longer one
+   makes the checkout bar unusable at 375px.
+
+   flex:0 0 100% on the notice plus wrap on the row is the whole fix, and it
+   restores what the comment above always claimed: the notice takes its own
+   full-width line, the total and the button share the next. Both the Phase 37
+   review message and the Phase 79 closed message benefit — neither markup
+   changed. */
+.cart-bottom-bar__inner{flex-wrap:wrap}
 .cart-bottom-bar__notice{
+  flex:0 0 100%;
   display:flex;align-items:center;gap:7px;margin:0 0 10px;
   font-size:12px;line-height:1.45;color:var(--preparing);text-align:start}
+/* The icon must not be squashed by a long message beside it. */
+.cart-bottom-bar__notice > svg{flex:none}
 
 /* Money stays LTR-readable inside an Arabic cart, matching the convention
    used for prices everywhere else. */
@@ -4190,3 +4206,132 @@ button{font-family:var(--font-body)}
    hierarchy set in Phases 75/76/76.1 are all untouched, and a button whose
    content already exceeds 44px is unaffected. */
 .container--admin .modal__foot .btn{min-height:44px}
+
+/* ══ Phase 79 — Accepting Orders ══════════════════════════════════════════
+
+   Two surfaces: the Admin Operations card that sets the mode, and the
+   customer notice shown while new ordering is paused.
+
+   Severity choice, stated once for both: amber, never red. A closed
+   restaurant is an ordinary operational state a manager sets on purpose most
+   nights, and the guest reading the customer notice has done nothing wrong.
+   Red stays reserved for the error boundary, which is the only place in this
+   product where something has actually gone wrong. Green marks the accepting
+   state because that is the one that means "service is running". */
+
+/* ── Admin: the Operations card ──────────────────────────────────────── */
+
+.ao-card{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+/* The border carries the effective state, matching how .busy-card--on marks
+   itself — but it is only ever a second signal. The state is also written in
+   words inside the card, so colour alone never carries it (§41). */
+.ao-card--on{border-color:rgba(63,214,143,.34)}
+.ao-card--off{border-color:rgba(245,158,75,.42)}
+
+.ao-card__head{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.ao-card__icon{
+  width:34px;height:34px;flex:none;display:grid;place-items:center;
+  border-radius:11px;background:var(--gold-soft);color:var(--gold);
+  border:1px solid var(--gold-line)}
+.ao-card__head-text{min-width:0}
+.ao-card__title{
+  font-family:var(--font-display);font-size:17px;font-weight:700;
+  color:var(--text-1);margin:0}
+
+/* §9 — the effective state, given its own line and its own weight because it
+   is the thing a manager actually needs at a glance. It is deliberately
+   louder than the mode buttons below it: the mode is what was chosen, this is
+   what is happening. */
+.ao-card__state{
+  display:flex;align-items:center;gap:6px;margin:4px 0 0;
+  font-size:13px;font-weight:700}
+.ao-card--on .ao-card__state{color:var(--ready)}
+.ao-card--off .ao-card__state{color:var(--preparing)}
+
+/* ── Tri-state control ───────────────────────────────────────────────────
+   Real radios in a fieldset, visually hidden and styled through their label
+   (§8, §41). Keyboard arrow-key navigation, the radio group role and the
+   selected state all come from the platform rather than being reimplemented
+   with aria-pressed on three divs. */
+.ao-modes{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+  border:0;padding:0;margin:0;min-width:0}
+.ao-mode{
+  position:relative;display:flex;flex-direction:column;gap:3px;
+  padding:10px 10px 11px;border-radius:var(--r-md);cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--border);
+  text-align:center;min-height:44px;justify-content:center;
+  transition:border-color .2s,background .2s,color .2s}
+.ao-mode:hover{border-color:var(--border-strong)}
+.ao-mode__input{
+  position:absolute;opacity:0;width:100%;height:100%;inset:0;margin:0;
+  cursor:pointer}
+.ao-mode__label{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  font-size:13px;font-weight:700;color:var(--text-2);line-height:1.2}
+.ao-mode__hint{font-size:10.5px;color:var(--text-3);line-height:1.35}
+
+/* Focus lands on the invisible input, so the ring has to be drawn on the
+   label around it — without this the control is unusable by keyboard. */
+.ao-mode__input:focus-visible + .ao-mode__label{outline:none}
+.ao-mode:focus-within{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-soft)}
+
+/* Selected: each mode keeps its own semantic colour so the choice reads at a
+   glance, and the icon in the label means the distinction survives for anyone
+   who cannot separate the three hues. */
+.ao-mode--active{background:var(--surface-3)}
+.ao-mode--auto.ao-mode--active{
+  border-color:var(--gold-line);background:var(--gold-soft)}
+.ao-mode--auto.ao-mode--active .ao-mode__label{color:var(--gold)}
+.ao-mode--open.ao-mode--active{
+  border-color:rgba(63,214,143,.45);background:var(--ready-soft)}
+.ao-mode--open.ao-mode--active .ao-mode__label{color:var(--ready)}
+.ao-mode--closed.ao-mode--active{
+  border-color:rgba(245,158,75,.5);background:var(--preparing-soft)}
+.ao-mode--closed.ao-mode--active .ao-mode__label{color:var(--preparing)}
+
+/* §10 — the schedule context, kept to one compact line. Dense Working Hours
+   configuration stays in Settings. */
+.ao-card__detail{
+  display:flex;align-items:center;gap:6px;margin:0;
+  font-size:12px;color:var(--text-3);line-height:1.5}
+
+/* Below ~360px three columns stop holding a readable hint, so the modes
+   stack. min-height keeps each one a comfortable target either way. */
+@media(max-width:359px){
+  .ao-modes{grid-template-columns:minmax(0,1fr)}
+  .ao-mode{flex-direction:row;justify-content:flex-start;gap:8px;text-align:start}
+  .ao-mode__hint{font-size:11px}
+}
+
+/* ── Customer: not accepting orders ──────────────────────────────────────
+   Shared recovery geometry — mark, title, helper — matching .menu-unavailable
+   and the access views so this reads as one of the product's calm states
+   rather than a new kind of screen. Amber rather than the neutral gold used
+   for an empty menu: nothing is missing here, something is temporarily
+   paused, and that is the same family as an inactive table. */
+.closed-notice{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:52px 20px 44px}
+.closed-notice__icon{
+  width:56px;height:56px;display:grid;place-items:center;border-radius:18px;
+  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.32);
+  color:var(--preparing);margin-bottom:16px}
+.closed-notice__title{
+  font-family:var(--font-display);font-size:20px;font-weight:700;
+  color:var(--text-1);margin:0 0 10px;max-width:340px}
+.closed-notice__sub{
+  font-size:14px;color:var(--text-2);line-height:1.6;max-width:340px;margin:0}
+
+/* Operations is a 2-column grid from 900px (Phase 75). Adding a third card
+   would leave Category Availability stranded in a half-width cell on its own
+   row, so when three cards ARE present the last one spans the full width —
+   which also suits it, since it is a list rather than a compact control.
+
+   :last-child:nth-child(3) is what keeps this from touching the Cashier
+   layout: AcceptingOrdersCard renders nothing for that role, so their
+   Operations section still has exactly two children and the rule never
+   matches. No :has(), and no count passed down from React. */
+@media(min-width:900px){
+  .ad-ops > *:last-child:nth-child(3){grid-column:1 / -1}
+}

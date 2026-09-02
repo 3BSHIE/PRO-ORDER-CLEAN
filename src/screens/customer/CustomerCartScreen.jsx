@@ -20,6 +20,10 @@ import { getMenuItems, getCategories } from "../../lib/menuData.js";
 import { validateCart, CART_ISSUE } from "../../lib/cartValidation.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
+import { getSettings } from "../../lib/settingsData.js";
+import { getAcceptingOrdersMode } from "../../lib/acceptingOrdersData.js";
+import { getAcceptingOrdersState } from "../../lib/acceptingOrders.js";
+import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -141,6 +145,11 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     [cart, liveItems, liveCategories, settings.timeZone, scheduleTick]
   );
 
+  /* Phase 79 — the live accepting-orders verdict, for rendering only. The
+     authoritative check runs inside handlePaymentContinue against a fresh
+     read, exactly like the Phase 37 revalidation. */
+  const { accepting: acceptingOrders } = useAcceptingOrders(restaurant.slug);
+
   const isEmpty = cart.length === 0;
   const subtotal = getCartTotal(cart);
   /* Phase 23 — a restaurant can override its service charge % in Settings;
@@ -185,6 +194,14 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
   }
 
   function handlePayClick() {
+    /* Phase 79 — the same cheap-guard role as the validation check below it:
+       stop the payment sheet opening over a restaurant that is closed. The
+       authoritative refusal is at the mutation. */
+    if (!acceptingOrders) {
+      setToastMessage(t("accepting.cartBlockedToast", "New orders are paused right now."));
+      setToastVisible(true);
+      return;
+    }
     /* Cheap guard so the sheet cannot even be opened over a stale cart; the
        authoritative check still runs at the mutation itself. */
     if (!validation.canCheckout) {
@@ -213,6 +230,43 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     if (cart.length === 0) return { ok: false };
 
     createLock.current = true;
+
+    /* ── Phase 79: authoritative accepting-orders gate ───────────────────
+       An ADDITIONAL gate, layered on top of everything already here — it
+       replaces nothing. Phase 34's lock above still owns duplicate
+       submission, Phase 37's revalidation below still owns menu/price
+       agreement, and both run exactly as before.
+
+       Placed first because it is the outermost question: if the venue is not
+       taking orders, whether line 3 was repriced is beside the point, and
+       "new orders are paused" is a more useful thing to tell the guest than
+       "review your cart".
+
+       Reads storage directly rather than using the hook's state, for the same
+       reason the revalidation below re-reads the menu. This is precisely the
+       window that matters: the guest opens the payment sheet, the manager
+       flips the restaurant to Closed, the guest taps Place order. A verdict
+       computed up to four seconds ago is not good enough to create an order
+       on.
+
+       Nothing is cleared on refusal — not the cart, not the session. The
+       guest keeps everything they chose and can place it the moment the
+       restaurant reopens (§19). */
+    const acceptingNow = getAcceptingOrdersState(
+      getAcceptingOrdersMode(restaurant.slug),
+      getSettings(restaurant.slug),
+      { now: new Date() }
+    );
+
+    if (!acceptingNow.accepting) {
+      createLock.current = false;
+      setPaymentModalOpen(false);
+      setToastMessage(t("accepting.cartBlockedToast", "New orders are paused right now."));
+      setToastVisible(true);
+      /* handled:true tells the payment sheet this was dealt with here, so it
+         does not also raise its own generic error. */
+      return { ok: false, handled: true };
+    }
 
     /* ── Phase 37: authoritative pre-order revalidation ──────────────────
        Deliberately re-reads the menu from storage rather than trusting the
@@ -370,20 +424,42 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
       {!isEmpty && (
         <div className="cart-bottom-bar">
           <div className="cart-bottom-bar__inner">
-            {/* Phase 37 — checkout is blocked while any line disagrees with
-                the live menu, and the reason is stated rather than leaving a
-                disabled button with no explanation. */}
-            {validation.needsReview && (
+            {/* Phase 79 §19/§20 — the cart is kept intact and only checkout
+                is stopped, so the bar states why rather than presenting a
+                dead button. Shown ahead of the Phase 37 notice and instead of
+                it: a closed restaurant is the reason the guest cannot
+                continue, and reviewing their lines would not change that.
+                The lines themselves, their quantities and the total all stay
+                on screen and editable. */}
+            {!acceptingOrders ? (
               <p className="cart-bottom-bar__notice" role="status">
                 <AlertTriangle size={13} strokeWidth={2.3} aria-hidden="true" />
-                {t("cart.reviewChanges", "Please review the changes in your cart before continuing.")}
+                {t(
+                  "accepting.cartBlockedNotice",
+                  "The restaurant isn't accepting new orders right now. Your items are saved."
+                )}
               </p>
+            ) : (
+              /* Phase 37 — checkout is blocked while any line disagrees with
+                 the live menu, and the reason is stated rather than leaving a
+                 disabled button with no explanation. */
+              validation.needsReview && (
+                <p className="cart-bottom-bar__notice" role="status">
+                  <AlertTriangle size={13} strokeWidth={2.3} aria-hidden="true" />
+                  {t("cart.reviewChanges", "Please review the changes in your cart before continuing.")}
+                </p>
+              )
             )}
             <div className="cart-bottom-bar__total">
               <span className="cart-bottom-bar__total-label">{t("common.total", "Total")}</span>
               <span className="cart-bottom-bar__total-value">{fmtPrice(total)}</span>
             </div>
-            <Button size="lg" full onClick={handlePayClick} disabled={!validation.canCheckout}>
+            <Button
+              size="lg"
+              full
+              onClick={handlePayClick}
+              disabled={!validation.canCheckout || !acceptingOrders}
+            >
               {t("customer.continueToPayment", "Continue to payment")}
             </Button>
           </div>
