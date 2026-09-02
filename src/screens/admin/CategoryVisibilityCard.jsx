@@ -52,12 +52,47 @@ export default function CategoryVisibilityCard({ restaurant }) {
 
   if (operationalCategories.length === 0) return null;
 
+  /* Phase 75 §8 — counts for the head line, from exactly the same state
+     resolver the rows use, so the summary and the list can never disagree. */
+  const summary = operationalCategories.reduce(
+    (acc, category) => {
+      const state = getCategoryVisibilityState(category, {
+        timeZone: settings.timeZone,
+        now: new Date(tick),
+      });
+      if (state.visible) acc.available += 1;
+      else acc.off += 1;
+      if (formatSchedule(category)) acc.scheduled += 1;
+      return acc;
+    },
+    { available: 0, off: 0, scheduled: 0 }
+  );
+
   return (
     <Card className="cv-card">
       <div className="cv-card__head">
         <h2 className="cv-card__title">{t("admin.availableNow", "Available Now")}</h2>
-        <p className="cv-card__sub">
-          {t("admin.categoryVisibilityHint", "Turn categories on or off for service.")}
+        {/* Phase 75 §8 — a one-line read of the same states the rows below
+            already compute, so a manager can take in the category position
+            without parsing the whole list. Derived from the existing
+            getCategoryVisibilityState call; no new data, no new logic, and
+            the per-category switches are untouched. */}
+        <p className="cv-card__summary">
+          <span className="cv-card__summary-on">
+            {t("admin.categoriesAvailable", "{n} available").replace("{n}", summary.available)}
+          </span>
+          {summary.off > 0 && (
+            <>
+              <span className="cv-card__summary-dot">&middot;</span>
+              <span>{t("admin.categoriesUnavailable", "{n} unavailable").replace("{n}", summary.off)}</span>
+            </>
+          )}
+          {summary.scheduled > 0 && (
+            <>
+              <span className="cv-card__summary-dot">&middot;</span>
+              <span>{t("admin.categoriesScheduled", "{n} scheduled").replace("{n}", summary.scheduled)}</span>
+            </>
+          )}
         </p>
       </div>
 

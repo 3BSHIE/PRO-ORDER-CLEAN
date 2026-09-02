@@ -8,6 +8,7 @@ import BusyModeCard from "./BusyModeCard.jsx";
 import CategoryVisibilityCard from "./CategoryVisibilityCard.jsx";
 import DashboardDrillDown from "./DashboardDrillDown.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
+import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import {
@@ -32,6 +33,8 @@ const STATUS_BADGE_TONE = {
    the existing status.* keys since their English text is identical. */
 const STAT_LABEL_KEY = {
   ordersToday: "admin.ordersToday",
+  pendingPayments: "admin.pendingPayments",
+  staffCalls: "staff.staffCalls",
   revenueToday: "admin.revenueToday",
   activeOrders: "admin.activeOrders",
   waitingPrep: "admin.waitingPrep",
@@ -95,6 +98,20 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
   const restaurantOrders = useMemo(
     () => allOrders.filter((o) => o.restaurantSlug === restaurant.slug),
     [allOrders, restaurant.slug]
+  );
+
+  /* Phase 75 §33/§35 — Cashier is a deliberately lighter operational role,
+     not "Admin minus pages". The snapshot below is chosen for the job rather
+     than mirrored from Admin. Nothing about permissions changes here: this
+     only decides which four existing numbers are shown. */
+  const isCashier = session.role === "cashier";
+
+  /* The same live call list the nav badge already reads — one source, so the
+     KPI and the badge can never disagree. */
+  const { calls: staffCalls } = useStaffCalls(restaurant.slug);
+  const openCallCount = useMemo(
+    () => staffCalls.filter((c) => c.status === "open").length,
+    [staffCalls]
   );
 
   /* Phase 30 — every number below now comes from src/lib/dashboardStats.js,
@@ -168,15 +185,43 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
     canceled:     ["admin.viewCanceledOrders",  "View canceled orders"],
   };
 
-  const STAT_CARDS = [
-    { key: "ordersToday",  label: "Orders Today",  value: todayStatuses.total,           tone: "gold" },
-    { key: "revenueToday", label: "Revenue Today", value: fmtPrice(todayRevenue.total),  tone: "gold" },
-    { key: "activeOrders", label: "Active Orders", value: allTimeStatuses.active,        tone: "gold" },
-    { key: "waitingPrep",  label: "Waiting Prep",  value: allTimeStatuses.received,      tone: "received" },
-    { key: "preparing",    label: "Preparing",     value: allTimeStatuses.preparing,     tone: "preparing" },
-    { key: "readyToServe", label: "Ready to Serve",value: allTimeStatuses.ready,          tone: "ready" },
-    { key: "completed",    label: "Completed",     value: allTimeStatuses.delivered,     tone: "neutral" },
-    { key: "canceled",     label: "Canceled",      value: allTimeStatuses.canceled,      tone: "canceled" },
+  /* Phase 75 §2/§35 — the snapshot the operator sees first, and it differs by
+     role because the two roles run different jobs.
+
+     Admin gets the business read: volume, money, load, and whether anyone is
+     waiting for a person. Cashier gets the counter read — §35 is explicit
+     that revenue is NOT shown to Cashier just for symmetry with Admin, so it
+     is swapped for Pending Payments, which is the number a cashier actually
+     works from.
+
+     Every value here already existed: pendingCount comes straight out of
+     summarizeRevenue (the same calculation the Revenue drill-down uses) and
+     the open-call count is the same list the nav badge already reads. No new
+     metric is invented and no new business logic is introduced. */
+  const KPI_CARDS = isCashier
+    ? [
+        { key: "activeOrders",     label: "Active Orders",     value: allTimeStatuses.active,   tone: "gold" },
+        { key: "pendingPayments",  label: "Pending Payments",  value: todayRevenue.pendingCount, tone: "preparing" },
+        { key: "staffCalls",       label: "Staff Calls",       value: openCallCount,            tone: "preparing" },
+        { key: "ordersToday",      label: "Orders Today",      value: todayStatuses.total,      tone: "gold" },
+      ]
+    : [
+        { key: "ordersToday",  label: "Orders Today",  value: todayStatuses.total,          tone: "gold" },
+        { key: "revenueToday", label: "Revenue Today", value: fmtPrice(todayRevenue.total), tone: "gold" },
+        { key: "activeOrders", label: "Active Orders", value: allTimeStatuses.active,       tone: "gold" },
+        { key: "staffCalls",   label: "Staff Calls",   value: openCallCount,                tone: "preparing" },
+      ];
+
+  /* The per-status counts. These stay on the page — they are genuinely
+     different numbers from the snapshot above, not duplicates — but they drop
+     to a secondary row under their own heading so the dashboard has one
+     obvious first-glance layer rather than eight equal cards (§10). */
+  const STATUS_CARDS = [
+    { key: "waitingPrep",  label: "Waiting Prep",  value: allTimeStatuses.received,  tone: "received" },
+    { key: "preparing",    label: "Preparing",     value: allTimeStatuses.preparing, tone: "preparing" },
+    { key: "readyToServe", label: "Ready to Serve",value: allTimeStatuses.ready,     tone: "ready" },
+    { key: "completed",    label: "Completed",     value: allTimeStatuses.delivered, tone: "neutral" },
+    { key: "canceled",     label: "Canceled",      value: allTimeStatuses.canceled,  tone: "canceled" },
   ];
 
   const recentOrders = useMemo(
@@ -186,6 +231,86 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         .slice(0, RECENT_ORDERS_LIMIT),
     [restaurantOrders]
   );
+
+  /* Phase 75 — one renderer for both rows. The KPI snapshot and the status
+     row use identical card markup and identical interaction rules; only the
+     extra class differs, which is what drives their different sizing. Two
+     copies of this would be two places for the drill-down and filter-shortcut
+     behaviour to drift apart. */
+  function renderStatCard(stat, extraClass) {
+    const label = t(STAT_LABEL_KEY[stat.key], stat.label);
+    const isInteractive = INTERACTIVE_CARDS.includes(stat.key);
+
+    /* Interactive cards render as real <button>s carrying the same
+       `card ad-stat` classes, so they look identical to the static ones
+       while being keyboard-focusable and announced as buttons. */
+    if (isInteractive) {
+      return (
+        <button
+          key={stat.key}
+          type="button"
+          className={`card ad-stat ad-stat--interactive ${extraClass}`}
+          onClick={() => setOpenDetail(stat.key)}
+          aria-haspopup="dialog"
+        >
+          <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+          <span className="ad-stat__value">{stat.value}</span>
+          <span className="ad-stat__label">{label}</span>
+          <ChevronRight
+            className="ad-stat__chevron"
+            size={14}
+            strokeWidth={2.4}
+            aria-hidden="true"
+          />
+        </button>
+      );
+    }
+
+    /* Phase 53 — status cards navigate to Live Orders with their filter
+       already applied. Rendered with the same button treatment the
+       drill-down cards already use, so the two kinds of interactive
+       card look and behave alike; a real <button> also gives Tab focus
+       and Enter/Space for free, with no mouse-only handler. No
+       aria-haspopup here - this navigates rather than opening a
+       dialog. */
+    const orderFilter = CARD_TO_ORDER_FILTER[stat.key];
+    if (orderFilter) {
+      const [ariaKey, ariaFallback] = FILTER_CARD_ARIA[stat.key];
+      return (
+        <button
+          key={stat.key}
+          type="button"
+          className={`card ad-stat ad-stat--interactive ${extraClass}`}
+          onClick={() => onNavigate("liveOrders", { ordersFilter: orderFilter })}
+          aria-label={t(ariaKey, ariaFallback)}
+        >
+          <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+          <span className="ad-stat__value">{stat.value}</span>
+          <span className="ad-stat__label">{label}</span>
+          <ChevronRight
+            className="ad-stat__chevron"
+            size={14}
+            strokeWidth={2.4}
+            aria-hidden="true"
+          />
+        </button>
+      );
+    }
+
+    /* Still static: Active Orders. Live Orders has no "active" tab -
+       its filters are All plus one per real status - and Active is the
+       sum of Waiting Prep + Preparing + Ready. Sending it to "all"
+       would show delivered and canceled orders too, which is not what
+       the number counts, and inventing an active filter would be a new
+       filtering system this phase is not for. Left alone deliberately. */
+    return (
+      <Card key={stat.key} className={`ad-stat ${extraClass}`}>
+        <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+        <span className="ad-stat__value">{stat.value}</span>
+        <span className="ad-stat__label">{label}</span>
+      </Card>
+    );
+  }
 
   return (
     <AdminLayout
@@ -200,10 +325,25 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         <p className="ad-header__subtitle">{t("admin.monitorActivity", "Monitor today's restaurant activity.")}</p>
       </header>
 
-      {/* ── Busy Mode / service speed (Phase 26) ──────────────────────────
-          Available to Admin AND Cashier; the card itself decides which
-          controls each role gets. */}
-      <div className="anim-rise" style={{ animationDelay: "60ms", marginBottom: 18 }}>
+      {/* ── KPI snapshot (Phase 75 §2) ────────────────────────────────────
+          Moved above the operational controls. The dashboard previously
+          opened with two full-width control cards, so the manager had to
+          scroll past Busy Mode and Category Availability before seeing a
+          single number. The four figures that answer "how is service going
+          right now" come first. */}
+      <div className="ad-kpis anim-rise">
+        {KPI_CARDS.map((stat) => renderStatCard(stat, "ad-kpi"))}
+      </div>
+
+      {/* ── Operations (Phase 75 §5) ──────────────────────────────────────
+          The two things a manager ACTS on, grouped under one heading so they
+          read as controls rather than as more statistics. Both remain
+          available to Admin and Cashier exactly as before; each card still
+          decides internally which controls a given role gets. */}
+      <div className="ad-section-bar anim-rise">
+        <h2 className="ad-section-title">{t("admin.operations", "Operations")}</h2>
+      </div>
+      <div className="ad-ops anim-rise">
         <BusyModeCard
           restaurant={restaurant}
           session={session}
@@ -212,92 +352,18 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
             setToastVisible(true);
           }}
         />
-      </div>
-
-      {/* ── Category visibility (Phase 28) ────────────────────────────────
-          Operational on/off for Admin AND Cashier. Full Category Management
-          (add/rename/delete/reorder/image/schedule) remains Admin-only in
-          its own screen — this card can only flip one boolean. */}
-      <div className="anim-rise" style={{ animationDelay: "70ms", marginBottom: 18 }}>
         <CategoryVisibilityCard restaurant={restaurant} />
       </div>
 
-      {/* ── Stat cards ────────────────────────────────────────────────────── */}
-      <div className="ad-stats anim-rise" style={{ animationDelay: "80ms" }}>
-        {STAT_CARDS.map((stat) => {
-          const label = t(STAT_LABEL_KEY[stat.key], stat.label);
-          const isInteractive = INTERACTIVE_CARDS.includes(stat.key);
-
-          /* Interactive cards render as real <button>s carrying the same
-             `card ad-stat` classes, so they look identical to the static ones
-             while being keyboard-focusable and announced as buttons. */
-          if (isInteractive) {
-            return (
-              <button
-                key={stat.key}
-                type="button"
-                className="card ad-stat ad-stat--interactive"
-                onClick={() => setOpenDetail(stat.key)}
-                aria-haspopup="dialog"
-              >
-                <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
-                <span className="ad-stat__value">{stat.value}</span>
-                <span className="ad-stat__label">{label}</span>
-                <ChevronRight
-                  className="ad-stat__chevron"
-                  size={14}
-                  strokeWidth={2.4}
-                  aria-hidden="true"
-                />
-              </button>
-            );
-          }
-
-          /* Phase 53 — status cards navigate to Live Orders with their filter
-             already applied. Rendered with the same button treatment the
-             drill-down cards already use, so the two kinds of interactive
-             card look and behave alike; a real <button> also gives Tab focus
-             and Enter/Space for free, with no mouse-only handler. No
-             aria-haspopup here - this navigates rather than opening a
-             dialog. */
-          const orderFilter = CARD_TO_ORDER_FILTER[stat.key];
-          if (orderFilter) {
-            const [ariaKey, ariaFallback] = FILTER_CARD_ARIA[stat.key];
-            return (
-              <button
-                key={stat.key}
-                type="button"
-                className="card ad-stat ad-stat--interactive"
-                onClick={() => onNavigate("liveOrders", { ordersFilter: orderFilter })}
-                aria-label={t(ariaKey, ariaFallback)}
-              >
-                <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
-                <span className="ad-stat__value">{stat.value}</span>
-                <span className="ad-stat__label">{label}</span>
-                <ChevronRight
-                  className="ad-stat__chevron"
-                  size={14}
-                  strokeWidth={2.4}
-                  aria-hidden="true"
-                />
-              </button>
-            );
-          }
-
-          /* Still static: Active Orders. Live Orders has no "active" tab -
-             its filters are All plus one per real status - and Active is the
-             sum of Waiting Prep + Preparing + Ready. Sending it to "all"
-             would show delivered and canceled orders too, which is not what
-             the number counts, and inventing an active filter would be a new
-             filtering system this phase is not for. Left alone deliberately. */
-          return (
-            <Card key={stat.key} className="ad-stat">
-              <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
-              <span className="ad-stat__value">{stat.value}</span>
-              <span className="ad-stat__label">{label}</span>
-            </Card>
-          );
-        })}
+      {/* ── Order status (Phase 75 §10) ───────────────────────────────────
+          The per-status counts, kept but demoted: same data and the same
+          Live-Orders shortcuts as before, now clearly secondary to the
+          snapshot above so the page has one first-glance layer. */}
+      <div className="ad-section-bar anim-rise">
+        <h2 className="ad-section-title">{t("admin.orderStatus", "Order status")}</h2>
+      </div>
+      <div className="ad-stats ad-stats--secondary anim-rise">
+        {STATUS_CARDS.map((stat) => renderStatCard(stat, ""))}
       </div>
 
       {/* Detail views read the live summaries above, so an open modal keeps

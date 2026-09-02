@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -104,6 +104,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     () => (FILTER_TABS.some((tab) => tab.key === initialFilter) ? initialFilter : "all")
   );
   const [expandedId, setExpandedId] = useState(null);
+
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -138,6 +139,41 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     () => allOrders.filter((o) => o.restaurantSlug === restaurant.slug),
     [allOrders, restaurant.slug]
   );
+
+  /* Phase 75 §19/§20 — a one-shot entrance for an order this screen has
+     genuinely never shown before.
+
+     The first render only SEEDS the known-id set, so opening Live Orders on
+     an existing backlog animates nothing, and neither does a refresh, a poll
+     returning the same list, or switching filter tabs (a tab change re-runs
+     this effect against the same allOrders, so no id is new). Only an order
+     that actually arrives while the screen is mounted is marked.
+
+     Deliberately keyed on the unfiltered restaurant order list rather than
+     the filtered view: filtering is not arrival. And nothing animates on
+     REORDER — §20 — because the class is only ever added to brand-new ids,
+     never to a card that merely moved position. */
+  const seenOrderIdsRef = useRef(null);
+  const [newOrderIds, setNewOrderIds] = useState(() => new Set());
+
+  useEffect(() => {
+    const ids = restaurantOrders.map((o) => o.orderId);
+
+    if (seenOrderIdsRef.current === null) {
+      seenOrderIdsRef.current = new Set(ids);
+      return;
+    }
+
+    const fresh = ids.filter((id) => !seenOrderIdsRef.current.has(id));
+    ids.forEach((id) => seenOrderIdsRef.current.add(id));
+    if (fresh.length === 0) return;
+
+    setNewOrderIds(new Set(fresh));
+    /* Cleared so the class cannot persist into a later render and replay. */
+    const timer = setTimeout(() => setNewOrderIds(new Set()), 400);
+    return () => clearTimeout(timer);
+  }, [restaurantOrders]);
+
 
   const filteredOrders = useMemo(
     () =>
@@ -288,6 +324,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
             <LiveOrderCard
               key={order.orderId}
               order={order}
+              isNew={newOrderIds.has(order.orderId)}
               expanded={expandedId === order.orderId}
               onToggle={() =>
                 setExpandedId((prev) => (prev === order.orderId ? null : order.orderId))
@@ -460,7 +497,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
 }
 
 /* ── One live order card (collapsed summary + expandable details) ───────── */
-function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid }) {
+function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew }) {
   const { t } = useLanguage();
   const isPaid = order.paymentStatus === "paid";
   const paymentLabel = isPaid
@@ -483,7 +520,7 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
   const canMarkAsPaid = order.paymentStatus === "pending_at_table" && !isCanceled;
 
   return (
-    <Card className="ad-live-card">
+    <Card className={`ad-live-card ${isNew ? "ad-live-card--new" : ""}`}>
       <button
         type="button"
         className="ad-live-card__summary"
@@ -540,32 +577,43 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
 
       {expanded && (
         <div className="ad-live-card__details">
-          {/* Payment — always clearly visible per spec */}
-          <div className="ad-live-card__payment-row">
-            <span>{t("payment.paymentMethod", "Payment method")}</span>
-            <span className="ad-live-card__payment-value">{paymentMethodLabel}</span>
-          </div>
-          <div className="ad-live-card__payment-row">
-            <span>{t("payment.paymentStatus", "Payment status")}</span>
-            {isPaid ? (
-              <Badge tone="gold" dot>{t("payment.paid", "Paid")}</Badge>
-            ) : (
-              <span className="ad-live-card__payment-value">{paymentLabel}</span>
-            )}
-          </div>
+          {/* Phase 75 §15 — the expanded card was one flat run of rows at
+              equal weight: payment, then items, then totals, separated only
+              by hairlines. It now reads as three labelled blocks in the
+              approved order — what was ordered, how it is being paid, what it
+              comes to — followed by a visually separated action row. Same
+              content and same data; only the grouping and order changed. */}
 
-          <div className="ad-live-card__divider" />
-
-          {/* Items with full customization */}
-          <div className="ad-live-card__items-list">
-            {order.items.map((line) => (
-              <LiveOrderLineItem key={line.cartItemId} line={line} />
-            ))}
+          {/* 1 — Order items */}
+          <div className="ad-live-block">
+            <h4 className="ad-live-block__title">{t("admin.orderItems", "Order items")}</h4>
+            <div className="ad-live-card__items-list">
+              {order.items.map((line) => (
+                <LiveOrderLineItem key={line.cartItemId} line={line} />
+              ))}
+            </div>
           </div>
 
-          <div className="ad-live-card__divider" />
+          {/* 2 — Payment */}
+          <div className="ad-live-block">
+            <h4 className="ad-live-block__title">{t("payment.paymentTitle", "Payment")}</h4>
+            <div className="ad-live-card__payment-row">
+              <span>{t("payment.paymentMethod", "Payment method")}</span>
+              <span className="ad-live-card__payment-value">{paymentMethodLabel}</span>
+            </div>
+            <div className="ad-live-card__payment-row">
+              <span>{t("payment.paymentStatus", "Payment status")}</span>
+              {isPaid ? (
+                <Badge tone="gold" dot>{t("payment.paid", "Paid")}</Badge>
+              ) : (
+                <span className="ad-live-card__payment-value">{paymentLabel}</span>
+              )}
+            </div>
+          </div>
 
-          {/* Totals */}
+          {/* 3 — Summary */}
+          <div className="ad-live-block">
+            <h4 className="ad-live-block__title">{t("admin.summary", "Summary")}</h4>
           <div className="ad-live-card__totals">
             <div className="ad-live-card__totals-row">
               <span>{t("common.subtotal", "Subtotal")}</span>
@@ -580,55 +628,33 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
               <span>{fmtPrice(order.total)}</span>
             </div>
           </div>
+          </div>
 
-          {/* ── Actions — the only part that changed this phase ──────────── */}
-          {(canDeliver || canCancel) && (
-            <>
-              <div className="ad-live-card__divider" />
-              <div className="ad-live-card__actions">
-                {canDeliver && (
-                  <Button
-                    type="button"
-                    size="md"
-                    full
-                    disabled={isUpdating}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onMarkDelivered();
-                    }}
-                  >
-                    {t("admin.markAsDelivered", "Mark as Delivered")}
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="md"
-                    full
-                    disabled={isUpdating}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCancelOrder();
-                    }}
-                  >
-                    {t("admin.cancelOrder", "Cancel Order")}
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
+          {/* ── 4 — Action row (Phase 75 §12/§17) ────────────────────────
+              The hierarchy here was inverted before this phase: Cancel Order
+              was a FILLED red button while Mark as Paid was a quiet outline
+              below its own divider, so the most destructive action was the
+              loudest thing on the card and the one a cashier actually needs
+              was the faintest.
 
-          {/* ── Payment action — independent of order.status (Phase 20) ────── */}
-          {canMarkAsPaid && (
-            <>
-              <div className="ad-live-card__divider" />
-              <div className="ad-live-card__actions">
+              Now there is one action row, and exactly one primary in it:
+
+                unpaid  Mark as Paid is primary gold — it is the job
+                paid    the Paid state is shown, and Mark as Delivered
+                        becomes primary since it is the remaining step
+
+              Cancel is always a restrained outline-destructive: red enough to
+              read as danger, never heavy enough to look like the main action.
+
+              None of the handlers changed. Mark as Paid still routes through
+              the Phase 49 confirmation and Cancel still routes through the
+              Phase 50 paid warning — this is presentation only. */}
+          {(canDeliver || canCancel || canMarkAsPaid) && (
+            <div className="ad-live-card__actions ad-live-card__actions--row">
+              {canMarkAsPaid && (
                 <Button
                   type="button"
-                  variant="outline"
                   size="md"
-                  full
                   disabled={isUpdating}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -637,8 +663,36 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
                 >
                   {t("payment.markAsPaid", "Mark as Paid")}
                 </Button>
-              </div>
-            </>
+              )}
+              {canDeliver && (
+                <Button
+                  type="button"
+                  variant={canMarkAsPaid ? "outline" : "primary"}
+                  size="md"
+                  disabled={isUpdating}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onMarkDelivered();
+                  }}
+                >
+                  {t("admin.markAsDelivered", "Mark as Delivered")}
+                </Button>
+              )}
+              {canCancel && (
+                <Button
+                  type="button"
+                  variant="danger-outline"
+                  size="md"
+                  disabled={isUpdating}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCancelOrder();
+                  }}
+                >
+                  {t("admin.cancelOrder", "Cancel Order")}
+                </Button>
+              )}
+            </div>
           )}
 
           {isDelivered && (

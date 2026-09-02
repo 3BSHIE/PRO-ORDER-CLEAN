@@ -3743,3 +3743,205 @@ button{font-family:var(--font-body)}
   .star-rating__option--on:not(:has(~ .star-rating__option--on)) .star-rating__star,
   .confirm__icon{animation:none}
 }
+
+/* ══ Phase 75 — Admin Core Operations Polish ═══════════════════════════════
+
+   Operational surfaces only: Dashboard, Live Orders, Staff Calls, nav and the
+   Cashier equivalents. Management screens (Menu, Product editor, Categories,
+   Tables & QR, Feedback, Settings) are deliberately untouched — Phase 76.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Dashboard KPI snapshot (§2–§4) ───────────────────────────────────── */
+
+/* Four figures, and the number is the loudest thing in each. 2-up from the
+   narrowest widths (a 320px screen still fits two readable cards side by
+   side), 4-up once there is room. Never 1-up: a single column of four cards
+   pushes Operations below the fold, which is the problem this section was
+   moved up to solve. */
+.ad-kpis{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:26px}
+/* 4-up is a DESKTOP layout (§4). 768 is a tablet and stays 2×2 — four
+   cards across an iPad-width column would make each one narrower than the
+   "JOD 242.000" it has to hold. */
+@media(min-width:1024px){.ad-kpis{grid-template-columns:repeat(4,1fr);gap:14px}}
+
+.ad-kpi{padding:16px 15px}
+.ad-kpi .ad-stat__value{font-size:clamp(24px,5.2vw,30px)}
+.ad-kpi .ad-stat__label{font-size:11px;color:var(--text-2)}
+
+/* The status row keeps the same card, one step quieter — it is reference
+   detail now, not the headline (§10). */
+.ad-stats--secondary .ad-stat{padding:14px 14px}
+.ad-stats--secondary .ad-stat__value{font-size:clamp(18px,3.4vw,21px)}
+.ad-stats--secondary .ad-stat__label{font-size:10.5px}
+
+/* ── Operations (§5, §9) ──────────────────────────────────────────────── */
+
+/* Side by side once there is genuinely room for both to stay readable; a
+   single column below that rather than two crushed halves. The 900px
+   breakpoint is where Busy Mode's control row stops wrapping awkwardly. */
+.ad-ops{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:30px}
+@media(min-width:900px){
+  .ad-ops{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+}
+/* Both cards were previously wrapped in their own spacing divs; inside the
+   grid they manage their own height. */
+.ad-ops > *{margin:0}
+
+/* ── Live Orders: expanded blocks (§15, §16) ──────────────────────────── */
+
+/* Grouping by spacing and a small heading rather than by nesting cards
+   inside cards — §16 explicitly rules out heavy nested surfaces and badge
+   overload in what has to stay a fast operational card. */
+.ad-live-block{padding-top:14px}
+.ad-live-block:first-child{padding-top:12px}
+.ad-live-block__title{
+  margin:0 0 8px;font-size:10.5px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3)}
+
+/* The action row is separated from the information above it by a rule, so a
+   destructive control can never be mistaken for another data row (§17). */
+.ad-live-card__actions--row{
+  flex-direction:row;flex-wrap:wrap;gap:8px;
+  margin-top:16px;padding-top:14px;
+  border-top:1px solid var(--border)}
+/* 44px floor: these are the operational controls staff tap on a phone at
+   the pass, and btn--md renders 42px on its own (§41). */
+.ad-live-card__actions--row .btn{flex:1 1 auto;min-width:132px;min-height:44px}
+
+/* ── Secondary destructive (§12) ──────────────────────────────────────── */
+
+/* Cancel Order was a FILLED red button, which made the most dangerous action
+   the loudest thing on the card and left Mark as Paid — the action a cashier
+   actually reaches for — as a quiet outline beneath it. This is red enough to
+   read as danger and never heavy enough to compete with the primary.
+
+   Button builds its class from `btn--${variant}`, so this needs no component
+   change: variant="danger-outline" resolves here. */
+.btn--danger-outline{
+  background:transparent;
+  border-color:rgba(241,106,106,.42);
+  color:var(--canceled)}
+.btn--danger-outline:hover:not(:disabled){
+  background:var(--canceled-soft);
+  border-color:var(--canceled)}
+
+/* ── Expand / collapse motion (§18) ───────────────────────────────────── */
+
+/* 200ms, opacity plus a 4px settle — enough to show that content arrived,
+   short enough that opening five orders in a row never feels slow. */
+@keyframes ad-expand{from{opacity:0;transform:translateY(-4px)}}
+.ad-live-card__details{animation:ad-expand .2s var(--ease) both}
+.ad-live-card__chevron{transition:transform .14s var(--ease),color .14s var(--ease)}
+
+/* ── New order entrance (§19) ─────────────────────────────────────────── */
+
+/* One-shot, applied only to an order id the screen has not seen before. The
+   component seeds its known-id set on first render, so a refresh, a poll
+   returning the same list, or a filter change animate nothing. */
+@keyframes ad-order-in{from{opacity:0;transform:translateY(6px)}}
+.ad-live-card--new{animation:ad-order-in .22s var(--ease) both}
+
+/* ── Staff Calls (§21–§25) ────────────────────────────────────────────── */
+
+/* There is no call reason in the data and none is invented (§21). The card
+   therefore has exactly two things to say — which table, and how long they
+   have been waiting — so both are given real weight.
+
+   Previously the guest's NAME was the largest text (14.5px cream) while the
+   word "Table" was 12px muted and the elapsed time was the faintest thing on
+   the card. For staff walking the floor that is backwards: the table is how
+   you find them and the wait is how you triage. */
+.sc-card__table{
+  font-size:15px;font-weight:600;color:var(--text-1);letter-spacing:.02em}
+.sc-card__table-num{
+  font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--gold);
+  margin-inline-start:3px}
+.sc-card__customer{
+  font-size:12.5px;font-weight:500;color:var(--text-3);margin:3px 0 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-card__elapsed{
+  font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+/* An open call's wait is the number staff triage on, so it reads in the
+   operational amber rather than as muted body text. Resolved rows stay calm.
+   The state is always spelled out in the badge beside it, so this never
+   depends on colour alone (§41). */
+.sc-card--open .sc-card__elapsed{color:var(--preparing)}
+.sc-card--resolved{opacity:.72}
+
+@media(max-width:420px){
+  /* Keep table + state on the first line and the action full-width beneath,
+     rather than squeezing Resolve into a sliver (§25). */
+  .sc-card{gap:10px}
+  .sc-card__action{flex:1 1 100%}
+  .sc-card__action .btn{width:100%}
+}
+
+/* ── Admin navigation (§27) ───────────────────────────────────────────── */
+
+/* The active item already used a gold tint; it gains a full-strength gold
+   border so the current page is obvious at a glance without becoming a
+   filled gold block. Inactive items are unchanged. */
+.ad-nav__item--active{border-color:var(--gold)}
+.ad-nav__item{transition:border-color .14s var(--ease),color .14s var(--ease),
+  background .14s var(--ease)}
+
+/* ── Admin motion (§30, §31) ──────────────────────────────────────────── */
+
+/* The shared .anim-rise is 550ms with a 14px travel — right for a customer
+   landing on a menu, far too slow for an operator opening Live Orders for
+   the twentieth time in a shift. Scoped to .container--admin ONLY, so every
+   Customer surface keeps the original timing untouched (§51).
+
+   Overriding duration and the keyframe together: `rise` travels 14px, which
+   is more movement than an operational screen wants even at 260ms. */
+@keyframes ad-rise{from{opacity:0;transform:translateY(6px)}}
+.container--admin .anim-rise{animation:ad-rise .26s var(--ease) both}
+
+/* Stagger delays are inline on a few dashboard elements and were tuned for
+   the 550ms rise. At 260ms they would trail behind the content they belong
+   to, so they are neutralised here rather than edited one by one (§31 — no
+   long stagger). */
+.container--admin .anim-rise{animation-delay:0s !important}
+
+/* Press feedback in the operational range. */
+.container--admin .btn:active:not(:disabled),
+.container--admin .ad-stat--interactive:active{transform:scale(.985)}
+.container--admin .ad-stat--interactive{
+  transition:border-color .14s var(--ease),background .14s var(--ease),
+    transform .14s var(--ease)}
+
+/* ── Reduced motion (§32) ─────────────────────────────────────────────── */
+
+/* The global rule shortens durations; these are the ones that must not move
+   at all. State and content still appear — only the travel is removed. */
+@media(prefers-reduced-motion:reduce){
+  .container--admin .anim-rise,
+  .ad-live-card__details,
+  .ad-live-card--new{animation:none}
+  .container--admin .btn:active:not(:disabled),
+  .container--admin .ad-stat--interactive:active{transform:none}
+}
+
+/* ── Category availability card density (Phase 75 §8, §9) ─────────────── */
+
+/* This card sits beside Busy Mode now, and at full row height it towered
+   over it — the calmer of the two operational controls was visually the
+   loudest thing on the dashboard. The rows tighten and the list gets a
+   scroll ceiling so the pair reads as a balanced row, with the head line
+   carrying the at-a-glance summary. Every switch remains present and
+   functional; only density changed. */
+.cv-card__summary{
+  margin:4px 0 0;font-size:12px;color:var(--text-3);
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.cv-card__summary-on{color:var(--ready);font-weight:600}
+.cv-card__summary-dot{color:var(--text-3);opacity:.6}
+
+@media(min-width:900px){
+  /* Only when the two cards actually sit side by side. On a stacked mobile
+     layout the list is free to run its natural length. */
+  .ad-ops .cv-list{max-height:172px;overflow-y:auto;scrollbar-width:thin}
+  .ad-ops .cv-row{padding-top:9px;padding-bottom:9px}
+}
