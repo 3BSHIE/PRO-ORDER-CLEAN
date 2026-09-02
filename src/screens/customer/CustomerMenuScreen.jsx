@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
-  Search, SearchX, ShoppingBag, ShoppingCart, Clock, X,
+  Search, SearchX, ShoppingBag, ShoppingCart, Clock, X, UtensilsCrossed,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -209,6 +209,16 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const showGrouped  = !activeCategory && !isSearching;
   const activeCat    = categories.find((c) => c.id === activeCategory);
 
+  /* Phase 74 §44/§45 — is there anything at all to order right now?
+     Counted BEFORE the category filter and the search query, so this is
+     genuinely "this restaurant currently has no available products" and
+     never "your search matched nothing" — those stay two separate states
+     with two separate treatments (§45). */
+  const hasAnyAvailableItem = useMemo(() => {
+    const visibleCategoryIds = new Set(categories.map((c) => c.id));
+    return allMenuItems.some((i) => visibleCategoryIds.has(i.categoryId));
+  }, [categories, allMenuItems]);
+
   /* If the category the guest is currently browsing gets hidden underneath
      them (staff toggled it, or its schedule just ended), fall back to All
      rather than leaving them staring at an empty list with no chip selected. */
@@ -382,6 +392,17 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           </div>
         )}
 
+        {/* Phase 74 §44/§45 — when the restaurant has nothing available, the
+            page used to render a search box, a full row of category chips and
+            a "Menu · 0 items" heading followed by the footer, which read as a
+            broken page. Search over zero products and chips for empty
+            categories cannot do useful work, so they are withheld and one
+            calm fallback takes their place. Restaurant identity and the
+            header above are untouched. */}
+        {!hasAnyAvailableItem ? (
+          <MenuUnavailable />
+        ) : (
+        <>
         {/* ── Search ──────────────────────────────────────────────────── */}
         <div className="menu-search anim-rise" style={{ animationDelay: "80ms" }}>
           <Search className="menu-search__icon" size={16} strokeWidth={2} />
@@ -449,9 +470,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         {showGrouped ? (
           <GroupedView items={filteredItems} categories={categories} onOpen={handleOpenItem} />
         ) : filteredItems.length === 0 ? (
+          /* Still the Phase 73 search-no-results state, deliberately NOT
+             merged with the zero-products fallback above (§45). */
           <SearchEmpty query={searchQuery} />
         ) : (
           <ItemGrid items={filteredItems} onOpen={handleOpenItem} />
+        )}
+        </>
         )}
 
         {/* Inside the container so the existing cart-FAB bottom padding keeps
@@ -702,6 +727,32 @@ function ItemImage({ src, alt, name }) {
           <span className="item-card__mono">{productMonogram(name)}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Menu unavailable — rare zero-products safety net (Phase 74 §44) ─────
+   Not a normal restaurant workflow: a venue should never go live with an
+   empty menu. This exists purely so that if it happens the page reads as a
+   deliberate state rather than a rendering failure. Same shared recovery
+   geometry as the other empty states, in the neutral/gold family because
+   nothing has gone wrong — there is simply nothing to show yet. */
+function MenuUnavailable() {
+  const { t } = useLanguage();
+  return (
+    <div className="menu-unavailable anim-rise" role="status">
+      <span className="menu-unavailable__icon">
+        <UtensilsCrossed size={26} strokeWidth={1.8} />
+      </span>
+      <h3 className="menu-unavailable__title">
+        {t("customer.menuUnavailableTitle", "Menu temporarily unavailable")}
+      </h3>
+      <p className="menu-unavailable__sub">
+        {t(
+          "customer.menuUnavailableSub",
+          "There are no items available to order right now. Please ask a staff member for assistance."
+        )}
+      </p>
     </div>
   );
 }

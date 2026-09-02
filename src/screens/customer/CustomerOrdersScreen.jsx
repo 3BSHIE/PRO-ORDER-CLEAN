@@ -325,25 +325,75 @@ function OrderCard({ order, onTrackOrder }) {
           orders placed before this phase, so the list stays uncluttered. */}
       <PrepTimeEstimate order={order} variant="inline" />
 
-      {/* Phase 29 — delivered orders show their rating, or a nudge to leave
-          one. The form itself lives on the tracking screen; this keeps the
-          list compact while still making feedback discoverable. */}
-      <OrderCardFeedback order={order} onTrackOrder={onTrackOrder} />
+      {/* Phase 29 — a delivered order shows the rating it already has. The
+          "leave one" nudge moved OUT of here in Phase 74 §32: it used to be a
+          second call to action stranded mid-card above the real action row.
+          This now renders only the read-only rating readout. */}
+      <OrderCardFeedback order={order} />
 
+      {/* Phase 74 §29–§32 — ONE action row per card, and the action matches
+          where the order actually is in its life:
+
+            active (received/preparing/ready)  Track order, primary
+            delivered                          Rate your order, primary —
+                                               rating is the valuable act now,
+                                               and Track pointed at the same
+                                               screen, so it is not repeated
+            delivered + already rated          View order, secondary
+            canceled                           View details, secondary — the
+                                               tracking screen carries the
+                                               cancellation notice, the payment
+                                               position and the contextual Call
+                                               Staff, so it has real value; it
+                                               just must not look like a live
+                                               order's gold CTA (§31)
+
+          Every branch goes to the same destination; only its weight changes. */}
       <div className="order-card__bottom">
         <span className={`order-card__total ${isCanceled ? "order-card__total--void" : ""}`}>
           {fmtPrice(order.total)}
         </span>
-        <Button size="sm" onClick={() => onTrackOrder(order.orderId)}>
-          {t("orders.trackOrder", "Track order")}
-        </Button>
+        <OrderCardAction order={order} onTrackOrder={onTrackOrder} />
       </div>
     </Card>
   );
 }
 
+/* ── The single lifecycle-aware action for a My Orders card ──────────────── */
+function OrderCardAction({ order, onTrackOrder }) {
+  const { t } = useLanguage();
+  const { feedback } = useOrderFeedback(order.restaurantSlug, order.orderId);
+  const go = () => onTrackOrder(order.orderId);
+
+  if (order.status === "canceled") {
+    return (
+      <Button size="sm" variant="outline" onClick={go}>
+        {t("orders.viewDetails", "View details")}
+      </Button>
+    );
+  }
+
+  if (order.status === "delivered") {
+    return feedback ? (
+      <Button size="sm" variant="outline" onClick={go}>
+        {t("orders.viewOrder", "View order")}
+      </Button>
+    ) : (
+      <Button size="sm" onClick={go}>
+        {t("feedback.rateYourOrder", "Rate your order")}
+      </Button>
+    );
+  }
+
+  return (
+    <Button size="sm" onClick={go}>
+      {t("orders.trackOrder", "Track order")}
+    </Button>
+  );
+}
+
 /* ── Delivered-order feedback strip on a My Orders card ──────────────────── */
-function OrderCardFeedback({ order, onTrackOrder }) {
+function OrderCardFeedback({ order }) {
   const { t } = useLanguage();
   const { feedback } = useOrderFeedback(order.restaurantSlug, order.orderId);
 
@@ -365,15 +415,10 @@ function OrderCardFeedback({ order, onTrackOrder }) {
     );
   }
 
-  return (
-    <button
-      type="button"
-      className="order-card__rate-prompt"
-      onClick={() => onTrackOrder(order.orderId)}
-    >
-      {t("feedback.rateYourOrder", "Rate your order")}
-    </button>
-  );
+  /* Phase 74 §32 — no rating nudge here any more. An unrated delivered order
+     gets its prompt as the card's single primary action instead (see
+     OrderCardAction), rather than as a second button mid-card. */
+  return null;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */

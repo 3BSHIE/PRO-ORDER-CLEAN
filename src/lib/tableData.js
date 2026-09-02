@@ -263,9 +263,16 @@ export function resolveTableAccess(restaurantSlug, qrToken) {
   const restaurant = findRestaurantBySlug(restaurantSlug);
   if (!restaurant) return { ok: false, reason: "restaurant" };
 
+  /* Phase 74 §42 — the restaurant is carried on these two failures as well.
+     Both mean "we know exactly which venue this is, the table is the
+     problem", so the recovery screen can name the restaurant instead of
+     showing an anonymous error. It is already resolved above; returning it
+     costs nothing and adds no lookup. The "restaurant" failure above
+     deliberately does not, because there genuinely is no venue to name.
+     Existing callers read only .ok and .reason and are unaffected. */
   const table = getTableByToken(restaurantSlug, qrToken);
-  if (!table) return { ok: false, reason: "token" };
-  if (!table.isActive) return { ok: false, reason: "inactive" };
+  if (!table) return { ok: false, reason: "token", restaurant };
+  if (!table.isActive) return { ok: false, reason: "inactive", restaurant };
 
   return { ok: true, restaurant, table };
 }

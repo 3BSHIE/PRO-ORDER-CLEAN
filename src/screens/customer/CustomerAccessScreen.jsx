@@ -14,6 +14,7 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
+import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* Name validation — trimmed, 2–30 chars.
    Phase 43 — takes `t` rather than reaching for the language module itself, so
@@ -78,11 +79,33 @@ export default function CustomerAccessScreen({
             ? <LanguageSwitcher className="access__lang-switcher" />
             : <Logo variant="icon" size="nav" />
         }
-        right={<Badge tone={result.ok ? "gold" : "canceled"}>{t("common.qrAccess", "QR access")}</Badge>}
+        /* Phase 74 §39 — the badge was red on every failure, which put an
+           alarm colour above a deliberately calm amber recovery panel and
+           double-signalled a situation that is not an error. Neutral here;
+           the panel itself carries the severity. */
+        right={<Badge tone={result.ok ? "gold" : "neutral"}>{t("common.qrAccess", "QR access")}</Badge>}
       />
       <main className="container">
         {!result.ok ? (
-          <InvalidAccessView reason={result.reason} onHome={onHome} />
+          /* Phase 74 §42 — name the venue only when it genuinely resolved.
+             An unknown restaurant slug (reason "restaurant") has no venue to
+             name, so identity is omitted rather than guessed; the settings
+             name is already loaded here, so this adds no new risky read. */
+          <InvalidAccessView
+            reason={result.reason}
+            onHome={onHome}
+            restaurantName={
+              result.restaurant
+                ? resolveRestaurantDisplayName(
+                    settings,
+                    /* the helper reads .restaurantName (the shape an order
+                       has); a Restaurant record calls it .name */
+                    { restaurantName: result.restaurant.name },
+                    null
+                  )
+                : undefined
+            }
+          />
         ) : step === "welcome" ? (
           <WelcomeView
             restaurant={effectiveRestaurant}

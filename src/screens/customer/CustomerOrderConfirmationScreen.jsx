@@ -14,6 +14,7 @@ import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatItemCount } from "../../i18n/counts.js";
@@ -109,7 +110,7 @@ export default function CustomerOrderConfirmationScreen({
       <Topbar
         left={
           <RestaurantIdentity
-            name={settings.name.trim() || restaurantSlug}
+            name={resolveRestaurantDisplayName(settings, order, restaurantSlug)}
             logoUrl={settings.logoUrl}
             variant="compact"
           />

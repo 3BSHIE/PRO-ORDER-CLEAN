@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, PackageSearch, Check, XCircle } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowLeft, PackageSearch, Check, Info } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -18,6 +18,7 @@ import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -223,7 +224,7 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
         }
         right={
           <RestaurantIdentity
-            name={settings.name.trim() || order?.restaurantName || restaurantSlug}
+            name={resolveRestaurantDisplayName(settings, order, restaurantSlug)}
             logoUrl={settings.logoUrl}
             variant="compact"
           />
@@ -283,7 +284,11 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
       </div>
       <p className="track__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
 
-      <p className="track__msg">{statusMsg}</p>
+      {/* Phase 74 §24 — a canceled order used to state its cancellation
+          here AND again in the banner below, in near-identical words. The
+          banner is the one clear message now, so this subtitle steps aside
+          for canceled only; every other status keeps it. */}
+      {!isCanceled && <p className="track__msg">{statusMsg}</p>}
 
       {/* Phase 26 — shown only while the order is still Received/Preparing.
           Once it's Ready or Delivered the status message above already says
@@ -292,9 +297,25 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
       <PrepTimeEstimate order={order} />
 
       {isCanceled ? (
-        <div className="track__canceled">
-          <XCircle size={22} strokeWidth={1.8} />
-          <span>{t("orders.canceledBanner", "This order was canceled.")}</span>
+        /* Phase 74 §23 — softened from a red failure banner with a Circle-X
+           to a warm-neutral notice with an information mark. A cancellation
+           is frequently the restaurant's own action and is not a guest
+           error; the CANCELED status pill above already carries the red
+           semantic (§22), so repeating it here in alarm colours was double
+           signalling. The helper line is the genuinely useful part and is
+           now the second tier rather than being buried. */
+        <div className="track__canceled" role="status">
+          <span className="track__canceled-icon" aria-hidden="true">
+            <Info size={20} strokeWidth={2} />
+          </span>
+          <span className="track__canceled-text">
+            <span className="track__canceled-title">
+              {t("orders.orderCanceledTitle", "Order canceled")}
+            </span>
+            <span className="track__canceled-help">
+              {t("orders.canceledContactStaff", "Please contact staff if you need assistance.")}
+            </span>
+          </span>
         </div>
       ) : (
         <StatusTimeline currentStatus={order.status} />
@@ -409,8 +430,35 @@ function StatusTimeline({ currentStatus }) {
   const { t } = useLanguage();
   const currentIndex = TIMELINE_STEPS.findIndex((s) => s.status === currentStatus);
 
+  /* Phase 74 §51 — the transition belongs to a genuine advance, not to every
+     render. The first pass after mount only RECORDS the status, so opening
+     Tracking on an already-Ready order shows the finished state calmly
+     instead of replaying a sweep the guest never witnessed. A refresh, a
+     re-visit, or a poll returning the same status all fall through here and
+     animate nothing. Same seeding rule the Kitchen board uses. */
+  const prevStatusRef = useRef(null);
+  const seededRef = useRef(false);
+  const [advanced, setAdvanced] = useState(false);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = currentStatus;
+
+    if (!seededRef.current) { seededRef.current = true; return; }
+    if (prev === currentStatus) return;
+
+    setAdvanced(true);
+    /* Long enough to cover the 260ms connector sweep and the Ready ring;
+       cleared so a later advance can play it again, and so it never loops. */
+    const id = setTimeout(() => setAdvanced(false), 420);
+    return () => clearTimeout(id);
+  }, [currentStatus]);
+
   return (
-    <div className="track-timeline">
+    /* The status modifier is what makes the active step take its own
+       semantic colour (§5): a Received order can no longer show a blue pill
+       above a gold step. */
+    <div className={`track-timeline track-timeline--${currentStatus} ${advanced ? "track-timeline--advanced" : ""}`}>
       {TIMELINE_STEPS.map((step, i) => {
         const isDone    = currentIndex >= 0 && i < currentIndex;
         const isCurrent = i === currentIndex;
@@ -424,7 +472,18 @@ function StatusTimeline({ currentStatus }) {
             } ${isFuture ? "track-timeline__step--future" : ""}`}
           >
             <span className="track-timeline__dot">
-              {isDone ? <Check size={13} strokeWidth={3} /> : <span className="track-timeline__dot-inner" />}
+              {/* Both marks are mounted on the active step and crossfaded
+                  (§10) rather than swapped, so advancing looks like the same
+                  dot changing state instead of two elements flashing. */}
+              {isDone ? (
+                <Check size={13} strokeWidth={3} />
+              ) : (
+                <span className="track-timeline__dot-inner" />
+              )}
+              {isCurrent && step.status === "ready" && (
+                /* §9 — one restrained ring on entering Ready, never a loop. */
+                <span className="track-timeline__ring" aria-hidden="true" />
+              )}
             </span>
             <span className="track-timeline__label">{t(`status.${step.status}`, step.label)}</span>
           </div>

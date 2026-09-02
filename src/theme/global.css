@@ -1117,11 +1117,21 @@ button{font-family:var(--font-body)}
   text-align:center;max-width:380px;margin:0 auto 28px}
 
 /* ── canceled state ── */
+/* Phase 74 §23 — softened from a red alarm to a warm-neutral notice. The
+   CANCELED pill above keeps the red semantic (§22); this panel's job is to
+   explain and to point at a person, not to raise the alarm a second time.
+   Left-aligned two-tier text so the helper line reads as guidance rather
+   than as a centred slogan. */
 .track__canceled{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  background:var(--canceled-soft);border:1px solid rgba(241,106,106,.3);
-  color:var(--canceled);border-radius:var(--r-md);
-  padding:16px;margin-bottom:28px;font-size:14px;font-weight:600}
+  display:flex;align-items:flex-start;gap:11px;
+  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.3);
+  color:var(--text-1);border-radius:var(--r-md);
+  padding:14px 16px;margin-bottom:28px;text-align:start}
+.track__canceled-icon{
+  display:grid;place-items:center;color:var(--preparing);flex:none;margin-top:1px}
+.track__canceled-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.track__canceled-title{font-size:14px;font-weight:700;color:var(--text-1)}
+.track__canceled-help{font-size:12.5px;color:var(--text-2);line-height:1.5}
 
 /* ── visual timeline ── */
 .track-timeline{display:flex;align-items:flex-start;margin-bottom:32px}
@@ -1143,17 +1153,37 @@ button{font-family:var(--font-body)}
   transition:background .2s,border-color .2s,color .2s}
 .track-timeline__dot-inner{width:7px;height:7px;border-radius:50%;
   background:currentColor}
+/* Phase 74 §5 — the active step now speaks the SAME language as the status
+   pill. It used to be gold for every status, so a Received order showed a
+   blue "Received" badge directly above a gold "Received" step and the two
+   disagreed about what colour that state is.
+
+   Completed steps moved off green for the same reason: green is Ready's
+   semantic, and painting every passed step green meant three green dots
+   before the order was anywhere near ready. They are gold now — the brand
+   "done" colour, carrying no status meaning of its own.
+
+   --step-tone is set per status on the container below; each step reads it,
+   so there is one place to change a status colour rather than four. */
 .track-timeline__step--done .track-timeline__dot{
-  background:var(--ready);border-color:var(--ready);color:#0a2417}
+  background:var(--gold);border-color:var(--gold);color:var(--on-primary)}
 .track-timeline__step--current .track-timeline__dot{
-  background:var(--gold-soft);border-color:var(--gold);color:var(--gold);
-  box-shadow:0 0 0 4px var(--gold-soft)}
+  background:var(--step-tone-soft,var(--gold-soft));
+  border-color:var(--step-tone,var(--gold));
+  color:var(--step-tone,var(--gold));
+  box-shadow:0 0 0 4px var(--step-tone-soft,var(--gold-soft))}
 .track-timeline__step--future .track-timeline__dot{opacity:.6}
 
+/* One declaration per status, consumed by the rules above. */
+.track-timeline--received{--step-tone:var(--received);--step-tone-soft:var(--received-soft)}
+.track-timeline--preparing{--step-tone:var(--preparing);--step-tone-soft:var(--preparing-soft)}
+.track-timeline--ready{--step-tone:var(--ready);--step-tone-soft:var(--ready-soft)}
+.track-timeline--delivered{--step-tone:var(--gold);--step-tone-soft:var(--gold-soft)}
+
 .track-timeline__label{font-size:11.5px;font-weight:600;color:var(--text-3)}
-.track-timeline__step--done .track-timeline__label,
-.track-timeline__step--current .track-timeline__label{color:var(--text-1)}
-.track-timeline__step--current .track-timeline__label{color:var(--gold)}
+.track-timeline__step--done .track-timeline__label{color:var(--text-1)}
+.track-timeline__step--current .track-timeline__label{
+  color:var(--step-tone,var(--gold))}
 
 /* ── order updates (status history) ── */
 .track__updates{margin-bottom:20px}
@@ -2274,23 +2304,32 @@ button{font-family:var(--font-body)}
 /* ══ Phase 26 — Estimated prep time + Busy Mode ════════════════════════════ */
 
 /* ── Customer: estimated preparation time ─────────────────────────────────
-   Informational, not alarming — uses the calm "received" blue rather than
-   the warning orange, since a normal estimate is good news, not a problem. */
+   Phase 74 §11 — this used to be tinted with the "received" blue, which put
+   an informational pill in the SAME colour as the Received status badge
+   sitting a few pixels above it: two blue things, one a status and one not.
+   It is now warm gold/cream — clearly in the brand family, clearly not a
+   status. The estimate value carries slightly more weight than its label. */
 .prep-estimate--block{
   display:flex;align-items:center;gap:12px;
   max-width:380px;margin:0 auto 24px;padding:12px 16px;
-  background:var(--received-soft);border:1px solid rgba(110,168,254,.28);
+  background:var(--gold-soft);border:1px solid var(--gold-line);
   border-radius:var(--r-md);text-align:start}
-.prep-estimate__icon{display:grid;place-items:center;color:var(--received);flex:none}
+.prep-estimate__icon{display:grid;place-items:center;flex:none}
 .prep-estimate__text{display:flex;flex-direction:column;gap:1px;min-width:0}
 .prep-estimate__label{font-size:11.5px;color:var(--text-2);letter-spacing:.02em}
 .prep-estimate__value{font-size:14.5px;font-weight:700;color:var(--text-1)}
 
+/* §19 — the same slot at Ready. Soft green, matching the Ready semantic,
+   and no label row: the message is the whole content. */
+.prep-estimate--ready{
+  background:var(--ready-soft);border-color:rgba(63,214,143,.32)}
+.prep-estimate__value--ready{color:var(--ready)}
+
 .prep-estimate--inline{
   display:inline-flex;align-items:center;gap:6px;margin-top:8px;
   padding:4px 10px;border-radius:999px;
-  background:var(--received-soft);border:1px solid rgba(110,168,254,.28);
-  color:var(--received);font-size:11.5px;font-weight:600}
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold);font-size:11.5px;font-weight:600}
 
 /* ── Customer: subtle busy notice on the Menu ─────────────────────────────
    Purely informational — never blocks or disables any ordering control. */
@@ -2739,13 +2778,6 @@ button{font-family:var(--font-body)}
   display:flex;align-items:center;gap:10px;margin-top:10px;
   padding-top:10px;border-top:1px solid var(--border)}
 .order-card__rating-label{font-size:11.5px;color:var(--text-3)}
-.order-card__rate-prompt{
-  margin-top:10px;padding:7px 14px;border-radius:999px;cursor:pointer;
-  background:var(--gold-soft);border:1px solid var(--gold-line);color:var(--gold);
-  font-family:var(--font-body);font-size:12px;font-weight:600;
-  align-self:flex-start;transition:background .18s,transform .12s var(--ease)}
-.order-card__rate-prompt:hover{background:rgba(212,169,78,.2)}
-.order-card__rate-prompt:active{transform:scale(.97)}
 
 /* ── Admin feedback list ──────────────────────────────────────────────────── */
 .fb-list{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
@@ -2903,11 +2935,32 @@ button{font-family:var(--font-body)}
    flex-basis 0 with a 40px floor keeps five cells on one line down to
    320px rather than overflowing. Read-only ratings (order cards) are
    excluded — they are not interactive. */
+/* Phase 74 §35 — the floor rises from 40px to a true 44px in BOTH axes, and
+   the cells are separated by 5px instead of being flush.
+
+   The earlier "adjacent by construction" approach guaranteed no dead space
+   between targets, but it also meant a mis-aimed tap always landed on a
+   neighbouring rating rather than on nothing — on a one-shot action, hitting
+   the wrong star is worse than hitting neither. Real separation is the
+   trade this phase asks for.
+
+   Five 44px cells plus four 5px gaps need 240px, and the rating row only had
+   207px once the "4/5" readout took its share. The readout therefore moves
+   up onto the field's label line (see .fb-field below), which frees the full
+   width for the targets without making the control any taller. */
 .customer-theme .star-rating:not(.star-rating--readonly) .star-rating__stars{
-  gap:0;flex:1}
+  gap:5px;flex:1}
 .customer-theme .star-rating:not(.star-rating--readonly) .star-rating__option{
-  flex:1 1 0;min-width:40px;max-width:56px;min-height:44px;padding:0;
+  flex:1 1 0;min-width:44px;max-width:56px;min-height:44px;padding:0;
   align-items:center;justify-content:center}
+
+/* The numeric readout, lifted to sit beside its field label. Logical
+   inset-inline-end so it mirrors correctly in Arabic without a second rule,
+   and scoped to .star-rating__value so the comment field's character counter
+   is untouched. */
+.customer-theme .fb-field{position:relative}
+.customer-theme .fb-field .star-rating__value{
+  position:absolute;top:0;inset-inline-end:0;min-width:0}
 
 /* ── B) Text and pill controls — min-height ───────────────────────────── */
 
@@ -2924,8 +2977,7 @@ button{font-family:var(--font-body)}
    inline-flex centring means the added height grows around the label
    instead of letting it drift off-centre. */
 .customer-theme .orders-tab,
-.customer-theme .lang-switcher__option,
-.customer-theme .order-card__rate-prompt{
+.customer-theme .lang-switcher__option{
   min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -3410,3 +3462,221 @@ button{font-family:var(--font-body)}
 /* The old placement rule pulled it out of the content column; it lives in
    the topbar now, so the float is removed for this screen. */
 .access__lang-switcher{align-self:auto;margin-bottom:0}
+
+/* ══ Phase 74 — Customer Post-Order, Tracking & Recovery ═══════════════════
+
+   Motion here is one-shot and reactive: it plays when real state advances
+   and never invents state (§50). The single deliberate exception is the
+   branded clock sweep, which is ambient while the order is genuinely being
+   prepared (§52). Everything below collapses under prefers-reduced-motion at
+   the end of this block, without hiding any information (§21).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Branded two-circle mark (§12–§15, §18) ───────────────────────────── */
+
+/* A clipping window over the REAL logo PNG. The image is laid in at exactly
+   twice this box's height and pinned to the top or bottom edge, so one of
+   the two circles fills the window and the other is cropped away. Nothing is
+   redrawn, recoloured or distorted — both phases are the supplied artwork. */
+.brand-mark{
+  position:relative;display:block;flex:none;
+  width:36px;height:30px;overflow:hidden}
+.brand-mark__img{
+  position:absolute;left:50%;transform:translateX(-50%);
+  height:60px;width:auto;display:block;user-select:none}
+/* Upper circle — the stopwatch. */
+.brand-mark--clock .brand-mark__img{top:0}
+/* Lower circle — the plate and cutlery. */
+.brand-mark--serve .brand-mark__img{bottom:0}
+
+/* §14 — ambient brand motion, not a countdown. A soft gold sweep travels
+   slowly around the dial ON TOP of the untouched mark; the logo's own hand
+   is painted into the PNG and is never moved. One revolution per 10s,
+   linear and continuous: no tick, no per-second jump, no pulse, and no
+   relationship whatsoever to the estimate (§16).
+
+   Positioned over the dial face of the upper circle: the dial sits at
+   roughly 50% across and 28% down the full artwork, which in the 60px-tall
+   render lands at ~17px from the top. */
+.brand-mark__sweep{
+  position:absolute;left:50%;top:17px;
+  width:19px;height:19px;margin:-9.5px 0 0 -9.5px;
+  border-radius:50%;pointer-events:none;
+  background:conic-gradient(
+    from 0deg,
+    rgba(212,169,78,0) 0deg,
+    rgba(212,169,78,0) 250deg,
+    rgba(212,169,78,.45) 330deg,
+    rgba(255,232,170,.65) 358deg,
+    rgba(212,169,78,0) 360deg);
+  animation:brand-sweep 10s linear infinite}
+@keyframes brand-sweep{to{transform:rotate(360deg)}}
+
+/* ── Confirmation success moment (§3) ─────────────────────────────────── */
+
+/* Runs once, on mount. The mark is a text glyph rather than a stroked SVG,
+   so a check-draw would mean replacing the icon architecture; opacity plus a
+   small scale is the honest treatment for what is actually there. */
+@keyframes confirm-pop{
+  from{opacity:0;transform:scale(.86)}
+  60%{opacity:1;transform:scale(1.04)}
+  to{opacity:1;transform:scale(1)}
+}
+.confirm__icon{animation:confirm-pop .25s var(--ease) both}
+
+/* ── Tracking advance transition (§6–§10) ─────────────────────────────── */
+
+/* The connector already exists as the step's ::before. Its colour change is
+   now transitioned rather than instant, and on a genuine advance an overlay
+   sweeps across it in the reading direction. */
+.track-timeline__step::before{
+  transition:background .26s var(--ease)}
+.track-timeline__step::after{
+  content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;
+  background:var(--step-tone,var(--gold));z-index:0;
+  transform:scaleX(0);transform-origin:left center;
+  opacity:0}
+.track-timeline__step:first-child::after{display:none}
+/* §7 — the sweep fills toward the newly active step, and only on a real
+   advance. transform-origin flips for RTL below so it always travels the
+   way the eye reads. */
+.track-timeline--advanced .track-timeline__step--current::after{
+  opacity:1;
+  animation:track-sweep .26s var(--ease) forwards}
+@keyframes track-sweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+.track-timeline__dot{
+  transition:background .26s var(--ease),border-color .26s var(--ease),
+    color .26s var(--ease),box-shadow .26s var(--ease)}
+/* §8 — one small acknowledgement on the dot that just became active.
+   Completed dots never move. */
+@keyframes track-dot-ack{
+  0%{transform:scale(1)}
+  45%{transform:scale(1.08)}
+  100%{transform:scale(1)}
+}
+.track-timeline--advanced .track-timeline__step--current .track-timeline__dot{
+  animation:track-dot-ack .26s var(--ease)}
+
+/* §10 — the inner mark crossfades with a small scale rather than snapping. */
+.track-timeline__dot-inner,
+.track-timeline__dot svg{
+  transition:opacity .26s var(--ease),transform .26s var(--ease)}
+.track-timeline--advanced .track-timeline__step--current .track-timeline__dot-inner,
+.track-timeline--advanced .track-timeline__step--done .track-timeline__dot svg{
+  animation:track-icon-in .26s var(--ease)}
+@keyframes track-icon-in{
+  from{opacity:0;transform:scale(.85)}
+  to{opacity:1;transform:scale(1)}
+}
+
+/* §9 — the Ready signature. One ring expands out of the dot and stops; it is
+   mounted only on the Ready step and only animates on a real advance, so it
+   can never become a looping alarm. */
+.track-timeline__ring{
+  position:absolute;inset:-2px;border-radius:50%;
+  border:2px solid var(--ready);opacity:0;pointer-events:none}
+.track-timeline--advanced.track-timeline--ready .track-timeline__step--current .track-timeline__ring{
+  animation:track-ready-ring .3s var(--ease) forwards}
+@keyframes track-ready-ring{
+  from{opacity:.75;transform:scale(1)}
+  to{opacity:0;transform:scale(1.65)}
+}
+
+/* RTL — the connector and its sweep live on the opposite edge and must
+   travel the other way (§7, §58). */
+[dir="rtl"] .track-timeline__step::after{left:auto;right:-50%;
+  transform-origin:right center}
+
+/* ── Shared recovery pattern (§39) ────────────────────────────────────── */
+
+/* One geometry for every recovery state — mark, title, helper, action —
+   with severity carried by COLOUR rather than by rebuilding the layout each
+   time. Scoped modifiers only: .access itself still serves other callers. */
+.access--recovery{
+  justify-content:center;min-height:calc(100vh - 60px);
+  padding:40px 20px 64px;gap:0}
+.access--recovery .rest-identity{margin-bottom:20px}
+.access__title{
+  font-family:var(--font-display);
+  font-size:clamp(20px,4.6vw,26px);font-weight:700;
+  color:var(--text-1);margin:0 0 10px;line-height:1.3;max-width:420px}
+.access--recovery .access__msg{margin:0 0 24px;max-width:380px}
+
+/* §41/§42 — amber, not red. A closed table and a mis-scanned code are both
+   ordinary situations; red is reserved for a genuine fault. */
+.access__mark--warn{
+  background:var(--preparing-soft);
+  border:1px solid rgba(245,158,75,.32);
+  color:var(--preparing)}
+.access--recovery .access__mark{
+  width:64px;height:64px;border-radius:20px;margin-bottom:22px}
+
+/* ── Menu unavailable — zero products (§44) ───────────────────────────── */
+.menu-unavailable{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:52px 20px 44px}
+.menu-unavailable__icon{
+  width:56px;height:56px;display:grid;place-items:center;border-radius:18px;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold);margin-bottom:16px}
+.menu-unavailable__title{
+  font-family:var(--font-display);font-size:20px;font-weight:700;
+  color:var(--text-1);margin:0 0 10px}
+.menu-unavailable__sub{
+  font-size:14px;color:var(--text-2);line-height:1.6;max-width:340px;margin:0}
+
+/* ── Error boundary — shared geometry, restrained red (§46) ───────────── */
+.eb-fallback{
+  min-height:60vh;justify-content:center}
+.eb-fallback__icon{
+  width:64px;height:64px;border-radius:20px;
+  background:var(--canceled-soft);
+  border:1px solid rgba(241,106,106,.28);
+  color:var(--canceled);margin-bottom:8px}
+
+/* ── My Orders width (§33) ────────────────────────────────────────────── */
+
+/* Single column, always — the owner ruled out a tablet grid. A max-width
+   stops the card stretching to full tablet width, which was leaving a ~486px
+   dead gap between the total and its action. */
+.orders-list{max-width:620px;margin-inline:auto}
+
+/* ── Feedback ergonomics (§35, §36, §38) ──────────────────────────────── */
+
+/* §36 — one tiny scale on the star just chosen. Previously filled stars do
+   not animate: they fill directly, so there is no wave down the row. */
+@keyframes fb-star-pop{
+  0%{transform:scale(1)}
+  50%{transform:scale(1.16)}
+  100%{transform:scale(1)}
+}
+/* Only the star actually chosen acknowledges. The lower stars fill
+   directly, with no animation at all, so there is no cascade down the row
+   (§36). The selected one is the last "--on" in the group — the one with no
+   filled sibling after it — which :has() can express without touching the
+   shared StarRating component. Browsers without :has() simply fill all of
+   them instantly, which is still not a wave. */
+.star-rating__option--on:not(:has(~ .star-rating__option--on)) .star-rating__star{
+  animation:fb-star-pop .13s var(--ease)}
+
+/* §38 — tie the counter to the field it counts: pulled up against the
+   textarea's lower edge instead of floating below with a gap. */
+.fb-counter{margin-top:-2px;padding-inline-end:2px;line-height:1.4}
+
+/* ── Reduced motion (§21) ─────────────────────────────────────────────── */
+
+/* The global rule already collapses durations. These are the cases that
+   need to be switched OFF rather than shortened — an infinite animation at
+   0.001s still spins, and a transform-based sweep still moves. State
+   changes and semantic colours are untouched, so nothing is hidden. */
+@media(prefers-reduced-motion:reduce){
+  .brand-mark__sweep{animation:none;display:none}
+  .track-timeline__step::after{display:none}
+  .track-timeline__ring{display:none}
+  .track-timeline--advanced .track-timeline__step--current .track-timeline__dot,
+  .track-timeline--advanced .track-timeline__step--current .track-timeline__dot-inner,
+  .track-timeline--advanced .track-timeline__step--done .track-timeline__dot svg,
+  .star-rating__option--on:not(:has(~ .star-rating__option--on)) .star-rating__star,
+  .confirm__icon{animation:none}
+}

@@ -1,5 +1,5 @@
 import { Component } from "react";
-import { AlertTriangle, RotateCcw, RefreshCw } from "lucide-react";
+import { AlertTriangle, RotateCcw, RefreshCw, ArrowLeft } from "lucide-react";
 import Button from "../ui/Button.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
@@ -35,13 +35,41 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 /* Rendered as a function component so the fallback can use the language hook
    and stay correct if the operator switches language while it is on screen —
    a class cannot call hooks. */
+/**
+ * Phase 74 §47 — the customer menu URL, derived from the address bar alone.
+ *
+ * Deliberately NOT a data read. The fallback renders while something in the
+ * tree has already thrown, so anything it touches must be incapable of
+ * throwing a second time: no storage, no order lookup, no settings. A regex
+ * over location.pathname is inert, and the whole thing is wrapped anyway.
+ *
+ * Returns null when the pattern does not match — an Admin or Kitchen route,
+ * or a customer route shape we do not recognise — and the escape button is
+ * simply not offered rather than pointing somewhere wrong.
+ */
+function safeMenuHref() {
+  try {
+    const m = window.location.pathname.match(/^\/r\/([^/]+)\/table\/([^/]+)/);
+    return m ? `/r/${m[1]}/table/${m[2]}/menu` : null;
+  } catch {
+    return null;
+  }
+}
+
 function ErrorFallback({ onRetry }) {
   const { t } = useLanguage();
+  /* Computed once per render, cheap, and guarded above. */
+  const menuHref = safeMenuHref();
+
   return (
     /* role="status" rather than "alert": the surrounding content has already
        visibly vanished, so this is not competing for attention, and a polite
        region will not re-interrupt a screen-reader user each time a retry
-       fails on the same bad data. */
+       fails on the same bad data.
+    
+       Phase 74 §46 — same recovery geometry as the other states (rounded
+       square mark, title, helper, actions), in a restrained red because this
+       one IS a genuine application fault, unlike a mis-scanned QR. */
     <div className="eb-fallback" role="status">
       <span className="eb-fallback__icon" aria-hidden="true">
         <AlertTriangle size={26} strokeWidth={1.8} />
@@ -59,6 +87,20 @@ function ErrorFallback({ onRetry }) {
         <Button variant="outline" icon={RefreshCw} onClick={() => window.location.reload()}>
           {t("common.reload", "Reload")}
         </Button>
+        {/* §47 — an actual way out. Both other actions re-attempt the same
+            broken data; without this a guest could be stranded on a screen
+            that fails identically every time. A plain assignment rather than
+            the router, because the router context is exactly the kind of
+            thing that may be unavailable in here. */}
+        {menuHref && (
+          <Button
+            variant="ghost"
+            icon={ArrowLeft}
+            onClick={() => { window.location.href = menuHref; }}
+          >
+            {t("common.backToMenu", "Back to menu")}
+          </Button>
+        )}
       </div>
     </div>
   );
