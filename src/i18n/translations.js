@@ -21,6 +21,9 @@ export const translations = {
       arabic: "Arabic",
       backHome: "Back to home",
       backToMenu: "Back to menu",
+      edit: "Edit",
+      showMore: "Show more",
+      showLess: "Show less",
       /* Phase 74 §41–§43 — recovery-state copy. Deliberately free of
          "token", "slug" or "invalid access": these describe what the guest
          should do, not what the system failed to parse. */
@@ -315,6 +318,11 @@ export const translations = {
       /* Phase 67 — sort order validation. */
       productSortOrderInvalid: "Enter a valid whole number of 0 or more.",
       available: "Available",
+      /* Phase 76 §3 — availability is stated in both directions now. */
+      unavailable: "Unavailable",
+      /* Phase 76 §22/§29 */
+      technicalDetails: "Technical details",
+      copied: "Copied",
       removableIngredientsLabel: "Removable ingredients",
       ingredientPlaceholder: "e.g. onions",
       addIngredient: "Add ingredient",
@@ -652,6 +660,8 @@ export const translations = {
       rateYourOrder: "Rate your order",
       adminSubtitle: "What guests said about their delivered orders.",
       totalFeedback: "Total Feedback",
+      averageRating: "Average rating",
+      basedOnReviews: "{n} reviews",
       avgFood: "Avg. Food",
       avgService: "Avg. Service",
       noFeedbackYet: "No feedback yet",
@@ -668,6 +678,9 @@ export const translations = {
       arabic: "العربية",
       backHome: "العودة للرئيسية",
       backToMenu: "العودة للقائمة",
+      edit: "تعديل",
+      showMore: "عرض المزيد",
+      showLess: "عرض أقل",
       tableUnavailableTitle: "هذه الطاولة غير متاحة حاليًا",
       qrNotOpenedTitle: "تعذر فتح رمز QR",
       askStaffForHelp: "يرجى طلب المساعدة من أحد الموظفين.",
@@ -932,6 +945,9 @@ export const translations = {
       productSortOrder: "ترتيب العرض",
       productSortOrderInvalid: "أدخل رقمًا صحيحًا بدون كسور بقيمة 0 أو أكثر.",
       available: "متوفر",
+      unavailable: "غير متوفر",
+      technicalDetails: "التفاصيل التقنية",
+      copied: "تم النسخ",
       removableIngredientsLabel: "مكونات قابلة للإزالة",
       ingredientPlaceholder: "مثال: بصل",
       addIngredient: "إضافة مكوّن",
@@ -1249,6 +1265,8 @@ export const translations = {
       rateYourOrder: "قيّم طلبك",
       adminSubtitle: "آراء الضيوف حول طلباتهم المُسلَّمة.",
       totalFeedback: "إجمالي التقييمات",
+      averageRating: "متوسط التقييم",
+      basedOnReviews: "{n} تقييم",
       avgFood: "متوسط الطعام",
       avgService: "متوسط الخدمة",
       noFeedbackYet: "لا توجد تقييمات بعد",

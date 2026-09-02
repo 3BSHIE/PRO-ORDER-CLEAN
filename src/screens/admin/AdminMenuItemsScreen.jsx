@@ -366,22 +366,49 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
 
               <div className="mm-item-row__info">
                 <p className="mm-item-row__name">{item.name}</p>
-                <p className="mm-item-row__meta">{categoryName(item.categoryId)} &middot; {fmtPrice(item.price)}</p>
+                <p className="mm-item-row__meta">
+                  <span className="mm-item-row__cat">{categoryName(item.categoryId)}</span>
+                  <span className="mm-item-row__price">{fmtPrice(item.price)}</span>
+                </p>
                 <div className="mm-item-row__badges">
-                  {!item.isAvailable && <Badge tone="canceled">{t("common.outOfStock", "Out of Stock")}</Badge>}
-                  {item.isFeatured && <Badge tone="received">{t("common.featured", "Featured")}</Badge>}
-                  {item.isPopular && <Badge tone="gold">{t("common.popular", "Popular")}</Badge>}
+                  {/* Phase 76 §3 — availability is now stated in BOTH directions.
+                      Previously an available product carried no marker at all, so
+                      "available" had to be inferred from the absence of a badge —
+                      fine once you know the rule, useless when scanning a long
+                      list. The state is spelled out in words either way, so it
+                      never depends on colour alone (§48). */}
+                  <span
+                    className={`mm-avail ${item.isAvailable ? "mm-avail--on" : "mm-avail--off"}`}
+                  >
+                    {item.isAvailable
+                      ? t("admin.available", "Available")
+                      : t("admin.unavailable", "Unavailable")}
+                  </span>
+                  {/* Both flags stay visible — Admin genuinely needs to know
+                      each one, so the Customer's single-badge rule deliberately
+                      does NOT apply here (§5). They are just quieter now. */}
+                  {item.isFeatured && (
+                    <span className="mm-flag">{t("common.featured", "Featured")}</span>
+                  )}
+                  {item.isPopular && (
+                    <span className="mm-flag mm-flag--popular">{t("common.popular", "Popular")}</span>
+                  )}
                 </div>
               </div>
 
+              {/* Phase 76 §6 — Edit is the job on this screen, so it is a real
+                  labelled button; Delete stays an icon-only control and can no
+                  longer be mistaken for an equal peer. Both were bare icons of
+                  identical weight before, which put a destructive action level
+                  with the primary one. */}
               <div className="mm-item-row__actions">
                 <button
                   type="button"
-                  className="mm-icon-btn"
+                  className="mm-edit-btn"
                   onClick={() => setEditingItem(item)}
-                  aria-label={t("admin.editProduct", "Edit Item")}
                 >
-                  <Pencil size={15} strokeWidth={2.2} />
+                  <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <span>{t("common.edit", "Edit")}</span>
                 </button>
                 <button
                   type="button"

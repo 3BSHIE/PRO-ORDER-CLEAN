@@ -3945,3 +3945,183 @@ button{font-family:var(--font-body)}
   .ad-ops .cv-list{max-height:172px;overflow-y:auto;scrollbar-width:thin}
   .ad-ops .cv-row{padding-top:9px;padding-bottom:9px}
 }
+
+/* ══ Phase 76 — Admin Management Polish ═══════════════════════════════════
+   Management surfaces only. Phase 75's operational screens are untouched;
+   both inherit the same Admin language: gold primary, neutral secondary,
+   restrained-red destructive, compact density.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Product list (§3–§8) ─────────────────────────────────────────────── */
+
+/* Name up, technical noise down. The row previously ran name, "category ·
+   price" and badges at nearly one weight, ending in two identical icon
+   buttons, so nothing said "this is the product" or "this is how you edit
+   it". */
+.mm-item-row__name{font-size:16px;margin-bottom:3px}
+.mm-item-row__meta{
+  display:flex;align-items:baseline;gap:8px;margin:0 0 7px;font-size:12px}
+.mm-item-row__cat{color:var(--text-3)}
+.mm-item-row__price{color:var(--text-2);font-weight:600;
+  font-variant-numeric:tabular-nums}
+
+/* Availability, always stated, both directions, in words. */
+.mm-avail{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 8px;border-radius:999px;border:1px solid transparent}
+.mm-avail::before{
+  content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.mm-avail--on{color:var(--ready);background:var(--ready-soft);
+  border-color:rgba(63,214,143,.28)}
+.mm-avail--off{color:var(--canceled);background:var(--canceled-soft);
+  border-color:rgba(241,106,106,.3)}
+
+/* Flags stay — Admin needs both — but as quiet chips rather than status
+   badges competing with availability (§5). */
+.mm-flag{
+  font-size:10.5px;font-weight:600;letter-spacing:.04em;
+  padding:2px 8px;border-radius:999px;
+  color:var(--text-3);border:1px solid var(--border)}
+.mm-flag--popular{color:var(--gold);border-color:var(--gold-line)}
+
+/* The labelled per-row primary action, shared by product Edit and table
+   View QR. Obvious without putting a gold button on every row. */
+.mm-edit-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:36px;padding:0 12px;border-radius:999px;cursor:pointer;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold);font-family:var(--font-body);
+  font-size:12.5px;font-weight:600;white-space:nowrap;
+  transition:background .14s var(--ease),border-color .14s var(--ease)}
+.mm-edit-btn:hover{background:rgba(212,169,78,.18);border-color:var(--gold)}
+
+/* §7 — stacked management card on phones. At 375 the desktop row gave the
+   product name about 90px between a thumbnail and two buttons. */
+@media(max-width:560px){
+  .mm-item-row{flex-wrap:wrap;align-items:flex-start;row-gap:10px}
+  .mm-item-row__info{flex:1 1 100%;order:2;min-width:0}
+  .mm-item-row__thumb{order:1;width:44px;height:44px}
+  .mm-item-row__actions{
+    order:3;flex:1 1 100%;justify-content:flex-end;
+    padding-top:2px;border-top:1px solid var(--border)}
+  .mm-item-row__name{white-space:normal}
+  .mm-edit-btn,
+  .mm-item-row__actions .mm-icon-btn{min-height:44px}
+  .mm-item-row__actions .mm-icon-btn{min-width:44px}
+}
+
+/* ── Product Editor sticky action bar (§10–§12) ───────────────────────── */
+
+/* .modal is the scroll container, so the footer sticks to its bottom edge.
+   On a short dialog this is indistinguishable from the previous static
+   footer — sticky only engages once content overflows — which is why every
+   other Admin modal is unaffected.
+
+   Used by Admin and the Home demo switcher only; no Customer sheet uses this
+   component (they have their own markup), so Customer is untouched (§69). */
+.modal__foot{
+  position:sticky;bottom:0;z-index:2;
+  margin-top:18px;padding:14px 0 2px;
+  background:var(--surface-1)}
+/* §12 — a 20px fade so the last field dissolves under the bar instead of
+   being sliced by a hard edge. pointer-events:none so it can never swallow
+   a click meant for the field it overlaps. */
+.modal__foot::before{
+  content:"";position:absolute;left:0;right:0;top:-20px;height:20px;
+  pointer-events:none;
+  background:linear-gradient(to top,var(--surface-1),rgba(0,0,0,0))}
+
+/* §11 — bottom padding on the scrolling content so the final field can rest
+   clear of the bar rather than only at maximum scroll. */
+.modal__body{padding-bottom:8px}
+
+/* ── Tables & QR (§21–§25) ────────────────────────────────────────────── */
+
+/* Identity first. The number was 17px beside four lines of machine data. */
+.tb-row__number{font-size:22px}
+.tb-row__name{font-size:14px}
+
+/* The technical block, collapsed by default. Native details/summary, so
+   keyboard and screen-reader behaviour come free and values stay
+   selectable. */
+.tb-row__tech{margin-top:2px}
+.tb-row__tech-summary{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:11.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);padding:4px 0;list-style:none}
+.tb-row__tech-summary::-webkit-details-marker{display:none}
+.tb-row__tech-summary::before{
+  content:"\203A";display:inline-block;font-size:14px;line-height:1;
+  transition:transform .14s var(--ease)}
+.tb-row__tech[open] .tb-row__tech-summary::before{transform:rotate(90deg)}
+[dir="rtl"] .tb-row__tech-summary::before{transform:rotate(180deg)}
+[dir="rtl"] .tb-row__tech[open] .tb-row__tech-summary::before{transform:rotate(90deg)}
+.tb-row__tech-summary:hover{color:var(--text-2)}
+.tb-row__tech-body{padding-top:6px}
+/* Long tokens and URLs wrap rather than stretching the row, and stay LTR so
+   a URL never reorders itself in Arabic. */
+.tb-row__token,
+.tb-row__url{
+  word-break:break-all;direction:ltr;unicode-bidi:isolate;
+  font-size:11.5px;color:var(--text-3)}
+
+@media(max-width:560px){
+  .tb-row__actions{flex-wrap:wrap;gap:8px}
+  .tb-row__actions .mm-icon-btn{min-width:44px;min-height:44px}
+}
+
+/* ── Feedback (§31–§35) ───────────────────────────────────────────────── */
+
+.fb-summary{
+  display:flex;flex-wrap:wrap;align-items:center;gap:22px;
+  padding:18px 20px;margin-bottom:26px;
+  background:var(--surface-1);border:1px solid var(--border);
+  border-radius:var(--r-lg)}
+.fb-summary__lead{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fb-summary__value{
+  font-family:var(--font-display);font-size:34px;font-weight:700;
+  color:var(--gold);line-height:1;
+  direction:ltr;unicode-bidi:isolate}
+.fb-summary__of{font-size:17px;color:var(--text-3);margin-inline-start:2px}
+.fb-summary__label{font-size:12px;font-weight:600;color:var(--text-2)}
+.fb-summary__count{font-size:11.5px;color:var(--text-3)}
+.fb-summary__split{
+  display:flex;gap:26px;margin-inline-start:auto;flex-wrap:wrap}
+.fb-summary__metric{display:flex;flex-direction:column;gap:2px}
+.fb-summary__metric-value{
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  color:var(--text-1);line-height:1;direction:ltr;unicode-bidi:isolate}
+.fb-summary__metric-label{font-size:10.5px;color:var(--text-3);
+  letter-spacing:.04em}
+
+/* Card: rating first, the guest's words as the body, context last. */
+.fb-row__ratings{margin-bottom:10px}
+.fb-row__comment-wrap{margin-bottom:12px}
+.fb-row__comment{
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
+  overflow:hidden;margin:0}
+.fb-row__comment--open{-webkit-line-clamp:unset;overflow:visible}
+.fb-row__more{
+  margin-top:6px;padding:4px 0;background:none;border:none;cursor:pointer;
+  color:var(--gold);font-family:var(--font-body);
+  font-size:12px;font-weight:600}
+.fb-row__more:hover{text-decoration:underline}
+.fb-row__context{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  padding-top:10px;border-top:1px solid var(--border);
+  font-size:11.5px;color:var(--text-3)}
+.fb-row__ctx-dot{opacity:.5}
+.fb-row__order{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.03em}
+
+/* ── Settings group hierarchy (§37, §38) ──────────────────────────────── */
+
+/* The groups already existed as cards; the missing piece was a clear step
+   between a group heading, a field label and a helper. */
+.ad-settings__section .mm-section-title{
+  font-size:15px;font-weight:700;color:var(--text-1);
+  padding-bottom:10px;margin-bottom:2px;
+  border-bottom:1px solid var(--border)}
+.ad-settings__section .field__label{color:var(--text-2);font-weight:600}
+.ad-settings__hint{color:var(--text-3)}

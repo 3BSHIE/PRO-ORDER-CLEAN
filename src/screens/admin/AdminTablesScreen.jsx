@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Pencil, Trash2, Plus, QrCode, Copy, ExternalLink, RefreshCw, Search, X, Printer } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Pencil, Trash2, Plus, QrCode, Copy, Check, ExternalLink, RefreshCw, Search, X, Printer } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -211,6 +211,31 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
     }
   }
 
+  /* Phase 76 §29 — the modal's copy acknowledgement lives INSIDE the button
+     rather than firing the page toast: the modal covers the toast anyway, and
+     a label that briefly reads "Copied" is a quieter, more local
+     confirmation. The row's own copy button still uses the toast, because
+     there is no button label there to change. Reuses the same copyText call;
+     only the feedback surface differs. */
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  useEffect(() => {
+    if (!copiedLink) return;
+    const id = setTimeout(() => setCopiedLink(false), 1600);
+    return () => clearTimeout(id);
+  }, [copiedLink]);
+
+  async function handleCopyLink(table) {
+    const ok = await copyText(customerUrl(restaurant.slug, table.qrToken));
+    if (ok) {
+      setCopiedLink(true);
+      return;
+    }
+    /* Failure still needs to say so, and the button cannot carry that. */
+    setToastMessage(t("admin.urlCopyFailed", "Couldn't copy — select the URL above to copy it manually."));
+    setToastVisible(true);
+  }
+
   async function handleCopyUrl(table) {
     const url = customerUrl(restaurant.slug, table.qrToken);
     const ok = await copyText(url);
@@ -343,22 +368,42 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 </Badge>
               </div>
 
-              <div className="tb-row__meta">
-                <span className="tb-row__meta-label">{t("admin.qrTokenLabel", "QR Token")}:</span>
-                <span className="tb-row__token">{table.qrToken}</span>
-              </div>
-              <div className="tb-row__meta">
-                <span className="tb-row__meta-label">{t("admin.customerUrl", "Customer URL")}:</span>
-                <span className="tb-row__url">{customerUrl(restaurant.slug, table.qrToken)}</span>
-              </div>
-              <div className="tb-row__timestamps">
-                <span>{t("admin.created", "Created")}: {formatTimestamp(table.createdAt)}</span>
-                <span>{t("admin.updatedLabel", "Updated")}: {formatTimestamp(table.updatedAt)}</span>
-              </div>
+              {/* Phase 76 §22 — the token, the full customer URL and both
+                  timestamps used to sit in the row at full strength, which
+                  made every table read like a developer panel: four lines of
+                  machine data above the actual controls, with the table
+                  number itself the smallest thing present.
+
+                  They move into a native <details>. Nothing is removed — the
+                  data is one click away, still selectable and still
+                  copyable (§51) — and <details>/<summary> is keyboard
+                  operable and announced without any ARIA of our own. */}
+              <details className="tb-row__tech">
+                <summary className="tb-row__tech-summary">
+                  {t("admin.technicalDetails", "Technical details")}
+                </summary>
+                <div className="tb-row__tech-body">
+                  <div className="tb-row__meta">
+                    <span className="tb-row__meta-label">{t("admin.qrTokenLabel", "QR Token")}:</span>
+                    <span className="tb-row__token">{table.qrToken}</span>
+                  </div>
+                  <div className="tb-row__meta">
+                    <span className="tb-row__meta-label">{t("admin.customerUrl", "Customer URL")}:</span>
+                    <span className="tb-row__url">{customerUrl(restaurant.slug, table.qrToken)}</span>
+                  </div>
+                  <div className="tb-row__timestamps">
+                    <span>{t("admin.created", "Created")}: {formatTimestamp(table.createdAt)}</span>
+                    <span>{t("admin.updatedLabel", "Updated")}: {formatTimestamp(table.updatedAt)}</span>
+                  </div>
+                </div>
+              </details>
 
               <div className="tb-row__actions">
-                <button type="button" className="mm-icon-btn" onClick={() => setPreviewTable(table)} aria-label={t("admin.viewQr", "View QR")}>
-                  <QrCode size={15} strokeWidth={2.2} />
+                {/* §23 — the QR is what this screen exists for, so its action
+                    is labelled while the rest stay icons. */}
+                <button type="button" className="mm-edit-btn" onClick={() => setPreviewTable(table)}>
+                  <QrCode size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <span>{t("admin.viewQr", "View QR")}</span>
                 </button>
                 <button type="button" className="mm-icon-btn" onClick={() => handleCopyUrl(table)} aria-label={t("admin.copyUrl", "Copy URL")}>
                   <Copy size={15} strokeWidth={2.2} />
@@ -395,15 +440,29 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
           open
           onClose={() => setPreviewTable(null)}
           title={t("admin.qrPreviewTitle", "Table QR Code")}
+          /* Phase 76 §27 — the hierarchy here was upside down: Close was the
+             gold primary while Print Table Stand — the reason the modal is
+             opened — was an outline, and Copy Link was the faintest of the
+             three. Print is primary now, Copy is the secondary, and Close
+             steps back to ghost. No action was added or removed, and Print
+             still runs the unchanged Phase 69 bilingual stand (§28). */
           footer={
             <>
-              <Button variant="ghost" icon={Copy} onClick={() => handleCopyUrl(previewLive)}>
-                {t("admin.copyLink", "Copy Link")}
+              <Button variant="ghost" onClick={() => setPreviewTable(null)}>
+                {t("common.close", "Close")}
               </Button>
-              <Button variant="outline" icon={Printer} onClick={handlePrintStand}>
+              <Button
+                variant="outline"
+                icon={copiedLink ? Check : Copy}
+                onClick={() => handleCopyLink(previewLive)}
+              >
+                {copiedLink
+                  ? t("admin.copied", "Copied")
+                  : t("admin.copyLink", "Copy Link")}
+              </Button>
+              <Button icon={Printer} onClick={handlePrintStand}>
                 {t("admin.printTableStand", "Print Table Stand")}
               </Button>
-              <Button onClick={() => setPreviewTable(null)}>{t("common.close", "Close")}</Button>
             </>
           }
         >

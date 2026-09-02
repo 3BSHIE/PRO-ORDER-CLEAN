@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { MessageSquareHeart, Star } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -63,6 +63,17 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
     );
   }
 
+  /* Phase 76 §31 — the headline figure, derived from the two averages this
+     screen already had rather than from any new source. Every review carries
+     both a food and a service rating, so the two averages cover the same set
+     of reviews and their mean is the overall average. Null unless both
+     exist, so an empty or partial set shows an em dash instead of a number
+     that would not mean anything. */
+  const overallAverage =
+    summary.averageFood === null || summary.averageService === null
+      ? null
+      : Math.round(((summary.averageFood + summary.averageService) / 2) * 10) / 10;
+
   return (
     <AdminLayout
       restaurant={restaurant}
@@ -78,27 +89,39 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
         </p>
       </header>
 
-      {/* ── Lightweight summary (count + two averages, nothing more) ────── */}
-      <div className="ad-stats anim-rise" style={{ animationDelay: "80ms" }}>
-        <Card className="ad-stat">
-          <span className="ad-stat__dot ad-stat__dot--gold" />
-          <span className="ad-stat__value">{summary.count}</span>
-          <span className="ad-stat__label">{t("feedback.totalFeedback", "Total Feedback")}</span>
-        </Card>
-        <Card className="ad-stat">
-          <span className="ad-stat__dot ad-stat__dot--gold" />
-          <span className="ad-stat__value">
-            {summary.averageFood === null ? "—" : summary.averageFood}
+      {/* ── Summary (Phase 76 §31/§32) ───────────────────────────────────
+          Three equal cards became one lead figure plus a compact split. No
+          new data: overall is the mean of the two averages this screen
+          already computed, and it is shown only when both exist. Nothing is
+          charted, trended or scored — §31 rules all of that out. */}
+      <div className="fb-summary anim-rise">
+        <div className="fb-summary__lead">
+          <span className="fb-summary__value">
+            {overallAverage === null ? "—" : overallAverage}
+            {overallAverage !== null && <span className="fb-summary__of">/5</span>}
           </span>
-          <span className="ad-stat__label">{t("feedback.avgFood", "Avg. Food")}</span>
-        </Card>
-        <Card className="ad-stat">
-          <span className="ad-stat__dot ad-stat__dot--ready" />
-          <span className="ad-stat__value">
-            {summary.averageService === null ? "—" : summary.averageService}
+          <span className="fb-summary__label">
+            {t("feedback.averageRating", "Average rating")}
           </span>
-          <span className="ad-stat__label">{t("feedback.avgService", "Avg. Service")}</span>
-        </Card>
+          <span className="fb-summary__count">
+            {t("feedback.basedOnReviews", "{n} reviews").replace("{n}", summary.count)}
+          </span>
+        </div>
+
+        <div className="fb-summary__split">
+          <div className="fb-summary__metric">
+            <span className="fb-summary__metric-value">
+              {summary.averageFood === null ? "—" : summary.averageFood}
+            </span>
+            <span className="fb-summary__metric-label">{t("feedback.avgFood", "Avg. Food")}</span>
+          </div>
+          <div className="fb-summary__metric">
+            <span className="fb-summary__metric-value">
+              {summary.averageService === null ? "—" : summary.averageService}
+            </span>
+            <span className="fb-summary__metric-label">{t("feedback.avgService", "Avg. Service")}</span>
+          </div>
+        </div>
       </div>
 
       {feedback.length === 0 ? (
@@ -126,20 +149,39 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
 function FeedbackRow({ entry }) {
   const { t } = useLanguage();
 
+  /* Phase 76 §35 — the "Show more" control appears ONLY when the comment is
+     genuinely clamped. Measuring after layout rather than guessing from a
+     character count means a long-but-narrow comment and a short-but-wide one
+     are each judged on what actually rendered. A review that fits shows no
+     button at all. */
+  const commentRef = useRef(null);
+  const [clamped, setClamped] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const el = commentRef.current;
+    if (!el) return undefined;
+
+    const measure = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+
+    /* Whether a comment overflows depends entirely on how wide the card is,
+       so measuring once on mount is not enough: the same review clamps at
+       375px and fits at 1280px. A ResizeObserver re-checks on any reflow —
+       window resize, rotation, or the sidebar/layout changing around it —
+       which a one-shot effect silently missed. */
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [entry.comment]);
+
   return (
     <Card className="fb-row">
-      <div className="fb-row__top">
-        <div className="fb-row__id">
-          <p className="fb-row__order">{entry.orderId}</p>
-          <p className="fb-row__meta">
-            {t("customer.yourTable", "Table")} <span className="fb-row__table">#{entry.tableNumber}</span>
-            {" · "}
-            {entry.customerName}
-          </p>
-        </div>
-        <span className="fb-row__time">{formatTimestamp(entry.createdAt)}</span>
-      </div>
-
+      {/* Phase 76 §33 — the rating leads now. The order id used to be the
+          first and boldest thing on the card, so a screen of reviews read as
+          a list of reference numbers; the actual verdict sat below it and the
+          guest's words below that. Rating -> comment -> context. */}
       <div className="fb-row__ratings">
         <div className="fb-row__rating">
           <span className="fb-row__rating-label">{t("feedback.foodQuality", "Food Quality")}</span>
@@ -163,7 +205,41 @@ function FeedbackRow({ entry }) {
         </div>
       </div>
 
-      {entry.comment && <p className="fb-row__comment">“{entry.comment}”</p>}
+      {entry.comment && (
+        <div className="fb-row__comment-wrap">
+          <p
+            ref={commentRef}
+            className={`fb-row__comment ${expanded ? "fb-row__comment--open" : ""}`}
+          >
+            “{entry.comment}”
+          </p>
+          {clamped && (
+            <button
+              type="button"
+              className="fb-row__more"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded
+                ? t("common.showLess", "Show less")
+                : t("common.showMore", "Show more")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Context, deliberately last and quiet — still complete. */}
+      <div className="fb-row__context">
+        <span className="fb-row__order">{entry.orderId}</span>
+        <span className="fb-row__ctx-dot">&middot;</span>
+        <span>
+          {t("customer.yourTable", "Table")} <span className="fb-row__table">#{entry.tableNumber}</span>
+        </span>
+        <span className="fb-row__ctx-dot">&middot;</span>
+        <span>{entry.customerName}</span>
+        <span className="fb-row__ctx-dot">&middot;</span>
+        <span className="fb-row__time">{formatTimestamp(entry.createdAt)}</span>
+      </div>
     </Card>
   );
 }
