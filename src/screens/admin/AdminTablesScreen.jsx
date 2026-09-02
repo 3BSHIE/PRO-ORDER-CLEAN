@@ -414,7 +414,7 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 <button type="button" className="mm-icon-btn" onClick={() => setEditingTable(table)} aria-label={t("admin.editTable", "Edit Table")}>
                   <Pencil size={15} strokeWidth={2.2} />
                 </button>
-                <button type="button" className="mm-icon-btn" onClick={() => setPendingRegenerate(table)} aria-label={t("admin.regenerateQr", "Regenerate QR")}>
+                <button type="button" className="mm-icon-btn mm-icon-btn--warn" onClick={() => setPendingRegenerate(table)} aria-label={t("admin.regenerateQr", "Regenerate QR")}>
                   <RefreshCw size={15} strokeWidth={2.2} />
                 </button>
                 <button type="button" className="mm-icon-btn mm-icon-btn--danger" onClick={() => setPendingDelete(table)} aria-label={t("admin.deleteTable", "Delete Table")}>
@@ -530,16 +530,36 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
         <Modal
           open
           onClose={() => setPendingRegenerate(null)}
-          title={t("admin.regenerateQrConfirmTitle", "Regenerate QR Token?")}
+          title={t("admin.regenerateQrConfirmTitle", "Generate a new QR code?")}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setPendingRegenerate(null)}>{t("common.cancel", "Cancel")}</Button>
-              <Button variant="danger" onClick={handleConfirmRegenerate}>{t("admin.regenerateQr", "Regenerate QR")}</Button>
+              {/* Phase 76.1 §6 — the safe way out is named for what it does
+                  rather than a generic "Cancel", so the two options read as a
+                  real choice: keep the code that is already printed, or
+                  replace it. It stays an outline rather than a ghost so it is
+                  never the harder of the two to find. */}
+              <Button variant="outline" onClick={() => setPendingRegenerate(null)}>
+                {t("admin.keepCurrentQr", "Keep Current QR")}
+              </Button>
+              {/* §4/§9 — warning, not danger. Delete keeps the filled red and
+                  stays the strongest destructive action on this screen; this
+                  is consequential but recoverable (a new stand can be
+                  printed), so it sits one step below. */}
+              <Button variant="warn" onClick={handleConfirmRegenerate}>
+                {t("admin.regenerateQr", "Regenerate QR")}
+              </Button>
             </>
           }
         >
+          {/* §5 — the consequence stated physically. The previous wording
+              ("will invalidate the previous customer link") described what
+              happens to a URL; what actually matters to the person clicking
+              is that the printed card on the table stops working. */}
           <p className="ad-cancel-modal__msg">
-            {t("admin.regenerateQrWarning", "Regenerating this QR will invalidate the previous customer link for this table.")}
+            {t(
+              "admin.regenerateQrWarning",
+              "The current QR code for this table will stop working. Any printed stand using the old QR will need to be replaced."
+            )}
           </p>
         </Modal>
       )}

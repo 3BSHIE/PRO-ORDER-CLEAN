@@ -1923,7 +1923,14 @@ button{font-family:var(--font-body)}
   background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);
   cursor:pointer;transition:background .15s,color .15s,border-color .15s}
 .mm-icon-btn:hover{background:var(--surface-3);color:var(--text-1);border-color:var(--border-strong)}
-.mm-icon-btn--danger:hover{color:var(--canceled);border-color:rgba(241,106,106,.4)}
+/* Phase 76.1 §9 — Delete now carries its red AT REST, not only on hover.
+   Giving Regenerate an amber resting treatment would otherwise have made the
+   recoverable action look heavier than the permanent one, which is the exact
+   inversion §3 forbids. Resting order is now: utilities (muted) <
+   Regenerate (amber) < Delete (red). */
+.mm-icon-btn--danger{color:var(--canceled);border-color:rgba(241,106,106,.32)}
+.mm-icon-btn--danger:hover{color:var(--canceled);background:var(--canceled-soft);
+  border-color:var(--canceled)}
 
 /* ── Product rows ─────────────────────────────────────────────────────────── */
 .mm-item-list{display:flex;flex-direction:column;gap:10px}
@@ -4125,3 +4132,35 @@ button{font-family:var(--font-body)}
   border-bottom:1px solid var(--border)}
 .ad-settings__section .field__label{color:var(--text-2);font-weight:600}
 .ad-settings__hint{color:var(--text-3)}
+
+/* ══ Phase 76.1 — QR regeneration safety ══════════════════════════════════
+
+   Regenerate QR sat visually level with Copy, Open and Edit, yet it is the
+   one action on this row that can invalidate a physical printed card sitting
+   on a restaurant table. It now reads as consequential without pretending to
+   be an error, and stays clearly below Delete, which remains the strongest
+   destructive action here (§3, §9).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Row action: amber border and glyph on the normal dark surface — warm and
+   deliberate, not a filled warning block (§4). */
+.mm-icon-btn--warn{
+  color:var(--preparing);
+  border-color:rgba(245,158,75,.42)}
+.mm-icon-btn--warn:hover{
+  color:var(--preparing);
+  background:var(--preparing-soft);
+  border-color:var(--preparing)}
+
+/* Confirmation's confirm action. Deliberately an OUTLINE amber rather than a
+   filled one: Delete's filled red must remain the heaviest control in this
+   screen's vocabulary, so regeneration reads one step down from it while
+   still being unmistakably not-a-utility. Resolves through Button's
+   `btn--${variant}`, so no component change was needed. */
+.btn--warn{
+  background:transparent;
+  border-color:rgba(245,158,75,.45);
+  color:var(--preparing)}
+.btn--warn:hover:not(:disabled){
+  background:var(--preparing-soft);
+  border-color:var(--preparing)}
