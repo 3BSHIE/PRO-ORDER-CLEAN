@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Settings as SettingsIcon, Save } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Input   from "../../components/ui/Input.jsx";
+import Modal   from "../../components/ui/Modal.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import AdminLayout from "./AdminLayout.jsx";
@@ -10,7 +11,8 @@ import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
 import StaffCallAlertsCard from "./StaffCallAlertsCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
-import { WEEKDAY_KEYS } from "../../lib/acceptingOrders.js";
+import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
+import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import {
   buildCustomerThemeVars,
@@ -60,6 +62,47 @@ const DAY_LABEL_FALLBACK = {
   thu: "Thursday", fri: "Friday", sat: "Saturday",
 };
 
+/* ── Phase 79.2 — dirty detection ─────────────────────────────────────────
+   Key order is not meaning. The draft is built by spreading over the loaded
+   settings while a fresh read rebuilds them from defaults, so two objects
+   holding identical values can serialise differently — and comparing those
+   strings would leave the page permanently dirty from the moment it mounted.
+   Sorting keys at every level removes that as a source of false positives. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      acc[key] = canonical(value[key]);
+      return acc;
+    }, {});
+  }
+  return value;
+}
+
+/**
+ * A comparable fingerprint of one settings record.
+ *
+ * Two deliberate exclusions/normalisations, both aimed at the same thing —
+ * only a change the MANAGER made should count as unsaved work:
+ *
+ *   updatedAt      machinery. It changes on every save and is not editable
+ *                  here, so comparing it would report a difference that no
+ *                  one typed.
+ *   workingHours   run through the same normaliser the storage layer uses,
+ *                  so a record still carrying the pre-79.1 legacy shape
+ *                  fingerprints identically to its migrated form. Without
+ *                  this, simply opening Settings on a not-yet-migrated
+ *                  restaurant would look like an edit (§10).
+ */
+function settingsFingerprint(settings) {
+  if (!settings) return "";
+  const { updatedAt, workingHours, ...rest } = settings;
+  return JSON.stringify(canonical({
+    ...rest,
+    workingHours: normalizeWorkingHours(workingHours),
+  }));
+}
+
 export default function AdminSettingsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { settings } = useSettingsData(restaurant.slug);
   const { t } = useLanguage();
@@ -68,6 +111,63 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [error, setError] = useState(null);
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  /* ── Phase 79.2 — unsaved-changes guard ────────────────────────────────
+     This screen has always held its edits in a local draft and written them
+     only on Save, but it never registered the Admin navigation guard that
+     Phase 59/60 built for the Product editor. So a manager could retime all
+     seven weekdays, click Overview, and lose the lot without a word — the
+     one interaction model in the app that promises "nothing is written until
+     you press Save" was also the one that threw the draft away silently.
+
+     Nothing new is invented here. The same registerNavigationGuard slot, the
+     same parked-navigation pattern and the same Modal and copy as the
+     Product editor; only the dirty test differs, because a settings record is
+     compared as a whole rather than field by field.
+
+     BASELINE: `settings` from useSettingsData, which re-reads on the
+     settings-change event — so the moment a save lands, the baseline moves
+     with it and the page is clean again with no extra bookkeeping.
+
+     Both hooks sit ABOVE the role check below, which returns early. */
+  const isDirty = settingsFingerprint(draft) !== settingsFingerprint(settings);
+
+  const pendingNavRef = useRef(null);
+
+  useEffect(() => {
+    return registerNavigationGuard((proceed) => {
+      if (!isDirty) return false; // nothing to lose — let it through
+
+      /* First intent wins, exactly as in the Product editor: a second nav
+         click while the dialog is open must not silently retarget the answer
+         the manager is in the middle of giving. Read from a ref so it is
+         never a render behind. */
+      if (pendingNavRef.current) return true;
+
+      pendingNavRef.current = proceed;
+      setShowDiscard(true);
+      return true; // this dialog owns the decision now
+    });
+  }, [isDirty]);
+
+  /* Both outcomes funnel through here so a parked navigation can never be
+     left dangling: discarding runs it, staying clears it. */
+  function resolveDiscard(discard) {
+    setShowDiscard(false);
+    const pending = pendingNavRef.current;
+    pendingNavRef.current = null;
+
+    if (!discard) return; // Keep Editing — the draft survives untouched
+
+    /* Restoring the draft to the persisted record before navigating is what
+       makes "discard" mean discard. Navigating usually unmounts this screen
+       anyway, but not when the destination is Settings itself, and leaving a
+       rejected draft sitting in state would quietly resurrect it. */
+    setDraft(settings);
+    setError(null);
+    if (pending) pending();
+  }
 
   /* Phase 21-pattern architecture guard — redundant, defense-in-depth. The
      App root's route guard already refuses to render this component at all
@@ -149,7 +249,14 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       return;
     }
     setError(null);
-    updateSettings(restaurant.slug, draft);
+    /* Phase 79.2 — adopt what was actually persisted as the new draft.
+       updateSettings normalises on write (working hours above all), so the
+       stored record can legitimately differ in shape from the object handed
+       in. Keeping the pre-save draft would leave those two fingerprints
+       apart forever and the page permanently dirty. Taking the return value
+       also means the form shows exactly what is on disk. */
+    const saved = updateSettings(restaurant.slug, draft);
+    setDraft(saved);
     setToastMessage(t("admin.settingsSaved", "Settings saved"));
     setToastVisible(true);
   }
@@ -462,6 +569,38 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       <div className="ad-settings__save-bar anim-rise">
         <Button icon={Save} onClick={handleSaveAll}>{t("common.save", "Save")}</Button>
       </div>
+
+      {/* Phase 79.2 — the SAME dialog the Product editor raises, down to the
+          translation keys. The existing copy is already generic ("You have
+          unsaved changes…"), so it is reused rather than duplicated into a
+          settings-specific variant that would only drift. Keep Editing is
+          ghost, Discard Changes is danger, and the shared Modal carries the
+          Phase 76.2 44px footer targets automatically because this renders
+          inside .container--admin. */}
+      {showDiscard && (
+        <Modal
+          open
+          onClose={() => resolveDiscard(false)}
+          title={t("admin.discardChangesTitle", "Discard changes?")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => resolveDiscard(false)}>
+                {t("admin.keepEditing", "Keep Editing")}
+              </Button>
+              <Button variant="danger" onClick={() => resolveDiscard(true)}>
+                {t("admin.discardChanges", "Discard Changes")}
+              </Button>
+            </>
+          }
+        >
+          <p className="ad-cancel-modal__msg">
+            {t(
+              "admin.discardChangesMsg",
+              "You have unsaved changes. If you leave now, your changes will be lost."
+            )}
+          </p>
+        </Modal>
+      )}
 
       <Toast visible={toastVisible} message={toastMessage} onDone={() => setToastVisible(false)} />
     </AdminLayout>
