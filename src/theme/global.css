@@ -4530,6 +4530,7 @@ button{font-family:var(--font-body)}
 /* Quiet by design: it sits beside the restaurant name, not in the topbar's
    action cluster, and must never compete with Call Staff or the cart. */
 .rinfo-btn{
+  position:relative;
   display:inline-flex;align-items:center;gap:6px;
   min-height:32px;padding:5px 12px;margin-top:10px;
   border-radius:999px;cursor:pointer;
@@ -4537,6 +4538,17 @@ button{font-family:var(--font-body)}
   color:var(--text-3);font-family:var(--font-body);
   font-size:12px;font-weight:600;
   transition:border-color .2s,color .2s}
+
+/* Phase 81.1 — the pill STAYS 32px tall. The comfortable target is an
+   invisible extension, not a bigger button: growing the visible pill to 44px
+   would make a deliberately secondary action look like a primary one, which
+   is the opposite of what Phase 81 established.
+
+   6px above and below a 32px pill gives 44px of tappable height while the
+   ink, the border, the type and the icon are all untouched. Width needs no
+   help — the label already carries the pill well past 44px. */
+.rinfo-btn::before{
+  content:"";position:absolute;inset:-8px 0;z-index:1}
 .rinfo-btn:hover{
   border-color:var(--restaurant-accent-line,var(--gold-line));
   color:var(--text-1)}
@@ -4572,6 +4584,10 @@ button{font-family:var(--font-body)}
   border-radius:50%;cursor:pointer;
   background:rgba(0,0,0,.45);border:1px solid var(--border);
   color:var(--text-2);backdrop-filter:blur(4px)}
+/* Same trick, both axes: the visible disc and its 16px X are unchanged, and
+   -6px on every side turns the 32px circle into a 44x44 target. It sits over
+   the cover image or the sheet's own padding, never over another control. */
+.rinfo__x::before{content:"";position:absolute;inset:-7px}
 .rinfo__x:hover{color:var(--text-1);border-color:var(--border-strong)}
 
 /* §17 — fixed 16:9, object-fit cover, restrained radius. One image, no

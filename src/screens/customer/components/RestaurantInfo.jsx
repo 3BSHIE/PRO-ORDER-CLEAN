@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Info, Phone, Mail, MapPin, X } from "lucide-react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
@@ -230,13 +231,27 @@ export default function RestaurantInfo({ settings, restaurantName, className = "
         <span className="rinfo-btn__label">{t("customer.restaurantInfo", "Restaurant info")}</span>
       </button>
 
-      {open && (
-        <RestaurantInfoSheet
-          settings={settings}
-          restaurantName={restaurantName}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      {/* Phase 81.1 — portalled to <body>.
+          The entry button lives inside .menu-header / .access__identity, and
+          both carry an entrance animation whose fill-mode leaves a transform
+          on the element permanently — an identity matrix, but a transform all
+          the same. That makes the element a containing block for
+          position:fixed descendants, so the overlay was being sized to the
+          header (280x130) instead of the viewport (320x720) and the sheet was
+          rendering inline, partly under the sticky topbar.
+
+          A portal takes the sheet out of that subtree entirely, which is the
+          fix for the cause rather than a z-index war with the topbar. Nothing
+          about the markup, the styles or the close behaviour changed. */}
+      {open &&
+        createPortal(
+          <RestaurantInfoSheet
+            settings={settings}
+            restaurantName={restaurantName}
+            onClose={() => setOpen(false)}
+          />,
+          document.body
+        )}
     </>
   );
 }
