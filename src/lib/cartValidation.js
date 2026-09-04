@@ -30,6 +30,7 @@
  */
 
 import { getCategoryVisibilityState } from "./categoryVisibility.js";
+import { validateItemSelections, CHOICE_ISSUE } from "./choiceRules.js";
 
 /** Issue codes. Everything except PRICE_CHANGED requires removing the line. */
 export const CART_ISSUE = {
@@ -39,6 +40,18 @@ export const CART_ISSUE = {
   CATEGORY_SCHEDULED: "category_scheduled",
   OPTION_MISSING: "option_missing",
   PRICE_CHANGED: "price_changed",
+  /* Phase 80 — additive, and deliberately a small vocabulary. Every code
+     above keeps its exact meaning; these three name the failures the
+     min/max/availability model makes possible for the first time.
+
+     OPTION_UNAVAILABLE is separate from OPTION_MISSING because the guest
+     needs different advice: a deleted option is gone for good, a sold-out
+     one is a different pick from the same list. CHOICE_RULE_UNMET covers
+     both directions of a count failure (too few, too many) and an
+     unanswerable group — three phrasings of "open the item and fix the
+     choices", which is one action, so one code. */
+  OPTION_UNAVAILABLE: "option_unavailable",
+  CHOICE_RULE_UNMET: "choice_rule_unmet",
 };
 
 /* Issues the guest can only resolve by removing the line — the thing they
@@ -50,6 +63,11 @@ const BLOCKING_ISSUES = [
   CART_ISSUE.CATEGORY_UNAVAILABLE,
   CART_ISSUE.CATEGORY_SCHEDULED,
   CART_ISSUE.OPTION_MISSING,
+  /* Both Phase 80 codes block. Neither is resolvable in place the way a
+     price change is — the guest has to reopen the item and choose again,
+     which is what the line's action offers. */
+  CART_ISSUE.OPTION_UNAVAILABLE,
+  CART_ISSUE.CHOICE_RULE_UNMET,
 ];
 
 /* Money is stored to 3 decimals; compare at that precision so floating-point
@@ -107,8 +125,15 @@ export function validateCartLine(line, ctx) {
     }
   }
 
-  /* 4 — do the chosen options still exist, and at what price? */
+  /* 4 — do the chosen options still exist, are they still orderable, and at
+     what price?
+
+     Phase 80 splits the old single "missing" verdict in two. An option that
+     has been deleted is OPTION_MISSING as before; one that is merely sold
+     out is OPTION_UNAVAILABLE, because the guest can fix that by picking
+     another from the same list. Both stop the line; only the advice differs. */
   let optionMissing = false;
+  let optionUnavailable = false;
   let choicesTotal = 0;
   const currentChoices = [];
 
@@ -119,8 +144,17 @@ export function validateCartLine(line, ctx) {
       optionMissing = true;
       break;
     }
+    if (option.isAvailable === false) {
+      optionUnavailable = true;
+      break;
+    }
     choicesTotal += Number(option.price) || 0;
     currentChoices.push({ ...chosen, price: Number(option.price) || 0 });
+  }
+
+  if (optionUnavailable) {
+    issues.push(CART_ISSUE.OPTION_UNAVAILABLE);
+    return { ...base, issues, blocking: true };
   }
 
   let addOnsTotal = 0;
@@ -141,6 +175,31 @@ export function validateCartLine(line, ctx) {
   if (optionMissing) {
     issues.push(CART_ISSUE.OPTION_MISSING);
     return { ...base, issues, blocking: true };
+  }
+
+  /* 4b — Phase 80. Every option the guest picked is present and orderable;
+     now do the GROUPS still agree with what they picked?
+
+     This is the case the per-option loop above cannot see, because it only
+     visits options that were chosen. A group whose minimum was raised from 1
+     to 2 after the line was built has no failing option — it has a failing
+     COUNT — and a group left untouched has no entries in selectedChoices at
+     all. validateItemSelections walks the item's groups rather than the
+     line's picks, which is what catches both.
+
+     It also re-checks availability, one line of overlap with the loop above
+     that is worth keeping: this module must not depend on the order of its
+     own checks to stay correct. */
+  const selectionCheck = validateItemSelections(item, line.selectedChoices || []);
+  if (!selectionCheck.ok) {
+    issues.push(
+      selectionCheck.issues.includes(CHOICE_ISSUE.OPTION_MISSING)
+        ? CART_ISSUE.OPTION_MISSING
+        : selectionCheck.issues.includes(CHOICE_ISSUE.OPTION_UNAVAILABLE)
+          ? CART_ISSUE.OPTION_UNAVAILABLE
+          : CART_ISSUE.CHOICE_RULE_UNMET
+    );
+    return { ...base, issues, blocking: true, choiceCheck: selectionCheck };
   }
 
   /* 5 — price. Recomputed the same way the item modal builds unitPrice, so a

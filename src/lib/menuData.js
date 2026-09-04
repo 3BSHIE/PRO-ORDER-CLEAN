@@ -41,6 +41,7 @@
 import { CATEGORIES as SEED_CATEGORIES, MENU_ITEMS as SEED_ITEMS } from "../data/mockMenu.js";
 import { validateItemPrices } from "./menuPricing.js";
 import { parseSortOrder } from "./menuSortOrder.js";
+import { normalizeChoiceGroups } from "./choiceRules.js";
 
 const CATEGORIES_KEY_PREFIX = "pro_order_menu_categories";
 const ITEMS_KEY_PREFIX = "pro_order_menu_items";
@@ -117,14 +118,30 @@ export function getCategories(restaurantSlug) {
   }
 }
 
-/** This restaurant's menu items (never null — falls back to the seed list). */
+/* Phase 80 — the same read-time normalization normalizeCategory does above,
+   applied to choice groups. An item stored before this phase carries
+   `required` and no minSelections, and its options carry no isAvailable;
+   normalizing here means every consumer — the customer sheet, the Admin
+   editor, the cart validator, the order gate — sees one complete shape
+   without a migration step, and no older product changes behaviour.
+
+   The legacy `required` key is dropped by the normalizer rather than kept
+   beside minSelections, so the two can never disagree. It stays in storage
+   until the next save rewrites that product, and nothing reads it. */
+function normalizeItem(item) {
+  return { ...item, choices: normalizeChoiceGroups(item?.choices) };
+}
+
+/** This restaurant's menu items (never null — falls back to the seed list).
+    Choice-group rules and option availability are normalized (see above). */
 export function getMenuItems(restaurantSlug) {
   seedIfEmpty(restaurantSlug);
   try {
     const raw = localStorage.getItem(itemsKey(restaurantSlug));
-    return raw ? JSON.parse(raw) : SEED_ITEMS;
+    const list = raw ? JSON.parse(raw) : SEED_ITEMS;
+    return list.map(normalizeItem);
   } catch {
-    return SEED_ITEMS;
+    return SEED_ITEMS.map(normalizeItem);
   }
 }
 

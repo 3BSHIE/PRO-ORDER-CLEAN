@@ -5,6 +5,13 @@ import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
+import {
+  validateGroupSelection,
+  formatGroupRule,
+  isGroupSatisfiable,
+  getUnsatisfiableGroups,
+  CHOICE_ISSUE,
+} from "../../../lib/choiceRules.js";
 
 /**
  * ItemDetailsModal — Phase 7.
@@ -87,6 +94,34 @@ export default function ItemDetailsModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  /* Phase 80 §17/§34 — the sheet can sit open while an Admin marks one of its
+     options sold out. `item` arrives from useMenuData, which already re-reads
+     on the menu-change event and on focus, so the new availability reaches
+     this component on its own; what it cannot do is un-pick an option the
+     guest chose while it was still in stock.
+
+     Dropping just that selection is the honest middle ground: it does not
+     silently substitute another option (§17), and it does not throw away the
+     rest of a long customization. The group falls back to incomplete, and the
+     existing required-group validation asks for it again in the normal way. */
+  useEffect(() => {
+    if (!open || !item) return;
+    setChoiceSelections((prev) => {
+      let changed = false;
+      const next = {};
+      for (const [groupId, ids] of Object.entries(prev)) {
+        const group = (item.choices || []).find((g) => g.id === groupId);
+        const kept = ids.filter((id) => {
+          const option = group?.options?.find((o) => o.id === id);
+          return option && option.isAvailable !== false;
+        });
+        if (kept.length !== ids.length) changed = true;
+        next[groupId] = kept;
+      }
+      return changed ? next : prev;
+    });
+  }, [open, item]);
+
   /* Phase 41 — freeze the menu behind this sheet and put the guest back on
      the same pixel when it closes. The condition mirrors the early return
      below exactly, so the lock is held for precisely as long as something is
@@ -122,6 +157,10 @@ export default function ItemDetailsModal({
   if (!open || !item) return null;
 
   const available = item.isAvailable;
+  /* §25 — any group whose available options cannot reach its minimum. Checked
+     here rather than trusted from Admin, because stale or hand-edited data
+     reaches the guest too. */
+  const hasUnsatisfiableGroup = getUnsatisfiableGroups(item).length > 0;
   const useImg    = !!item.imageUrl && !imgErr;
   const emoji     = category?.emoji || "🍽️";
 
@@ -162,16 +201,23 @@ export default function ItemDetailsModal({
     });
   }
 
-  /* Validates every required group (so all invalid ones get marked), but also
-     reports the FIRST one in display order — that is the only one the guest
-     is sent to. `choices` is already in menu order, so "first" means the one
-     highest up the modal. */
-  function validateRequired() {
+  /* Validates every group against its min/max rule (so all invalid ones get
+     marked), but also reports the FIRST one in display order — that is the
+     only one the guest is sent to. `choices` is already in menu order, so
+     "first" means the one highest up the modal.
+
+     Phase 80 — this used to ask only "is a required group empty?". It now
+     asks the full question through the shared rule module, so a group needing
+     two sides with one chosen fails here exactly as it will at the cart and
+     at order creation. The error value is the issue code rather than `true`,
+     so the message can say which way the count is wrong. */
+  function validateSelections() {
     const errors = {};
     let firstInvalidId = null;
     for (const group of choices) {
-      if (group.required && (choiceSelections[group.id] || []).length === 0) {
-        errors[group.id] = true;
+      const result = validateGroupSelection(group, choiceSelections[group.id] || []);
+      if (!result.ok) {
+        errors[group.id] = result.issue;
         if (!firstInvalidId) firstInvalidId = group.id;
       }
     }
@@ -257,7 +303,7 @@ export default function ItemDetailsModal({
        stale layout, scrolling to slightly the wrong place. */
     let result;
     flushSync(() => {
-      result = validateRequired();
+      result = validateSelections();
     });
 
     if (!result.ok) {
@@ -389,11 +435,32 @@ export default function ItemDetailsModal({
 
               {/* ── Choice groups ─────────────────────────────────────── */}
               {choices.map((group) => {
+                /* Phase 80 — the control type follows maxSelections alone.
+                   A group that permits two answers is a checkbox group even
+                   when both are required; forcing it into radios would make
+                   the rule unfulfillable. */
                 const isSingle  = group.maxSelections === 1;
                 const selected  = choiceSelections[group.id] || [];
-                const hasError  = !!choiceErrors[group.id];
+                const issue     = choiceErrors[group.id] || null;
+                const hasError  = !!issue;
                 const titleId   = `cust-${group.id}-title`;
                 const errorId   = `cust-${group.id}-error`;
+                const ruleText  = formatGroupRule(group, t);
+                const required  = group.minSelections >= 1;
+                /* §27/§28 — once the maximum is reached, further options stop
+                   being selectable rather than being accepted and rejected at
+                   submit. Single-select is exempt: picking another simply
+                   replaces the current answer, which is what a radio does. */
+                const atCap     = !isSingle && selected.length >= group.maxSelections;
+
+                const errorText =
+                  issue === CHOICE_ISSUE.UNSATISFIABLE
+                    ? t("choice.groupUnsatisfiable", "Not enough options are available for this choice right now.")
+                    : issue === CHOICE_ISSUE.OPTION_UNAVAILABLE || issue === CHOICE_ISSUE.OPTION_MISSING
+                      ? t("choice.reselectOption", "One of your selections is no longer available. Please choose again.")
+                      : issue === CHOICE_ISSUE.ABOVE_MAX
+                        ? t("choice.tooMany", "Please remove a selection from {group}.").replace("{group}", group.name)
+                        : t("choice.needMore", "Please complete your selection for {group}.").replace("{group}", group.name);
                 return (
                   <div key={group.id}>
                     <div className="divider" />
@@ -412,35 +479,42 @@ export default function ItemDetailsModal({
                     >
                       <div className="cust-section__head">
                         <h3 className="cust-section__title" id={titleId}>{group.name}</h3>
-                        {group.required ? (
+                        {/* Phase 80 — Required/Optional is DERIVED from
+                            minSelections, never read from a stored flag. */}
+                        {required ? (
                           <span className="badge badge--gold cust-req-badge">{t("common.required", "Required")}</span>
                         ) : (
                           <span className="cust-section__optional">{t("common.optional", "Optional")}</span>
                         )}
                       </div>
-                      {!isSingle && (
-                        <p className="cust-section__hint">
-                          {t("customer.chooseUpTo", "Choose up to")} {group.maxSelections}.
-                        </p>
+                      {/* §14 — the rule in words. "Choose up to 3" was the only
+                          sentence this could previously say; it now describes
+                          exact-N and ranged groups truthfully, and never leaks
+                          the field names to a diner. Suppressed for the plain
+                          optional-single case, where the badge already says it
+                          and a second line would only repeat. */}
+                      {ruleText && !(group.minSelections === 0 && group.maxSelections === 1) && (
+                        <p className="cust-section__hint">{ruleText}</p>
                       )}
                       <div className="cust-options">
                         {group.options.map((opt) => {
                           const isChecked = selected.includes(opt.id);
-                          const capped =
-                            !isSingle &&
-                            !isChecked &&
-                            selected.length >= group.maxSelections;
+                          /* §16 — a sold-out option stays visible and keeps its
+                              place in the list, so the guest can see the menu
+                              is intact and only this one pick is gone. */
+                          const soldOut = opt.isAvailable === false;
+                          const capped = atCap && !isChecked;
                           return (
                             <button
                               key={opt.id}
                               type="button"
-                              disabled={capped}
+                              disabled={soldOut || capped}
                               /* Selection state announced, not conveyed by the
                                  visual mark alone. */
                               aria-pressed={isChecked}
                               className={`cust-option ${isChecked ? "cust-option--active" : ""} ${
                                 isSingle ? "cust-option--radio" : "cust-option--checkbox"
-                              }`}
+                              } ${soldOut ? "cust-option--soldout" : ""}`}
                               onClick={() =>
                                 isSingle
                                   ? selectSingle(group.id, opt.id)
@@ -449,10 +523,18 @@ export default function ItemDetailsModal({
                             >
                               <span className="cust-option__mark" aria-hidden="true" />
                               <span className="cust-option__name">{opt.name}</span>
-                              {opt.price > 0 && (
-                                <span className="cust-option__price">
-                                  +{fmtPrice(opt.price)}
+                              {soldOut ? (
+                                /* Calm and muted, not an error treatment — the
+                                   guest has done nothing wrong (§16). */
+                                <span className="cust-option__soldout">
+                                  {t("choice.soldOut", "Sold out")}
                                 </span>
+                              ) : (
+                                opt.price > 0 && (
+                                  <span className="cust-option__price">
+                                    +{fmtPrice(opt.price)}
+                                  </span>
+                                )
                               )}
                             </button>
                           );
@@ -461,7 +543,7 @@ export default function ItemDetailsModal({
                       {hasError && (
                         <p className="cust-section__error" id={errorId} role="alert">
                           <AlertCircle size={13} strokeWidth={2.4} aria-hidden="true" />
-                          {t("customer.selectOptionRequired", "Please select an option for")} {group.name.toLowerCase()}.
+                          {errorText}
                         </p>
                       )}
                     </div>
@@ -547,7 +629,7 @@ export default function ItemDetailsModal({
             the same one handleAddClick writes to the cart — read straight from
             the existing calculation, not recomputed here. */}
         <div className="item-modal__foot" ref={footRef}>
-          {available ? (
+          {available && !hasUnsatisfiableGroup ? (
             <>
               <div className="item-modal__foot-total">
                 <span className="item-modal__total-label">{t("common.total", "Total")}</span>
@@ -559,6 +641,26 @@ export default function ItemDetailsModal({
                 onClick={handleAddClick}
               >
                 {t("customer.addToCart", "Add to cart")}
+              </button>
+            </>
+          ) : available && hasUnsatisfiableGroup ? (
+            /* §25 — a group asking for more options than are in stock cannot
+               be answered, so this item is not orderable as configured. Admin
+               validation blocks new configurations like this, but legacy or
+               externally-edited data can still reach a guest, and the failure
+               has to be calm and safe rather than a dead button or a crash.
+               Deliberately NOT the product-level Out of Stock treatment: the
+               reason is specific and worth saying (§24). */
+            <>
+              <p className="item-modal__blocked" role="status">
+                <AlertCircle size={13} strokeWidth={2.4} aria-hidden="true" />
+                {t(
+                  "choice.itemNotOrderable",
+                  "This item is temporarily unavailable because one of its required choices cannot be completed."
+                )}
+              </p>
+              <button type="button" className="btn btn--outline btn--lg btn--full" onClick={onClose}>
+                {t("common.close", "Close")}
               </button>
             </>
           ) : (

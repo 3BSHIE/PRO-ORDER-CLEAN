@@ -329,6 +329,15 @@ export const translations = {
       choiceGroups: "Choice groups",
       groupName: "Group name",
       maxSelections: "Max selections",
+      minSelections: "Min selections",
+      minSelectionsInvalid: "Enter a valid minimum (0 or more).",
+      minAboveMax: "Maximum cannot be lower than the minimum.",
+      notEnoughAvailableOptions: "Not enough available options to meet the minimum. Mark more options available or lower the minimum.",
+      ruleOptionalSingle: "Guests may choose one, or none.",
+      ruleExactlyOne: "Guests must choose exactly one.",
+      ruleUpTo: "Guests may choose up to {n}.",
+      ruleExactly: "Guests must choose exactly {n}.",
+      ruleRange: "Guests must choose between {min} and {max}.",
       optionName: "Option name",
       /* Phase 56 — customization price validation. The option rule is >= 0
          because a free choice is legitimate; the add-on rule is > 0. */
@@ -641,6 +650,20 @@ export const translations = {
       prepConfigSaved: "Preparation time settings saved",
       invalidMinutes: "Please enter a whole number of minutes (0–240).",
     },
+    /* Phase 80 — choice-group rules and per-option availability. Guest-facing
+       wording only: a diner reads "Choose 2–4", never the field names. */
+    choice: {
+      chooseOne: "Choose 1",
+      chooseUpToN: "Choose up to {n}",
+      chooseExactlyN: "Choose exactly {n}",
+      chooseRange: "Choose {min}–{max}",
+      soldOut: "Sold out",
+      needMore: "Please complete your selection for {group}.",
+      tooMany: "Please remove a selection from {group}.",
+      reselectOption: "One of your selections is no longer available. Please choose again.",
+      groupUnsatisfiable: "Not enough options are available for this choice right now.",
+      itemNotOrderable: "This item is temporarily unavailable because one of its required choices cannot be completed.",
+    },
     /* Phase 79 — Accepting Orders (Auto / Open / Closed). Deliberately its
        own namespace rather than an extension of `prep`: Busy Mode and
        Accepting Orders are independent concepts and sharing a key prefix
@@ -686,6 +709,8 @@ export const translations = {
       currentlyUnavailable: "Currently unavailable",
       notAvailableAtThisTime: "Not available at this time",
       optionsUnavailable: "Some selected options are no longer available",
+      optionSoldOut: "One of your choices is sold out — remove this item and add it again to choose another.",
+      choicesNeedUpdating: "The choices for this item have changed — remove it and add it again to update them.",
       priceChanged: "Price changed",
       previousPrice: "Previous",
       currentPrice: "Now",
@@ -1004,6 +1029,15 @@ export const translations = {
       choiceGroups: "مجموعات الخيارات",
       groupName: "اسم المجموعة",
       maxSelections: "الحد الأقصى للاختيارات",
+      minSelections: "الحد الأدنى للاختيارات",
+      minSelectionsInvalid: "أدخل حدًا أدنى صحيحًا (صفر أو أكثر).",
+      minAboveMax: "لا يمكن أن يكون الحد الأقصى أقل من الحد الأدنى.",
+      notEnoughAvailableOptions: "الخيارات المتاحة لا تكفي للحد الأدنى. أتِح خيارات أكثر أو قلّل الحد الأدنى.",
+      ruleOptionalSingle: "يمكن للضيوف اختيار واحد أو عدم الاختيار.",
+      ruleExactlyOne: "يجب على الضيوف اختيار واحد بالضبط.",
+      ruleUpTo: "يمكن للضيوف اختيار حتى {n}.",
+      ruleExactly: "يجب على الضيوف اختيار {n} بالضبط.",
+      ruleRange: "يجب على الضيوف الاختيار بين {min} و {max}.",
       optionName: "اسم الخيار",
       optionExtraPrice: "السعر الإضافي",
       optionPriceInvalid: "أدخل سعرًا إضافيًا صحيحًا بقيمة 0 أو أكثر.",
@@ -1295,6 +1329,19 @@ export const translations = {
       prepConfigSaved: "تم حفظ إعدادات وقت التحضير",
       invalidMinutes: "يرجى إدخال عدد صحيح من الدقائق (0–240).",
     },
+    /* Phase 80 */
+    choice: {
+      chooseOne: "اختر واحدًا",
+      chooseUpToN: "اختر حتى {n}",
+      chooseExactlyN: "اختر {n} بالضبط",
+      chooseRange: "اختر من {min} إلى {max}",
+      soldOut: "نفد",
+      needMore: "يرجى إكمال اختيارك في {group}.",
+      tooMany: "يرجى إزالة أحد الاختيارات من {group}.",
+      reselectOption: "أحد اختياراتك لم يعد متاحًا. يرجى الاختيار مرة أخرى.",
+      groupUnsatisfiable: "لا توجد خيارات كافية متاحة لهذا الاختيار حاليًا.",
+      itemNotOrderable: "هذا الصنف غير متاح مؤقتًا لأن أحد اختياراته المطلوبة لا يمكن إكماله.",
+    },
     /* Phase 79 — استقبال الطلبات */
     accepting: {
       title: "استقبال الطلبات",
@@ -1336,6 +1383,8 @@ export const translations = {
       currentlyUnavailable: "غير متاح حاليًا",
       notAvailableAtThisTime: "غير متاح في هذا الوقت",
       optionsUnavailable: "بعض الخيارات المختارة لم تعد متاحة",
+      optionSoldOut: "أحد اختياراتك نفد — أزل هذا الصنف وأضفه مرة أخرى لاختيار غيره.",
+      choicesNeedUpdating: "تغيّرت خيارات هذا الصنف — أزله وأضفه مرة أخرى لتحديثها.",
       priceChanged: "تم تغيير السعر",
       previousPrice: "السابق",
       currentPrice: "الآن",

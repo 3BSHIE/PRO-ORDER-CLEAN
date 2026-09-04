@@ -21,6 +21,11 @@ import { useLanguage } from "../../i18n/useLanguage.js";
    boundary can enforce the identical rules. Behaviour here is unchanged. */
 import { parseProductPrice, parseChoiceOptionPrice, parseAddOnPrice } from "../../lib/menuPricing.js";
 import { parseSortOrder } from "../../lib/menuSortOrder.js";
+import {
+  validateGroupConfig,
+  parseSelectionBound,
+  describeGroupRule,
+} from "../../lib/choiceRules.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -77,6 +82,7 @@ const SORT_ORDER_FIELD_ID = "mm-product-sort-order";
 /* Phase 48 — per-group field ids, same purpose as PRICE_FIELD_ID above. */
 const groupNameFieldId = (groupId) => `mm-group-name-${groupId}`;
 const groupMaxFieldId  = (groupId) => `mm-group-max-${groupId}`;
+const groupMinFieldId  = (groupId) => `mm-group-min-${groupId}`;
 
 /**
  * Phase 48 — strict parsing for a choice group's selection limit.
@@ -138,21 +144,11 @@ export function validateChoiceGroups(choices) {
   for (const group of choices || []) {
     if (!(group.name || "").trim()) continue; // dropped on save anyway
 
-    const validOptions = (group.options || []).filter((o) => (o.name || "").trim());
-    const limit = parseSelectionLimit(group.maxSelections);
-    const groupError = {};
-
-    if (validOptions.length === 0) {
-      groupError.options = group.required ? "requiredNeedsOption" : "needsOption";
-    }
-
-    if (limit === null) {
-      groupError.max = "invalid";
-    } else if (validOptions.length > 0 && limit > validOptions.length) {
-      /* Only meaningful once options exist — otherwise the empty-group error
-         above is the real problem and this would just add noise. */
-      groupError.max = "tooHigh";
-    }
+    /* Phase 80 — the per-group rules moved to lib/choiceRules.js so the
+       editor, the customer sheet, the cart and the order gate all judge a
+       configuration by one definition. This function keeps its shape and its
+       error-code contract; only the source of the codes changed. */
+    const groupError = validateGroupConfig(group);
 
     if (Object.keys(groupError).length > 0) {
       errors[group.id] = groupError;
@@ -515,7 +511,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   function handleAddChoiceGroup() {
     setChoices([
       ...choices,
-      { id: genChoiceGroupId(), name: "", required: false, maxSelections: 1, options: [] },
+      /* Phase 80 — a new group starts optional-single (0..1), the least
+         committal rule and the one an existing group with required:false
+         normalises to.  is not seeded at all: minSelections is the
+         source of truth now. */
+      { id: genChoiceGroupId(), name: "", minSelections: 0, maxSelections: 1, options: [] },
     ]);
   }
   function handleRemoveChoiceGroup(groupId) {
@@ -528,7 +528,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     setChoices(
       choices.map((g) =>
         g.id === groupId
-          ? { ...g, options: [...g.options, { id: genChoiceOptionId(), name: "", price: 0 }] }
+          ? { ...g, options: [...g.options, { id: genChoiceOptionId(), name: "", price: 0, isAvailable: true }] }
           : g
       )
     );
@@ -716,7 +716,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
          reveal it inside the modal's own scroll container, which is why this
          does not need scrollIntoView (that would also move the page behind
          the editor). */
-      const targetId = bad.max
+      /* Phase 80 — min is checked before max so a group failing both lands on
+         the field a manager reads first. The options error still falls
+         through to the group name, which is where its message renders. */
+      const targetId = bad.min
+        ? groupMinFieldId(groupCheck.firstInvalidGroupId)
+        : bad.max
         ? groupMaxFieldId(groupCheck.firstInvalidGroupId)
         : groupNameFieldId(groupCheck.firstInvalidGroupId);
       document.getElementById(targetId)?.focus();
@@ -777,6 +782,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
         .filter((g) => g.name.trim())
         .map((g) => ({
           ...g,
+          /* Phase 80 — both bounds become Numbers here, and the legacy
+             `required` flag is dropped rather than written back, so a saved
+             product carries exactly one description of its rule. */
+          required: undefined,
+          minSelections: parseSelectionBound(g.minSelections, { min: 0 }) ?? 0,
           maxSelections: parseSelectionLimit(g.maxSelections),
           /* Phase 56: prices become Numbers here for the same reason
              maxSelections does — the row holds the raw string while editing
@@ -785,7 +795,13 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
              existing option object preserves its id. */
           options: g.options
             .filter((o) => o.name.trim())
-            .map((o) => ({ ...o, price: parseChoiceOptionPrice(o.price) })),
+            .map((o) => ({
+              ...o,
+              price: parseChoiceOptionPrice(o.price),
+              /* Persisted with the option it belongs to (§10) — there is no
+                 separate availability store to fall out of step with. */
+              isAvailable: o.isAvailable !== false,
+            })),
         })),
       paidAddOns: paidAddOns
         .filter((a) => a.name.trim())
@@ -942,13 +958,48 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
               ? t("admin.maxSelectionsInvalid", "Enter a valid selection limit.")
               : gErr.max === "tooHigh"
               ? t("admin.maxSelectionsTooHigh", "Selection limit cannot exceed the number of options.")
+              : gErr.max === "minAboveMax"
+              ? t("admin.minAboveMax", "Maximum cannot be lower than the minimum.")
               : null;
           const optionsErrorText =
             gErr.options === "requiredNeedsOption"
               ? t("admin.requiredGroupNeedsOption", "Required groups must have at least one option.")
               : gErr.options === "needsOption"
               ? t("admin.groupNeedsOption", "Add at least one option, or remove this group.")
+              : gErr.options === "notEnoughAvailable"
+              ? t(
+                  "admin.notEnoughAvailableOptions",
+                  "Not enough available options to meet the minimum. Mark more options available or lower the minimum."
+                )
               : null;
+          /* Phase 80 — min has its own message, and the min>max case is
+             reported against max so it sits beside the field most likely to
+             be wrong. */
+          const minErrorText =
+            gErr.min === "invalid"
+              ? t("admin.minSelectionsInvalid", "Enter a valid minimum (0 or more).")
+              : null;
+
+          /* §8 — derived, never stored, so it always describes the two fields
+             as they currently stand. */
+          const normalizedRule = {
+            minSelections: parseSelectionBound(group.minSelections, { min: 0 }) ?? 0,
+            maxSelections: parseSelectionBound(group.maxSelections, { min: 1 }) ?? 1,
+          };
+          const groupRequired = normalizedRule.minSelections >= 1;
+          const groupRuleDesc = describeGroupRule(normalizedRule);
+          const groupRuleText =
+            groupRuleDesc.kind === "optional"
+              ? t("admin.ruleOptionalSingle", "Guests may choose one, or none.")
+              : groupRuleDesc.kind === "single"
+              ? t("admin.ruleExactlyOne", "Guests must choose exactly one.")
+              : groupRuleDesc.kind === "upTo"
+              ? t("admin.ruleUpTo", "Guests may choose up to {n}.").replace("{n}", groupRuleDesc.max)
+              : groupRuleDesc.kind === "exactly"
+              ? t("admin.ruleExactly", "Guests must choose exactly {n}.").replace("{n}", groupRuleDesc.min)
+              : t("admin.ruleRange", "Guests must choose between {min} and {max}.")
+                  .replace("{min}", groupRuleDesc.min)
+                  .replace("{max}", groupRuleDesc.max);
 
           /* Re-run validation for THIS group after any edit to it, so a fixed
              group clears immediately and a still-broken one keeps its message
@@ -977,6 +1028,28 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                   revalidateGroup({ ...group, name: e.target.value });
                 }}
               />
+            </div>
+
+            {/* Phase 80 — the rule, as two numbers. The Required checkbox is
+                gone: it and a minimum are the same statement, and keeping both
+                editable is how a product ends up flagged required with a
+                minimum of zero. Required is now shown, not set — see the
+                summary line below. */}
+            <div className="mm-row-2">
+              <Input
+                id={groupMinFieldId(group.id)}
+                label={t("admin.minSelections", "Min selections")}
+                type="number"
+                min="0"
+                step="1"
+                value={group.minSelections}
+                error={minErrorText}
+                aria-invalid={minErrorText ? "true" : undefined}
+                onChange={(e) => {
+                  handleUpdateChoiceGroup(group.id, { minSelections: e.target.value });
+                  revalidateGroup({ ...group, minSelections: e.target.value });
+                }}
+              />
               <Input
                 id={groupMaxFieldId(group.id)}
                 label={t("admin.maxSelections", "Max selections")}
@@ -996,19 +1069,19 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                 }}
               />
             </div>
-            <label className="mm-toggle-row">
-              <input
-                type="checkbox"
-                checked={!!group.required}
-                onChange={(e) => {
-                  handleUpdateChoiceGroup(group.id, { required: e.target.checked });
-                  /* Toggling Required changes which message applies to an
-                     empty group, so re-judge it immediately. */
-                  revalidateGroup({ ...group, required: e.target.checked });
-                }}
-              />
-              <span>{t("common.required", "Required")}</span>
-            </label>
+
+            {/* §8 — a read-only reading of what those two numbers mean, in the
+                same words the guest will see. Not a second setting: there is
+                nothing here to edit, so it cannot diverge from the fields
+                above it. */}
+            <p className="mm-group-rule">
+              <span className="mm-group-rule__badge">
+                {groupRequired
+                  ? t("common.required", "Required")
+                  : t("common.optional", "Optional")}
+              </span>
+              <span className="mm-group-rule__text">{groupRuleText}</span>
+            </p>
 
             <div className="mm-options-list">
               {group.options.map((opt) => {
@@ -1058,6 +1131,40 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
                       {t("admin.optionPriceInvalid", "Enter a valid extra price of 0 or more.")}
                     </p>
                   )}
+                  {/* §9 — sold out is a state, not a deletion. The option keeps
+                      its name, price and id so it can come back tomorrow, and
+                      the guest still sees it listed rather than wondering where
+                      it went. Text carries the state, colour only reinforces
+                      it (§39). */}
+                  <button
+                    type="button"
+                    className={`mm-opt-avail ${
+                      opt.isAvailable === false ? "mm-opt-avail--off" : "mm-opt-avail--on"
+                    }`}
+                    aria-pressed={opt.isAvailable !== false}
+                    aria-label={`${opt.name || t("admin.optionName", "Option name")} — ${
+                      opt.isAvailable === false
+                        ? t("choice.soldOut", "Sold out")
+                        : t("admin.available", "Available")
+                    }`}
+                    onClick={() => {
+                      const next = !(opt.isAvailable !== false);
+                      handleUpdateOption(group.id, opt.id, { isAvailable: next });
+                      /* Marking enough options sold out can make the group's
+                         minimum unreachable, which blocks Save — so re-judge
+                         immediately rather than at submit. */
+                      revalidateGroup({
+                        ...group,
+                        options: group.options.map((o) =>
+                          o.id === opt.id ? { ...o, isAvailable: next } : o
+                        ),
+                      });
+                    }}
+                  >
+                    {opt.isAvailable === false
+                      ? t("choice.soldOut", "Sold out")
+                      : t("admin.available", "Available")}
+                  </button>
                   <button
                     type="button"
                     className="mm-icon-btn mm-icon-btn--danger"

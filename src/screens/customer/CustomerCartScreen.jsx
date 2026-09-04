@@ -495,8 +495,16 @@ function CartLineIssue({ result, onRemove, onAcceptPrice }) {
   const has = (code) => result.issues.includes(code);
 
   if (result.blocking) {
+    /* Phase 80 — the two new codes get their own sentences rather than
+       falling through to "Currently unavailable", which would be wrong on
+       both counts: the ITEM is still available, and the guest needs to know
+       which part of their customization to redo. */
     const message = has(CART_ISSUE.CATEGORY_SCHEDULED)
       ? t("cart.notAvailableAtThisTime", "Not available at this time")
+      : has(CART_ISSUE.OPTION_UNAVAILABLE)
+      ? t("cart.optionSoldOut", "One of your choices is sold out — remove this item and add it again to choose another.")
+      : has(CART_ISSUE.CHOICE_RULE_UNMET)
+      ? t("cart.choicesNeedUpdating", "The choices for this item have changed — remove it and add it again to update them.")
       : has(CART_ISSUE.OPTION_MISSING)
       ? t("cart.optionsUnavailable", "Some selected options are no longer available")
       : t("cart.currentlyUnavailable", "Currently unavailable");

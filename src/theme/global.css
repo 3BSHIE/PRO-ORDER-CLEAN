@@ -4405,3 +4405,77 @@ button{font-family:var(--font-body)}
   .wh-row__times{grid-column:1 / -1;justify-content:space-between}
   .wh-time{max-width:none;flex:1}
 }
+
+/* ══ Phase 80 — choice rules & per-option availability ════════════════════
+
+   Severity note, once for the whole block: a sold-out OPTION is muted, never
+   red. The guest has done nothing wrong and the item itself is still for
+   sale, so this is the calm "unavailable" family the inactive-table and
+   closed-restaurant states already use — not the destructive family. */
+
+/* ── Admin: the derived rule summary (§8) ─────────────────────────────── */
+
+/* Read-only on purpose. It sits directly under the two numeric fields and
+   says what they mean, so there is nothing here to click and nothing that
+   can disagree with them. */
+.mm-group-rule{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:-4px 0 2px;font-size:12px;color:var(--text-3);line-height:1.5}
+.mm-group-rule__badge{
+  flex:none;padding:2px 9px;border-radius:999px;
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  background:var(--surface-3);color:var(--text-2);border:1px solid var(--border)}
+/* Required is the consequential one, so it carries the brand colour; the
+   word itself is the signal, the tint only reinforces it. */
+.mm-group-rule:has(.mm-group-rule__badge) .mm-group-rule__text{min-width:0}
+
+/* ── Admin: per-option availability (§9) ──────────────────────────────── */
+
+/* A labelled state, not an icon. "Available" / "Sold out" is readable
+   without colour, which is what keeps §39 satisfied. */
+.mm-opt-avail{
+  flex:none;min-height:36px;padding:6px 12px;border-radius:999px;cursor:pointer;
+  font-family:var(--font-body);font-size:11.5px;font-weight:700;
+  letter-spacing:.02em;white-space:nowrap;
+  background:transparent;border:1px solid var(--border-strong);
+  transition:border-color .2s,color .2s,background .2s}
+.mm-opt-avail--on{
+  color:var(--ready);border-color:rgba(63,214,143,.38);background:var(--ready-soft)}
+.mm-opt-avail--off{color:var(--text-3)}
+.mm-opt-avail:hover{border-color:var(--gold-line)}
+
+/* At 320–375 the option row already wraps; give the price and the
+   availability pill a sensible share of the second line instead of letting
+   the pill squeeze the price to nothing. */
+@media(max-width:420px){
+  .mm-option-row .input{flex-basis:100%}
+  .mm-option-row__price{flex:1;max-width:none}
+  .mm-opt-avail{flex:1;text-align:center}
+}
+
+/* ── Customer: a sold-out option (§16) ────────────────────────────────── */
+
+/* Stays in the list, keeps its position, and is plainly not pickable. The
+   base .cust-option:disabled styling already handles the cap case; this adds
+   the explicit sold-out reading on top without touching the Phase 73 selected
+   state (border weight, gold tint, mark and 140ms transition are all
+   inherited untouched). */
+.cust-option--soldout{
+  opacity:.5;cursor:not-allowed;
+  border-style:dashed}
+.cust-option--soldout .cust-option__name{text-decoration:line-through;
+  text-decoration-thickness:1px;text-decoration-color:var(--text-3)}
+.cust-option--soldout .cust-option__mark{opacity:.4}
+.cust-option__soldout{
+  margin-inline-start:auto;flex:none;
+  font-size:11px;font-weight:700;letter-spacing:.03em;
+  color:var(--text-3);text-transform:uppercase}
+
+/* ── Customer: item not orderable as configured (§25) ─────────────────── */
+
+/* Amber and calm, in the sticky footer where the Add button would have been,
+   so the explanation is exactly where the guest is looking. */
+.item-modal__blocked{
+  display:flex;align-items:flex-start;gap:7px;margin:0 0 10px;
+  font-size:12.5px;line-height:1.5;color:var(--preparing);text-align:start}
+.item-modal__blocked > svg{flex:none;margin-top:2px}
