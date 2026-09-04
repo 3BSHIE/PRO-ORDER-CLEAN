@@ -4479,3 +4479,40 @@ button{font-family:var(--font-body)}
   display:flex;align-items:flex-start;gap:7px;margin:0 0 10px;
   font-size:12.5px;line-height:1.5;color:var(--preparing);text-align:start}
 .item-modal__blocked > svg{flex:none;margin-top:2px}
+
+/* ══ Phase 80.1 — edit a cart line ════════════════════════════════════════
+
+   One small action, deliberately quiet. It sits beside the quantity stepper
+   rather than in the line's header, because the header already owns Remove
+   and a second control there would read as a pair of equals. Ghost weight
+   keeps it clearly below the line total and the checkout button (§4). */
+
+/* The row keeps its existing flex-end justification. Edit renders first and
+   takes an auto trailing margin, which absorbs the free space and leaves the
+   quantity stepper flush right — exactly where it sat before this phase, so
+   nothing that was already on this row moves (§37). Verified by measurement,
+   not assumed: an earlier attempt put Edit last and silently dragged the
+   stepper to the left edge. */
+.cart-line__bottom{align-items:center;gap:12px}
+.cart-line__edit{margin-inline-end:auto}
+
+.cart-line__edit{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:36px;padding:7px 14px;border-radius:999px;cursor:pointer;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-2);font-family:var(--font-body);
+  font-size:12.5px;font-weight:600;
+  transition:border-color .2s,color .2s,background .2s}
+.cart-line__edit:hover{border-color:var(--gold-line);color:var(--text-1)}
+.cart-line__edit:active{transform:scale(.98)}
+
+/* The issue row can now carry two actions. They share a row and wrap together
+   rather than stretching, so a long message never squeezes them to nothing —
+   the same lesson the Phase 79 checkout-bar notice taught. */
+.cart-issue__actions{display:flex;align-items:center;gap:8px;flex:none}
+
+@media(max-width:400px){
+  .cart-issue{flex-wrap:wrap}
+  .cart-issue__msg{flex:0 0 100%}
+  .cart-issue__actions{width:100%;justify-content:flex-end}
+}

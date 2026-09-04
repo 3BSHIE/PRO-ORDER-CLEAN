@@ -40,15 +40,87 @@ import {
  *   category          — the item's category object (for emoji fallback), or null
  *   open              — boolean, controls visibility
  *   onClose           — () => void
- *   onPlaceholderAdd  — (item, quantity, notes, selections) => void — primary button.
+ *   onSubmit          — (item, quantity, notes, selections) => void — primary button.
+ *                       Named for what it does in BOTH modes: it adds a new
+ *                       line in create mode and updates an existing one in
+ *                       edit mode. The caller decides which.
  *                       selections = { selectedRemovals, selectedChoices, selectedPaidAddOns }
  */
+/**
+ * Phase 80.1 — seed the editor from a cart line, judged against the CURRENT
+ * product definition rather than the snapshot the line was built from.
+ *
+ * The line records what the guest chose; the product records what is on offer
+ * now. Where they disagree the product wins, because the guest is about to
+ * place this order under today's menu, not the one from ten minutes ago.
+ *
+ * Each rule below drops a selection rather than repairing it, and never
+ * substitutes:
+ *
+ *   option sold out    dropped from the active selection (§8). It stays
+ *                      VISIBLE in the list as Sold out — the guest sees what
+ *                      happened instead of a silently shorter menu — and the
+ *                      group simply falls incomplete if it was required.
+ *   option deleted     dropped (§9). Not recreated, not invented.
+ *   group deleted      its selections go with it.
+ *   max lowered        (§11) trimmed to the current maximum, keeping the
+ *                      FIRST N in the line's stored order. Deterministic, so
+ *                      reopening the sheet twice always shows the same thing.
+ *                      Nothing is written to the cart by this: the trim exists
+ *                      only in the editor's state until Update is pressed.
+ *   add-on removed     dropped (§13).
+ *   removal retired    dropped silently (§14) — an ingredient that no longer
+ *                      exists cannot be left out, and saying so would be noise.
+ *
+ * Reconciliation joins on stable ids throughout — group id, option id, add-on
+ * id — never on display names (§6).
+ */
+function reconcileLineToItem(item, line) {
+  const choiceSelections = {};
+  for (const group of item.choices || []) {
+    const chosen = (line.selectedChoices || [])
+      .filter((c) => c.groupId === group.id)
+      .map((c) => c.optionId)
+      .filter((id) => {
+        const option = (group.options || []).find((o) => o.id === id);
+        return !!option && option.isAvailable !== false;
+      });
+    choiceSelections[group.id] = chosen.slice(0, group.maxSelections);
+  }
+
+  const addOnIds = new Set(
+    (line.selectedPaidAddOns || [])
+      .filter((a) => (item.paidAddOns || []).some((p) => p.id === a.id))
+      .map((a) => a.id)
+  );
+
+  const removedIds = new Set(
+    (line.selectedRemovals || []).filter((r) =>
+      (item.removableIngredients || []).includes(r)
+    )
+  );
+
+  return {
+    choiceSelections,
+    addOnIds,
+    removedIds,
+    quantity: Number.isInteger(line.quantity) && line.quantity > 0 ? line.quantity : 1,
+    notes: typeof line.notes === "string" ? line.notes : "",
+  };
+}
+
 export default function ItemDetailsModal({
   item,
   category,
   open,
   onClose,
-  onPlaceholderAdd,
+  onSubmit,
+  /* Phase 80.1 — an EXPLICIT mode, never inferred from whether `line` happens
+     to be set. Inferring it would make the CTA copy and the update target
+     depend on a prop's truthiness, which is exactly the kind of fragile
+     condition that produces "Add to cart" on an edit after a refactor. */
+  mode = "create",
+  line = null,
 }) {
   const [quantity,   setQuantity]   = useState(1);
   const [notes,      setNotes]      = useState("");
@@ -74,18 +146,32 @@ export default function ItemDetailsModal({
      a required group needs scrolling into view. */
   const footRef = useRef(null);
 
-  /* Reset all local state whenever a different item is opened */
+  /* Reset all local state whenever a different item is opened.
+     Phase 80.1 — in edit mode the reset seeds from the cart line instead of
+     from nothing, reconciled against the CURRENT product (§7). */
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    setImgErr(false);
+    setChoiceErrors({});
+
+    if (mode === "edit" && line && item) {
+      const seed = reconcileLineToItem(item, line);
+      setQuantity(seed.quantity);
+      setNotes(seed.notes);
+      setRemovedIds(seed.removedIds);
+      setChoiceSelections(seed.choiceSelections);
+      setAddOnIds(seed.addOnIds);
+    } else {
       setQuantity(1);
       setNotes("");
-      setImgErr(false);
       setRemovedIds(new Set());
       setChoiceSelections({});
       setAddOnIds(new Set());
-      setChoiceErrors({});
     }
-  }, [open, item?.id]);
+    // `line` is intentionally keyed by its id: re-running on every object
+    // identity change would wipe the guest's in-progress edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item?.id, mode, line?.cartItemId]);
 
   useEffect(() => {
     if (!open) return;
@@ -337,7 +423,7 @@ export default function ItemDetailsModal({
       .filter((a) => addOnIds.has(a.id))
       .map((a) => ({ id: a.id, name: a.name, price: a.price || 0 }));
 
-    onPlaceholderAdd?.(item, quantity, notes, {
+    onSubmit?.(item, quantity, notes, {
       selectedRemovals,
       selectedChoices,
       selectedPaidAddOns,
@@ -640,7 +726,9 @@ export default function ItemDetailsModal({
                 className="btn btn--primary btn--lg btn--full"
                 onClick={handleAddClick}
               >
-                {t("customer.addToCart", "Add to cart")}
+                {mode === "edit"
+                  ? t("customer.updateItem", "Update item")
+                  : t("customer.addToCart", "Add to cart")}
               </button>
             </>
           ) : available && hasUnsatisfiableGroup ? (

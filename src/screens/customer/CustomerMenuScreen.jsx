@@ -541,7 +541,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         category={selectedCategory}
         open={!!selectedItem}
         onClose={handleCloseModal}
-        onPlaceholderAdd={handleAddToCart}
+        onSubmit={handleAddToCart}
       />
     </>
   );

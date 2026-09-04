@@ -130,6 +130,72 @@ export function addCartItem(newItem) {
 }
 
 /**
+ * Phase 80.1 — replace one existing line's whole configuration in place.
+ *
+ * The counterpart to addCartItem, and deliberately its sibling rather than a
+ * remove-then-add: that pair would drop the line to the bottom of the cart,
+ * mint a new cartItemId, and briefly leave the cart in a state with the line
+ * missing. This keeps identity, position and history.
+ *
+ * WHAT IS PRESERVED
+ *   cartItemId and addedAt. The guest is editing the thing they already
+ *   added, not adding a different thing, so its identity should survive —
+ *   which is also what lets the cart screen keep it where it is.
+ *
+ * MERGE (§36)
+ *   The cart's existing invariant is that no two lines share a customization
+ *   signature; addCartItem enforces it by folding an identical re-add into
+ *   the line that is already there. Editing can now produce the same
+ *   collision — change line A's size to match line B — so the same rule
+ *   applies, for the same reason. The quantities combine into the EARLIER
+ *   line and the edited one is removed, which is exactly what the guest would
+ *   have got by removing A and re-adding it with B's configuration. No new
+ *   policy was invented; the existing one simply now has a second entry point.
+ *
+ * @param {string} cartItemId — the line being edited
+ * @param {object} nextLine — the fully-built replacement (no cartItemId needed)
+ * @returns {Array<object>} the updated cart (also persisted)
+ */
+export function updateCartItem(cartItemId, nextLine) {
+  const cart = getCustomerCart();
+  const index = cart.findIndex((line) => line.cartItemId === cartItemId);
+  if (index === -1) return cart;
+
+  const existing = cart[index];
+  const updated = {
+    ...existing,
+    ...nextLine,
+    /* Identity is never taken from the payload — a caller cannot accidentally
+       re-key or duplicate a line through this function. */
+    cartItemId: existing.cartItemId,
+    addedAt: existing.addedAt,
+  };
+
+  const signature = customizationSignature(updated);
+  const twinIndex = cart.findIndex(
+    (line, i) => i !== index && customizationSignature(line) === signature
+  );
+
+  let nextCart;
+  if (twinIndex === -1) {
+    nextCart = cart.map((line, i) => (i === index ? updated : line));
+  } else {
+    const twin = cart[twinIndex];
+    const quantity = twin.quantity + updated.quantity;
+    nextCart = cart
+      .map((line, i) =>
+        i === twinIndex
+          ? { ...twin, quantity, lineTotal: parseFloat((twin.unitPrice * quantity).toFixed(3)) }
+          : line
+      )
+      .filter((_, i) => i !== index);
+  }
+
+  saveCustomerCart(nextCart);
+  return nextCart;
+}
+
+/**
  * Sum of all cart line totals.
  * @param {Array<object>} cart
  * @returns {number}

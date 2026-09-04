@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, ShoppingCart, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X, AlertTriangle, Pencil } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -14,8 +14,10 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import {
   getCustomerCart, updateCartItemQuantity, removeCartItem,
-  clearCustomerCart, getCartTotal, applyCurrentPricing,
+  clearCustomerCart, getCartTotal, applyCurrentPricing, updateCartItem,
 } from "../../lib/customerCart.js";
+import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
+import { validateItemSelections } from "../../lib/choiceRules.js";
 import { getMenuItems, getCategories } from "../../lib/menuData.js";
 import { validateCart, CART_ISSUE } from "../../lib/cartValidation.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
@@ -110,6 +112,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  /* Phase 80.1 — which cart line is being edited, by its stable cartItemId.
+     Never an array index: the cart can hold several lines of the same product
+     and lines are removed while the screen is open. */
+  const [editingLineId, setEditingLineId] = useState(null);
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
 
@@ -150,6 +156,14 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
      read, exactly like the Phase 37 revalidation. */
   const { accepting: acceptingOrders } = useAcceptingOrders(restaurant.slug);
 
+  /* Phase 80.1 — resolved from the live menu, not from the line's snapshot,
+     so the sheet always offers the current options. Both are null when the
+     product has since been deleted, which is what keeps the sheet closed. */
+  const editingLine = cart.find((l) => l.cartItemId === editingLineId) || null;
+  const editingItem = editingLine
+    ? liveItems.find((i) => i.id === editingLine.itemId) || null
+    : null;
+
   const isEmpty = cart.length === 0;
   const subtotal = getCartTotal(cart);
   /* Phase 23 — a restaurant can override its service charge % in Settings;
@@ -168,6 +182,104 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     setCart(updated);
     setToastMessage(t("customer.itemRemoved", "Item removed"));
     setToastVisible(true);
+  }
+
+  /* ── Phase 80.1: edit an existing cart line ─────────────────────────────
+     Opens the SAME Item Details sheet the menu uses, in edit mode. The line
+     supplies the starting selections; the live product supplies what may be
+     chosen. Nothing is written until Update item. */
+  function handleEditLine(cartItemId) {
+    setEditingLineId(cartItemId);
+  }
+
+  /**
+   * The update itself. Mirrors the cart screen's order-creation gate rather
+   * than the menu's add path, because an edit that lands on the cart has to
+   * be as trustworthy as one that lands on an order.
+   *
+   * FRESH DATA (§30/§31). The product is re-read from storage here, not taken
+   * from the sheet's props: the exact race this closes is the guest choosing
+   * Large, an Admin selling Large out, and the guest pressing Update before
+   * any event reaches this tab. On refusal the line is left EXACTLY as it
+   * was — a rejected edit must never be a partial edit.
+   */
+  function handleUpdateLine(item, quantity, notes, selections) {
+    const line = cart.find((l) => l.cartItemId === editingLineId);
+    if (!line) return;
+
+    const fresh = getMenuItems(restaurant.slug).find((i) => i.id === item.id);
+
+    /* Product deleted or pulled while the sheet was open. Editing must never
+       be a way to make an unorderable product orderable (§26/§51). */
+    if (!fresh || fresh.isAvailable === false) {
+      setEditingLineId(null);
+      setScheduleTick(Date.now());
+      setToastMessage(t("cart.reviewChanges", "Please review the changes in your cart before continuing."));
+      setToastVisible(true);
+      return;
+    }
+
+    /* Rebuild the selections against the FRESH product, so names and prices
+       written to the line are today's, not the sheet's snapshot (§17). */
+    const selectedChoices = [];
+    for (const chosen of selections.selectedChoices) {
+      const group = (fresh.choices || []).find((g) => g.id === chosen.groupId);
+      const option = group?.options?.find((o) => o.id === chosen.optionId);
+      if (!group || !option || option.isAvailable === false) {
+        setScheduleTick(Date.now());
+        setToastMessage(t("cart.reviewChanges", "Please review the changes in your cart before continuing."));
+        setToastVisible(true);
+        return; // sheet stays open so the guest can fix it
+      }
+      selectedChoices.push({
+        groupId: group.id, groupName: group.name,
+        optionId: option.id, optionName: option.name,
+        price: Number(option.price) || 0,
+      });
+    }
+
+    /* The same rule engine the sheet and the cart validator use — no weakened
+       edit-mode validator (§29). */
+    if (!validateItemSelections(fresh, selectedChoices).ok) {
+      setScheduleTick(Date.now());
+      setToastMessage(t("cart.reviewChanges", "Please review the changes in your cart before continuing."));
+      setToastVisible(true);
+      return;
+    }
+
+    const selectedPaidAddOns = [];
+    for (const chosen of selections.selectedPaidAddOns) {
+      const addOn = (fresh.paidAddOns || []).find((a) => a.id === chosen.id);
+      if (!addOn) continue; // silently dropped — it no longer exists to charge for
+      selectedPaidAddOns.push({ id: addOn.id, name: addOn.name, price: Number(addOn.price) || 0 });
+    }
+
+    const basePrice = Number(fresh.price) || 0;
+    const extras =
+      selectedChoices.reduce((s, c) => s + c.price, 0) +
+      selectedPaidAddOns.reduce((s, a) => s + a.price, 0);
+    const unitPrice = parseFloat((basePrice + extras).toFixed(3));
+
+    const updated = updateCartItem(editingLineId, {
+      name: fresh.name,
+      description: fresh.description,
+      imageUrl: fresh.imageUrl,
+      categoryId: fresh.categoryId,
+      basePrice,
+      unitPrice,
+      quantity,
+      lineTotal: parseFloat((unitPrice * quantity).toFixed(3)),
+      selectedRemovals: selections.selectedRemovals,
+      selectedChoices,
+      selectedPaidAddOns,
+      notes,
+    });
+
+    setCart(updated);
+    setEditingLineId(null);
+    /* §21/§22 — no toast, no FAB acknowledgement, no sound. The sheet closes
+       and the updated line is right there; that is the confirmation. */
+    setScheduleTick(Date.now()); // re-reconcile so a fixed line clears its issue
   }
 
   /* Phase 33 — the "Clear cart (demo only)" footer button was removed from
@@ -389,6 +501,14 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
                   onQuantityChange={(q) => handleQuantityChange(line.cartItemId, q)}
                   onRemove={() => handleRemove(line.cartItemId)}
                   onAcceptPrice={() => handleAcceptPrice(line.cartItemId)}
+                  /* §51 — a line whose product no longer exists cannot be
+                     edited, so the action is withheld rather than opening a
+                     broken sheet. Remove stays available. */
+                  onEdit={
+                    liveItems.some((i) => i.id === line.itemId)
+                      ? () => handleEditLine(line.cartItemId)
+                      : null
+                  }
                 />
               ))}
             </div>
@@ -466,6 +586,25 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
         </div>
       )}
 
+      {/* Phase 80.1 — the SAME sheet the menu opens, in edit mode. Not a
+          second editor: every rule, price, translation and piece of visual
+          polish is the one the create flow already uses (§2/§39). The item is
+          taken from the LIVE menu, so the guest edits against today's product
+          rather than the snapshot their line was built from (§7). */}
+      {editingLine && editingItem && (
+        <ItemDetailsModal
+          mode="edit"
+          line={editingLine}
+          item={editingItem}
+          category={liveCategories.find((c) => c.id === editingItem.categoryId) || null}
+          open
+          /* §33 — closing without Update leaves the line exactly as it was;
+             nothing is written as the guest clicks around. */
+          onClose={() => setEditingLineId(null)}
+          onSubmit={handleUpdateLine}
+        />
+      )}
+
       <PaymentMethodModal
         open={paymentModalOpen}
         total={total}
@@ -488,25 +627,31 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
    Blocking issues offer Remove; a price change offers Update Price with the
    old and new figures shown side by side, so the guest always sees exactly
    what they are accepting. */
-function CartLineIssue({ result, onRemove, onAcceptPrice }) {
+function CartLineIssue({ result, onRemove, onAcceptPrice, onEdit }) {
   const { t } = useLanguage();
   if (!result || result.issues.length === 0) return null;
 
   const has = (code) => result.issues.includes(code);
 
   if (result.blocking) {
-    /* Phase 80 — the two new codes get their own sentences rather than
-       falling through to "Currently unavailable", which would be wrong on
-       both counts: the ITEM is still available, and the guest needs to know
-       which part of their customization to redo. */
+    /* Phase 80.1 — the three customization failures are FIXABLE by editing,
+       so they now say so. Their old copy told the guest to remove and re-add,
+       which was honest before an editor existed and is simply wrong advice
+       now. The category and product-level failures keep their copy, because
+       no amount of editing repairs them (§23). */
+    const fixableByEditing =
+      has(CART_ISSUE.OPTION_UNAVAILABLE) ||
+      has(CART_ISSUE.CHOICE_RULE_UNMET) ||
+      has(CART_ISSUE.OPTION_MISSING);
+
     const message = has(CART_ISSUE.CATEGORY_SCHEDULED)
       ? t("cart.notAvailableAtThisTime", "Not available at this time")
       : has(CART_ISSUE.OPTION_UNAVAILABLE)
-      ? t("cart.optionSoldOut", "One of your choices is sold out — remove this item and add it again to choose another.")
+      ? t("cart.optionSoldOutEdit", "One of your choices is sold out. Edit this item to choose another.")
       : has(CART_ISSUE.CHOICE_RULE_UNMET)
-      ? t("cart.choicesNeedUpdating", "The choices for this item have changed — remove it and add it again to update them.")
+      ? t("cart.choicesNeedUpdatingEdit", "The choices for this item have changed. Edit this item to update them.")
       : has(CART_ISSUE.OPTION_MISSING)
-      ? t("cart.optionsUnavailable", "Some selected options are no longer available")
+      ? t("cart.optionsUnavailableEdit", "Some of your choices are no longer offered. Edit this item to choose again.")
       : t("cart.currentlyUnavailable", "Currently unavailable");
 
     return (
@@ -515,9 +660,23 @@ function CartLineIssue({ result, onRemove, onAcceptPrice }) {
           <AlertTriangle size={14} strokeWidth={2.3} aria-hidden="true" />
           {message}
         </span>
-        <Button variant="danger" size="sm" onClick={onRemove}>
-          {t("common.remove", "Remove")}
-        </Button>
+        {/* §24 — Edit leads where editing can actually help, and Remove is
+            demoted beside it rather than removed. A guest who would rather
+            drop the item entirely still can. */}
+        <span className="cart-issue__actions">
+          {fixableByEditing && onEdit && (
+            <Button size="sm" icon={Pencil} onClick={onEdit}>
+              {t("common.edit", "Edit")}
+            </Button>
+          )}
+          <Button
+            variant={fixableByEditing && onEdit ? "ghost" : "danger"}
+            size="sm"
+            onClick={onRemove}
+          >
+            {t("common.remove", "Remove")}
+          </Button>
+        </span>
       </div>
     );
   }
@@ -544,7 +703,7 @@ function CartLineIssue({ result, onRemove, onAcceptPrice }) {
   );
 }
 
-function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRemove, onAcceptPrice }) {
+function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRemove, onAcceptPrice, onEdit }) {
   const [imgErr, setImgErr] = useState(false);
   const { categories } = useMenuData(restaurantSlug);
   const category = categories.find((c) => c.id === line.categoryId);
@@ -635,6 +794,28 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
       </div>
 
       <div className="cart-line__bottom">
+        {/* §4/§25 — available on every line, not only broken ones: changing
+            your mind from Medium to Large is the common case. Deliberately a
+            small ghost action, so it never competes with the total or the
+            checkout button. Note no className is passed to Button — it
+            spreads ...rest after its own, which would strip the variant —
+            hence a plain button.
+
+            Rendered BEFORE the stepper on purpose: the row is justified to
+            the end, so an auto margin on this first child absorbs the free
+            space and leaves the quantity stepper flush right, exactly where
+            it sat before this phase (§37). */}
+        {onEdit && (
+          <button
+            type="button"
+            className="cart-line__edit"
+            onClick={onEdit}
+            aria-label={`${t("common.edit", "Edit")} ${line.name}`}
+          >
+            <Pencil size={13} strokeWidth={2.2} aria-hidden="true" />
+            <span>{t("common.edit", "Edit")}</span>
+          </button>
+        )}
         <QuantityStepper
           value={line.quantity}
           onChange={onQuantityChange}
@@ -643,7 +824,12 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
         />
       </div>
 
-      <CartLineIssue result={validation} onRemove={onRemove} onAcceptPrice={onAcceptPrice} />
+      <CartLineIssue
+        result={validation}
+        onRemove={onRemove}
+        onAcceptPrice={onAcceptPrice}
+        onEdit={onEdit}
+      />
     </Card>
   );
 }
