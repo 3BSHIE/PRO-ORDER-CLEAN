@@ -44,7 +44,8 @@ import {
   FALLBACK_TIME_ZONE,
   parseTimeToMinutes,
   getCurrentMinutesInTimeZone,
-  isWithinWindow,
+  getRestaurantClockParts,
+  resolveTimeZone,
 } from "./categoryVisibility.js";
 
 /* Re-exported so consumers of this module never need to reach into
@@ -56,11 +57,15 @@ export const ACCEPTING_ORDERS_MODES = ["auto", "open", "closed"];
 /** Phase 79 §28 — existing restaurants have no stored mode and adopt this. */
 export const DEFAULT_ACCEPTING_ORDERS_MODE = "auto";
 
-/* Index-aligned with Date.prototype.getDay() and with the day keys the
-   Working Hours editor already writes into settings.workingHours.closedDays
-   (see the DAYS list in AdminSettingsScreen.jsx). Reused rather than
-   redefined so the two can never drift. */
+/* The project's one weekday vocabulary. Index-aligned with
+   Date.prototype.getDay(), and the same keys the pre-79.1 `closedDays` array
+   already used, so the migration in normalizeWorkingHours() needs no
+   translation table and no second naming system was introduced. The Settings
+   editor imports this list rather than declaring its own. */
 export const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+/** A day with no usable stored row. 00:00–00:00 means open around the clock. */
+const DEFAULT_DAY = { isClosed: false, openTime: "00:00", closeTime: "00:00" };
 
 /**
  * Fold any stored/user value into a mode this module understands.
@@ -72,28 +77,120 @@ export function normalizeAcceptingOrdersMode(raw) {
 }
 
 /**
- * Which weekday it is *in the restaurant's timezone*, not the viewer's.
+ * Which weekday it is *in the restaurant's timezone*, never the viewer's.
  *
- * The sibling of getCurrentMinutesInTimeZone(): same Intl mechanism, same
- * degradation to the device clock when an IANA name is unusable, so the
- * hour and the day can never come from two different clocks.
+ * The sibling of getCurrentMinutesInTimeZone(), and deliberately routed
+ * through the same getRestaurantClockParts() chain — configured zone, then
+ * Asia/Amman, and no device step at all. Resolving the DAY through one chain
+ * and the HOUR through another is precisely how a schedule ends up reading
+ * Friday's hours against Saturday's clock.
  *
  * @param {string} timeZone — IANA name, e.g. "Asia/Amman"
  * @param {Date} [now]
  * @returns {"sun"|"mon"|"tue"|"wed"|"thu"|"fri"|"sat"}
  */
 export function getWeekdayKeyInTimeZone(timeZone, now = new Date()) {
-  try {
-    if (timeZone) {
-      const label = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" })
-        .format(now)
-        .toLowerCase();
-      if (WEEKDAY_KEYS.includes(label)) return label;
+  const at = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const parts = getRestaurantClockParts(timeZone, at, { weekday: "short" });
+  const label = parts?.find((p) => p.type === "weekday")?.value?.toLowerCase();
+  if (WEEKDAY_KEYS.includes(label)) return label;
+
+  /* Unreachable unless the engine cannot format Asia/Amman either. UTC, not
+     the device — deterministic and identical for every viewer. */
+  return WEEKDAY_KEYS[at.getUTCDay()];
+}
+
+/**
+ * Fold any stored working-hours value into the canonical seven-day shape.
+ *
+ * ── WHY THIS IS THE READ LAYER ──────────────────────────────────────────
+ *   Called by settingsData.getSettings(), so every consumer in the app — the
+ *   Admin card, the Settings editor, the customer menu, the cart, the
+ *   order-creation gate — receives the new shape and only the new shape. The
+ *   legacy fields are dropped here rather than carried alongside, which is
+ *   what makes it impossible for an old openTime and a new mon.openTime to
+ *   drift apart as two competing sources of truth.
+ *
+ * ── MIGRATION ───────────────────────────────────────────────────────────
+ *   The pre-79.1 shape was one window plus a list of closed days:
+ *     { openTime: "10:00", closeTime: "23:00", closedDays: ["fri"] }
+ *   Every day inherits that window, and days named in closedDays become
+ *   isClosed. No schedule information is lost: the old model simply could
+ *   not express more than this.
+ *
+ * ── IDEMPOTENT ──────────────────────────────────────────────────────────
+ *   Running this on already-migrated data returns the same seven rows. A day
+ *   row present in the input always wins over the legacy window, so a
+ *   half-migrated object (which the old shallow settings merge could produce)
+ *   resolves towards the new shape rather than being dragged back.
+ *
+ *   Malformed times are PRESERVED rather than repaired. Silently rewriting
+ *   "25:00" to a default would hide a real misconfiguration from the manager;
+ *   the evaluator reports it as an invalid schedule instead, and only for the
+ *   day it actually affects.
+ *
+ * @param {unknown} raw — a stored workingHours value of either shape
+ * @returns {Record<string, {isClosed:boolean, openTime:string, closeTime:string}>}
+ */
+export function normalizeWorkingHours(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+
+  /* Legacy window, used only for days that have no row of their own. */
+  const legacyOpen = typeof source.openTime === "string" ? source.openTime.trim() : "";
+  const legacyClose = typeof source.closeTime === "string" ? source.closeTime.trim() : "";
+  const legacyClosedDays = Array.isArray(source.closedDays) ? source.closedDays : [];
+  const hasLegacy = !!legacyOpen || !!legacyClose || legacyClosedDays.length > 0;
+
+  /* How many genuine day rows the input already carries. This is what
+     separates "nothing has ever been configured" from "a seven-day schedule
+     with a row missing" — see the absent-row branch below. */
+  const dayRowCount = WEEKDAY_KEYS.filter(
+    (key) => source[key] && typeof source[key] === "object"
+  ).length;
+
+  const result = {};
+  for (const key of WEEKDAY_KEYS) {
+    const row = source[key];
+
+    if (row && typeof row === "object") {
+      result[key] = {
+        isClosed: !!row.isClosed,
+        openTime: typeof row.openTime === "string" ? row.openTime.trim() : "",
+        closeTime: typeof row.closeTime === "string" ? row.closeTime.trim() : "",
+      };
+      continue;
     }
-  } catch {
-    // Unknown/unsupported timezone — fall through to the device clock.
+
+    if (hasLegacy) {
+      result[key] = {
+        isClosed: legacyClosedDays.includes(key),
+        openTime: legacyOpen || DEFAULT_DAY.openTime,
+        closeTime: legacyClose || DEFAULT_DAY.closeTime,
+      };
+      continue;
+    }
+
+    if (dayRowCount > 0) {
+      /* A row is missing from an otherwise-populated schedule. That is a
+         corrupted record, not a fresh restaurant, so it is left blank for the
+         evaluator to report as an invalid schedule (which still accepts
+         orders) rather than being invented as a plausible-looking 24-hour
+         day. Notably it does NOT inherit a sibling weekday's hours: quietly
+         serving Monday's schedule on Tuesday would be a wrong answer
+         presented as a confident one. */
+      result[key] = { isClosed: false, openTime: "", closeTime: "" };
+      continue;
+    }
+
+    result[key] = { ...DEFAULT_DAY };
   }
-  return WEEKDAY_KEYS[now.getDay()];
+
+  return result;
+}
+
+/** A full seven-day schedule with every day open around the clock. */
+export function defaultWorkingHours() {
+  return normalizeWorkingHours(null);
 }
 
 /** The previous day's key — used to attribute an overnight tail correctly. */
@@ -103,90 +200,170 @@ function previousWeekdayKey(key) {
 }
 
 /**
- * Evaluate the configured Working Hours against the restaurant clock.
+ * Read one weekday row into the numbers the evaluator works with.
  *
- * ── OVERNIGHT WINDOWS ───────────────────────────────────────────────────
- *   The stored model is two "HH:MM" strings plus a list of closed days, and
- *   it already permits a close time earlier than the open time. isWithinWindow
- *   (Phase 28) reads that as a window wrapping past midnight, so 18:00 → 02:00
- *   genuinely means "open from six in the evening until two the next
- *   morning" rather than "invalid" or "always closed". No second scheduling
- *   model was introduced — the existing daily window is simply read
- *   truthfully.
+ * `usable` is false when the row's times cannot be parsed — a blank row from
+ * a corrupted schedule, or a manager's typo. The caller decides what that
+ * means; this only reports it.
+ */
+function readDay(row) {
+  const openTime = row?.openTime || "";
+  const closeTime = row?.closeTime || "";
+  const from = parseTimeToMinutes(openTime);
+  const until = parseTimeToMinutes(closeTime);
+
+  return {
+    isClosed: !!row?.isClosed,
+    openTime,
+    closeTime,
+    from,
+    until,
+    usable: from !== null && until !== null,
+    /* 00:00 → 00:00 means around the clock, never zero hours (§17). A
+       restaurant that types the same value twice plainly means "all day", and
+       reading it as "never open" would silently shut a venue that believed it
+       had just configured itself as 24-hour. */
+    alwaysOpen: from !== null && from === until,
+    overnight: from !== null && until !== null && until < from,
+  };
+}
+
+/**
+ * Evaluate the seven-day Working Hours against the restaurant clock.
  *
- *   The one subtlety an overnight window forces is which DAY the early hours
- *   belong to. At 01:00 on Saturday a 18:00 → 02:00 restaurant is still
- *   working Friday night's service, so Friday's closed-day flag is the one
- *   that governs — checking Saturday's would close a venue that is mid-shift
- *   and open one that is meant to be dark. The "service day" below is that
- *   attribution, and it is six lines rather than a scheduler.
+ * ── EACH DAY IS ITS OWN WINDOW (Phase 79.1) ─────────────────────────────
+ *   Every weekday carries an independent isClosed / openTime / closeTime, so
+ *   Friday can run 18:00 → 02:00 while Sunday is shut and Thursday closes at
+ *   17:00, with no manual override involved. There is no longer any shared
+ *   weekly window: nothing outside a day's own row can decide that day.
  *
- * ── 24-HOUR WINDOWS ─────────────────────────────────────────────────────
- *   openTime === closeTime is treated as always open, matching how Phase 28
- *   already reads a zero-length category window. A restaurant that sets both
- *   to the same value plainly means "round the clock", never "never".
+ * ── WHICH DAY IS SERVING RIGHT NOW ──────────────────────────────────────
+ *   An overnight window makes "today" and "the day whose shift is running"
+ *   two different questions, and only the second one governs. The order of
+ *   the two checks below is the whole rule:
  *
- * @param {{openTime?: string, closeTime?: string, closedDays?: string[]}} workingHours
+ *     1. Is YESTERDAY's shift still running into this morning?
+ *        Only an overnight row can be, and only before its closing time.
+ *     2. Otherwise TODAY's own row decides.
+ *
+ *   That ordering is what makes Saturday 01:00 belong to Friday. It also
+ *   means today's own overnight row is read as starting at `from` and running
+ *   to midnight — its early-morning half was yesterday's business, already
+ *   handled by step 1, and counting it twice would open a restaurant at 01:00
+ *   on the strength of a shift that has not begun.
+ *
+ *   Each direction of §26 falls out of this without a special case:
+ *     Friday open 18:00–02:00, Saturday closed → Sat 01:00 OPEN  (step 1)
+ *                                              → Sat 02:01 closed (step 2)
+ *     Friday closed, Saturday open             → Sat 01:00 closed
+ *        because step 1 skips a closed Friday, and Saturday's own shift has
+ *        not started yet.
+ *
+ * ── FAIL-OPEN, PER DAY ──────────────────────────────────────────────────
+ *   A day whose times will not parse reports `invalid`, which the caller
+ *   turns into "accept orders". The blast radius is exactly one day: Tuesday
+ *   being malformed cannot affect Wednesday, because Wednesday's verdict
+ *   never reads Tuesday's row (§18). A malformed YESTERDAY simply forfeits
+ *   step 1 — the tail cannot be computed, so today's own row answers — rather
+ *   than making every morning permanently open.
+ *
+ * @param {object} workingHours — either shape; normalized on the way in
  * @param {{timeZone?: string, now?: Date}} [context]
  * @returns {{open: boolean, reason: "ok"|"closed_day"|"outside_hours"|"invalid",
  *            openTime: string|null, closeTime: string|null,
- *            overnight: boolean, alwaysOpen: boolean, serviceDay: string}}
+ *            overnight: boolean, alwaysOpen: boolean,
+ *            serviceDay: string, today: string,
+ *            overnightFromPreviousDay: boolean,
+ *            schedule: object, timeZone: string}}
  */
 export function getWorkingHoursState(workingHours, { timeZone, now } = {}) {
-  const zone = timeZone || FALLBACK_TIME_ZONE;
+  /* The zone actually used, so everything downstream — the clock, the
+     weekday and the reported timeZone — agrees on one answer (§8). */
+  const zone = resolveTimeZone(timeZone);
   const at = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
 
-  const openTime = (workingHours?.openTime || "").trim();
-  const closeTime = (workingHours?.closeTime || "").trim();
-  const fromMinutes = parseTimeToMinutes(openTime);
-  const untilMinutes = parseTimeToMinutes(closeTime);
+  const schedule = normalizeWorkingHours(workingHours);
 
-  const todayKey = getWeekdayKeyInTimeZone(zone, at);
+  /* Both from getRestaurantClockParts' chain, so the day and the hour are
+     always the same restaurant's — never one from Intl and one from the
+     device (§8). */
+  const today = getWeekdayKeyInTimeZone(zone, at);
+  const nowMinutes = getCurrentMinutesInTimeZone(zone, at);
 
-  /* Half-configured or malformed hours: fail open, and say so, so the Admin
-     card can show the manager that auto mode currently has nothing usable to
-     follow rather than leaving them guessing. */
-  if (fromMinutes === null || untilMinutes === null) {
+  const base = { today, schedule, timeZone: zone };
+
+  /* ── Step 1: is yesterday's overnight shift still running? ─────────── */
+  const yesterdayKey = previousWeekdayKey(today);
+  const yesterday = readDay(schedule[yesterdayKey]);
+
+  if (
+    !yesterday.isClosed &&
+    yesterday.usable &&
+    yesterday.overnight &&
+    nowMinutes < yesterday.until
+  ) {
     return {
+      ...base,
+      open: true,
+      reason: "ok",
+      openTime: yesterday.openTime,
+      closeTime: yesterday.closeTime,
+      overnight: true,
+      alwaysOpen: false,
+      serviceDay: yesterdayKey,
+      overnightFromPreviousDay: true,
+    };
+  }
+
+  /* ── Step 2: today's own row ───────────────────────────────────────── */
+  const current = readDay(schedule[today]);
+  const shared = {
+    ...base,
+    serviceDay: today,
+    overnightFromPreviousDay: false,
+    overnight: current.overnight,
+    alwaysOpen: current.alwaysOpen,
+  };
+
+  /* Checked before parsing, because "closed" is a complete answer on its own
+     — a day the restaurant is shut does not need usable times, and a manager
+     who closes a day should not then be told their schedule is invalid. */
+  if (current.isClosed) {
+    return {
+      ...shared,
+      open: false,
+      reason: "closed_day",
+      openTime: current.openTime,
+      closeTime: current.closeTime,
+    };
+  }
+
+  if (!current.usable) {
+    return {
+      ...shared,
       open: true,
       reason: "invalid",
       openTime: null,
       closeTime: null,
       overnight: false,
       alwaysOpen: false,
-      serviceDay: todayKey,
     };
   }
 
-  const nowMinutes = getCurrentMinutesInTimeZone(zone, at);
-  const overnight = untilMinutes < fromMinutes;
-  /* Reported rather than left for callers to re-derive: the Admin card prints
-     "Open 24 hours" instead of a meaningless "00:00–00:00" range. */
-  const alwaysOpen = untilMinutes === fromMinutes;
+  const within = current.alwaysOpen
+    ? true
+    : current.overnight
+      /* Evening half only — see the comment above about not counting the
+         early-morning half twice. */
+      ? nowMinutes >= current.from
+      : nowMinutes >= current.from && nowMinutes < current.until;
 
-  /* Which day's schedule is currently in force. Only an overnight window can
-     put "now" on a different service day from the calendar day, and only
-     while now is inside the tail that ran past midnight. */
-  const inOvernightTail = overnight && nowMinutes < untilMinutes;
-  const serviceDay = inOvernightTail ? previousWeekdayKey(todayKey) : todayKey;
-
-  const closedDays = Array.isArray(workingHours?.closedDays) ? workingHours.closedDays : [];
-  if (closedDays.includes(serviceDay)) {
-    return {
-      open: false, reason: "closed_day",
-      openTime, closeTime, overnight, alwaysOpen, serviceDay,
-    };
-  }
-
-  const within = isWithinWindow(nowMinutes, fromMinutes, untilMinutes);
   return {
+    ...shared,
     open: within,
     reason: within ? "ok" : "outside_hours",
-    openTime,
-    closeTime,
-    overnight,
-    alwaysOpen,
-    serviceDay,
+    openTime: current.openTime,
+    closeTime: current.closeTime,
   };
 }
 
@@ -208,7 +385,7 @@ export function getWorkingHoursState(workingHours, { timeZone, now } = {}) {
  */
 export function getAcceptingOrdersState(mode, settings, { now } = {}) {
   const normalized = normalizeAcceptingOrdersMode(mode);
-  const timeZone = settings?.timeZone || FALLBACK_TIME_ZONE;
+  const timeZone = resolveTimeZone(settings?.timeZone);
 
   /* Evaluated in every mode, not only auto. The Admin card shows the manager
      what the schedule WOULD say while an override is in force — which is the

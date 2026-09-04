@@ -421,6 +421,15 @@ export const translations = {
       openingTime: "Opening Time",
       closingTime: "Closing Time",
       closedDays: "Closed Days",
+      /* Phase 79.1 — full weekday names for the per-day Working Hours editor.
+         Keyed by the same sun..sat strings the schedule evaluator uses. */
+      sunday: "Sunday",
+      monday: "Monday",
+      tuesday: "Tuesday",
+      wednesday: "Wednesday",
+      thursday: "Thursday",
+      friday: "Friday",
+      saturday: "Saturday",
       settingsSaved: "Settings saved",
 
       /* Phase 28 — Category visibility (manual + scheduled) */
@@ -648,7 +657,13 @@ export const translations = {
       stateOn: "Accepting orders",
       stateOff: "Not accepting orders",
       detailFollowing: "Following working hours",
+      detailFollowingToday: "Following today's hours",
+      detailStillOpenFrom: "Still open from {day}",
       open24Hours: "Open 24 hours",
+      dayOpen: "Open",
+      dayClosed: "Closed",
+      copyMondayToAll: "Copy Monday to all open days",
+      copiedMondayToAll: "Monday's hours copied to all open days",
       detailClosedDay: "Closed today.",
       detailForcedOpen: "Manually open — working hours are being overridden.",
       detailForcedClosed: "Manually closed — working hours are being overridden.",
@@ -1076,6 +1091,14 @@ export const translations = {
       openingTime: "وقت الفتح",
       closingTime: "وقت الإغلاق",
       closedDays: "أيام الإغلاق",
+      /* Phase 79.1 */
+      sunday: "الأحد",
+      monday: "الاثنين",
+      tuesday: "الثلاثاء",
+      wednesday: "الأربعاء",
+      thursday: "الخميس",
+      friday: "الجمعة",
+      saturday: "السبت",
       settingsSaved: "تم حفظ الإعدادات",
 
       /* Phase 28 — Category visibility (manual + scheduled) */
@@ -1285,7 +1308,13 @@ export const translations = {
       stateOn: "نستقبل الطلبات",
       stateOff: "لا نستقبل الطلبات",
       detailFollowing: "حسب ساعات العمل",
+      detailFollowingToday: "حسب ساعات اليوم",
+      detailStillOpenFrom: "ما زلنا مفتوحين من {day}",
       open24Hours: "مفتوح 24 ساعة",
+      dayOpen: "مفتوح",
+      dayClosed: "مغلق",
+      copyMondayToAll: "نسخ ساعات الاثنين إلى كل الأيام المفتوحة",
+      copiedMondayToAll: "تم نسخ ساعات الاثنين إلى كل الأيام المفتوحة",
       detailClosedDay: "مغلق اليوم.",
       detailForcedOpen: "مفتوح يدويًا — تم تجاوز ساعات العمل.",
       detailForcedClosed: "مغلق يدويًا — تم تجاوز ساعات العمل.",

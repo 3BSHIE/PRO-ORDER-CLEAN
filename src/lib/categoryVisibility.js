@@ -53,41 +53,103 @@ export function parseTimeToMinutes(value) {
 }
 
 /**
- * Minutes since midnight *in the restaurant's timezone*, not the browser's.
+ * Format one instant in one timezone, or return null if that zone is unusable.
  *
- * Uses Intl.DateTimeFormat, which every supported browser ships — no
- * timezone library is pulled in for this. An invalid IANA name makes
- * Intl throw a RangeError, which is caught and degrades to the device clock
- * rather than breaking the menu.
+ * Intl.DateTimeFormat throws a RangeError on an unknown IANA name, so a
+ * single try/catch here is what lets every caller express "try this zone,
+ * then the fallback" without repeating the guard.
+ *
+ * @param {string} timeZone
+ * @param {Date} now
+ * @param {object} options — Intl.DateTimeFormat options
+ * @returns {Intl.DateTimeFormatPart[]|null}
+ */
+function formatInZone(timeZone, now, options) {
+  if (!timeZone) return null;
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone, ...options }).formatToParts(now);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * THE restaurant clock. Every question about what time or day it is at a
+ * venue goes through here, so the answers can never come from two different
+ * fallback chains — a weekday resolved one way and an hour resolved another
+ * is how a schedule ends up reading Friday's hours against Saturday's time.
+ *
+ * Chain: configured zone → Asia/Amman → null (caller decides).
+ * The device timezone is deliberately absent from that list.
+ *
+ * @param {string} timeZone
+ * @param {Date} now
+ * @param {object} options — Intl.DateTimeFormat options
+ * @returns {Intl.DateTimeFormatPart[]|null}
+ */
+export function getRestaurantClockParts(timeZone, now, options) {
+  return formatInZone(timeZone, now, options) || formatInZone(FALLBACK_TIME_ZONE, now, options);
+}
+
+/**
+ * The timezone actually in force — the configured one if the engine can use
+ * it, otherwise Asia/Amman.
+ *
+ * Exists so a state object can REPORT the zone it computed with rather than
+ * the zone it was handed. Echoing back "Invalid/Timezone" beside a verdict
+ * derived from Asia/Amman would be a small lie in exactly the record someone
+ * would consult while debugging a schedule.
+ *
+ * @param {string} timeZone
+ * @returns {string} a usable IANA name
+ */
+export function resolveTimeZone(timeZone) {
+  return formatInZone(timeZone, new Date(), { hour: "2-digit" }) ? timeZone : FALLBACK_TIME_ZONE;
+}
+
+/**
+ * Minutes since midnight *in the restaurant's timezone*.
+ *
+ * ── Phase 79.1: the device clock is no longer a fallback ────────────────
+ *   This used to degrade to `now.getHours()` when the configured zone was
+ *   missing or unusable, which quietly made the VIEWER's timezone
+ *   authoritative — the exact thing this function exists to prevent. A
+ *   restaurant with a typo in its timezone would serve a different menu to a
+ *   tourist whose phone is still on another continent, and Working Hours
+ *   would open and close at the wrong moment for whoever happened to be
+ *   looking.
+ *
+ *   The fallback chain is now: configured zone → Asia/Amman → UTC. Every
+ *   step is a fixed, restaurant-side clock; none of them is the device's.
+ *   The UTC step is unreachable in practice (it needs an engine that cannot
+ *   format Asia/Amman) and exists only so this can never throw.
  *
  * @param {string} timeZone — IANA name, e.g. "Asia/Amman"
  * @param {Date} [now]
  * @returns {number}
  */
 export function getCurrentMinutesInTimeZone(timeZone, now = new Date()) {
-  try {
-    if (timeZone) {
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).formatToParts(now);
+  const parts = getRestaurantClockParts(timeZone, now, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
-      const hour = Number(parts.find((p) => p.type === "hour")?.value);
-      const minute = Number(parts.find((p) => p.type === "minute")?.value);
-
-      if (Number.isInteger(hour) && Number.isInteger(minute)) {
-        /* Some engines render midnight as "24" under hour12:false; the
-           modulo normalizes that back to 0 rather than yielding 1440. */
-        return (hour % 24) * 60 + minute;
-      }
+  if (parts) {
+    const hour = Number(parts.find((p) => p.type === "hour")?.value);
+    const minute = Number(parts.find((p) => p.type === "minute")?.value);
+    if (Number.isInteger(hour) && Number.isInteger(minute)) {
+      /* Some engines render midnight as "24" under hour12:false; the
+         modulo normalizes that back to 0 rather than yielding 1440. */
+      return (hour % 24) * 60 + minute;
     }
-  } catch {
-    // Unknown/unsupported timezone — fall through to the device clock.
   }
-  return now.getHours() * 60 + now.getMinutes();
+
+  /* Last resort — UTC, not the device. Deterministic and identical for every
+     viewer, which is the property that matters here. */
+  return now.getUTCHours() * 60 + now.getUTCMinutes();
 }
+
 
 /**
  * Is `nowMinutes` inside the window, including windows that wrap past

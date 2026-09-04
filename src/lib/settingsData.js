@@ -21,6 +21,8 @@
  * stays functionally disabled/"coming soon" regardless of this toggle).
  */
 
+import { defaultWorkingHours, normalizeWorkingHours } from "./acceptingOrders.js";
+
 const SETTINGS_KEY_PREFIX = "pro_order_settings";
 
 export const SETTINGS_CHANGE_EVENT = "pro-order-settings-change";
@@ -71,8 +73,12 @@ function defaultSettings(restaurantSlug) {
        24-hour venue could hold rather than a special "unset" sentinel — and
        it keeps the safe direction consistent with the fail-open principle
        that governs the rest of the schedule logic. A restaurant with genuine
-       hours simply enters them; nothing about the editor changed. */
-    workingHours: { openTime: "00:00", closeTime: "00:00", closedDays: [] },
+       hours simply enters them.
+
+       Phase 79.1 — now seven independent rows rather than one shared window,
+       all carrying that same 00:00–00:00 meaning. defaultWorkingHours() owns
+       the shape so this file has no second definition of it to fall behind. */
+    workingHours: defaultWorkingHours(),
     updatedAt: null,
   };
 }
@@ -110,7 +116,21 @@ export function getSettings(restaurantSlug) {
       ...stored,
       languagesEnabled: { ...defaults.languagesEnabled, ...(stored.languagesEnabled || {}) },
       paymentMethodsEnabled: { ...defaults.paymentMethodsEnabled, ...(stored.paymentMethodsEnabled || {}) },
-      workingHours: { ...defaults.workingHours, ...(stored.workingHours || {}) },
+      /* Phase 79.1 — normalized, NOT shallow-merged.
+
+         The old `{...defaults.workingHours, ...stored.workingHours}` would
+         now produce a hybrid record: seven fresh day rows from the defaults
+         with a stored `openTime` / `closeTime` / `closedDays` sitting beside
+         them, both looking authoritative and free to disagree forever. That
+         is exactly the divergence this phase has to prevent.
+
+         normalizeWorkingHours() is therefore the single read layer: it
+         migrates a legacy record, passes an already-migrated one through
+         unchanged, and returns ONLY the seven day rows. The legacy keys are
+         dropped here, so nothing downstream can read them even if they are
+         still sitting in localStorage from before the upgrade — and the next
+         Settings save writes the normalized shape, removing them for good. */
+      workingHours: normalizeWorkingHours(stored.workingHours),
     };
   } catch {
     return defaults;
@@ -129,7 +149,15 @@ export function updateSettings(restaurantSlug, patch) {
     ...patch,
     languagesEnabled: { ...current.languagesEnabled, ...(patch.languagesEnabled || {}) },
     paymentMethodsEnabled: { ...current.paymentMethodsEnabled, ...(patch.paymentMethodsEnabled || {}) },
-    workingHours: { ...current.workingHours, ...(patch.workingHours || {}) },
+    /* Normalized on the way out too, so a patch carrying a partial or
+       legacy-shaped workingHours can never reintroduce the old keys into
+       storage. `current` is already normalized (it came from getSettings), so
+       a patch that touches only one weekday merges cleanly over the other
+       six. */
+    workingHours: normalizeWorkingHours({
+      ...current.workingHours,
+      ...(patch.workingHours || {}),
+    }),
     updatedAt: new Date().toISOString(),
   };
   try {

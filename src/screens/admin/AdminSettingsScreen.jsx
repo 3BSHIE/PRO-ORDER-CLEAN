@@ -10,6 +10,7 @@ import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
 import StaffCallAlertsCard from "./StaffCallAlertsCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
+import { WEEKDAY_KEYS } from "../../lib/acceptingOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import {
   buildCustomerThemeVars,
@@ -44,11 +45,20 @@ import {
    below as a third, redundant layer.
    ═══════════════════════════════════════════════════════════════════════ */
 
-const DAYS = [
-  { key: "sun", label: "Sun" }, { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" },
-  { key: "wed", label: "Wed" }, { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" },
-  { key: "sat", label: "Sat" },
-];
+/* Phase 79.1 — the day list is no longer declared here. WEEKDAY_KEYS is the
+   project's one weekday vocabulary (see acceptingOrders.js) and the schedule
+   evaluator reads the very same keys, so a second list in this file could
+   only ever be a way for the editor and the rule to disagree. Labels come
+   from translations, keyed by the same strings. */
+const DAY_LABEL_KEY = {
+  sun: "admin.sunday", mon: "admin.monday", tue: "admin.tuesday",
+  wed: "admin.wednesday", thu: "admin.thursday", fri: "admin.friday",
+  sat: "admin.saturday",
+};
+const DAY_LABEL_FALLBACK = {
+  sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday",
+  thu: "Thursday", fri: "Friday", sat: "Saturday",
+};
 
 export default function AdminSettingsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { settings } = useSettingsData(restaurant.slug);
@@ -86,11 +96,49 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   function setNested(key, subKey, value) {
     setDraft((prev) => ({ ...prev, [key]: { ...prev[key], [subKey]: value } }));
   }
-  function toggleClosedDay(dayKey) {
+  /* Phase 79.1 — one weekday row's field. Everything stays inside the draft
+     until Save, exactly like every other field on this screen. */
+  function setDayField(dayKey, field, value) {
+    setDraft((prev) => ({
+      ...prev,
+      workingHours: {
+        ...prev.workingHours,
+        [dayKey]: { ...prev.workingHours[dayKey], [field]: value },
+      },
+    }));
+  }
+
+  /* Closing a day never clears its times (§9). The values stay in the draft
+     and simply stop being editable, so reopening the day restores the hours
+     the manager had already entered rather than making them type them again. */
+  function toggleDayClosed(dayKey) {
+    setDraft((prev) => ({
+      ...prev,
+      workingHours: {
+        ...prev.workingHours,
+        [dayKey]: {
+          ...prev.workingHours[dayKey],
+          isClosed: !prev.workingHours[dayKey]?.isClosed,
+        },
+      },
+    }));
+  }
+
+  /* Most restaurants keep one set of hours for most of the week, and typing
+     the same two times seven times is the kind of chore that makes people
+     leave a schedule wrong. Deliberately skips days marked Closed — those
+     were a decision, and reopening them would be the opposite of a
+     convenience. */
+  function copyMondayToOpenDays() {
     setDraft((prev) => {
-      const set = new Set(prev.workingHours.closedDays || []);
-      set.has(dayKey) ? set.delete(dayKey) : set.add(dayKey);
-      return { ...prev, workingHours: { ...prev.workingHours, closedDays: [...set] } };
+      const source = prev.workingHours.mon;
+      if (!source) return prev;
+      const next = { ...prev.workingHours };
+      for (const key of WEEKDAY_KEYS) {
+        if (key === "mon" || next[key]?.isClosed) continue;
+        next[key] = { ...next[key], openTime: source.openTime, closeTime: source.closeTime };
+      }
+      return { ...prev, workingHours: next };
     });
   }
 
@@ -314,33 +362,74 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
         {/* ── Working Hours ────────────────────────────────────────────── */}
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.workingHours", "Working Hours")}</h3>
-          {/* Phase 79 §31 — these fields had no effect on anything until this
+          {/* Phase 79 §31 — these fields had no effect on anything until that
               phase, so the section said nothing about what they were for. Now
               that Accepting Orders' Auto mode consumes them, the one sentence
-              a manager needs is which control reads them and where it lives.
-              The editor itself is unchanged. */}
+              a manager needs is which control reads them and where it lives. */}
           <p className="ad-settings__hint" style={{ margin: "0 0 14px" }}>
             {t(
               "accepting.workingHoursHint",
-              "Used by Accepting Orders on the Overview page when its mode is set to Auto. A closing time earlier than the opening time means the restaurant stays open past midnight."
+              "Used by Accepting Orders on the Overview page when its mode is set to Auto. Each day is independent: a closing time earlier than the opening time keeps that day open past midnight, and setting both to the same time means open 24 hours."
             )}
           </p>
-          <div className="mm-row-2" style={{ marginBottom: 14 }}>
-            <Input label={t("admin.openingTime", "Opening Time")} type="time" value={draft.workingHours.openTime}
-              onChange={(e) => setNested("workingHours", "openTime", e.target.value)} />
-            <Input label={t("admin.closingTime", "Closing Time")} type="time" value={draft.workingHours.closeTime}
-              onChange={(e) => setNested("workingHours", "closeTime", e.target.value)} />
+
+          {/* Phase 79.1 — seven independent rows, one per weekday.
+              Deliberately a plain vertical list rather than a table or a
+              timeline: a manager scans down the days looking for the one they
+              need to change, and every extra structure between them is
+              something to read past. Each row is self-contained, so nothing
+              here can make one day's hours depend on another's. */}
+          <div className="wh-list">
+            {WEEKDAY_KEYS.map((key) => {
+              const day = draft.workingHours[key] || {};
+              const label = t(DAY_LABEL_KEY[key], DAY_LABEL_FALLBACK[key]);
+              const closed = !!day.isClosed;
+              return (
+                <div key={key} className={`wh-row ${closed ? "wh-row--closed" : ""}`}>
+                  <span className="wh-row__day">{label}</span>
+
+                  {/* The state is written out, never carried by colour alone
+                      (§31). aria-pressed exposes it to assistive tech, and the
+                      accessible name names the day so a screen reader user
+                      knows which row they are on. */}
+                  <button
+                    type="button"
+                    className={`wh-toggle ${closed ? "wh-toggle--closed" : "wh-toggle--open"}`}
+                    onClick={() => toggleDayClosed(key)}
+                    aria-pressed={!closed}
+                    aria-label={`${label} — ${closed ? t("accepting.dayClosed", "Closed") : t("accepting.dayOpen", "Open")}`}
+                  >
+                    {closed ? t("accepting.dayClosed", "Closed") : t("accepting.dayOpen", "Open")}
+                  </button>
+
+                  <div className="wh-row__times">
+                    <input
+                      type="time"
+                      className="wh-time"
+                      value={day.openTime || ""}
+                      disabled={closed}
+                      onChange={(e) => setDayField(key, "openTime", e.target.value)}
+                      aria-label={`${label} — ${t("admin.openingTime", "Opening Time")}`}
+                    />
+                    <span className="wh-row__dash" aria-hidden="true">–</span>
+                    <input
+                      type="time"
+                      className="wh-time"
+                      value={day.closeTime || ""}
+                      disabled={closed}
+                      onChange={(e) => setDayField(key, "closeTime", e.target.value)}
+                      aria-label={`${label} — ${t("admin.closingTime", "Closing Time")}`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <span className="field__label" style={{ display: "block", marginBottom: 8 }}>{t("admin.closedDays", "Closed Days")}</span>
-          <div className="chips-row" style={{ marginBottom: 0 }}>
-            {DAYS.map((day) => (
-              <button key={day.key} type="button"
-                className={`chip ${draft.workingHours.closedDays.includes(day.key) ? "chip--active" : ""}`}
-                onClick={() => toggleClosedDay(day.key)}
-              >
-                {day.label}
-              </button>
-            ))}
+
+          <div className="wh-actions">
+            <Button variant="outline" size="sm" onClick={copyMondayToOpenDays}>
+              {t("accepting.copyMondayToAll", "Copy Monday to all open days")}
+            </Button>
           </div>
         </Card>
 

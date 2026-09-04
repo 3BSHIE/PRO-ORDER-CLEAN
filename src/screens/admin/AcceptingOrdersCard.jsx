@@ -40,6 +40,18 @@ import { ACCEPTING_ORDERS_MODES } from "../../lib/acceptingOrders.js";
    colour is never the only carrier (§41). */
 const MODE_ICON = { auto: CalendarClock, open: CircleCheck, closed: CircleSlash };
 
+/* Phase 79.1 — used only to name the service day when an overnight shift has
+   run past midnight. Same keys as WEEKDAY_KEYS and the Settings editor. */
+const DAY_LABEL_KEY = {
+  sun: "admin.sunday", mon: "admin.monday", tue: "admin.tuesday",
+  wed: "admin.wednesday", thu: "admin.thursday", fri: "admin.friday",
+  sat: "admin.saturday",
+};
+const DAY_LABEL_FALLBACK = {
+  sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday",
+  thu: "Thursday", fri: "Friday", sat: "Saturday",
+};
+
 export default function AcceptingOrdersCard({ restaurant, session, onNotify }) {
   const { t } = useLanguage();
   const { mode, accepting, reason, workingHours, refresh } = useAcceptingOrders(restaurant.slug);
@@ -95,12 +107,21 @@ export default function AcceptingOrdersCard({ restaurant, session, onNotify }) {
   } else if (reason === "invalid_schedule") {
     detail = t(
       "accepting.detailInvalidSchedule",
-      "Working hours aren't set, so orders are being accepted. Add them in Settings."
+      "Working hours aren't set for today, so orders are being accepted. Check them in Settings."
     );
+  } else if (workingHours.overnightFromPreviousDay) {
+    /* Phase 79.1 §20 — after midnight the governing row is yesterday's, and
+       saying "today's hours · 18:00–02:00" while today's row might be closed
+       would be actively misleading. Naming the day the shift belongs to is
+       the whole clarification. */
+    detail = `${t("accepting.detailStillOpenFrom", "Still open from {day}").replace(
+      "{day}",
+      t(DAY_LABEL_KEY[workingHours.serviceDay], DAY_LABEL_FALLBACK[workingHours.serviceDay])
+    )} · ${window}`;
   } else if (window) {
-    detail = `${t("accepting.detailFollowing", "Following working hours")} · ${window}`;
+    detail = `${t("accepting.detailFollowingToday", "Following today's hours")} · ${window}`;
   } else {
-    detail = t("accepting.detailFollowing", "Following working hours");
+    detail = t("accepting.detailFollowingToday", "Following today's hours");
   }
 
   const StateIcon = accepting ? CircleCheck : CircleSlash;
