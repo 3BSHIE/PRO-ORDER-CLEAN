@@ -4516,3 +4516,116 @@ button{font-family:var(--font-body)}
   .cart-issue__msg{flex:0 0 100%}
   .cart-issue__actions{width:100%;justify-content:flex-end}
 }
+
+/* ══ Phase 81 — Restaurant Info ═══════════════════════════════════════════
+
+   The five restaurant-authored fields, in one sheet a guest opens on
+   purpose. Everything here uses the restaurant accent variables where a
+   branded highlight helps, and falls back to the gold family when the
+   restaurant has not set an accent — so a default restaurant looks exactly
+   as it did before this phase. */
+
+/* ── Entry point ─────────────────────────────────────────────────────── */
+
+/* Quiet by design: it sits beside the restaurant name, not in the topbar's
+   action cluster, and must never compete with Call Staff or the cart. */
+.rinfo-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:32px;padding:5px 12px;margin-top:10px;
+  border-radius:999px;cursor:pointer;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-3);font-family:var(--font-body);
+  font-size:12px;font-weight:600;
+  transition:border-color .2s,color .2s}
+.rinfo-btn:hover{
+  border-color:var(--restaurant-accent-line,var(--gold-line));
+  color:var(--text-1)}
+
+/* ── Sheet ───────────────────────────────────────────────────────────── */
+
+.rinfo__overlay{
+  position:fixed;inset:0;z-index:230;
+  background:rgba(5,5,6,.72);backdrop-filter:blur(6px);
+  display:flex;align-items:flex-end;justify-content:center;
+  animation:fade .18s ease both}
+@media(min-width:640px){.rinfo__overlay{align-items:center;padding:24px}}
+
+.rinfo{
+  position:relative;width:100%;max-width:440px;
+  max-height:88vh;max-height:88dvh;overflow-y:auto;overflow-x:hidden;
+  background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  box-shadow:var(--shadow);
+  /* The same `sheet` keyframe the item and payment sheets already use (00a753) */
+  animation:sheet .32s var(--ease) both}
+@media(min-width:640px){.rinfo{border-radius:var(--r-xl)}}
+@media(prefers-reduced-motion:reduce){.rinfo{animation:none}}
+
+.rinfo__handle{
+  width:38px;height:4px;border-radius:999px;background:var(--border-strong);
+  margin:10px auto 0}
+@media(min-width:640px){.rinfo__handle{display:none}}
+
+.rinfo__x{
+  position:absolute;top:12px;inset-inline-end:12px;z-index:2;
+  width:32px;height:32px;display:grid;place-items:center;
+  border-radius:50%;cursor:pointer;
+  background:rgba(0,0,0,.45);border:1px solid var(--border);
+  color:var(--text-2);backdrop-filter:blur(4px)}
+.rinfo__x:hover{color:var(--text-1);border-color:var(--border-strong)}
+
+/* §17 — fixed 16:9, object-fit cover, restrained radius. One image, no
+   carousel, no full-screen hero, and the sheet never waits on it. */
+.rinfo__cover{
+  aspect-ratio:16/9;width:100%;overflow:hidden;
+  background:var(--surface-2);
+  border-bottom:1px solid var(--border)}
+.rinfo__cover img{width:100%;height:100%;object-fit:cover;display:block}
+
+.rinfo__body{padding:18px 20px 24px;display:flex;flex-direction:column;gap:14px}
+
+/* Restaurant-authored prose: wraps, breaks long words, never overflows. */
+.rinfo__description{
+  margin:0;font-size:14px;line-height:1.65;color:var(--text-2);
+  white-space:pre-line;overflow-wrap:anywhere}
+
+.rinfo__contact{
+  display:flex;flex-direction:column;gap:9px;
+  padding-top:14px;border-top:1px solid var(--border)}
+.rinfo__contact-title{
+  margin:0 0 2px;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-3)}
+
+/* §50 — small utility rows, not CTA cards. */
+.rinfo__row{
+  display:grid;grid-template-columns:auto auto minmax(0,1fr);
+  align-items:baseline;gap:8px;font-size:13px;line-height:1.5}
+.rinfo__row > svg{
+  align-self:center;flex:none;
+  color:var(--restaurant-accent,var(--gold))}
+.rinfo__row--address{align-items:start}
+.rinfo__row--address > svg{margin-top:3px}
+.rinfo__row-label{color:var(--text-3);font-size:12px;white-space:nowrap}
+.rinfo__row-value{
+  color:var(--text-1);min-width:0;overflow-wrap:anywhere;text-align:start}
+.rinfo__row-value--link{
+  color:var(--restaurant-accent,var(--gold));text-decoration:none}
+.rinfo__row-value--link:hover{text-decoration:underline}
+/* A phone number and an email read left-to-right in every language, matching
+   the convention prices and order ids already use. */
+[dir="rtl"] .rinfo__row-value{direction:ltr;unicode-bidi:isolate;text-align:start}
+[dir="rtl"] .rinfo__row--address .rinfo__row-value{direction:rtl}
+
+/* ── Welcome-screen description (§13) ────────────────────────────────── */
+
+/* Two lines maximum. The welcome exists to get the guest to Continue; a venue
+   introducing itself should not push that button toward the fold (§28). */
+.access__description{
+  margin:12px auto 0;max-width:320px;
+  font-size:13.5px;line-height:1.6;color:var(--text-3);text-align:center;
+  overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden}
+
+.access__info-btn{margin-top:14px}
+.menu-header__info-btn{margin-top:12px}

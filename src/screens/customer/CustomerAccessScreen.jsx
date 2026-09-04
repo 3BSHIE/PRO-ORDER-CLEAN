@@ -6,6 +6,7 @@ import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Input   from "../../components/ui/Input.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
+import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { applyRestaurantDefaultLanguageIfFirstVisit } from "../../i18n/language.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
@@ -13,6 +14,7 @@ import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import RestaurantInfo from "./components/RestaurantInfo.jsx";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 
@@ -38,6 +40,10 @@ export default function CustomerAccessScreen({
   const result = resolveTableAccess(restaurantSlug, qrToken);
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurantSlug);
+  /* Phase 81 §33 — the recovery states share this topbar, so the switcher must
+     reflect the restaurant's enabled languages here too rather than offering a
+     locale the venue has switched off. */
+  const enabledLanguages = resolveEnabledLanguages(settings.languagesEnabled);
 
   /* Phase 23 — a restaurant's configured Default Language only ever applies
      on a true first visit (no language preference stored at all yet);
@@ -76,7 +82,7 @@ export default function CustomerAccessScreen({
       <Topbar
         left={
           result.ok
-            ? <LanguageSwitcher className="access__lang-switcher" />
+            ? <LanguageSwitcher className="access__lang-switcher" enabled={enabledLanguages} />
             : <Logo variant="icon" size="nav" />
         }
         /* Phase 74 §39 — the badge was red on every failure, which put an
@@ -110,6 +116,7 @@ export default function CustomerAccessScreen({
           <WelcomeView
             restaurant={effectiveRestaurant}
             table={result.table}
+            settings={settings}
             onContinue={() => setStep("onboarding")}
           />
         ) : (
@@ -136,7 +143,7 @@ export default function CustomerAccessScreen({
 }
 
 /* ── Step 1: Welcome ─────────────────────────────────────────────────────── */
-function WelcomeView({ restaurant, table, onContinue }) {
+function WelcomeView({ restaurant, table, settings, onContinue }) {
   const { t } = useLanguage();
   return (
     /* Phase 73 §2/§3 — access--welcome is a scoped modifier, NOT a change to
@@ -161,6 +168,21 @@ function WelcomeView({ restaurant, table, onContinue }) {
         <h1 className="access__table">
           {t("customer.welcomeToTable", "Welcome to Table")} <i>#{table.tableNumber}</i>
         </h1>
+
+        {/* Phase 81 §13 — one restrained line, clamped to two, so a venue can
+            introduce itself without the welcome turning into an About page.
+            The full text lives in Restaurant Info below. §28 — no cover image
+            here: the Continue button must stay reachable at 320px, and a hero
+            is exactly what would push it under the fold. */}
+        {(settings?.description || "").trim() && (
+          <p className="access__description">{settings.description.trim()}</p>
+        )}
+
+        <RestaurantInfo
+          settings={settings}
+          restaurantName={restaurant.name}
+          className="access__info-btn"
+        />
       </div>
 
       <div className="access__enter anim-enter-form">

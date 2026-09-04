@@ -13,6 +13,54 @@ const LANGUAGE_STORAGE_KEY = "pro-order-language";
 const VALID_LANGUAGES = ["en", "ar"];
 const DEFAULT_LANGUAGE = "en";
 
+/** The two languages the product ships. Phase 81 adds no third. */
+export const SUPPORTED_LANGUAGES = VALID_LANGUAGES;
+
+/**
+ * Phase 81 — which languages a restaurant actually offers its guests.
+ *
+ * settingsData stores this as a map ({ en: true, ar: true }), which is what
+ * the Admin checkboxes write; this turns it into an ordered list of the
+ * languages that are both supported and enabled.
+ *
+ * NEVER returns an empty list. Admin save already refuses to disable the last
+ * language, but a hand-edited or partially-written record must not be able to
+ * produce a customer UI with no usable locale — so an empty result falls back
+ * to English rather than leaving the guest with nothing (§4).
+ *
+ * @param {object} languagesEnabled — settings.languagesEnabled
+ * @returns {Array<"en"|"ar">} at least one entry
+ */
+export function resolveEnabledLanguages(languagesEnabled) {
+  const map = languagesEnabled && typeof languagesEnabled === "object" ? languagesEnabled : {};
+  const enabled = VALID_LANGUAGES.filter((code) => map[code] !== false && map[code] !== undefined);
+  /* `undefined` counts as disabled above so a record listing only { en: true }
+     does not silently enable Arabic; but a record with NOTHING usable falls
+     back rather than leaving the guest with no language at all. */
+  return enabled.length > 0 ? enabled : [DEFAULT_LANGUAGE];
+}
+
+/**
+ * Which language the customer should actually be in, given what the
+ * restaurant offers (§6).
+ *
+ * Deliberately in this order:
+ *   1. the language already in use, if the restaurant still offers it
+ *   2. otherwise the first one it does offer
+ *
+ * The browser locale is NOT consulted. A guest halfway through ordering must
+ * not have their language changed by something they never chose; the only
+ * reason to move them is that the restaurant withdrew the one they were in.
+ *
+ * @param {"en"|"ar"} current
+ * @param {Array<string>} enabled
+ * @returns {"en"|"ar"}
+ */
+export function resolveActiveLanguage(current, enabled) {
+  const list = Array.isArray(enabled) && enabled.length > 0 ? enabled : [DEFAULT_LANGUAGE];
+  return list.includes(current) ? current : list[0];
+}
+
 export const LANGUAGE_CHANGE_EVENT = "pro-order-language-change";
 
 /**

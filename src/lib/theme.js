@@ -83,13 +83,6 @@ export function relativeLuminance(hex) {
    is near the perceptual midpoint for this palette). */
 const LIGHT_TEXT_THRESHOLD = 0.45;
 
-/* An accent is only allowed to tint customer surfaces when it is genuinely
-   dark; the app's text palette is cream and would disappear on a light
-   surface. A lighter pick is simply ignored for surfaces (the primary colour
-   still applies), which is the "sensible safeguard" this phase asks for
-   rather than an accessibility engine. */
-const MAX_SURFACE_LUMINANCE = 0.12;
-
 export function resolveHeadingFont(key) {
   return HEADING_FONTS[key] ? key : DEFAULT_HEADING_FONT;
 }
@@ -132,18 +125,42 @@ export function buildCustomerThemeVars(settings) {
   }
 
   /* ── Surface accent ────────────────────────────────────────────────────
-     Only honoured when dark enough to keep the cream text legible. The three
-     surface steps keep their relative ladder by mixing progressively more
-     white in, so cards still read as raised above the page. */
+     Phase 81 — this field was stored and wired since Phase 31, but behind a
+     luminance gate so tight (<= 0.12) that almost anything a manager might
+     pick was silently ignored. The setting looked broken because for most
+     inputs it did nothing at all.
+
+     The gate is gone. Its job — keeping the cream text legible — is now done
+     by the DERIVATION instead: the accent is mixed into the near-black base
+     at a small fixed ratio, so the surfaces take the restaurant's HUE while
+     their lightness stays where the type was designed to sit. A hot pink
+     accent tints the charcoal warm; it cannot turn the page pink. That is
+     what makes the field truthful for every value without needing a contrast
+     engine (§12), and it keeps the accent's original meaning rather than
+     inventing a second one (§10): primaryColor is the brand accent that
+     drives gold and CTAs, accentColor is the surface tint.
+
+     The three steps keep their relative ladder, so cards still read as raised
+     above the page. */
   const accent = settings.accentColor;
-  if (
-    isValidHexColor(accent) &&
-    accent.toLowerCase() !== DEFAULT_ACCENT_COLOR &&
-    relativeLuminance(accent) <= MAX_SURFACE_LUMINANCE
-  ) {
-    vars["--surface-1"] = `color-mix(in srgb, ${accent} 92%, #ffffff)`;
-    vars["--surface-2"] = `color-mix(in srgb, ${accent} 87%, #ffffff)`;
-    vars["--surface-3"] = `color-mix(in srgb, ${accent} 80%, #ffffff)`;
+  if (isValidHexColor(accent) && accent.toLowerCase() !== DEFAULT_ACCENT_COLOR) {
+    /* Deliberately small proportions. Enough to be seen against the default
+       charcoal, nowhere near enough to move the surfaces out of the dark band
+       the whole customer palette assumes. */
+    vars["--surface-1"] = `color-mix(in srgb, ${accent} 16%, #101012)`;
+    vars["--surface-2"] = `color-mix(in srgb, ${accent} 14%, #17171a)`;
+    vars["--surface-3"] = `color-mix(in srgb, ${accent} 12%, #1f1f23)`;
+
+    /* Three variables for restaurant-accented DETAIL — used by the Restaurant
+       Info surface, and available to anything else that wants a branded
+       highlight without touching a semantic colour (§9, §12). The foreground
+       flips by the same luminance measure the primary already uses, so text
+       on the accent is never near-invisible whichever colour is chosen. */
+    vars["--restaurant-accent"] = accent;
+    vars["--restaurant-accent-foreground"] =
+      relativeLuminance(accent) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
+    vars["--restaurant-accent-soft"] = `color-mix(in srgb, ${accent} 18%, transparent)`;
+    vars["--restaurant-accent-line"] = `color-mix(in srgb, ${accent} 40%, transparent)`;
   }
 
   /* ── Typography ────────────────────────────────────────────────────────

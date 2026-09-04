@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { buildCustomerThemeVars } from "../../lib/theme.js";
+import { useLanguage } from "../../i18n/useLanguage.js";
+import { resolveEnabledLanguages, resolveActiveLanguage, setLanguage } from "../../i18n/language.js";
 import ErrorBoundary from "../system/ErrorBoundary.jsx";
 
 /**
@@ -30,6 +33,29 @@ import ErrorBoundary from "../system/ErrorBoundary.jsx";
 export default function CustomerTheme({ restaurantSlug, children }) {
   const { settings } = useSettingsData(restaurantSlug);
   const themeVars = buildCustomerThemeVars(settings);
+
+  /* ── Phase 81 — enforce the restaurant's enabled languages ─────────────
+     This wrapper already sits around every customer route and nothing else,
+     which makes it the one place that can guarantee no customer screen ever
+     renders in a language the restaurant has switched off. Putting the check
+     in each screen would mean six chances to forget it, and putting it in the
+     language module would apply it to Admin and Kitchen too — which must keep
+     both languages regardless of what a restaurant offers its guests.
+
+     It only ever moves the guest when their current language has actually
+     been withdrawn (see resolveActiveLanguage), so switching between two
+     enabled languages is untouched. Because the settings hook re-reads on the
+     change event, an Admin saving "English only" reaches an open Arabic
+     customer screen and flips it without a reload (§38). */
+  const { language } = useLanguage();
+  useEffect(() => {
+    const enabled = resolveEnabledLanguages(settings.languagesEnabled);
+    const next = resolveActiveLanguage(language, enabled);
+    /* The normal setLanguage flow — persist, apply dir/lang, dispatch — so
+       every mounted screen re-renders exactly as it would on a manual
+       switch (§55). */
+    if (next !== language) setLanguage(next);
+  }, [language, settings.languagesEnabled]);
 
   return (
     <div className="customer-theme" style={themeVars}>

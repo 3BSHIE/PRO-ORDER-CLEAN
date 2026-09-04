@@ -10,6 +10,7 @@ import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import RestaurantClosedNotice from "./components/RestaurantClosedNotice.jsx";
+import RestaurantInfo from "./components/RestaurantInfo.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatItemCount, formatResultCount } from "../../i18n/counts.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
@@ -384,6 +385,15 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           <p className="menu-header__meta">
             {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
           </p>
+          {/* Phase 81 §20/§29 — sits with the restaurant's identity rather
+              than in the topbar's action cluster, so Call Staff and My Orders
+              keep their space and the header stays ordering-first. Renders
+              nothing when the restaurant filled none of the five fields. */}
+          <RestaurantInfo
+            settings={settings}
+            restaurantName={restaurant.name}
+            className="menu-header__info-btn"
+          />
         </header>
 
         {/* ── Busy notice (Phase 26) ──────────────────────────────────────
