@@ -24,9 +24,77 @@
  * button only. The sidebar nav items still navigate straight away and still
  * discard a dirty draft silently — that is pre-existing Phase 55 behaviour,
  * not something this phase introduced, and widening it is a separate change.
+ *
+ * Phase 60 update: that widening happened. Every in-app Admin page change now
+ * routes through requestNavigation (see navigateAdmin in App.jsx), so the
+ * sidebar, the dashboard shortcuts and sign-out all ask this module first.
+ *
+ * Phase 79.3 update: the module now also owns browser-exit protection, so a
+ * refresh or tab close warns about the same drafts the in-app dialog covers.
+ * TWO SURFACES, DELIBERATELY DIFFERENT:
+ *   in-app navigation  → the screen's own branded PRO·ORDER Modal
+ *                        ("Keep Editing" / "Discard Changes")
+ *   browser exit       → the browser's own beforeunload confirmation, whose
+ *                        wording no site can control
+ * Nothing about the first was changed to add the second.
  */
 
 let activeGuard = null;
+
+/* ── Phase 79.3 — browser-exit protection ─────────────────────────────────
+   The slot above only ever hears about navigation the Admin shell itself
+   starts. A refresh, a tab close or a window close never reaches
+   requestNavigation, so until this phase both guarded drafts — Settings and
+   the Product editor — were lost silently on any of the three.
+
+   The listener lives HERE rather than in either screen, for the same reason
+   the guard slot does: there is one question ("does the currently registered
+   Admin screen have unsaved work?") and it should have exactly one answer.
+   Two screens each attaching their own beforeunload would be two answers,
+   two lifecycles to keep in step, and two chances to leak a listener that
+   outlives the draft it was protecting.
+
+   `unloadAttached` mirrors whether the listener is currently on the window,
+   so the add/remove calls stay balanced no matter how often a screen
+   re-registers. addEventListener with the same reference is idempotent
+   anyway; the flag is what makes the intent explicit and the state
+   inspectable. */
+const BEFORE_UNLOAD = "beforeunload";
+let unloadAttached = false;
+
+/**
+ * The handler itself. Deliberately the standard incantation and nothing
+ * more — see the note about custom text below.
+ */
+function handleBeforeUnload(event) {
+  /* Browsers have not honoured custom text for a decade: the wording of the
+     confirmation is the browser's, and every engine ignores whatever string
+     is returned here. Attempting PRO·ORDER copy would be dead code that
+     reads like a feature. preventDefault() is the modern trigger;
+     returnValue and the returned string are what older Chrome and Safari
+     still look for, so all three are set. */
+  event.preventDefault();
+  event.returnValue = "";
+  return "";
+}
+
+/** Add or remove the listener so it matches `shouldWarn`, and only then. */
+function syncUnloadListener(shouldWarn) {
+  const next = !!shouldWarn;
+  if (next === unloadAttached) return;
+  try {
+    if (next) window.addEventListener(BEFORE_UNLOAD, handleBeforeUnload);
+    else window.removeEventListener(BEFORE_UNLOAD, handleBeforeUnload);
+    unloadAttached = next;
+  } catch {
+    /* No window (non-browser test runner). In-app guarding is unaffected. */
+  }
+}
+
+/** Whether a browser-exit warning is currently armed. Exposed for tests. */
+export function isUnloadGuardActive() {
+  return unloadAttached;
+}
 
 /**
  * Register the current screen's guard. Returns an unregister function
@@ -37,15 +105,39 @@ let activeGuard = null;
  *   TAKE OVER (navigation is now the guard's responsibility — it may call
  *   `proceed` later, or never). Return false to decline, in which case
  *   navigation happens immediately.
+ * @param {boolean} [hasUnsavedWork=false]
+ *   Whether this guard currently stands for work that would be LOST on a
+ *   browser exit. Drives the beforeunload listener and nothing else — the
+ *   in-app path still asks the guard itself.
+ *
+ *   This is read at registration time, so a screen must re-register when its
+ *   dirtiness changes. Both current callers already do: their effects list
+ *   `isDirty` in the dependency array, so React re-runs registration on every
+ *   flip. A boolean is used rather than a predicate precisely so that
+ *   requirement stays visible at the call site instead of hiding behind a
+ *   closure that might capture a stale value.
+ *
+ *   Note this layer never computes dirtiness itself. Settings compares
+ *   normalized settings fingerprints, the Product editor compares its own
+ *   draft signature, and both keep their rules; this only consumes the answer.
  * @returns {() => void}
  */
-export function registerNavigationGuard(guard) {
+export function registerNavigationGuard(guard, hasUnsavedWork = false) {
   activeGuard = guard;
+  syncUnloadListener(hasUnsavedWork);
   return () => {
     /* Only clear the slot if it is still ours: during a screen swap React
        can mount the next screen's effect before running this cleanup, and
-       blindly nulling would throw away the newcomer's guard. */
-    if (activeGuard === guard) activeGuard = null;
+       blindly nulling would throw away the newcomer's guard.
+
+       The same ownership test governs the listener, and for a sharper
+       reason: if a newly-mounted dirty screen has already armed it, tearing
+       it down here would leave that screen's draft unprotected while its
+       guard is still registered. Only the owner disarms. */
+    if (activeGuard === guard) {
+      activeGuard = null;
+      syncUnloadListener(false);
+    }
   };
 }
 

@@ -148,7 +148,13 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       pendingNavRef.current = proceed;
       setShowDiscard(true);
       return true; // this dialog owns the decision now
-    });
+    },
+    /* Phase 79.3 — the same dirtiness the dialog uses, handed to the shared
+       layer so a refresh or tab close warns too. Passed rather than
+       recomputed: this screen's normalized fingerprint comparison stays the
+       one definition of "unsaved settings". Re-registration on every flip is
+       what keeps it current, which is why isDirty is in the deps below. */
+    isDirty);
   }, [isDirty]);
 
   /* Both outcomes funnel through here so a parked navigation can never be

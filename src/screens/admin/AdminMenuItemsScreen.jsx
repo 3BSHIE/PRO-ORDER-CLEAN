@@ -662,7 +662,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       pendingNavRef.current = proceed;
       setShowDiscard(true);
       return true; // this dialog owns the decision now
-    });
+    },
+    /* Phase 79.3 — hand the editor's existing draft-signature dirtiness to
+       the shared layer, which uses it (and only it) to arm the browser-exit
+       warning. The signature comparison above is unchanged. */
+    isDirty);
   }, [isDirty]);
 
   /* Both discard-dialog outcomes funnel through here so a parked navigation
