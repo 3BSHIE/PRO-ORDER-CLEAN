@@ -90,6 +90,11 @@ export const translations = {
       yourName: "Your name",
       identifyOrderMsg: "We'll use your name to identify your order at Table",
       continueToMenu: "Continue to menu",
+      /* Phase 83 — the single entry CTA. "Continue to menu" belonged to a
+         two-step flow that no longer exists; this names the thing the guest
+         is actually about to do. */
+      startOrdering: "Start Ordering",
+      loadingExperience: "Loading",
 
       /* ── Phase 43 — copy that was hardcoded in JSX until now ─────────── */
       greeting: "Hi,",
@@ -823,6 +828,8 @@ export const translations = {
       yourName: "اسمك",
       identifyOrderMsg: "سنستخدم اسمك لتمييز طلبك في الطاولة",
       continueToMenu: "المتابعة إلى القائمة",
+      startOrdering: "ابدأ الطلب",
+      loadingExperience: "جارٍ التحميل",
 
       /* ── Phase 43 ─────────────────────────────────────────────────────── */
       greeting: "مرحبًا،",

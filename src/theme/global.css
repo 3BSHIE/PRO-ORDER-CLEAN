@@ -274,28 +274,6 @@ button{font-family:var(--font-body)}
     transition-duration:.001s!important}
 }
 
-/* ── name onboarding (Phase 2) ─────────────────────────────────────────── */
-.onboard{min-height:calc(100vh - 64px);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;padding:32px 20px 80px}
-.onboard__back{display:inline-flex;align-items:center;gap:4px;
-  background:transparent;border:none;cursor:pointer;
-  color:var(--text-3);font-size:13px;font-weight:500;
-  font-family:var(--font-body);letter-spacing:.03em;
-  padding:4px 0;margin-bottom:28px;
-  transition:color .2s;align-self:flex-start}
-.onboard__back:hover{color:var(--text-2)}
-.onboard__card{width:100%;max-width:440px;
-  background:linear-gradient(160deg,rgba(255,255,255,.028) 0%,transparent 55%),
-    var(--surface-1);
-  border:1px solid var(--border);border-radius:var(--r-xl);
-  padding:36px 32px 32px}
-@media(max-width:480px){.onboard__card{padding:28px 20px 24px}}
-.onboard__eyebrow{font-size:11px;font-weight:700;letter-spacing:.22em;
-  color:var(--gold);text-transform:uppercase;margin:0 0 14px}
-.onboard__heading{font-family:var(--font-display);font-size:clamp(22px,4vw,28px);
-  font-weight:700;color:var(--text-1);margin:0 0 10px}
-.onboard__sub{color:var(--text-2);font-size:14px;line-height:1.65;margin:0 0 26px}
-
 /* ── home: flow hint strip ─────────────────────────────────────────────── */
 .qr-test__flow{display:flex;align-items:center;flex-wrap:wrap;gap:4px;
   padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);
@@ -1803,7 +1781,6 @@ button{font-family:var(--font-body)}
 .lang-switcher__option--active:hover{color:var(--on-primary)}
 
 /* Placement on the four Phase-19.5A screens */
-.access__lang-switcher,
 .kitchen-login__lang-switcher,
 .admin-login__lang-switcher{
   align-self:flex-end;margin-bottom:18px}
@@ -3371,31 +3348,11 @@ button{font-family:var(--font-body)}
 .anim-enter-identity{animation:cx-enter .22s var(--ease) both}
 .anim-enter-form{animation:cx-enter .25s var(--ease) both}
 
-/* The welcome step no longer centres its content in the full viewport. That
-   centring is what produced the large empty black field above the restaurant
-   name: with this little content, justify-content:center pushed the identity
-   into the middle of a tall column. Anchoring to the top with a measured
-   offset brings the venue's name into the first thing the guest sees.
-
-   .access itself is NOT modified — it still carries the Invalid QR and
-   Inactive Table screens, which §41 defers. */
-.access--welcome{
-  justify-content:flex-start;
-  min-height:calc(100vh - 60px);
-  padding-top:34px}
-.access--welcome .access__identity{
-  display:flex;flex-direction:column;align-items:center;gap:14px;
-  margin-bottom:22px}
-.access--welcome .access__table{margin:0}
-.access--welcome .access__enter{
-  display:flex;flex-direction:column;align-items:center;width:100%}
-/* Pushes the attribution to the bottom of the column rather than letting it
-   trail immediately under the button in the middle of an empty screen. */
-.access--welcome .cust-footer{margin-top:auto;width:100%}
-
-@media(max-width:360px){
-  .access--welcome{padding-top:24px}
-}
+/* Phase 83 replaced the two-step Welcome + name-card entry with the single
+   .cx-landing composition at the end of this file. The .access--welcome and
+   .onboard rules that used to live here went with it; .access, .access__msg
+   and .access__table stay, because the Invalid QR / Inactive Table recovery
+   views and the Admin/Kitchen login screens still use them. */
 
 /* ── Featured badge (§8) ──────────────────────────────────────────────── */
 
@@ -3488,20 +3445,6 @@ button{font-family:var(--font-body)}
    — that widened the gap instead of tightening it. */
 .container--with-cart-bar .cust-footer{margin-top:28px}
 
-/* ── Entry language control density (§2, §36) ─────────────────────────── */
-
-/* In the topbar this control sits opposite a small "QR access" badge, and at
-   its default size it was the loudest thing on the screen — competing with
-   the restaurant name it is supposed to sit above. Tightened horizontally
-   and in type size only: the 44px touch target from the customer theme is
-   untouched (§44), so it stays just as tappable. */
-.access__lang-switcher{padding:2px}
-.access__lang-switcher .lang-switcher__option{
-  padding:6px 10px;font-size:11.5px}
-
-/* The old placement rule pulled it out of the content column; it lives in
-   the topbar now, so the float is removed for this screen. */
-.access__lang-switcher{align-self:auto;margin-bottom:0}
 
 /* ══ Phase 74 — Customer Post-Order, Tracking & Recovery ═══════════════════
 
@@ -4649,16 +4592,309 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .rinfo__row-value{direction:ltr;unicode-bidi:isolate;text-align:start}
 [dir="rtl"] .rinfo__row--address .rinfo__row-value{direction:rtl}
 
-/* ── Welcome-screen description (§13) ────────────────────────────────── */
-
-/* Two lines maximum. The welcome exists to get the guest to Continue; a venue
-   introducing itself should not push that button toward the fold (§28). */
-.access__description{
-  margin:12px auto 0;max-width:320px;
-  font-size:13.5px;line-height:1.6;color:var(--text-3);text-align:center;
-  overflow-wrap:anywhere;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  overflow:hidden}
-
-.access__info-btn{margin-top:14px}
 .menu-header__info-btn{margin-top:12px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 83 — CUSTOMER LOADING & ENTRY (UNIT 1)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Scoped entirely to the customer experience. Nothing in this block is
+   reachable from Admin, Cashier or Kitchen, because every selector either
+   lives under .customer-theme (the wrapper only customer routes are inside)
+   or belongs to a class only these two screens render (§28). */
+
+/* ── The brand-mark colour token (§3/§29) ───────────────────────────────────
+   Default for every restaurant that has not changed its primary colour. It is
+   deriveBrandMarkColor("#d4a94e") computed once and written down, so the
+   common case costs no runtime work — theme.js emits an override only when a
+   restaurant actually picks a different primary, exactly like every other
+   themed variable.
+
+   Declared on .customer-theme rather than :root so the token is structurally
+   unavailable to the operational UI. */
+.customer-theme{
+  --brand-mark:#a5843d;
+  /* The travelling energy is the SAME colour lifted, so there is one source
+     of truth for the mark's hue and no second shade to keep in sync (§3). */
+  --brand-mark-energy:color-mix(in srgb, var(--brand-mark) 45%, #fff)}
+
+/* ── The animated mark ──────────────────────────────────────────────────── */
+
+.pl-mark{display:block;line-height:0}
+.pl-mark__svg{
+  display:block;height:100%;width:auto;overflow:visible;
+  stroke:var(--brand-mark);
+  stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round;fill:none}
+
+/* Weight hierarchy inside the mark: the two rings are the structure and read
+   first, the dial furniture and cutlery are detail. */
+.pl-mark__clock-ring,
+.pl-mark__plate-ring{stroke-width:1.5}
+.pl-mark__ticks{stroke-width:1;opacity:.75}
+.pl-mark__crown{stroke-width:1.6}
+.pl-mark__hand{stroke-width:1.2}
+.pl-mark__pivot{fill:var(--brand-mark);stroke:none}
+.pl-mark__dish,.pl-mark__dish-inner{stroke-width:1.05}
+.pl-mark__dish-inner{opacity:.6}
+.pl-mark__cutlery{stroke-width:.95;opacity:.9}
+/* Thin enough that the gaps between the three tines survive: at .8 they
+   merged into a solid bar and the fork became a second knife. */
+.pl-mark__fork-tines{stroke-width:.5}
+
+/* ── Motion: infinity flow + energy transfer (§2) ──────────────────────────
+
+   ONE cycle, 1.65s, driving three things that are phase-locked to each other
+   so the mark reads as a single circuit rather than three separate loops.
+
+   The comet: a 16%-long dash on a 100-unit path, travelling continuously.
+   linear timing, because energy moving along a wire does not ease — any
+   ease-in-out here makes it visibly hesitate at the waist twice per cycle,
+   which reads as a stutter rather than as flow.
+
+   The charges: the upper loop occupies ~0–48% of the path and the lower
+   ~48–100% (r7 against r7.6), so the stopwatch peaks at 24% and the plate at
+   74% — the midpoint of each loop, i.e. exactly when the comet is deepest
+   inside it. Opacity only, and only across .62 → 1: enough to read as arrival,
+   nowhere near enough to read as a blink (§2). */
+
+.pl-mark__flow{
+  stroke:var(--brand-mark-energy);
+  stroke-width:1.7;
+  stroke-dasharray:16 84;
+  animation:pl-flow 1.65s linear infinite}
+@keyframes pl-flow{to{stroke-dashoffset:-100}}
+
+.pl-mark__clock{animation:pl-charge-top 1.65s ease-in-out infinite}
+.pl-mark__plate{animation:pl-charge-bottom 1.65s ease-in-out infinite}
+@keyframes pl-charge-top{
+  0%{opacity:.62}
+  24%{opacity:1}
+  62%{opacity:.62}
+  100%{opacity:.62}
+}
+@keyframes pl-charge-bottom{
+  0%{opacity:.62}
+  12%{opacity:.62}
+  74%{opacity:1}
+  100%{opacity:.7}
+}
+
+/* ── Settle + exit (§11) ───────────────────────────────────────────────────
+   The comet decelerates instead of being cut mid-flight, and the mark fades
+   while the restaurant identity above it stays exactly where it is. */
+.pl-mark--settling .pl-mark__flow{
+  animation-duration:2.6s;
+  animation-timing-function:cubic-bezier(.15,.7,.2,1);
+  opacity:0;transition:opacity .24s var(--ease)}
+.pl-mark--settling .pl-mark__clock,
+.pl-mark--settling .pl-mark__plate{
+  animation:none;opacity:.8;
+  transition:opacity .24s var(--ease)}
+
+/* ── Reduced motion (§12) ──────────────────────────────────────────────────
+   The global rule collapses durations to ~0s, which would leave the comet
+   frozen at an arbitrary point on the path — a stray bright arc that looks
+   like a rendering fault. So the flow is removed outright here and the mark
+   is shown calm, complete and static. */
+@media(prefers-reduced-motion:reduce){
+  .pl-mark__flow{display:none}
+  .pl-mark__clock,.pl-mark__plate{animation:none!important;opacity:1}
+}
+
+/* ── Customer loading screen (§4) ─────────────────────────────────────────
+   Restaurant first, system second — expressed in the sizes themselves: the
+   venue's logo is up to 128px and its name up to 44px, against a 56px mark
+   sitting well below them with real space around it (§7). There is no
+   PRO·ORDER wordmark on this screen at all.
+
+   No background of its own (§8): it inherits whatever the restaurant's theme
+   put on --bg, so a themed venue gets a themed loading environment and the
+   dark premium default is simply what the unthemed value already is. */
+.cx-loading{
+  min-height:100dvh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:clamp(38px,9vh,68px);
+  padding:32px 20px;text-align:center}
+.cx-loading__identity{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  animation:cx-enter .3s var(--ease) both}
+.cx-loading__logo{
+  height:clamp(92px,24vw,132px);width:auto;max-width:72vw;
+  object-fit:contain;display:block;border-radius:var(--r-md)}
+.cx-loading__name{
+  font-family:var(--font-display);
+  font-size:clamp(34px,9vw,48px);line-height:1.12;
+  margin:0;color:var(--text-1);max-width:16ch;
+  text-wrap:balance}
+.cx-loading__mark{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  /* Deliberately capped well under the logo (92–132px) and beside the name,
+     so the system mark stays subordinate to the venue (§7). */
+  height:clamp(50px,13vw,58px)}
+.cx-loading__mark .pl-mark{height:100%}
+.cx-loading__message{
+  margin:0;font-size:13px;color:var(--text-3);letter-spacing:.02em}
+
+/* The identity deliberately does NOT fade with the mark — it is the half that
+   survives into the Welcome screen (§11). */
+.cx-loading--settling .cx-loading__mark{
+  opacity:0;transition:opacity .24s var(--ease)}
+
+/* ── Customer landing / entry (§13) ───────────────────────────────────────
+   An open composition, not a card. Nothing here has a panel background, a
+   border or a shadow: the page IS the surface, which is the structural
+   difference between a restaurant landing and the login form this screen used
+   to be. */
+.cx-landing{
+  position:relative;
+  width:100%;max-width:1000px;margin:0 auto;
+  min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;
+  padding:clamp(26px,6vh,54px) 20px clamp(28px,5vh,48px);
+  gap:clamp(22px,4.4vh,38px);
+  text-align:center}
+
+/* §15 — identity sits in the upper/main visual area rather than floating in a
+   vertically centred block with dead space above it. On tall screens the
+   remaining room falls BELOW the CTA, which keeps the composition top-weighted
+   and the button comfortably inside thumb reach. */
+.cx-landing__identity{
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  animation:cx-enter .26s var(--ease) both}
+
+/* §16 — to the side of the identity, not under the name. inset-inline-end
+   puts it top-right in English and top-left in Arabic with no RTL override
+   anywhere (§33). */
+.cx-landing__lang{
+  position:absolute;top:clamp(14px,2.4vh,22px);
+  inset-inline-end:clamp(12px,4vw,20px);z-index:3}
+
+.cx-landing__logo{
+  height:clamp(80px,21vw,116px);width:auto;max-width:70vw;
+  border-radius:var(--r-md);
+  object-fit:contain;display:block}
+.cx-landing__name{
+  font-family:var(--font-display);
+  font-size:clamp(32px,8.6vw,44px);line-height:1.12;
+  margin:0;color:var(--text-1);max-width:15ch;
+  text-wrap:balance}
+.cx-landing__description{
+  margin:0;max-width:44ch;color:var(--text-2);
+  font-size:14px;line-height:1.6;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.cx-landing__info-btn{margin-top:2px}
+
+/* ── Table badge (§18) ────────────────────────────────────────────────────
+   The word is quiet and the NUMBER carries the weight, because the number is
+   the fact the guest is checking. Restraint is in the container: a soft tinted
+   surface and a hairline, not a filled gold block. */
+.cx-landing__table{
+  display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+  padding:9px 22px 11px;border-radius:var(--r-lg);
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  animation:cx-enter .26s var(--ease) both;animation-delay:40ms}
+.cx-landing__table-word{
+  font-size:10.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--text-3)}
+.cx-landing__table-number{
+  font-family:var(--font-display);
+  font-size:clamp(30px,8vw,40px);line-height:1.05;font-weight:700;
+  color:var(--gold);
+  /* A bare number: keeps Latin digit order inside Arabic copy. */
+  direction:ltr;unicode-bidi:isolate}
+
+/* ── Name + CTA (§21/§22) ─────────────────────────────────────────────── */
+.cx-landing__start{
+  width:100%;max-width:400px;
+  display:flex;flex-direction:column;gap:16px;
+  animation:cx-enter .26s var(--ease) both;animation-delay:80ms}
+/* The field belongs to the page, so it is left-aligned within its own column
+   while the composition around it stays centred. */
+.cx-landing__start .field{text-align:start}
+.cx-landing__cta .btn{min-height:50px;font-size:15.5px}
+
+/* ── Leaving for the Menu (§25) ──────────────────────────────────────────
+   The two halves leave differently, and that difference is the whole idea:
+   the name field and the CTA are finished with, so they simply go; the
+   restaurant identity and the table badge only shrink and lift, because they
+   are about to reappear as the Menu header and the topbar's table pill. The
+   guest should feel the venue travel with them rather than be replaced.
+
+   Everything is opacity + transform, so nothing here triggers layout. */
+.cx-landing--leaving .cx-landing__identity{
+  opacity:0;transform:translateY(-14px) scale(.9);
+  transition:opacity .24s var(--ease),transform .24s var(--ease)}
+.cx-landing--leaving .cx-landing__table{
+  opacity:0;transform:translateY(-10px) scale(.86);
+  transition:opacity .24s var(--ease),transform .24s var(--ease)}
+.cx-landing--leaving .cx-landing__lang{
+  opacity:0;transition:opacity .18s var(--ease)}
+.cx-landing--leaving .cx-landing__start{
+  opacity:0;transform:translateY(8px);
+  transition:opacity .18s var(--ease),transform .18s var(--ease)}
+
+/* ── Desktop (§15) ───────────────────────────────────────────────────────
+   Not a stretched phone form. Above 860px the page becomes a genuine two-part
+   landing: the venue occupies the left, and the table badge plus the single
+   action sit together on the right, both vertically centred. */
+@media(min-width:860px){
+  .cx-landing{
+    display:grid;grid-template-columns:1.1fr .9fr;
+    /* align-items centres each item inside ITS row; align-content is what
+       centres the rows inside the 100dvh container. Without the second one the
+       whole composition sat against the top of the page. */
+    align-items:center;align-content:center;justify-items:center;
+    column-gap:clamp(40px,6vw,80px);row-gap:clamp(18px,3vh,30px);
+    padding-inline:clamp(32px,6vw,72px)}
+  .cx-landing__identity{text-align:start;align-items:flex-start;gap:18px}
+  .cx-landing__name{font-size:clamp(38px,3.6vw,52px);max-width:13ch}
+  .cx-landing__description{max-width:38ch}
+  /* The identity spans both rows so the right column's two items sit
+     together. Left as separate rows with align-items:center they were each
+     centred in a row sized by the tall identity, which opened ~360px of dead
+     space between the table badge and the form. */
+  .cx-landing__identity{grid-column:1;grid-row:1 / 3}
+  .cx-landing__table{grid-column:2;grid-row:1;align-self:end;justify-self:center}
+  .cx-landing__start{grid-column:2;grid-row:2;align-self:start;max-width:340px}
+  .cx-landing__lang{inset-inline-end:clamp(20px,4vw,44px)}
+}
+
+/* Small phones (320x568): tighten the rhythm so the CTA stays above the fold
+   without shrinking the venue's identity into insignificance. */
+@media(max-width:360px){
+  .cx-landing{gap:18px;padding-top:22px}
+  .cx-landing__table{padding:7px 18px 9px}
+}
+/* Short viewports — a 568px-tall phone with the keyboard open has very little
+   room, so the identity gives some back rather than pushing the field away. */
+@media(max-height:640px){
+  .cx-landing{gap:16px}
+  .cx-landing__logo{height:clamp(52px,13vw,72px)}
+}
+
+/* ── Compact language switcher (§16) ─────────────────────────────────────
+   Two codes and a hairline. No pill, no fill — the entry screen has exactly
+   one filled control and it is the CTA. */
+.lang-switcher--compact{
+  display:inline-flex;align-items:center;gap:2px;
+  background:none;border:none;padding:0}
+/* 44x44 by SIZING the control rather than by extending it with a pseudo
+   element. The two options sit ~5px apart, so two -5px hit extensions would
+   overlap and each would steal the other's near edge — the padding is invisible
+   anyway, so the honest fix is to make the buttons genuinely big enough (§32). */
+.lang-switcher--compact .lang-switcher__option{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:44px;min-height:44px;padding:0 6px;
+  font-size:12.5px;font-weight:600;letter-spacing:.08em;
+  background:none;border:none;border-radius:var(--r-sm);
+  color:var(--text-3);opacity:.72;
+  transition:color .18s var(--ease),opacity .18s var(--ease)}
+.lang-switcher--compact .lang-switcher__option:hover{color:var(--text-1);opacity:1}
+/* Active state is carried by weight AND opacity AND colour, so it survives
+   both a colour-blind reading and a monochrome one (§32). */
+.lang-switcher--compact .lang-switcher__option--active{
+  color:var(--gold);opacity:1;font-weight:800;background:none}
+.lang-switcher--compact .lang-switcher__sep{
+  width:1px;height:11px;background:var(--border-strong);opacity:.7}

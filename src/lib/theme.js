@@ -83,6 +83,151 @@ export function relativeLuminance(hex) {
    is near the perceptual midpoint for this palette). */
 const LIGHT_TEXT_THRESHOLD = 0.45;
 
+/* ── Customer brand-mark colour (Phase 83) ─────────────────────────────────
+   The animated PRO·ORDER loading mark needs a colour of its own: the same
+   family as the restaurant's accent, but deeper and richer than the CTA so the
+   two never read as the same element (§3).
+
+   Why this is a search and not a subtraction. The obvious implementation —
+   "mix 22% black into the primary" — is one fixed step that behaves completely
+   differently depending on where you start. On the default gold it lands
+   nicely. On a near-black brand colour it produces something invisible against
+   the customer canvas, and on white it barely moves. §29 asks for an
+   adjustment chosen by CONTRAST rather than a blind offset, so this aims at a
+   luminance TARGET instead and solves for the mix that reaches it.
+
+   The target is proportional (a little over half the primary's luminance, so
+   the relationship "deeper than the CTA" holds for any hue) but clamped into a
+   band:
+
+     MIN — below this the mark starts disappearing into the dark customer
+           surfaces, so a very dark brand colour is mixed toward WHITE instead.
+           The mark stays in the restaurant's hue family and stays visible,
+           which matters more than being literally darker than an unusable CTA.
+     MAX — above this the mark would compete with the CTA it is supposed to sit
+           behind, so a very light brand colour is pulled down into the band.
+
+   The result is one exported helper and one CSS variable; the brighter
+   "energy" shade the travelling highlight uses is derived from it in CSS with
+   color-mix, so there is a single source of truth for the mark's colour (§3). */
+
+const BRAND_MARK_MIN_LUMINANCE = 0.16;
+const BRAND_MARK_MAX_LUMINANCE = 0.34;
+/* How much of the primary's luminance the mark keeps before clamping. Chosen
+   so the shipped gold lands where it was designed to: see the exported
+   DEFAULT_BRAND_MARK_COLOR below. */
+const BRAND_MARK_DEPTH = 0.58;
+
+function hexToRgb(hex) {
+  const v = hex.trim().slice(1);
+  return [
+    parseInt(v.slice(0, 2), 16),
+    parseInt(v.slice(2, 4), 16),
+    parseInt(v.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex(rgb) {
+  return (
+    "#" +
+    rgb
+      .map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+/** Mix `amount` (0–1) of `anchor` into `hex`. amount 0 = hex, 1 = anchor. */
+function mixHex(hex, anchor, amount) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(anchor);
+  return rgbToHex(a.map((channel, i) => channel + (b[i] - channel) * amount));
+}
+
+/**
+ * The customer brand-mark colour for one restaurant primary.
+ *
+ * @param {string} primaryColor — settings.primaryColor (any value; invalid
+ *   input falls back to the shipped gold rather than throwing)
+ * @returns {string} a 6-digit hex in the same family, deeper than the CTA and
+ *   guaranteed to sit inside the visible luminance band above
+ */
+export function deriveBrandMarkColor(primaryColor) {
+  const primary = isValidHexColor(primaryColor) ? primaryColor.trim() : DEFAULT_PRIMARY_COLOR;
+  const luminance = relativeLuminance(primary);
+
+  const target = Math.min(
+    Math.max(luminance * BRAND_MARK_DEPTH, BRAND_MARK_MIN_LUMINANCE),
+    BRAND_MARK_MAX_LUMINANCE
+  );
+
+  /* Which way we have to travel decides HOW we travel, and the two directions
+     genuinely want different operations:
+
+       deepening — mixing toward black keeps the hue and simply removes light,
+         which is exactly what "richer" means for a normal brand colour.
+
+       lightening — mixing toward WHITE would wash the hue out. A near-black
+         green mixed with white lands on grey-green (#627364), which is the
+         restaurant's hue in name only. Scaling the channels proportionally
+         instead lifts the colour along its own ray from black, so #0f2a12
+         brightens to an actual green. Scaling can overflow a channel on an
+         already-bright hue, and in that case there is no headroom left and
+         mixing toward white is the only way up — so that stays as the
+         fallback. */
+  const towardLight = target > luminance;
+
+  if (towardLight) {
+    const scaled = solveScaled(primary, target);
+    if (scaled) return scaled;
+  }
+
+  /* Luminance is monotonic along a straight RGB mix toward a single anchor, so
+     a short bisection lands on the target far more accurately than any fixed
+     ratio could, for every possible input. 20 steps is well past the precision
+     an 8-bit channel can express. */
+  const anchor = towardLight ? "#ffffff" : "#000000";
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 20; i += 1) {
+    const amount = (lo + hi) / 2;
+    const candidate = relativeLuminance(mixHex(primary, anchor, amount));
+    const overshot = towardLight ? candidate > target : candidate < target;
+    if (overshot) hi = amount;
+    else lo = amount;
+  }
+
+  return mixHex(primary, anchor, (lo + hi) / 2);
+}
+
+/**
+ * Brighten by scaling all three channels by one factor, preserving the hue and
+ * the channel ratios that carry the colour's saturation.
+ *
+ * @returns {string|null} the hex that hits `target`, or null when reaching it
+ *   would push a channel past 255 (the caller then falls back to white-mixing)
+ */
+function solveScaled(hex, target) {
+  const rgb = hexToRgb(hex);
+  const peak = Math.max(...rgb);
+  if (peak === 0) return null; // pure black has no ray to travel along
+
+  const maxFactor = 255 / peak;
+  if (relativeLuminance(rgbToHex(rgb.map((c) => c * maxFactor))) < target) return null;
+
+  let lo = 1;
+  let hi = maxFactor;
+  for (let i = 0; i < 20; i += 1) {
+    const factor = (lo + hi) / 2;
+    if (relativeLuminance(rgbToHex(rgb.map((c) => c * factor))) > target) hi = factor;
+    else lo = factor;
+  }
+  return rgbToHex(rgb.map((c) => c * ((lo + hi) / 2)));
+}
+
+/** The mark colour for the shipped gold, so global.css can carry it as the
+    default without recomputing it at runtime for every unthemed restaurant. */
+export const DEFAULT_BRAND_MARK_COLOR = deriveBrandMarkColor(DEFAULT_PRIMARY_COLOR);
+
 export function resolveHeadingFont(key) {
   return HEADING_FONTS[key] ? key : DEFAULT_HEADING_FONT;
 }
@@ -122,6 +267,13 @@ export function buildCustomerThemeVars(settings) {
        brand colour does not end up with near-black label text. */
     vars["--on-primary"] =
       relativeLuminance(primary) > LIGHT_TEXT_THRESHOLD ? "#181203" : "#fff8e8";
+
+    /* Phase 83 — the animated loading mark follows the restaurant's family
+       too, so a venue on green does not get a gold PRO·ORDER mark. Emitted
+       only here, inside the same override-only rule as everything else: a
+       restaurant at the default primary inherits the default mark colour from
+       the stylesheet instead. */
+    vars["--brand-mark"] = deriveBrandMarkColor(primary);
   }
 
   /* ── Surface accent ────────────────────────────────────────────────────
