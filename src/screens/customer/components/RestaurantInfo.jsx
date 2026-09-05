@@ -213,22 +213,36 @@ function RestaurantInfoSheet({ settings, restaurantName, onClose }) {
  *
  * Renders nothing at all when there is nothing to show.
  */
-export default function RestaurantInfo({ settings, restaurantName, className = "" }) {
+/**
+ * @param {"label"|"icon"} variant — Phase 83.1, Finding #1. "icon" drops the
+ *   text and renders a bare Info glyph for the entry screen's top utility
+ *   corner, where a labelled pill sat too centrally under the venue's name
+ *   and read as part of the main hierarchy. The sheet it opens, and the rule
+ *   about when it exists at all, are identical in both variants.
+ */
+export default function RestaurantInfo({ settings, restaurantName, className = "", variant = "label" }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  /* Unchanged (§1): a restaurant that filled none of the five fields still
+     gets no entry point rather than an empty Info button. */
   if (!hasRestaurantInfo(settings)) return null;
+
+  const isIcon = variant === "icon";
+  const label = t("customer.restaurantInfo", "Restaurant info");
 
   return (
     <>
       <button
         type="button"
-        className={`rinfo-btn ${className}`}
+        className={`rinfo-btn ${isIcon ? "rinfo-btn--icon" : ""} ${className}`}
         onClick={() => setOpen(true)}
-        aria-label={t("customer.restaurantInfo", "Restaurant info")}
+        /* The icon variant has no text, so the accessible name has to come
+           from here in both cases (§1, §32). */
+        aria-label={label}
       >
-        <Info size={14} strokeWidth={2.2} aria-hidden="true" />
-        <span className="rinfo-btn__label">{t("customer.restaurantInfo", "Restaurant info")}</span>
+        <Info size={isIcon ? 19 : 14} strokeWidth={2.2} aria-hidden="true" />
+        {!isIcon && <span className="rinfo-btn__label">{label}</span>}
       </button>
 
       {/* Phase 81.1 — portalled to <body>.

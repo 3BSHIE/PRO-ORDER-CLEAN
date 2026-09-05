@@ -325,7 +325,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           labels collapse to icons on narrow phones — see .menu-topbar-right. */}
       <Topbar
         left={
-          <span className="menu-table-pill">
+          /* Phase 83.1, Finding #5 — destination of the Welcome table badge.
+             Class only; the pill's design, position and content are untouched
+             (§19). Written as a plain comment because this prop takes exactly
+             one expression, so a JSX comment node here would make it two. */
+          <span className="menu-table-pill anim-identity-in">
             {t("customer.yourTable", "Table")} #{table.tableNumber}
           </span>
         }
@@ -363,7 +367,14 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
       <main className={`container ${hasCartItems ? "container--with-fab" : ""}`}>
         {/* ── Header ──────────────────────────────────────────────────── */}
-        <header className="menu-header anim-rise">
+        {/* Phase 83.1, Finding #5 — .anim-rise swapped for .anim-identity-in on
+            this ONE element. Both are entrance animations of the same kind;
+            the new one arrives from below and slightly larger, so it reads as
+            the Welcome identity settling into place rather than as an
+            unrelated 550ms rise that outlasted and masked the transition.
+            Nothing else about the header changes, and every other .anim-rise
+            in this file is untouched (§19). */}
+        <header className="menu-header anim-identity-in">
           {/* Phase 45 — the restaurant is now the headline. It was an 11px
               uppercase eyebrow above a 26px greeting, which made the software's
               copy louder than the venue the guest is sitting in.

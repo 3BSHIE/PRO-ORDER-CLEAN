@@ -20,7 +20,7 @@ import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 /* How long the landing composition is given to leave before the Menu route is
    pushed (§25). Short enough that it reads as one continuous movement rather
    than a wait — and skipped entirely under reduced motion. */
-const EXIT_MS = 240;
+const EXIT_MS = 280;
 
 /* Name validation — trimmed, 2–30 chars.
    Phase 43 — takes `t` rather than reaching for the language module itself, so
@@ -251,6 +251,23 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
         <LanguageSwitcher variant="compact" enabled={enabledLanguages} />
       </div>
 
+      {/* Finding #1 — Restaurant Info is a utility, not part of the venue's
+          introduction. It used to sit centred directly under the name, which
+          gave it the weight of a primary action on a page whose only primary
+          action is Start Ordering. It now sits in the opposite top corner
+          from the language control: both are chrome, balanced across the
+          page's shoulders.
+
+          inset-inline-start mirrors it with the language control in Arabic,
+          so the pair swaps sides together and neither is hand-positioned. */}
+      <div className="cx-landing__info">
+        <RestaurantInfo
+          settings={settings}
+          restaurantName={restaurant.name}
+          variant="icon"
+        />
+      </div>
+
       <section className="cx-landing__identity">
         {showLogo && (
           <img
@@ -269,11 +286,6 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
           <p className="cx-landing__description">{settings.description.trim()}</p>
         )}
 
-        <RestaurantInfo
-          settings={settings}
-          restaurantName={restaurant.name}
-          className="cx-landing__info-btn"
-        />
       </section>
 
       {/* ── Table badge (§18) ───────────────────────────────────────────

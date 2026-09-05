@@ -420,7 +420,10 @@ export const translations = {
       restaurantDescription: "Restaurant Description",
       branding: "Branding",
       primaryColor: "Primary Color",
-      accentColor: "Accent Color",
+      /* Phase 83.1 — the visible label follows the product language
+          ("Primary" / "Secondary"). The stored field stays accentColor, so
+          nothing migrates (§23). */
+      accentColor: "Secondary Color",
       business: "Business",
       serviceChargeLabel: "Service Charge %",
       currency: "Currency",
@@ -507,7 +510,10 @@ export const translations = {
 
       /* Phase 31 — Restaurant theme customization */
       theme: "Theme",
-      themeHint: "Applies to your customer menu and ordering screens only.",
+      /* Phase 83.1 — this said "customer screens only", which stopped being
+          true when the theme reached Admin, Cashier and Kitchen. It also never
+          said what the two colours actually do. */
+      themeHint: "Primary drives buttons, active states and key accents. Secondary tints borders, chips and supporting details. Both apply across your customer, admin and kitchen screens.",
       headingFont: "Heading Font",
       bodyFont: "Body Font",
       preview: "Preview",
@@ -1127,7 +1133,7 @@ export const translations = {
       restaurantDescription: "وصف المطعم",
       branding: "الهوية البصرية",
       primaryColor: "اللون الأساسي",
-      accentColor: "لون التمييز",
+      accentColor: "اللون الثانوي",
       business: "بيانات النشاط التجاري",
       serviceChargeLabel: "نسبة رسوم الخدمة %",
       currency: "العملة",
@@ -1204,7 +1210,7 @@ export const translations = {
 
       /* Phase 31 — Restaurant theme customization */
       theme: "المظهر",
-      themeHint: "يُطبَّق على قائمة العملاء وشاشات الطلب فقط.",
+      themeHint: "اللون الأساسي للأزرار والحالات النشطة والتمييزات الرئيسية. اللون الثانوي للحدود والشارات والتفاصيل المساندة. كلاهما يُطبَّق على شاشات العملاء والإدارة والمطبخ.",
       headingFont: "خط العناوين",
       bodyFont: "خط النص",
       preview: "معاينة",

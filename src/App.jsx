@@ -28,6 +28,7 @@ import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js"
 import DemoSwitcher                      from "./components/demo/DemoSwitcher.jsx";
 import ErrorBoundary                     from "./components/system/ErrorBoundary.jsx";
 import CustomerTheme                     from "./components/theme/CustomerTheme.jsx";
+import RestaurantTheme                   from "./components/theme/RestaurantTheme.jsx";
 
 function HomeRoute() {
   const navigate = useNavigate();
@@ -187,6 +188,37 @@ function KitchenRoute() {
         onHome={() => navigate("/")}
       />
     </ErrorBoundary>
+  );
+}
+
+/* Phase 83.1, Finding #4 — the restaurant's colours reach the operational
+   products too, so one venue has one identity rather than a themed Customer
+   and a permanently gold Admin/Kitchen.
+
+   Wrapped at the ROUTE rather than inside each component on purpose: both
+   routes below have many early returns (invalid restaurant, login, and in
+   Admin's case one per page), and wrapping each would mean the theme applying
+   to some states and not others. One wrapper here covers every branch,
+   including the login screens — which already show the restaurant's name and
+   should look like that restaurant.
+
+   These carry colours only; typography and the customer language rule stay
+   where they were (see RestaurantTheme). */
+function ThemedAdminRoute() {
+  const { restaurantSlug } = useParams();
+  return (
+    <RestaurantTheme restaurantSlug={restaurantSlug} scope="admin">
+      <AdminRoute />
+    </RestaurantTheme>
+  );
+}
+
+function ThemedKitchenRoute() {
+  const { restaurantSlug } = useParams();
+  return (
+    <RestaurantTheme restaurantSlug={restaurantSlug} scope="kitchen">
+      <KitchenRoute />
+    </RestaurantTheme>
   );
 }
 
@@ -421,8 +453,8 @@ export default function App() {
         <RoutedErrorBoundary>
         <Routes>
           <Route path="/"                                                          element={<HomeRoute />} />
-          <Route path="/kitchen/:restaurantSlug"                                  element={<KitchenRoute />} />
-          <Route path="/admin/:restaurantSlug"                                    element={<AdminRoute />} />
+          <Route path="/kitchen/:restaurantSlug"                                  element={<ThemedKitchenRoute />} />
+          <Route path="/admin/:restaurantSlug"                                    element={<ThemedAdminRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken"                        element={<CustomerAccessRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken/menu"                   element={<CustomerMenuRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken/cart"                   element={<CustomerCartRoute />} />

@@ -81,7 +81,11 @@ export default function CustomerTheme({ restaurantSlug, children }) {
   }, [language, settings]);
 
   return (
-    <div className="customer-theme" style={themeVars}>
+    /* Phase 83.1 — carries the shared .restaurant-theme token scope as well,
+       so the Primary/Secondary fallbacks live in one place for all four
+       products. .customer-theme keeps every customer-only rule it already
+       had (touch targets, identity sizing, footer) unchanged. */
+    <div className="restaurant-theme restaurant-theme--customer customer-theme" style={themeVars}>
       {/* Phase 65 — inside the theme wrapper rather than outside it, so a
           guest meeting a failure still sees the restaurant own colours and
           fonts rather than being dropped onto an unbranded page. One

@@ -228,6 +228,65 @@ function solveScaled(hex, target) {
     default without recomputing it at runtime for every unthemed restaurant. */
 export const DEFAULT_BRAND_MARK_COLOR = deriveBrandMarkColor(DEFAULT_PRIMARY_COLOR);
 
+/* ── Secondary colour (Phase 83.1, Finding #2) ─────────────────────────────
+   accentColor has been stored since Phase 23 and, until now, did almost
+   nothing you could see: it tinted the three dark surfaces by 12–16%, which
+   is a hue you have to look for, and fed two variables only the Restaurant
+   Info sheet read. A manager could set it to bright blue and the product
+   looked the same. That is the "saves successfully but does nothing" defect
+   this phase exists to fix — so the field keeps its name and its storage
+   (§23) and gains real, visible roles instead.
+
+   The raw value cannot be used directly for those roles. accentColor's whole
+   original job was to tint near-black surfaces, so its default is #0d0d0d and
+   managers may well pick something equally dark; painting a border or a label
+   with that on a dark UI would be invisible. So the same luminance-targeting
+   used for the brand mark is applied here, with a band chosen for a colour
+   that has to read as a LINE or a LABEL against --surface-1/2/3 rather than
+   as a large fill.
+
+   The surface tint keeps using the RAW accent (see buildRestaurantThemeVars):
+   that role wants the untouched hue mixed into near-black, and lifting it
+   first would wash the tint out. One field, two derived uses, each honest
+   about what it needs. */
+const SECONDARY_MIN_LUMINANCE = 0.22;
+const SECONDARY_MAX_LUMINANCE = 0.60;
+const SECONDARY_DEPTH = 1.0;
+
+/**
+ * A usable secondary accent in the restaurant's own hue.
+ *
+ * @param {string} accentColor — settings.accentColor
+ * @returns {string} hex, guaranteed legible against the dark customer/admin
+ *   surfaces whatever the manager picked
+ */
+export function deriveSecondaryColor(accentColor) {
+  const accent = isValidHexColor(accentColor) ? accentColor.trim() : DEFAULT_ACCENT_COLOR;
+  const luminance = relativeLuminance(accent);
+  const target = Math.min(
+    Math.max(luminance * SECONDARY_DEPTH, SECONDARY_MIN_LUMINANCE),
+    SECONDARY_MAX_LUMINANCE
+  );
+
+  const towardLight = target > luminance;
+  if (towardLight) {
+    const scaled = solveScaled(accent, target);
+    if (scaled) return scaled;
+  }
+
+  const anchorColor = towardLight ? "#ffffff" : "#000000";
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 20; i += 1) {
+    const amount = (lo + hi) / 2;
+    const candidate = relativeLuminance(mixHex(accent, anchorColor, amount));
+    const overshot = towardLight ? candidate > target : candidate < target;
+    if (overshot) hi = amount;
+    else lo = amount;
+  }
+  return mixHex(accent, anchorColor, (lo + hi) / 2);
+}
+
 export function resolveHeadingFont(key) {
   return HEADING_FONTS[key] ? key : DEFAULT_HEADING_FONT;
 }
@@ -236,15 +295,17 @@ export function resolveBodyFont(key) {
 }
 
 /**
- * Build the inline style object of CSS custom properties for one restaurant's
- * customer experience.
+ * Build the COLOUR custom properties for one restaurant — the shared layer
+ * every product surface consumes (Phase 83.1, Finding #4).
  *
  * Returns {} when everything is at its default — see the override-only rule.
+ * That is what keeps an unthemed restaurant pixel-identical across all four
+ * products while a themed one changes everywhere at once.
  *
  * @param {object} settings — the restaurant settings record
  * @returns {object} React style object of `--var` entries
  */
-export function buildCustomerThemeVars(settings) {
+export function buildRestaurantThemeVars(settings) {
   const vars = {};
   if (!settings) return vars;
 
@@ -296,6 +357,9 @@ export function buildCustomerThemeVars(settings) {
      above the page. */
   const accent = settings.accentColor;
   if (isValidHexColor(accent) && accent.toLowerCase() !== DEFAULT_ACCENT_COLOR) {
+    /* Phase 83.1 — the derived, legible form of the same hue. See
+       deriveSecondaryColor for why the raw value cannot carry these roles. */
+    const secondary = deriveSecondaryColor(accent);
     /* Deliberately small proportions. Enough to be seen against the default
        charcoal, nowhere near enough to move the surfaces out of the dark band
        the whole customer palette assumes. */
@@ -308,15 +372,63 @@ export function buildCustomerThemeVars(settings) {
        highlight without touching a semantic colour (§9, §12). The foreground
        flips by the same luminance measure the primary already uses, so text
        on the accent is never near-invisible whichever colour is chosen. */
-    vars["--restaurant-accent"] = accent;
+    /* Kept for compatibility, but pointed at the DERIVED secondary so the
+       Restaurant Info sheet and the new secondary roles below are visibly the
+       same colour rather than two different readings of one field. */
+    vars["--restaurant-accent"] = secondary;
     vars["--restaurant-accent-foreground"] =
-      relativeLuminance(accent) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
-    vars["--restaurant-accent-soft"] = `color-mix(in srgb, ${accent} 18%, transparent)`;
-    vars["--restaurant-accent-line"] = `color-mix(in srgb, ${accent} 40%, transparent)`;
+      relativeLuminance(secondary) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
+    vars["--restaurant-accent-soft"] = `color-mix(in srgb, ${secondary} 18%, transparent)`;
+    vars["--restaurant-accent-line"] = `color-mix(in srgb, ${secondary} 40%, transparent)`;
+
+    /* ── The secondary family (Phase 83.1, Finding #2) ──────────────────
+       Deliberately mapped onto roles that are ACHROMATIC today — hairlines,
+       card and input edges, neutral badges, supporting labels. Two reasons:
+
+         1. a restaurant at the default accent renders byte-identical to
+            before, because the stylesheet's fallbacks below hold the exact
+            current literals and these overrides are only emitted when the
+            manager has actually changed the colour;
+         2. nothing is taken away from Primary. Secondary earns visibility by
+            colouring what was previously grey, not by demoting the CTA
+            colour — which keeps §3's "Primary remains the stronger action
+            colour" true by construction.
+
+       The effect is broad but quiet: every input edge, card hairline, divider
+       and neutral chip across Customer, Admin, Cashier and Kitchen picks up
+       the restaurant's second colour. */
+    vars["--secondary"] = secondary;
+    vars["--secondary-soft"] = `color-mix(in srgb, ${secondary} 13%, transparent)`;
+    vars["--secondary-line"] = `color-mix(in srgb, ${secondary} 38%, transparent)`;
+    vars["--on-secondary"] =
+      relativeLuminance(secondary) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
+
+    vars["--border"] = `color-mix(in srgb, ${secondary} 15%, transparent)`;
+    vars["--border-strong"] = `color-mix(in srgb, ${secondary} 32%, transparent)`;
   }
 
-  /* ── Typography ────────────────────────────────────────────────────────
-     Every stack ends in Arabic-capable fallbacks (see AR_SERIF / AR_SANS), so
+  return vars;
+}
+
+/**
+ * The customer experience's variables: every colour above, PLUS the
+ * restaurant's chosen typography.
+ *
+ * Phase 83.1 — the split is the point. Finding #4 asks for the restaurant's
+ * COLOURS across all four products, and §4 of the same brief asks that
+ * existing typography be preserved. So Admin, Cashier and Kitchen consume
+ * buildRestaurantThemeVars and keep the PRO·ORDER faces they were designed
+ * in, while the customer surface — the one the guest sees and the one the
+ * fonts were chosen for — gets both.
+ *
+ * @param {object} settings — the restaurant settings record
+ * @returns {object} React style object of `--var` entries
+ */
+export function buildCustomerThemeVars(settings) {
+  const vars = buildRestaurantThemeVars(settings);
+  if (!settings) return vars;
+
+  /* Every stack ends in Arabic-capable fallbacks (see AR_SERIF / AR_SANS), so
      Arabic stays readable whichever Latin face is chosen. */
   const headingKey = resolveHeadingFont(settings.headingFont);
   if (headingKey !== DEFAULT_HEADING_FONT) {

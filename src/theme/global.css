@@ -124,7 +124,11 @@ button{font-family:var(--font-body)}
   border-color:rgba(241,106,106,.25)}
 .badge--gold{color:var(--gold);background:var(--gold-soft);
   border-color:var(--gold-line)}
-.badge--neutral{color:var(--text-2);background:var(--surface-2);
+/* Phase 83.1 — the only badge tone that is not semantic, so it is the one
+   that can carry the restaurant's Secondary colour. --secondary defaults to
+   the previous --text-2 literal, so this is unchanged until a venue themes.
+   Received/Preparing/Ready/Canceled above keep their fixed colours (§7). */
+.badge--neutral{color:var(--secondary);background:var(--surface-2);
   border-color:var(--border)}
 
 /* ── input ── */
@@ -4603,102 +4607,120 @@ button{font-family:var(--font-body)}
    lives under .customer-theme (the wrapper only customer routes are inside)
    or belongs to a class only these two screens render (§28). */
 
-/* ── The brand-mark colour token (§3/§29) ───────────────────────────────────
-   Default for every restaurant that has not changed its primary colour. It is
-   deriveBrandMarkColor("#d4a94e") computed once and written down, so the
-   common case costs no runtime work — theme.js emits an override only when a
-   restaurant actually picks a different primary, exactly like every other
-   themed variable.
+/* ── Shared restaurant theme scope (Phase 83.1, Finding #4) ────────────────
+   Every product surface — Customer, Admin, Cashier, Kitchen — is wrapped in
+   .restaurant-theme, so these fallbacks are the one place the Primary and
+   Secondary families are defined. src/lib/theme.js overrides them inline, and
+   ONLY when a restaurant has actually chosen a different colour, which is
+   what keeps an unthemed venue byte-identical everywhere.
 
-   Declared on .customer-theme rather than :root so the token is structurally
-   unavailable to the operational UI. */
-.customer-theme{
+   The values below are the EXACT current literals, so nothing moves at the
+   default: --secondary is today's --text-2, --secondary-line is today's
+   --border-strong. Secondary earns its visibility by colouring what is
+   currently grey, never by taking a role away from Primary (§3). */
+.restaurant-theme{
+  /* Generates no box, so every existing layout — the sticky admin nav, the
+     kitchen board columns, the customer sticky topbar — lays out exactly as
+     if this wrapper were not here. Custom properties still inherit through
+     it, because inheritance follows the DOM tree regardless of display. */
+  display:contents;
+
+  /* Primary-derived: the PRO·ORDER mark, one step deeper than the CTA. */
   --brand-mark:#a5843d;
   /* The travelling energy is the SAME colour lifted, so there is one source
-     of truth for the mark's hue and no second shade to keep in sync (§3). */
-  --brand-mark-energy:color-mix(in srgb, var(--brand-mark) 45%, #fff)}
+     of truth for the mark's hue and no second shade to keep in sync (§13). */
+  --brand-mark-energy:color-mix(in srgb, var(--brand-mark) 45%, #fff);
 
-/* ── The animated mark ──────────────────────────────────────────────────── */
+  /* Secondary family — see deriveSecondaryColor(). --border and
+     --border-strong are themed from the same colour in theme.js, which is
+     what carries Secondary across cards, inputs, outline buttons and
+     dividers in all four products without recolouring a single component. */
+  --secondary:#a89f8a;
+  --secondary-soft:rgba(255,255,255,.06);
+  --secondary-line:rgba(255,255,255,.15);
+  --on-secondary:#141414}
 
-.pl-mark{display:block;line-height:0}
-.pl-mark__svg{
-  display:block;height:100%;width:auto;overflow:visible;
-  stroke:var(--brand-mark);
-  stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round;fill:none}
+/* ── The animated mark — the ORIGINAL artwork (Phase 83.1, Finding #3) ─────
 
-/* Weight hierarchy inside the mark: the two rings are the structure and read
-   first, the dial furniture and cutlery are detail. */
-.pl-mark__clock-ring,
-.pl-mark__plate-ring{stroke-width:1.5}
-.pl-mark__ticks{stroke-width:1;opacity:.75}
-.pl-mark__crown{stroke-width:1.6}
-.pl-mark__hand{stroke-width:1.2}
-.pl-mark__pivot{fill:var(--brand-mark);stroke:none}
-.pl-mark__dish,.pl-mark__dish-inner{stroke-width:1.05}
-.pl-mark__dish-inner{opacity:.6}
-.pl-mark__cutlery{stroke-width:.95;opacity:.9}
-/* Thin enough that the gaps between the three tines survive: at .8 they
-   merged into a solid bar and the fork became a second knife. */
-.pl-mark__fork-tines{stroke-width:.5}
+   Both layers are the same PNG used as a CSS mask, so the silhouette IS the
+   approved logo: every tick gap, the dial's hole, the plate rings, the space
+   between the fork's tines and the figure-eight crossing are alpha holes in
+   the source and survive exactly. Nothing here draws a shape.
 
-/* ── Motion: infinity flow + energy transfer (§2) ──────────────────────────
+   --plm-art is supplied inline by the component, because the file's URL is
+   bundler-hashed and only JS knows it. */
 
-   ONE cycle, 1.65s, driving three things that are phase-locked to each other
-   so the mark reads as a single circuit rather than three separate loops.
+.plm{
+  position:relative;display:block;height:100%;
+  /* The master asset's own ratio — the mask can never be stretched. */
+  aspect-ratio:495 / 888}
 
-   The comet: a 16%-long dash on a 100-unit path, travelling continuously.
-   linear timing, because energy moving along a wire does not ease — any
-   ease-in-out here makes it visibly hesitate at the waist twice per cycle,
-   which reads as a stutter rather than as flow.
+.plm__art,
+.plm__energy{
+  position:absolute;inset:0;
+  -webkit-mask:var(--plm-art) center/contain no-repeat;
+  mask:var(--plm-art) center/contain no-repeat}
 
-   The charges: the upper loop occupies ~0–48% of the path and the lower
-   ~48–100% (r7 against r7.6), so the stopwatch peaks at 24% and the plate at
-   74% — the midpoint of each loop, i.e. exactly when the comet is deepest
-   inside it. Opacity only, and only across .62 → 1: enough to read as arrival,
-   nowhere near enough to read as a blink (§2). */
+/* The mark, filled with the theme-derived brand colour (§13). */
+.plm__art{background:var(--brand-mark)}
 
-.pl-mark__flow{
-  stroke:var(--brand-mark-energy);
-  stroke-width:1.7;
-  stroke-dasharray:16 84;
-  animation:pl-flow 1.65s linear infinite}
-@keyframes pl-flow{to{stroke-dashoffset:-100}}
+/* Clips the spark to the artwork, so energy only ever appears ON the logo. */
+.plm__energy{overflow:hidden}
 
-.pl-mark__clock{animation:pl-charge-top 1.65s ease-in-out infinite}
-.pl-mark__plate{animation:pl-charge-bottom 1.65s ease-in-out infinite}
-@keyframes pl-charge-top{
-  0%{opacity:.62}
-  24%{opacity:1}
-  62%{opacity:.62}
-  100%{opacity:.62}
-}
-@keyframes pl-charge-bottom{
-  0%{opacity:.62}
-  12%{opacity:.62}
-  74%{opacity:1}
-  100%{opacity:.7}
+/* ── Motion: infinity flow + energy transfer ──────────────────────────────
+
+   One 1.65s cycle. The spark is sized to be circular against the mark's
+   0.557 aspect (60% of width x 33.4% of height) and moves on transform
+   alone, so the whole animation stays on the compositor and never triggers
+   layout (§39 of Phase 83, still in force).
+
+   The waypoints are measured from THIS PNG's silhouette rather than an
+   idealised figure-eight: upper circle centred at 29.7% of the height, waist
+   at 49.5%, lower circle at 73%. Percentages below are of the SPARK's own
+   box, which is what a transform translate resolves against — hence the
+   unusual-looking values (translate(-50%,-51.5%) is the waist).
+
+   The two loops wind in opposite directions, which is what makes it read as
+   a figure-eight rather than two circles. */
+.plm__spark{
+  position:absolute;left:50%;top:50%;
+  width:60%;height:33.4%;
+  background:radial-gradient(circle closest-side,
+    var(--brand-mark-energy) 0%,
+    color-mix(in srgb, var(--brand-mark-energy) 55%, transparent) 45%,
+    transparent 72%);
+  transform:translate(-50%,-51.5%);
+  animation:plm-travel 1.65s linear infinite}
+
+@keyframes plm-travel{
+  0%    {transform:translate(-50%,   -51.5%)}   /* waist            */
+  12.5% {transform:translate(-3.3%,  -85.9%)}   /* upper, right     */
+  25%   {transform:translate(-50%,   -157.8%)}  /* upper, top       */
+  37.5% {transform:translate(-96.7%, -85.9%)}   /* upper, left      */
+  50%   {transform:translate(-50%,   -51.5%)}   /* waist — crossing */
+  62.5% {transform:translate(-108.3%,-14.1%)}   /* lower, left      */
+  75%   {transform:translate(-50%,    78.7%)}   /* lower, bottom    */
+  87.5% {transform:translate(8.3%,   -14.1%)}   /* lower, right     */
+  100%  {transform:translate(-50%,   -51.5%)}
 }
 
 /* ── Settle + exit (§11) ───────────────────────────────────────────────────
-   The comet decelerates instead of being cut mid-flight, and the mark fades
+   The spark decelerates instead of being cut mid-flight, and the mark fades
    while the restaurant identity above it stays exactly where it is. */
-.pl-mark--settling .pl-mark__flow{
+.plm--settling .plm__spark{
   animation-duration:2.6s;
   animation-timing-function:cubic-bezier(.15,.7,.2,1);
   opacity:0;transition:opacity .24s var(--ease)}
-.pl-mark--settling .pl-mark__clock,
-.pl-mark--settling .pl-mark__plate{
-  animation:none;opacity:.8;
-  transition:opacity .24s var(--ease)}
+.plm--settling .plm__art{
+  opacity:.8;transition:opacity .24s var(--ease)}
 
 /* ── Reduced motion (§12) ──────────────────────────────────────────────────
-   The global rule collapses durations to ~0s, which would leave the comet
-   frozen at an arbitrary point on the path — a stray bright arc that looks
-   like a rendering fault. So the flow is removed outright here and the mark
-   is shown calm, complete and static. */
+   The global rule collapses durations to ~0s, which would strand the spark at
+   an arbitrary point as a stray bright blob. It is removed outright here and
+   the original mark is shown calm, complete and static. */
 @media(prefers-reduced-motion:reduce){
-  .pl-mark__flow{display:none}
-  .pl-mark__clock,.pl-mark__plate{animation:none!important;opacity:1}
+  .plm__energy{display:none}
+  .plm__spark{animation:none!important}
 }
 
 /* ── Customer loading screen (§4) ─────────────────────────────────────────
@@ -4731,7 +4753,7 @@ button{font-family:var(--font-body)}
   /* Deliberately capped well under the logo (92–132px) and beside the name,
      so the system mark stays subordinate to the venue (§7). */
   height:clamp(50px,13vw,58px)}
-.cx-loading__mark .pl-mark{height:100%}
+.cx-loading__mark .plm{height:100%}
 .cx-loading__message{
   margin:0;font-size:13px;color:var(--text-3);letter-spacing:.02em}
 
@@ -4767,9 +4789,31 @@ button{font-family:var(--font-body)}
 /* §16 — to the side of the identity, not under the name. inset-inline-end
    puts it top-right in English and top-left in Arabic with no RTL override
    anywhere (§33). */
-.cx-landing__lang{
-  position:absolute;top:clamp(14px,2.4vh,22px);
-  inset-inline-end:clamp(12px,4vw,20px);z-index:3}
+.cx-landing__lang,
+.cx-landing__info{
+  position:absolute;top:clamp(14px,2.4vh,22px);z-index:3}
+.cx-landing__lang{inset-inline-end:clamp(12px,4vw,20px)}
+/* Finding #1 — the opposite shoulder. Logical properties, so the pair swaps
+   sides together in Arabic without a single [dir] override. */
+.cx-landing__info{inset-inline-start:clamp(12px,4vw,20px)}
+
+/* The icon-only Info control: a 19px glyph in a 44x44 target, restrained
+   enough to read as chrome rather than as an action. */
+.rinfo-btn--icon{
+  /* The base .rinfo-btn carries a top margin for its in-flow placement under
+     the menu header; in a positioned corner that just pushes it off level
+     with the language control opposite. */
+  margin:0;
+  width:44px;height:44px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:50%;background:none;border:1px solid transparent;
+  color:var(--text-3)}
+.rinfo-btn--icon:hover{
+  color:var(--text-1);border-color:var(--restaurant-accent-line,var(--gold-line));
+  background:var(--surface-2)}
+/* The label variant carries a -8px inline hit extension; the icon variant is
+   already 44x44, so it must not also be stretched. */
+.rinfo-btn--icon::before{content:none}
 
 .cx-landing__logo{
   height:clamp(80px,21vw,116px);width:auto;max-width:70vw;
@@ -4784,7 +4828,6 @@ button{font-family:var(--font-body)}
   margin:0;max-width:44ch;color:var(--text-2);
   font-size:14px;line-height:1.6;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.cx-landing__info-btn{margin-top:2px}
 
 /* ── Table badge (§18) ────────────────────────────────────────────────────
    The word is quiet and the NUMBER carries the weight, because the number is
@@ -4815,25 +4858,88 @@ button{font-family:var(--font-body)}
 .cx-landing__start .field{text-align:start}
 .cx-landing__cta .btn{min-height:50px;font-size:15.5px}
 
-/* ── Leaving for the Menu (§25) ──────────────────────────────────────────
-   The two halves leave differently, and that difference is the whole idea:
-   the name field and the CTA are finished with, so they simply go; the
-   restaurant identity and the table badge only shrink and lift, because they
-   are about to reappear as the Menu header and the topbar's table pill. The
-   guest should feel the venue travel with them rather than be replaced.
+/* ── Leaving for the Menu (Phase 83.1, Finding #5) ───────────────────────
+   The choreography was right and unreadable. Four things were hiding it:
 
-   Everything is opacity + transform, so nothing here triggers layout. */
+     1. the identity exited UP while the Menu header entered from BELOW via
+        .anim-rise — two unrelated movements rather than one object;
+     2. the travel was 14px and scale(.9) on a ~300px block, roughly 5% —
+        under the threshold where the eye registers movement at all;
+     3. opacity and transform ran over the SAME 240ms, so the element was
+        already half gone before it had moved 7px. The fade masked the move;
+     4. the Menu header's own entrance ran 550ms — more than twice the exit —
+        so whatever did survive was buried under a slower animation.
+
+   The fix addresses each, rather than doubling durations:
+
+     · the identity now travels far enough to read (-42px, scale .74) and
+       keeps moving with an ACCELERATING ease, so it looks like it is leaving
+       toward somewhere rather than easing to a stop;
+     · opacity is DELAYED and short, so you see the movement first and the
+       fade only as it goes;
+     · the Menu's identity elements get a matched entrance (see
+       .anim-identity-in) that starts below and slightly larger — continuing
+       the same journey instead of contradicting it.
+
+   Still opacity + transform only, so nothing here triggers layout. */
+
+/* THE ROOT CAUSE, and it was none of the four above on its own.
+
+   Each of these elements enters with `animation: cx-enter ... both`. A
+   filling animation keeps ownership of the properties it animates —
+   transform and opacity — for as long as it is applied, and animations
+   outrank normal declarations in the cascade. So the exit rules below were
+   never able to take effect: no transitionrun event fired for either
+   property, and the elements SNAPPED to their end state the instant the
+   class landed. What the owner saw was not a transition that was too subtle;
+   it was no transition at all.
+
+   Releasing the animation hands transform and opacity back to the normal
+   cascade, which is what lets the transitions below actually run. Same trap
+   as Phase 81.1's containing block: an entrance animation with fill-mode
+   quietly owning a property long after it has finished. */
+.cx-landing--leaving .cx-landing__identity,
+.cx-landing--leaving .cx-landing__table,
+.cx-landing--leaving .cx-landing__start,
+.cx-landing--leaving .cx-landing__lang,
+.cx-landing--leaving .cx-landing__info{
+  animation:none}
+
 .cx-landing--leaving .cx-landing__identity{
-  opacity:0;transform:translateY(-14px) scale(.9);
-  transition:opacity .24s var(--ease),transform .24s var(--ease)}
+  opacity:0;transform:translateY(-42px) scale(.74);
+  transition:transform .28s cubic-bezier(.4,0,.75,.35),
+             opacity .14s var(--ease) .13s}
+/* The badge has further to go — it ends up as a small pill in the topbar —
+   so it shrinks harder and travels further. */
 .cx-landing--leaving .cx-landing__table{
-  opacity:0;transform:translateY(-10px) scale(.86);
-  transition:opacity .24s var(--ease),transform .24s var(--ease)}
-.cx-landing--leaving .cx-landing__lang{
-  opacity:0;transition:opacity .18s var(--ease)}
+  opacity:0;transform:translateY(-56px) scale(.6);
+  transition:transform .28s cubic-bezier(.4,0,.75,.35),
+             opacity .14s var(--ease) .13s}
+/* The two controls and the form are finished with, so they simply go — and
+   they go FIRST, which clears the composition and lets the eye follow the
+   identity rather than four things leaving at once. */
+.cx-landing--leaving .cx-landing__lang,
+.cx-landing--leaving .cx-landing__info{
+  opacity:0;transition:opacity .12s var(--ease)}
 .cx-landing--leaving .cx-landing__start{
-  opacity:0;transform:translateY(8px);
-  transition:opacity .18s var(--ease),transform .18s var(--ease)}
+  opacity:0;transform:translateY(10px);
+  transition:opacity .14s var(--ease),transform .14s var(--ease)}
+
+/* ── The Menu side of the same movement (Finding #5, §18) ────────────────
+   Not a shared-element framework — just a matched entrance. The identity
+   arrives from slightly BELOW and slightly LARGER, which is where the
+   Welcome composition left it, and settles into the header. Same easing
+   family, and short enough (.3s) that it reads as the continuation of the
+   .28s exit rather than as a second, slower animation.
+
+   Applied to the two elements that genuinely have a Welcome counterpart —
+   the restaurant identity and the table pill — and to nothing else in the
+   Menu (§19). */
+@keyframes cx-identity-in{
+  from{opacity:0;transform:translateY(20px) scale(1.09)}
+  to{opacity:1;transform:none}
+}
+.anim-identity-in{animation:cx-identity-in .3s cubic-bezier(.15,.75,.3,1) both}
 
 /* ── Desktop (§15) ───────────────────────────────────────────────────────
    Not a stretched phone form. Above 860px the page becomes a genuine two-part
@@ -4859,6 +4965,7 @@ button{font-family:var(--font-body)}
   .cx-landing__table{grid-column:2;grid-row:1;align-self:end;justify-self:center}
   .cx-landing__start{grid-column:2;grid-row:2;align-self:start;max-width:340px}
   .cx-landing__lang{inset-inline-end:clamp(20px,4vw,44px)}
+  .cx-landing__info{inset-inline-start:clamp(20px,4vw,44px)}
 }
 
 /* Small phones (320x568): tighten the rhythm so the CTA stays above the fold
