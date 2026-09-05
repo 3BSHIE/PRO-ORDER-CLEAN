@@ -4905,25 +4905,48 @@ button{font-family:var(--font-body)}
 .cx-landing--leaving .cx-landing__info{
   animation:none}
 
+/* ── Phase 83.2 — the same choreography, retimed to be readable ──────────
+
+   83.1 made the movement happen. It was still hard to SEE, for two reasons
+   that are about timing rather than about the motion itself:
+
+     1. the identity's opacity fade ran 130ms–270ms of a 280ms transform, so
+        the element was fully opaque for less than half its travel and was
+        already dissolving through most of the movement. The transform was
+        real; it was simply happening behind a fade (§6);
+     2. 280ms of accelerating ease spends most of its distance in the last
+        third, which compresses the readable part of the journey even further.
+
+   So the fade is now pushed to the END — the identity holds full opacity for
+   its first ~155ms of movement and only gives up in the last 75ms — the
+   travel runs a little longer, and the easing accelerates more gently so the
+   middle of the movement is not skipped over.
+
+   Distances and directions are untouched (§5): -42px/scale .74 and
+   -56px/scale .6, exactly as approved. */
+
+/* 60ms → 290ms of movement; opacity only from 215ms. */
 .cx-landing--leaving .cx-landing__identity{
   opacity:0;transform:translateY(-42px) scale(.74);
-  transition:transform .28s cubic-bezier(.4,0,.75,.35),
-             opacity .14s var(--ease) .13s}
+  transition:transform .23s cubic-bezier(.28,0,.5,.72) .06s,
+             opacity .075s var(--ease) .215s}
 /* The badge has further to go — it ends up as a small pill in the topbar —
-   so it shrinks harder and travels further. */
+   so it shrinks harder and travels further. It also starts 45ms AFTER the
+   identity (§7), which is what makes the pair read as a structured hand-off
+   rather than as everything moving at once. Both finish together at 290ms. */
 .cx-landing--leaving .cx-landing__table{
   opacity:0;transform:translateY(-56px) scale(.6);
-  transition:transform .28s cubic-bezier(.4,0,.75,.35),
-             opacity .14s var(--ease) .13s}
+  transition:transform .185s cubic-bezier(.28,0,.5,.72) .105s,
+             opacity .06s var(--ease) .23s}
 /* The two controls and the form are finished with, so they simply go — and
-   they go FIRST, which clears the composition and lets the eye follow the
-   identity rather than four things leaving at once. */
+   they go FIRST, which clears the composition early and leaves the eye with
+   only the identity and the badge to follow. */
 .cx-landing--leaving .cx-landing__lang,
 .cx-landing--leaving .cx-landing__info{
-  opacity:0;transition:opacity .12s var(--ease)}
+  opacity:0;transition:opacity .1s var(--ease)}
 .cx-landing--leaving .cx-landing__start{
   opacity:0;transform:translateY(10px);
-  transition:opacity .14s var(--ease),transform .14s var(--ease)}
+  transition:opacity .11s var(--ease),transform .11s var(--ease)}
 
 /* ── The Menu side of the same movement (Finding #5, §18) ────────────────
    Not a shared-element framework — just a matched entrance. The identity
@@ -4936,10 +4959,19 @@ button{font-family:var(--font-body)}
    the restaurant identity and the table pill — and to nothing else in the
    Menu (§19). */
 @keyframes cx-identity-in{
-  from{opacity:0;transform:translateY(20px) scale(1.09)}
+  from{opacity:0;transform:translateY(14px) scale(1.06)}
   to{opacity:1;transform:none}
 }
-.anim-identity-in{animation:cx-identity-in .3s cubic-bezier(.15,.75,.3,1) both}
+/* Phase 83.2 — 300ms → 105ms, and the travel comes down with it.
+
+   The exit now runs to 290ms, and the whole choreography has to land inside
+   360–400ms (§3), so this end is a SETTLE rather than a second journey: the
+   identity has already done its travelling on the Welcome side, and what is
+   left is the destination resolving. A shorter distance is what lets the
+   shorter duration still look smooth instead of snapping into place.
+
+   Total: 290ms exit + 105ms settle = ~395ms. */
+.anim-identity-in{animation:cx-identity-in .105s cubic-bezier(.15,.75,.3,1) both}
 
 /* ── Desktop (§15) ───────────────────────────────────────────────────────
    Not a stretched phone form. Above 860px the page becomes a genuine two-part

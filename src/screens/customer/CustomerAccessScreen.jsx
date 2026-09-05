@@ -18,9 +18,17 @@ import RestaurantInfo, { isSafeImageUrl } from "./components/RestaurantInfo.jsx"
 import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* How long the landing composition is given to leave before the Menu route is
-   pushed (§25). Short enough that it reads as one continuous movement rather
-   than a wait — and skipped entirely under reduced motion. */
-const EXIT_MS = 280;
+   pushed. Must stay in step with the .cx-landing--leaving transitions in
+   global.css, whose longest run (identity and table badge) ends at 290ms.
+
+   Phase 83.2 raised this from 280ms. With the Menu's 105ms identity settle on
+   the other side, the whole choreography reads over ~395ms — inside the
+   360–400ms window the owner asked for, and long enough that the movement is
+   noticeable without having to look for it.
+
+   Skipped entirely under reduced motion: navigation is never held for an
+   animation that is not going to run. */
+const EXIT_MS = 290;
 
 /* Name validation — trimmed, 2–30 chars.
    Phase 43 — takes `t` rather than reaching for the language module itself, so
