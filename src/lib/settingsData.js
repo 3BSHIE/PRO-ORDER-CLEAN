@@ -22,6 +22,8 @@
  */
 
 import { defaultWorkingHours, normalizeWorkingHours } from "./acceptingOrders.js";
+import { coerceDefaultLanguage } from "../i18n/language.js";
+import { normalizeCurrency } from "./format.js";
 
 const SETTINGS_KEY_PREFIX = "pro_order_settings";
 
@@ -49,7 +51,9 @@ function defaultSettings(restaurantSlug) {
     headingFont: "playfair",
     bodyFont: "dmSans",
     serviceChargePercent: null, // null = fall back to RESTAURANT.serviceChargePercent
-    currency: "JOD",
+    /* Phase 82.1 — v1 prices in JOD only; normalizeCurrency() below is the
+       boundary that keeps this true no matter what is in storage. */
+    currency: normalizeCurrency(),
     timeZone: "Asia/Amman",
     defaultLanguage: "en",
     languagesEnabled: { en: true, ar: true },
@@ -111,11 +115,29 @@ export function getSettings(restaurantSlug) {
     const raw = localStorage.getItem(settingsKey(restaurantSlug));
     if (!raw) return defaults;
     const stored = JSON.parse(raw);
+    const languagesEnabled = { ...defaults.languagesEnabled, ...(stored.languagesEnabled || {}) };
     return {
       ...defaults,
       ...stored,
-      languagesEnabled: { ...defaults.languagesEnabled, ...(stored.languagesEnabled || {}) },
+      languagesEnabled,
       paymentMethodsEnabled: { ...defaults.paymentMethodsEnabled, ...(stored.paymentMethodsEnabled || {}) },
+      /* Phase 82.1 — both of these are resolved at the READ boundary, the same
+         idiom workingHours already uses below: whatever is in storage, what
+         the app sees is always something the app can honour.
+
+         currency: v1 supports JOD alone, so a legacy "USD" left over from the
+         old free-text field resolves to JOD here. It is not preserved as a
+         second, contradictory truth waiting to be read by a screen that would
+         then disagree with fmtPrice.
+
+         defaultLanguage: can never name a language this restaurant has
+         disabled. Phase 82 found a stored default of "ar" with Arabic switched
+         off, which sent first-time guests into a language the restaurant does
+         not offer. Coercing on read means every consumer — Admin, the customer
+         entry, CustomerTheme — is handed the same already-valid value rather
+         than each having to remember to re-check it. */
+      currency: normalizeCurrency(),
+      defaultLanguage: coerceDefaultLanguage(stored.defaultLanguage ?? defaults.defaultLanguage, languagesEnabled),
       /* Phase 79.1 — normalized, NOT shallow-merged.
 
          The old `{...defaults.workingHours, ...stored.workingHours}` would
@@ -144,11 +166,30 @@ export function getSettings(restaurantSlug) {
  */
 export function updateSettings(restaurantSlug, patch) {
   const current = getSettings(restaurantSlug);
+  const languagesEnabled = { ...current.languagesEnabled, ...(patch.languagesEnabled || {}) };
   const updated = {
     ...current,
     ...patch,
-    languagesEnabled: { ...current.languagesEnabled, ...(patch.languagesEnabled || {}) },
+    languagesEnabled,
     paymentMethodsEnabled: { ...current.paymentMethodsEnabled, ...(patch.paymentMethodsEnabled || {}) },
+    /* Phase 82.1 — resolved on the way out as well as on the way in.
+
+       The read boundary alone would be enough for correctness, but writing
+       the resolved values means storage itself converges instead of holding a
+       stale "USD" / disabled-language default indefinitely — and, more
+       importantly, it means updateSettings RETURNS the coerced record. Admin
+       Settings adopts that return value as its new draft, so the screen's
+       dirty check compares like with like and a save that coerced the default
+       language does not leave the form looking unsaved (§14).
+
+       Note this coerces against the MERGED languagesEnabled above, so a patch
+       that disables Arabic in the same save that leaves defaultLanguage on
+       "ar" is judged against the new state, not the old one. */
+    currency: normalizeCurrency(),
+    defaultLanguage: coerceDefaultLanguage(
+      patch.defaultLanguage ?? current.defaultLanguage,
+      languagesEnabled
+    ),
     /* Normalized on the way out too, so a patch carrying a partial or
        legacy-shaped workingHours can never reintroduce the old keys into
        storage. `current` is already normalized (it came from getSettings), so

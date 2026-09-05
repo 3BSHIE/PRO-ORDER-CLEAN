@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowRight, ChevronLeft } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
@@ -8,7 +8,6 @@ import Input   from "../../components/ui/Input.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
-import { applyRestaurantDefaultLanguageIfFirstVisit } from "../../i18n/language.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
@@ -45,15 +44,12 @@ export default function CustomerAccessScreen({
      locale the venue has switched off. */
   const enabledLanguages = resolveEnabledLanguages(settings.languagesEnabled);
 
-  /* Phase 23 — a restaurant's configured Default Language only ever applies
-     on a true first visit (no language preference stored at all yet);
-     anyone who already has a preference — including one set by an earlier
-     visit to a *different* restaurant — keeps it untouched. See
-     src/i18n/language.js for the exact rule. */
-  useEffect(() => {
-    if (result.ok) applyRestaurantDefaultLanguageIfFirstVisit(settings.defaultLanguage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result.ok, settings.defaultLanguage]);
+  /* Phase 23's "default language on a true first visit" rule still applies —
+     it just no longer lives here. Phase 82.1 moved it into CustomerTheme,
+     which wraps this screen: deciding it in a child effect meant the default
+     was applied after the first paint (a visible snap) and could name a
+     language the restaurant had since disabled, which CustomerTheme then had
+     to undo. One rule, one owner — see resolveCustomerLanguage(). */
 
   /* Phase 23 — the restaurant's own customized name (if set in Settings)
      is what customer screens display; it never replaces or hides

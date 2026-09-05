@@ -120,8 +120,8 @@ export function toggleLanguage() {
 /**
  * hasStoredLanguagePreference — true only if the visitor has EVER had a
  * valid language value written to storage (either by explicitly switching,
- * or by a previous call to applyRestaurantDefaultLanguageIfFirstVisit
- * below). Distinct from getLanguage(), which always returns a usable value
+ * or by initCustomerLanguage() resolving a first visit below). Distinct from
+ * getLanguage(), which always returns a usable value
  * ("en" as a fallback) even when nothing is stored yet — this function is
  * how Phase 23's "default language, first-time visitors only" rule tells
  * a true first visit apart from a returning one.
@@ -136,17 +136,108 @@ export function hasStoredLanguagePreference() {
 }
 
 /**
- * applyRestaurantDefaultLanguageIfFirstVisit — Phase 23 Restaurant Settings:
- * a restaurant can configure a "Default Language" for first-time visitors.
- * Returning visitors (or anyone who already switched once) keep whatever
- * they already have — this function only ever acts on a true first visit
- * (no stored preference at all), and only ever runs once per browser.
- * @param {"en"|"ar"} restaurantDefaultLanguage
+ * Phase 82.1 — THE rule for which language a customer surface should be in.
+ *
+ * One function, so Admin Settings, the customer entry and CustomerTheme can
+ * no longer disagree (§10). It answers the whole question in one pass rather
+ * than letting a first-visit default be applied and then corrected:
+ *
+ *   1. A guest who already chose a language keeps it — as long as the
+ *      restaurant still offers it. Their choice is theirs; the restaurant
+ *      default is for the FIRST visit, not a standing instruction (§16).
+ *   2. A guest whose stored language has since been disabled moves to the
+ *      first language the restaurant does offer.
+ *   3. A first-time guest gets the restaurant's configured default — but only
+ *      if that default is itself enabled. Otherwise the first enabled one.
+ *
+ * Rule 3 is what Phase 82 found broken: the old first-visit helper never
+ * consulted languagesEnabled, so a restaurant defaulting to Arabic with
+ * Arabic switched off started its guests in Arabic and only snapped to
+ * English a screen later.
+ *
+ * The browser locale is never consulted, and resolveEnabledLanguages never
+ * returns an empty list, so this always yields a usable language.
+ *
+ * @param {object} settings — restaurant settings (languagesEnabled, defaultLanguage)
+ * @returns {"en"|"ar"}
  */
-export function applyRestaurantDefaultLanguageIfFirstVisit(restaurantDefaultLanguage) {
-  if (hasStoredLanguagePreference()) return; // respect the visitor's own past choice
-  if (!VALID_LANGUAGES.includes(restaurantDefaultLanguage)) return;
-  setLanguage(restaurantDefaultLanguage);
+export function resolveCustomerLanguage(settings) {
+  const enabled = resolveEnabledLanguages(settings?.languagesEnabled);
+
+  if (hasStoredLanguagePreference()) {
+    return resolveActiveLanguage(getLanguage(), enabled);
+  }
+
+  const preferred = VALID_LANGUAGES.includes(settings?.defaultLanguage)
+    ? settings.defaultLanguage
+    : enabled[0];
+  return resolveActiveLanguage(preferred, enabled);
+}
+
+/**
+ * Phase 82.1 — the same coercion, applied to a SETTINGS record rather than to
+ * a visitor. Used by the storage layer so a stored defaultLanguage can never
+ * name a language the restaurant has disabled (§5/§6).
+ *
+ * Deliberately does not touch languagesEnabled: turning a language back on to
+ * satisfy the default would be the silent auto-enable §8 forbids.
+ *
+ * @param {"en"|"ar"} defaultLanguage
+ * @param {object} languagesEnabled
+ * @returns {"en"|"ar"}
+ */
+export function coerceDefaultLanguage(defaultLanguage, languagesEnabled) {
+  const enabled = resolveEnabledLanguages(languagesEnabled);
+  const current = VALID_LANGUAGES.includes(defaultLanguage) ? defaultLanguage : enabled[0];
+  return resolveActiveLanguage(current, enabled);
+}
+
+/**
+ * Phase 82.1 — settle the customer's language BEFORE the first paint.
+ *
+ * ── WHY THIS IS NOT AN EFFECT ────────────────────────────────────────────
+ *   The old first-visit helper ran inside a useEffect in CustomerAccessScreen,
+ *   which is after the first paint by definition. A restaurant defaulting to
+ *   Arabic therefore rendered its entry screen in English and then visibly
+ *   snapped to Arabic — the flash §9 asks us to remove.
+ *
+ *   Moving it to a layout effect does not fix it either: useLanguage()
+ *   subscribes to the change event in a PASSIVE effect, so at layout-effect
+ *   time no component is listening yet and the dispatch would reach nobody.
+ *
+ *   What actually works is the hook's own initializer. useLanguage() seeds its
+ *   state with useState(() => getLanguage()), which reads storage during
+ *   render. So if the correct language is in storage before the children
+ *   render, every child is simply born in the right language — no dispatch, no
+ *   correction, no second frame. CustomerTheme wraps every customer route and
+ *   React renders a parent before its children, so calling this once from
+ *   CustomerTheme's own state initializer lands exactly in that window.
+ *
+ * ── WHY IT DELIBERATELY DOES NOT DISPATCH ────────────────────────────────
+ *   It runs before anything has subscribed, so there is no one to notify —
+ *   and dispatching during a render phase is how you get React's "cannot
+ *   update a component while rendering a different component" warning once
+ *   subscribers DO exist. Live enforcement after mount is a separate job with
+ *   a separate mechanism: CustomerTheme's effect, which uses the full
+ *   setLanguage() flow precisely because by then components are listening.
+ *
+ * Storage is still written, keeping Phase 23's rule intact: a resolved first
+ * visit makes the visitor a returning one, so the restaurant default applies
+ * once and never overrides a choice they later make themselves.
+ *
+ * @param {object} settings — restaurant settings
+ * @returns {"en"|"ar"} the language now in force
+ */
+export function initCustomerLanguage(settings) {
+  const next = resolveCustomerLanguage(settings);
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
+  } catch {
+    // localStorage unavailable — applyLanguage below still puts the document
+    // in the right direction for this pageview.
+  }
+  applyLanguage(next);
+  return next;
 }
 
 /* Phase 64 — one warning per distinct bad key shape, so a mis-mapped value

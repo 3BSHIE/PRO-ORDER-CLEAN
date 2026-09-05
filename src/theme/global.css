@@ -2183,6 +2183,23 @@ button{font-family:var(--font-body)}
 @media(max-width:860px){.ad-settings__grid{grid-template-columns:minmax(0,1fr)}}
 .ad-settings__section{padding:20px;display:flex;flex-direction:column;gap:14px}
 .ad-settings__hint{font-size:12px;color:var(--text-3);line-height:1.5;margin:-6px 0 0}
+/* Phase 82.1 — a settings value that is shown but not edited (Currency).
+
+   Deliberately NOT a disabled .input. A greyed-out field still carries the
+   whole visual grammar of "you type here" — border, inset surface, input
+   padding — and reads as temporarily locked rather than fixed. Since v1
+   supports one currency by design, not by circumstance, this presents the
+   value as a fact: the same label typography as a real field so it stays in
+   the form's rhythm, then the value as plain text, then the reason.
+
+   No border, no input background, no cursor affordance — nothing to click. */
+.ad-settings__readonly{display:flex;flex-direction:column;gap:6px;text-align:start}
+.ad-settings__readonly-label{font-size:12.5px;font-weight:600;color:var(--text-2);
+  letter-spacing:.03em}
+.ad-settings__readonly-value{font:600 14px var(--font-body);color:var(--text-1);
+  /* A bare currency code, so it keeps Latin order inside Arabic copy. */
+  direction:ltr;unicode-bidi:isolate;align-self:start}
+.ad-settings__readonly-note{font-size:12px;color:var(--text-3);line-height:1.5}
 .ad-settings__color{
   width:100%;height:42px;padding:3px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border);cursor:pointer}

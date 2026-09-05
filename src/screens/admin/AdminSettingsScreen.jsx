@@ -14,6 +14,8 @@ import { updateSettings } from "../../lib/settingsData.js";
 import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { resolveEnabledLanguages, coerceDefaultLanguage } from "../../i18n/language.js";
+import { SUPPORTED_CURRENCY } from "../../lib/format.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -132,6 +134,21 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
 
      Both hooks sit ABOVE the role check below, which returns early. */
   const isDirty = settingsFingerprint(draft) !== settingsFingerprint(settings);
+
+  /* Phase 82.1 — derived, never stored. The Default Language control renders
+     from these so it can only ever offer (and show) a language the draft
+     actually has enabled. Both come from the shared rule in i18n/language.js,
+     the same one settingsData applies on save and CustomerTheme applies to
+     guests — so Admin cannot show one answer while the customer gets another.
+
+     resolveEnabledLanguages never returns an empty list, so with both
+     languages unticked this falls back to English for display purposes only;
+     Save is still blocked in that state by handleSaveAll (§8). */
+  const draftEnabledLanguages = resolveEnabledLanguages(draft.languagesEnabled);
+  const effectiveDefaultLanguage = coerceDefaultLanguage(
+    draft.defaultLanguage,
+    draft.languagesEnabled
+  );
 
   const pendingNavRef = useRef(null);
 
@@ -260,7 +277,14 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        stored record can legitimately differ in shape from the object handed
        in. Keeping the pre-save draft would leave those two fingerprints
        apart forever and the page permanently dirty. Taking the return value
-       also means the form shows exactly what is on disk. */
+       also means the form shows exactly what is on disk.
+
+       Phase 82.1 — this is now also what stops a coerced default language
+       from leaving a stale value behind (§13/§14). Saving with the previous
+       default disabled stores the first enabled language instead, and because
+       the draft adopts the returned record, the form holds the coerced value
+       rather than the pre-coercion one and the dirty check stays honest. The
+       same applies to currency being resolved to JOD. */
     const saved = updateSettings(restaurant.slug, draft);
     setDraft(saved);
     setToastMessage(t("admin.settingsSaved", "Settings saved"));
@@ -412,8 +436,28 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             value={draft.serviceChargePercent ?? ""} placeholder={String(restaurant.serviceChargePercent)}
             onChange={(e) => setField("serviceChargePercent", e.target.value === "" ? null : Number(e.target.value))}
             style={{ marginBottom: 14 }} />
-          <Input label={t("admin.currency", "Currency")} value={draft.currency}
-            onChange={(e) => setField("currency", e.target.value)} style={{ marginBottom: 14 }} />
+          {/* Phase 82.1 — Currency is shown, not edited.
+
+              This was a free-text input for many phases, and nothing ever read
+              what it stored: every price in Customer, Kitchen and Admin comes
+              from fmtPrice(), which formats JOD. A manager could type "USD",
+              save successfully, and change nothing anywhere — the exact
+              "saves but does nothing" class of defect Phase 82 called a P0
+              blocker.
+
+              Rendered as a plain read-only value rather than a disabled input
+              (§23): a greyed-out field still reads as "editable, just not
+              right now", which would be a second small lie. The field itself
+              stays in the settings record — it is the seam multi-currency
+              grows from — and normalizeCurrency() in settingsData resolves
+              whatever is stored, including a legacy "USD", to JOD. */}
+          <div className="ad-settings__readonly" style={{ marginBottom: 14 }}>
+            <span className="ad-settings__readonly-label">{t("admin.currency", "Currency")}</span>
+            <span className="ad-settings__readonly-value">{SUPPORTED_CURRENCY}</span>
+            <span className="ad-settings__readonly-note">
+              {t("admin.currencyFixedHint", "JOD only in this version.")}
+            </span>
+          </div>
           <Input label={t("admin.timeZone", "Time Zone")} value={draft.timeZone}
             onChange={(e) => setField("timeZone", e.target.value)} />
         </Card>
@@ -423,9 +467,28 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           <h3 className="mm-section-title">{t("admin.languages", "Languages")}</h3>
           <label className="field mm-field" style={{ marginBottom: 14 }}>
             <span className="field__label">{t("admin.defaultLanguage", "Default Language")}</span>
-            <select className="mm-select mm-select--full" value={draft.defaultLanguage} onChange={(e) => setField("defaultLanguage", e.target.value)}>
-              <option value="en">{t("common.english", "English")}</option>
-              <option value="ar">{t("common.arabic", "Arabic")}</option>
+            {/* Phase 82.1 — the list offers exactly the languages this
+                restaurant has enabled, so a default it cannot honour is not
+                selectable in the first place (§12). The displayed value is the
+                COERCED one, which matters when the admin unticks the language
+                that was the default: the control immediately shows what Save
+                would actually store instead of continuing to display a choice
+                that no longer exists.
+
+                draft.defaultLanguage itself is left alone, so re-ticking that
+                language restores their original default rather than silently
+                keeping the fallback. Save-side coercion in settingsData
+                remains the last word regardless of what this control does. */}
+            <select
+              className="mm-select mm-select--full"
+              value={effectiveDefaultLanguage}
+              onChange={(e) => setField("defaultLanguage", e.target.value)}
+            >
+              {draftEnabledLanguages.map((code) => (
+                <option key={code} value={code}>
+                  {code === "ar" ? t("common.arabic", "Arabic") : t("common.english", "English")}
+                </option>
+              ))}
             </select>
           </label>
           <p className="ad-settings__hint">{t("admin.defaultLanguageHint", "Used only for first-time visitors — returning visitors keep their own saved language.")}</p>
