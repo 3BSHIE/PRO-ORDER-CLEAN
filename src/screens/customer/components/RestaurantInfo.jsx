@@ -4,6 +4,7 @@ import { Info, Phone, Mail, MapPin, X } from "lucide-react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import RestaurantIdentity from "./RestaurantIdentity.jsx";
+import { isSafeImageUrl } from "../../../lib/safeImage.js";
 
 /**
  * RestaurantInfo — Phase 81. The one customer-facing surface for the things a
@@ -72,16 +73,13 @@ export function toMailtoHref(raw) {
   return /^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : "";
 }
 
-/** Only http(s) images are honoured — never javascript:, data: or blob: (§43). */
-export function isSafeImageUrl(raw) {
-  if (typeof raw !== "string" || raw.trim() === "") return false;
-  try {
-    const url = new URL(raw.trim(), window.location.origin);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+/* Only http(s) images are honoured — never javascript:, data: or blob: (§43).
+
+   Phase 84.1 moved the implementation to lib/safeImage.js so RestaurantIdentity
+   could use it without importing this module (which imports RestaurantIdentity —
+   a cycle). Re-exported here so every existing import site keeps working
+   unchanged; there is still exactly one implementation. */
+export { isSafeImageUrl };
 
 /* ── The sheet ─────────────────────────────────────────────────────────── */
 
