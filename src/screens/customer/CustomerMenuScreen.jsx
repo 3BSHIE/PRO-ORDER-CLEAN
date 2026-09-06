@@ -8,6 +8,10 @@ import Button  from "../../components/ui/Button.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
+import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
+import { resolveEnabledLanguages } from "../../i18n/language.js";
+import { prefersReducedMotion } from "../../lib/motion.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import RestaurantClosedNotice from "./components/RestaurantClosedNotice.jsx";
 import RestaurantInfo from "./components/RestaurantInfo.jsx";
@@ -129,6 +133,30 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      the guest's device clock (a tourist's phone on the wrong timezone must
      not see a different menu than the table next to them). */
   const { settings } = useSettingsData(restaurant.slug);
+
+  /* Phase 84 §2 — the strip's language control offers only what the
+     restaurant enables, using the same shared resolver every other customer
+     surface uses. Phase 82.1's language rules are consumed here, not
+     duplicated. */
+  const enabledLanguages = resolveEnabledLanguages(settings.languagesEnabled);
+
+  /* Phase 84 §5 — the PRO·ORDER mark's job on the Menu.
+     "Return to the main Customer Menu" while already ON the Menu means
+     getting back to the top of it. Deliberately the least destructive
+     reading: it does not reload, does not touch the session, the cart, the
+     language, the table or any order state, and it does not clear the search
+     or the chosen category either — a guest three screens down a category
+     wants to get back up, not to lose where they were.
+
+     Reduced motion gets an instant jump rather than a smooth scroll, matching
+     revealChip below. */
+  function handleHomeShortcut() {
+    try {
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }
 
   /* ONE shared clock for every scheduled category, not one timer per
      category. Schedules only have minute resolution, so a 30s tick is more
@@ -325,13 +353,26 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           labels collapse to icons on narrow phones — see .menu-topbar-right. */}
       <Topbar
         left={
-          /* Phase 83.1, Finding #5 — destination of the Welcome table badge.
-             Class only; the pill's design, position and content are untouched
-             (§19). Written as a plain comment because this prop takes exactly
-             one expression, so a JSX comment node here would make it two. */
-          <span className="menu-table-pill anim-identity-in">
-            {t("customer.yourTable", "Table")} #{table.tableNumber}
-          </span>
+          /* Phase 84 §4–§6 — the static PRO·ORDER mark joins the table pill on
+             the leading edge. It is a wayfinding shortcut, not a brand moment:
+             22px of artwork inside a 44x44 target, in the theme-derived mark
+             colour, and it never animates.
+
+             The table pill keeps the .anim-identity-in class it received in
+             Phase 83.1 as the Welcome badge's destination — untouched. */
+          <div className="menu-topbar-left">
+            <button
+              type="button"
+              className="menu-home-btn"
+              onClick={handleHomeShortcut}
+              aria-label={t("common.backToMenu", "Back to menu")}
+            >
+              <BrandMarkStatic size={22} />
+            </button>
+            <span className="menu-table-pill anim-identity-in">
+              {t("customer.yourTable", "Table")} #{table.tableNumber}
+            </span>
+          </div>
         }
         right={
           <div className="menu-topbar-right">
@@ -361,6 +402,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
                 {t("customer.myOrders", "My Orders")}
               </span>
             </Button>
+            {/* Phase 84 §2 — the utility strip is meant to carry Table, Call
+                Staff AND Language. Language was the one missing piece: until
+                now a guest who wanted to switch mid-menu had to go back to the
+                entry screen. Same compact EN | AR control Unit 1 approved, and
+                it renders nothing when the restaurant offers one language. */}
+            <LanguageSwitcher variant="compact" enabled={enabledLanguages} />
           </div>
         }
       />
@@ -395,6 +442,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               actually personal. */}
           <p className="menu-header__meta">
             {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
+          </p>
+          {/* Phase 84 §9 — one short helper line, and deliberately nothing
+              more. No restaurant description (that belongs to Restaurant
+              Info), no marketing copy, no hero. The guest came here to
+              browse food. */}
+          <p className="menu-header__prompt">
+            {t("customer.orderPrompt", "What would you like to order today?")}
           </p>
           {/* Phase 81 §20/§29 — sits with the restaurant's identity rather
               than in the topbar's action cluster, so Call Staff and My Orders
@@ -537,7 +591,10 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         {/* Inside the container so the existing cart-FAB bottom padding keeps
             protecting it — the footer scrolls with the content and never sits
             under the floating cart button. */}
-        <CustomerFooter />
+        {/* Phase 84 §28–§35 — the Menu is where PRO·ORDER attribution begins
+            carrying contact channels. Cart, Confirmation, My Orders and
+            Tracking keep the plain footer until their own units review it. */}
+        <CustomerFooter showContact />
       </main>
 
       {/* ── Floating cart button ────────────────────────────────────────── */}

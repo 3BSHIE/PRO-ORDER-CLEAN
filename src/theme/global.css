@@ -3380,18 +3380,37 @@ button{font-family:var(--font-body)}
    and My Orders here). Gap tightens and the My Orders label drops on narrow
    phones so the cluster never wraps or pushes the bar taller — the icon plus
    the button's own accessible text carries it. */
-/* 375 keeps both labels — measured, they fit with room to spare. Only
-   genuinely narrow phones drop to icons, and only then does aria-label
-   become the accessible name. */
-@media(max-width:400px){
+/* Phase 84 §7 — these thresholds moved, and the old comment above them
+   ("375 keeps both labels — measured, they fit with room to spare") is no
+   longer true, so it is gone.
+
+   That measurement was taken when the strip held Table + Call Staff + My
+   Orders. Unit 2 added two more controls to the same row — the PRO·ORDER
+   shortcut (44px) and the language switcher (93px) — which is 137px the
+   budget never had. At 375px the row overflowed and wrapped to two lines,
+   taking the sticky bar from 60px to 113px of a 812px viewport.
+
+   So the labels now collapse to icons much earlier. Both controls keep their
+   aria-label in that state, so nothing is lost to assistive tech — only the
+   redundant visible text, which the icons already carry. */
+@media(max-width:480px){
   .menu-topbar-right{gap:6px}
   .menu-topbar-right .btn--sm{padding-inline:10px}
-}
-@media(max-width:359px){
   .menu-orders-label{display:none}
+  .call-staff--compact{padding:7px;gap:0}
+  .call-staff--compact .call-staff__label{display:none}
+}
+/* Narrower still: the language codes tighten horizontally but keep their full
+   44px height, so the target stays comfortable in the direction that matters
+   for a thumb on a phone. */
+@media(max-width:390px){
+  .lang-switcher--compact .lang-switcher__option{min-width:36px;padding:0 2px}
 }
 @media(max-width:340px){
   .menu-table-pill{font-size:10.5px;padding-inline:8px}
+  .topbar__inner{gap:8px}
+  .menu-topbar-left{gap:4px}
+  .lang-switcher--compact .lang-switcher__option{min-width:32px}
 }
 
 /* ── Cart FAB acknowledgement (§24, §25) ──────────────────────────────── */
@@ -5037,3 +5056,82 @@ button{font-family:var(--font-body)}
   color:var(--gold);opacity:1;font-weight:800;background:none}
 .lang-switcher--compact .lang-switcher__sep{
   width:1px;height:11px;background:var(--border-strong);opacity:.7}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 84 — CUSTOMER MENU (UNIT 2)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── The static PRO·ORDER mark (§4–§6) ────────────────────────────────────
+   Same CSS-mask technique as the Phase 83.1 loading mark, so the silhouette
+   is the original 495x888 master artwork rather than a redrawn approximation,
+   and the fill follows the theme-derived --brand-mark (§37).
+
+   Its own class, not the loading mark's: that component is out of scope this
+   phase and its block carries the travelling spark, so sharing a class would
+   mean either editing it or inheriting motion this mark must not have. There
+   is deliberately no animation of any kind here. */
+.po-mark{
+  display:block;width:auto;aspect-ratio:495 / 888;
+  background:var(--brand-mark);
+  -webkit-mask:var(--po-mark-art) center/contain no-repeat;
+  mask:var(--po-mark-art) center/contain no-repeat}
+
+/* 22px of artwork inside a 44x44 target: small enough that it cannot compete
+   with the restaurant's identity (§38), large enough to hit (§43). */
+.menu-home-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;flex:none;padding:0;margin-inline-start:-8px;
+  background:none;border:1px solid transparent;border-radius:50%;
+  cursor:pointer;
+  transition:background .18s var(--ease),border-color .18s var(--ease),
+    opacity .18s var(--ease)}
+.menu-home-btn .po-mark{opacity:.85;transition:opacity .18s var(--ease)}
+.menu-home-btn:hover{background:var(--surface-2);border-color:var(--border)}
+.menu-home-btn:hover .po-mark{opacity:1}
+.menu-home-btn:active{transform:scale(.94)}
+
+/* ── Utility strip layout (§2, §7) ────────────────────────────────────────
+   The mark and the table pill travel together on the leading edge; the action
+   cluster keeps the trailing edge. Flex + logical margins, so Arabic mirrors
+   the whole strip without a single [dir] rule. */
+.menu-topbar-left{display:flex;align-items:center;gap:8px;min-width:0}
+.menu-topbar-left .menu-table-pill{min-width:0}
+
+/* ── Greeting helper line (§9) ─────────────────────────────────────────── */
+.menu-header__prompt{
+  margin:2px 0 0;font-size:13.5px;line-height:1.5;color:var(--text-3)}
+
+/* ── Footer contact channels (§29–§33) ────────────────────────────────────
+   One restrained row that wraps to two lines on small phones. No card, no
+   accent colour, no CTA weight — this is a credit line, not a call to
+   action (§32). */
+.customer-theme .cust-footer__contact{
+  list-style:none;margin:9px 0 0;padding:0;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:6px 18px}
+.customer-theme .cust-footer__contact-item{display:flex;min-width:0}
+.customer-theme .cust-footer__contact-link,
+.customer-theme .cust-footer__contact-text{
+  display:inline-flex;align-items:center;gap:6px;
+  /* A comfortable row height without turning the credit line into a set of
+     buttons: the padding is the target, the type stays small (§32/§43). */
+  padding:5px 2px;
+  font-size:11.5px;color:var(--text-3);text-decoration:none;
+  transition:color .18s var(--ease)}
+.customer-theme .cust-footer__contact-link:hover{color:var(--text-2)}
+/* Plain-text channels must not look clickable — the placeholder phone has no
+   href on purpose (§31). */
+.customer-theme .cust-footer__contact-text{cursor:default}
+.customer-theme .cust-footer__contact-value{
+  /* Phone numbers, email addresses and handles are bare Latin tokens: they
+     keep their own order inside Arabic copy, the same convention prices and
+     order ids already use (§44). */
+  direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+
+/* Small phones: let the row become two lines rather than squeezing the
+   values (§33). */
+@media(max-width:400px){
+  .customer-theme .cust-footer__contact{gap:2px 14px}
+  .customer-theme .cust-footer__contact-link,
+  .customer-theme .cust-footer__contact-text{font-size:11px}
+}

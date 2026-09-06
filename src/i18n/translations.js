@@ -46,6 +46,7 @@ export const translations = {
       /* Phase 45 — platform attribution. "PRO·ORDER" itself is a brand name
          and stays untranslated in both languages. */
       poweredBy: "Powered by",
+      instagram: "Instagram",
       platformTagline: "Digital ordering technology for restaurants",
       /* Phase 43 — QuantityStepper's accessible labels. The component is
          customer-only (item modal + cart), so translating it touches no
@@ -94,6 +95,10 @@ export const translations = {
          two-step flow that no longer exists; this names the thing the guest
          is actually about to do. */
       startOrdering: "Start Ordering",
+      /* Phase 84 — the Menu greeting's helper line. The strip's shortcut
+         reuses the existing common.backToMenu rather than adding a second
+         key for the same sentence. */
+      orderPrompt: "What would you like to order today?",
       loadingExperience: "Loading",
 
       /* ── Phase 43 — copy that was hardcoded in JSX until now ─────────── */
@@ -793,6 +798,7 @@ export const translations = {
       serviceCharge: "رسوم الخدمة",
       quantity: "الكمية",
       poweredBy: "مدعوم بواسطة",
+      instagram: "إنستغرام",
       platformTagline: "تقنية الطلب الرقمي للمطاعم",
       decreaseQuantity: "إنقاص الكمية",
       increaseQuantity: "زيادة الكمية",
@@ -835,6 +841,7 @@ export const translations = {
       identifyOrderMsg: "سنستخدم اسمك لتمييز طلبك في الطاولة",
       continueToMenu: "المتابعة إلى القائمة",
       startOrdering: "ابدأ الطلب",
+      orderPrompt: "ماذا تحب أن تطلب اليوم؟",
       loadingExperience: "جارٍ التحميل",
 
       /* ── Phase 43 ─────────────────────────────────────────────────────── */
