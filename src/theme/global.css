@@ -580,7 +580,19 @@ button{font-family:var(--font-body)}
   box-shadow:var(--shadow);position:relative;
   animation:sheet .32s var(--ease) both}
 @media(min-width:640px){
-  .item-modal{border-radius:var(--r-xl)}
+  .item-modal{
+    border-radius:var(--r-xl);
+    /* Phase 85 §2 — 480px sat just under the approved 520–620px desktop
+       band, which left long option rows wrapping earlier than they need to.
+       560px is the middle of that band: enough width for a two-line option
+       label to settle on one line, without the sheet becoming a wide panel
+       that pushes the price away from the option it belongs to.
+       Mobile is untouched — it still fills the width as a bottom sheet. */
+    max-width:560px;
+    /* A centred modal does not need to reach 92% of the viewport; capping it
+       lower keeps the backdrop visible so the sheet still reads as a layer
+       over the menu rather than a page. */
+    max-height:min(88vh,760px)}
 }
 .item-modal__handle{
   width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);
@@ -1829,6 +1841,12 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .track__order-id,
 [dir="rtl"] .item-card__price,
 [dir="rtl"] .item-modal__price,
+/* Phase 85 §50 — the two customization price tokens were missing from this
+   list, so "+JOD 6.000" inherited the RTL paragraph direction and its leading
+   "+" flipped to the wrong side of the amount. They are bare Latin tokens
+   like every other entry here. */
+[dir="rtl"] .cust-option__price,
+[dir="rtl"] .cust-addon__price,
 [dir="rtl"] .cart-line__line-total,
 [dir="rtl"] .cart-fab__total,
 [dir="rtl"] .cart-summary__row--total span:last-child,

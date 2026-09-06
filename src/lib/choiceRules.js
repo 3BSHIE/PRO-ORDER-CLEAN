@@ -1,3 +1,5 @@
+import { parseSortOrder } from "./menuSortOrder.js";
+
 /**
  * choiceRules — Phase 80. The single source of truth for what a choice group
  * ASKS and whether an answer satisfies it.
@@ -123,6 +125,103 @@ export function normalizeChoiceGroups(groups) {
   return (Array.isArray(groups) ? groups : []).map(normalizeChoiceGroup);
 }
 
+/* ── Customization section order (Phase 85, §9–§12, §19, §57, §58) ─────────
+
+   The Item Details sheet used to render a fixed sequence: removable
+   ingredients, then choice groups, then paid add-ons. That is precisely the
+   global ordering the owner ruled out — a restaurant whose burger needs
+   "Choose your bun" answered before anything else had no way to say so, and
+   a venue whose removals matter more than its extras could not put them
+   first.
+
+   Order is now data, not layout. Every customization block is a SECTION with
+   a sortOrder, and the three kinds sit in one sequence so they can interleave
+   freely: a required choice group can sit above removals, add-ons can sit
+   between two groups, whatever the product needs.
+
+   ── WHY THE DEFAULTS ARE SPACED ─────────────────────────────────────────
+   REMOVALS_DEFAULT 100, choice groups 200 + their array index, ADDONS_DEFAULT
+   300. Two things fall out of that, both required:
+
+     · a product that configures nothing renders in exactly the order it
+       renders today, so no existing demo product moves (§58);
+     · the gaps leave room to slot a section between kinds without having to
+       renumber everything else.
+
+   ── WHAT THIS DELIBERATELY DOES NOT DO ──────────────────────────────────
+   It does not touch validation. Ordering is presentation; minSelections and
+   maxSelections decide what is required, and a group that appears last is as
+   required as one that appears first (§11). Nothing downstream of this
+   function reads position to infer a rule.
+
+   It also does not reorder OPTIONS inside a group. Options already render in
+   stable array order, which the Admin editor writes in the order the manager
+   arranged them, so there is no ambiguity to resolve and no field to add
+   (§12).
+*/
+
+export const REMOVALS_DEFAULT_SORT_ORDER = 100;
+export const CHOICE_GROUP_DEFAULT_SORT_BASE = 200;
+export const ADDONS_DEFAULT_SORT_ORDER = 300;
+
+/**
+ * Build the ordered list of customization sections for one product.
+ *
+ * @param {object} item — a normalized menu item
+ * @param {Array<object>} [paidAddOns] — the add-ons the caller intends to
+ *   show; passed in rather than re-derived so this can never disagree with
+ *   the pricing the sheet is already using.
+ * @returns {Array<{key:string, kind:"removals"|"choice"|"addOns",
+ *   sortOrder:number, seq:number, group?:object, ingredients?:Array<string>,
+ *   addOns?:Array<object>}>} sorted ascending, ties broken by original
+ *   position so the result is stable and never shuffles (§57).
+ */
+export function buildCustomizationSections(item, paidAddOns) {
+  const sections = [];
+
+  const removals = item?.removableIngredients || [];
+  if (removals.length > 0) {
+    sections.push({
+      key: "removals",
+      kind: "removals",
+      sortOrder: parseSortOrder(item?.removalsSortOrder) ?? REMOVALS_DEFAULT_SORT_ORDER,
+      seq: 0,
+      ingredients: removals,
+    });
+  }
+
+  (item?.choices || []).forEach((group, index) => {
+    sections.push({
+      key: `choice:${group.id}`,
+      kind: "choice",
+      /* A group with no configured position keeps the slot its array index
+         gives it, which is what makes an unconfigured product render
+         identically to before. */
+      sortOrder: parseSortOrder(group?.sortOrder) ?? CHOICE_GROUP_DEFAULT_SORT_BASE + index,
+      seq: 1 + index,
+      group,
+    });
+  });
+
+  const addOns = paidAddOns || [];
+  if (addOns.length > 0) {
+    sections.push({
+      key: "addOns",
+      kind: "addOns",
+      sortOrder: parseSortOrder(item?.addOnsSortOrder) ?? ADDONS_DEFAULT_SORT_ORDER,
+      /* Last among equals: with the shipped defaults nothing collides here,
+         but if a product gives add-ons the same number as a group, the group
+         it was configured to sit beside wins the tie deterministically. */
+      seq: Number.MAX_SAFE_INTEGER,
+      addOns,
+    });
+  }
+
+  /* Array.prototype.sort is stable in every engine this ships to, but the
+     explicit seq tie-break makes the guarantee independent of that. */
+  return sections.sort((a, b) => a.sortOrder - b.sortOrder || a.seq - b.seq);
+}
+
 /** The derived reading. Never stored. */
 export function isGroupRequired(group) {
   return (group?.minSelections ?? 0) >= 1;
@@ -194,6 +293,52 @@ export function formatGroupRule(group, t) {
       return t("choice.chooseRange", "Choose {min}–{max}")
         .replace("{min}", min)
         .replace("{max}", max);
+  }
+}
+
+/**
+ * Phase 85 §34 — the validation message for a failed group, stated as the
+ * RULE rather than as a generic complaint.
+ *
+ * "Please complete your selection for Doneness" tells the guest that
+ * something is wrong but not what would fix it, and it says the same thing
+ * whether the group wanted one option or four. Since describeGroupRule
+ * already knows the exact shape of the ask, the message can simply be that
+ * ask — "Choose exactly 2 options" — which is both more specific and
+ * impossible to drift from the rule it describes.
+ *
+ * Lives here rather than in the sheet so the wording has one home, next to
+ * the rule it is derived from.
+ *
+ * @param {object} group
+ * @param {string} issue — a CHOICE_ISSUE value
+ * @param {(key:string, fallback:string)=>string} t
+ * @returns {string}
+ */
+export function formatGroupError(group, issue, t) {
+  if (issue === CHOICE_ISSUE.UNSATISFIABLE) {
+    return t("choice.groupUnsatisfiable", "Not enough options are available for this choice right now.");
+  }
+  if (issue === CHOICE_ISSUE.OPTION_UNAVAILABLE || issue === CHOICE_ISSUE.OPTION_MISSING) {
+    return t("choice.reselectOption", "One of your selections is no longer available. Please choose again.");
+  }
+
+  const { kind, min, max } = describeGroupRule(group);
+
+  if (issue === CHOICE_ISSUE.ABOVE_MAX) {
+    return t("choice.errorAtMost", "Choose no more than {n} options").replace("{n}", max);
+  }
+
+  /* BELOW_MIN — what the group still needs. */
+  switch (kind) {
+    case "single":
+      return t("choice.errorChooseOne", "Choose 1 option");
+    case "exactly":
+      return t("choice.errorExactly", "Choose exactly {n} options").replace("{n}", min);
+    case "range":
+      return t("choice.errorAtLeast", "Choose at least {n} options").replace("{n}", min);
+    default:
+      return t("choice.errorAtLeast", "Choose at least {n} options").replace("{n}", Math.max(1, min));
   }
 }
 

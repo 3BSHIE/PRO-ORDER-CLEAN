@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { X, Check, AlertCircle } from "lucide-react";
 import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
@@ -10,6 +10,8 @@ import {
   formatGroupRule,
   isGroupSatisfiable,
   getUnsatisfiableGroups,
+  buildCustomizationSections,
+  formatGroupError,
   CHOICE_ISSUE,
 } from "../../../lib/choiceRules.js";
 
@@ -218,6 +220,16 @@ export default function ItemDetailsModal({
   /* ── Price math (must run before any early return — hooks rule) ──────── */
   const choices    = item?.choices || [];
   const paidAddOns = item?.paidAddOns || [];
+
+  /* Phase 85 §9–§12 — the product's configured section order.
+     MUST live above the `if (!open || !item) return null` below: a hook after
+     an early return runs on some renders and not others, which is exactly the
+     "rendered more hooks than during the previous render" crash. It is safe
+     here because buildCustomizationSections tolerates a null item. */
+  const sections = useMemo(
+    () => buildCustomizationSections(item, paidAddOns),
+    [item, paidAddOns]
+  );
 
   const addOnsTotal = useMemo(() => {
     return paidAddOns
@@ -430,69 +442,13 @@ export default function ItemDetailsModal({
     });
   }
 
-  return (
-    <div
-      className="item-modal__overlay"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
-    >
-      <div className="item-modal" role="dialog" aria-modal="true" aria-label={item.name} ref={modalRef}>
-        <div className="item-modal__handle" />
-
-        <button
-          type="button"
-          className="item-modal__x"
-          onClick={onClose}
-          aria-label={t("common.close", "Close")}
-        >
-          <X size={16} strokeWidth={2.4} />
-        </button>
-
-        {/* ── Image ─────────────────────────────────────────────────────── */}
-        <div className="item-modal__img-wrap">
-          {useImg ? (
-            <img
-              className="item-modal__img"
-              src={item.imageUrl}
-              alt={item.name}
-              onError={() => setImgErr(true)}
-            />
-          ) : (
-            <div className="item-modal__emoji-wrap">
-              <span className="item-modal__emoji">{emoji}</span>
-            </div>
-          )}
-          {!available && (
-            <span className="item-modal__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>
-          )}
-        </div>
-
-        {/* ── Body ──────────────────────────────────────────────────────── */}
-        <div className="item-modal__body">
-          {(item.isPopular || item.isFeatured) && (
-            <div className="item-modal__badges">
-              {item.isPopular && <span className="badge badge--gold">{t("customer.popular", "Popular")}</span>}
-              {/* Phase 73 §8 — Featured leaves the blue "received" status colour
-                  here too. The one-badge rule in §7 is scoped to the product
-                  CARD; this detail sheet is where fuller information belongs,
-                  so both badges may still appear — they just both sit in the
-                  brand family now. */}
-              {item.isFeatured && <span className="badge badge--featured">{t("customer.featured", "Featured")}</span>}
-            </div>
-          )}
-
-          <h2 className="item-modal__name">{item.name}</h2>
-          <p className="item-modal__desc">{item.description}</p>
-          <div className="item-modal__price">{fmtPrice(item.price)}</div>
-
-          {!available ? (
-            <div className="item-modal__oos-note">
-              {t("customer.itemUnavailableMsg", "This item is currently unavailable. Check back later or ask your server for today's options.")}
-            </div>
-          ) : (
-            <>
-              {/* ── Removable ingredients ─────────────────────────────── */}
-              {item.removableIngredients?.length > 0 && (
-                <>
+  /* ── Phase 85 §9–§12 — the sheet renders in CONFIGURED order ─────────────
+     Each customization block moved into its own renderer so the three kinds
+     can be emitted from one ordered list instead of a hardcoded sequence.
+     The JSX inside each is unchanged; only who decides when it appears moved. */
+  function renderRemovalsSection() {
+    return (
+<>
                   <div className="divider" />
                   <div className="cust-section">
                     <h3 className="cust-section__title">{t("customer.removeIngredients", "Remove ingredients")}</h3>
@@ -517,11 +473,11 @@ export default function ItemDetailsModal({
                     </div>
                   </div>
                 </>
-              )}
+    );
+  }
 
-              {/* ── Choice groups ─────────────────────────────────────── */}
-              {choices.map((group) => {
-                /* Phase 80 — the control type follows maxSelections alone.
+  function renderChoiceSection(group) {
+/* Phase 80 — the control type follows maxSelections alone.
                    A group that permits two answers is a checkbox group even
                    when both are required; forcing it into radios would make
                    the rule unfulfillable. */
@@ -532,6 +488,21 @@ export default function ItemDetailsModal({
                 const titleId   = `cust-${group.id}-title`;
                 const errorId   = `cust-${group.id}-error`;
                 const ruleText  = formatGroupRule(group, t);
+                const ruleId    = `cust-${group.id}-rule`;
+                const showRule  = !!ruleText && !(group.minSelections === 0 && group.maxSelections === 1);
+                /* Phase 85 §16/§51 — whether a group takes one answer or
+                   several is currently visible (radio vs check styling) but
+                   was not announced: both kinds expose the same
+                   aria-pressed toggle buttons, so a screen-reader user heard
+                   an identical control either way.
+
+                   Describing the group with its own rule text fixes that at
+                   the group level — entering "Doneness" now announces
+                   "Choose 1", and a two-of-four group announces "Choose
+                   exactly 2". Deliberately NOT converted to role=radio /
+                   radiogroup: that contract also owes arrow-key roving focus,
+                   and half-implementing it would take working keyboard
+                   behaviour away in exchange for a better label. */
                 const required  = group.minSelections >= 1;
                 /* §27/§28 — once the maximum is reached, further options stop
                    being selectable rather than being accepted and rejected at
@@ -539,14 +510,11 @@ export default function ItemDetailsModal({
                    replaces the current answer, which is what a radio does. */
                 const atCap     = !isSingle && selected.length >= group.maxSelections;
 
-                const errorText =
-                  issue === CHOICE_ISSUE.UNSATISFIABLE
-                    ? t("choice.groupUnsatisfiable", "Not enough options are available for this choice right now.")
-                    : issue === CHOICE_ISSUE.OPTION_UNAVAILABLE || issue === CHOICE_ISSUE.OPTION_MISSING
-                      ? t("choice.reselectOption", "One of your selections is no longer available. Please choose again.")
-                      : issue === CHOICE_ISSUE.ABOVE_MAX
-                        ? t("choice.tooMany", "Please remove a selection from {group}.").replace("{group}", group.name)
-                        : t("choice.needMore", "Please complete your selection for {group}.").replace("{group}", group.name);
+                /* Phase 85 §34 — the message is now the RULE ("Choose exactly 2
+                   options") rather than a generic "complete your selection",
+                   and it comes from the same module that defines the rule so
+                   the two cannot drift. */
+                const errorText = formatGroupError(group, issue, t);
                 return (
                   <div key={group.id}>
                     <div className="divider" />
@@ -561,7 +529,10 @@ export default function ItemDetailsModal({
                       role="group"
                       aria-labelledby={titleId}
                       aria-invalid={hasError || undefined}
-                      aria-describedby={hasError ? errorId : undefined}
+                      aria-describedby={
+                        [showRule ? ruleId : null, hasError ? errorId : null]
+                          .filter(Boolean).join(" ") || undefined
+                      }
                     >
                       <div className="cust-section__head">
                         <h3 className="cust-section__title" id={titleId}>{group.name}</h3>
@@ -579,8 +550,8 @@ export default function ItemDetailsModal({
                           the field names to a diner. Suppressed for the plain
                           optional-single case, where the badge already says it
                           and a second line would only repeat. */}
-                      {ruleText && !(group.minSelections === 0 && group.maxSelections === 1) && (
-                        <p className="cust-section__hint">{ruleText}</p>
+                      {showRule && (
+                        <p className="cust-section__hint" id={ruleId}>{ruleText}</p>
                       )}
                       <div className="cust-options">
                         {group.options.map((opt) => {
@@ -635,11 +606,11 @@ export default function ItemDetailsModal({
                     </div>
                   </div>
                 );
-              })}
+  }
 
-              {/* ── Paid add-ons ──────────────────────────────────────── */}
-              {paidAddOns.length > 0 && (
-                <>
+  function renderAddOnsSection() {
+    return (
+<>
                   <div className="divider" />
                   <div className="cust-section">
                     <h3 className="cust-section__title">{t("customer.addExtras", "Add extras")}</h3>
@@ -664,28 +635,124 @@ export default function ItemDetailsModal({
                     </div>
                   </div>
                 </>
+    );
+  }
+
+  return (
+    <div
+      className="item-modal__overlay"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <div className="item-modal" role="dialog" aria-modal="true" aria-label={item.name} ref={modalRef}>
+        <div className="item-modal__handle" />
+
+        <button
+          type="button"
+          className="item-modal__x"
+          onClick={onClose}
+          aria-label={t("common.close", "Close")}
+        >
+          <X size={16} strokeWidth={2.4} />
+        </button>
+
+        {/* ── Image ─────────────────────────────────────────────────────── */}
+        <div className="item-modal__img-wrap">
+          {useImg ? (
+            <img
+              className="item-modal__img"
+              src={item.imageUrl}
+              alt={item.name}
+              onError={() => setImgErr(true)}
+            />
+          ) : (
+            <div className="item-modal__emoji-wrap">
+              <span className="item-modal__emoji">{emoji}</span>
+            </div>
+          )}
+          {!available && (
+            <span className="item-modal__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>
+          )}
+        </div>
+
+        {/* ── Body ──────────────────────────────────────────────────────── */}
+        <div className="item-modal__body">
+          {/* Phase 85 §8 — ONE badge, same priority as the product card:
+              Out of Stock > Popular > Featured.
+
+              Phase 73 deliberately scoped the one-badge rule to the card and
+              let the sheet show both, on the reasoning that the detail view is
+              where fuller information belongs. Unit 3 reverses that for this
+              surface: two brand badges stacked above the product name compete
+              with each other and with the name itself, and "Popular" and
+              "Featured" say nearly the same thing to a guest. The flags on the
+              product are untouched — this is only which one the sheet shows.
+
+              Out of Stock is not handled here because an unavailable item
+              renders its own dedicated notice instead of this body. */}
+          {(item.isPopular || item.isFeatured) && (
+            <div className="item-modal__badges">
+              {item.isPopular ? (
+                <span className="badge badge--gold">{t("customer.popular", "Popular")}</span>
+              ) : (
+                <span className="badge badge--featured">{t("customer.featured", "Featured")}</span>
               )}
+            </div>
+          )}
+
+          <h2 className="item-modal__name">{item.name}</h2>
+          <p className="item-modal__desc">{item.description}</p>
+          <div className="item-modal__price">{fmtPrice(item.price)}</div>
+
+          {!available ? (
+            <div className="item-modal__oos-note">
+              {t("customer.itemUnavailableMsg", "This item is currently unavailable. Check back later or ask your server for today's options.")}
+            </div>
+          ) : (
+            <>
+              {/* Phase 85 §9–§12 — emitted in the product's CONFIGURED order.
+                  Validation is unaffected by position (§11). */}
+              {sections.map((section) => (
+                <Fragment key={section.key}>
+                  {section.kind === "removals" && renderRemovalsSection()}
+                  {section.kind === "choice" && renderChoiceSection(section.group)}
+                  {section.kind === "addOns" && renderAddOnsSection()}
+                </Fragment>
+              ))}
 
               <div className="divider" />
 
-              {/* Quantity */}
-              <div className="item-modal__row">
-                <span className="item-modal__row-label">{t("common.quantity", "Quantity")}</span>
-                <QuantityStepper value={quantity} onChange={setQuantity} min={1} max={20} />
-              </div>
-
+              {/* Phase 85 §24 — Notes now sit BEFORE Quantity. The approved
+                  order is: customization groups, then Notes, then Quantity,
+                  then the sticky footer. Quantity is the last decision before
+                  the CTA, so it belongs closest to it; notes belong with the
+                  configuration they qualify. Only the order changed — both
+                  controls, their behaviour and the 200-character limit are
+                  untouched. */}
               {/* Special instructions */}
               <label className="field item-modal__notes">
                 <span className="field__label">{t("customer.specialNotes", "Special notes")}</span>
                 <textarea
                   className="item-modal__textarea"
-                  placeholder="e.g. no onions, extra sauce…"
+                  /* Phase 85 §22 — was a hardcoded English string, so Arabic
+                     guests saw English placeholder text inside an otherwise
+                     translated sheet. */
+                  placeholder={t("customer.notesPlaceholder", "Anything we should know?")}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   maxLength={200}
                 />
               </label>
+
+              {/* Quantity — the single quantity control in the sheet (§26).
+                  Deliberately here and not in the sticky footer: the footer is
+                  the closing action area and carries the live total plus one
+                  CTA, and duplicating quantity there would give the guest two
+                  places to change the same number. */}
+              <div className="item-modal__row">
+                <span className="item-modal__row-label">{t("common.quantity", "Quantity")}</span>
+                <QuantityStepper value={quantity} onChange={setQuantity} min={1} max={20} />
+              </div>
 
               {/* Phase 73 §20 — the inline price breakdown that used to sit
                   here was removed. It restated the base price, the extras and

@@ -147,6 +147,7 @@ export const translations = {
       menuUnavailableTitle: "Menu temporarily unavailable",
       menuUnavailableSub: "There are no items available to order right now. Please ask a staff member for assistance.",
       specialNotes: "Special notes",
+      notesPlaceholder: "Anything we should know?",
       addANote: "Add a note",
       viewMyOrders: "View my orders",
       removeIngredients: "Remove ingredients",
@@ -677,6 +678,11 @@ export const translations = {
        wording only: a diner reads "Choose 2–4", never the field names. */
     choice: {
       chooseOne: "Choose 1",
+      /* Phase 85 §34 — validation states the rule, not a generic complaint. */
+      errorChooseOne: "Choose 1 option",
+      errorExactly: "Choose exactly {n} options",
+      errorAtLeast: "Choose at least {n} options",
+      errorAtMost: "Choose no more than {n} options",
       chooseUpToN: "Choose up to {n}",
       chooseExactlyN: "Choose exactly {n}",
       chooseRange: "Choose {min}–{max}",
@@ -882,6 +888,7 @@ export const translations = {
       menuUnavailableTitle: "القائمة غير متاحة مؤقتًا",
       menuUnavailableSub: "لا توجد أصناف متاحة للطلب حاليًا. يرجى طلب المساعدة من أحد الموظفين.",
       specialNotes: "ملاحظات خاصة",
+      notesPlaceholder: "هل من شيء نحتاج معرفته؟",
       addANote: "أضف ملاحظة",
       viewMyOrders: "عرض طلباتي",
       removeIngredients: "إزالة مكونات",
@@ -1369,6 +1376,10 @@ export const translations = {
     /* Phase 80 */
     choice: {
       chooseOne: "اختر واحدًا",
+      errorChooseOne: "اختر خيارًا واحدًا",
+      errorExactly: "اختر {n} خيارات بالضبط",
+      errorAtLeast: "اختر {n} خيارات على الأقل",
+      errorAtMost: "اختر {n} خيارات كحد أقصى",
       chooseUpToN: "اختر حتى {n}",
       chooseExactlyN: "اختر {n} بالضبط",
       chooseRange: "اختر من {min} إلى {max}",
