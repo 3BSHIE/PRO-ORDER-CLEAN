@@ -651,8 +651,22 @@ button{font-family:var(--font-body)}
 .item-modal__row-label{font-size:14px;font-weight:600;color:var(--text-1)}
 
 .item-modal__notes{margin-bottom:4px}
+/* Phase 86.1 §4 — the character count. Same restrained treatment as the
+   feedback box's counter: small, --text-3, tabular figures so the number does
+   not jitter as digits change, and LTR-isolated so "126/500" keeps its order
+   inside Arabic copy. Nothing CTA-like, and no warning colour near the limit. */
+.item-modal__notes-counter{
+  align-self:flex-end;font-size:11px;color:var(--text-3);
+  font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;
+  margin-top:-2px;padding-inline-end:2px;line-height:1.4}
+
+/* Phase 86.1 §5 — the field grows with the note, then stops.
+   The JS sets height from scrollHeight; max-height is the ceiling that turns
+   further growth into internal scrolling, so a 500-character instruction can
+   never push the sticky Add/Update footer off the sheet. ~7 lines at this
+   type size. */
 .item-modal__textarea{
-  width:100%;resize:vertical;min-height:76px;
+  width:100%;resize:vertical;min-height:76px;max-height:180px;overflow-y:auto;
   background:var(--surface-2);color:var(--text-1);
   border:1px solid var(--border-strong);border-radius:var(--r-md);
   font:400 13.5px/1.55 var(--font-body);padding:11px 14px;outline:none;

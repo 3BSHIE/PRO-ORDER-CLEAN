@@ -1,4 +1,21 @@
 /**
+ * Phase 86.1 §2 — how long a guest's Special Instructions may be.
+ *
+ * Lives here rather than in the sheet because `notes` is part of the cart-line
+ * contract documented below, and because Item Details' create mode and the
+ * cart's edit mode are the same component reading the same constant — there is
+ * no second place for the two to disagree.
+ *
+ * Raised from 200 to 500 in Phase 86.1. 200 was enough for "no onions" and not
+ * for a genuine dietary instruction, which is exactly what this field is for.
+ *
+ * Note this is a UI allowance, not a storage rule: nothing in this module or in
+ * customerOrders truncates `notes`, so a longer legacy value survives intact
+ * (§6).
+ */
+export const CUSTOMER_ITEM_NOTES_MAX_LENGTH = 500;
+
+/**
  * customerCart — saves the current guest's cart in sessionStorage.
  *
  * Separate storage key from customerSession.js so cart and session can be

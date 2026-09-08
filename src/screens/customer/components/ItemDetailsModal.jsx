@@ -5,6 +5,7 @@ import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
+import { CUSTOMER_ITEM_NOTES_MAX_LENGTH } from "../../../lib/customerCart.js";
 import {
   validateGroupSelection,
   formatGroupRule,
@@ -147,6 +148,7 @@ export default function ItemDetailsModal({
      so Phase 35 has to treat that strip as not-visible when deciding whether
      a required group needs scrolling into view. */
   const footRef = useRef(null);
+  const notesRef = useRef(null);
 
   /* Reset all local state whenever a different item is opened.
      Phase 80.1 — in edit mode the reset seeds from the cart line instead of
@@ -220,6 +222,23 @@ export default function ItemDetailsModal({
   /* ── Price math (must run before any early return — hooks rule) ──────── */
   const choices    = item?.choices || [];
   const paidAddOns = item?.paidAddOns || [];
+
+  /* Phase 86.1 §5 — the notes field grows with what is typed.
+     At 500 characters a fixed three-row box means the guest writes most of
+     their instruction into a scrolling slot they cannot read back. It now
+     grows a few lines and then scrolls internally, capped in CSS by
+     max-height so a long note can never push the sticky footer out of reach.
+
+     Runs on every notes change, and on open, so an edited line arrives with
+     its saved note already sized. Reading scrollHeight after resetting height
+     is the standard measure-then-set; it costs one layout read per keystroke
+     on a single element, which is nothing next to the re-render around it. */
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [notes, open]);
 
   /* Phase 85 §9–§12 — the product's configured section order.
      MUST live above the `if (!open || !item) return null` below: a hook after
@@ -740,8 +759,18 @@ export default function ItemDetailsModal({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  maxLength={200}
+                  ref={notesRef}
+                  maxLength={CUSTOMER_ITEM_NOTES_MAX_LENGTH}
                 />
+                {/* Phase 86.1 §4 — a quiet count, matching the pattern the
+                    feedback comment box already uses. Deliberately no warning
+                    state as the limit approaches: running out of room is not
+                    an error, and colouring it would make a normal moment feel
+                    like one. Not aria-live — announcing a new number on every
+                    keystroke would bury the text being typed (§13). */}
+                <span className="item-modal__notes-counter">
+                  {notes.length}/{CUSTOMER_ITEM_NOTES_MAX_LENGTH}
+                </span>
               </label>
 
               {/* Quantity — the single quantity control in the sheet (§26).
