@@ -986,29 +986,43 @@ button{font-family:var(--font-body)}
   position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2}
 @media(min-width:640px){.pm-modal__handle{display:none}}
 
+/* Phase 87 §39 — the control is 44x44 for the touch minimum while the
+   painted circle stays 34px, so the corner of the sheet does not gain a
+   large button. Inset drops 14->9 to keep the FACE at its original optical
+   position: (44-34)/2 = 5px of transparent ring on every side. */
 .pm-modal__x{
-  position:absolute;top:14px;right:14px;z-index:2;
+  position:absolute;top:9px;right:9px;z-index:2;
+  width:44px;height:44px;padding:0;
+  background:none;border:0;
+  cursor:pointer;display:grid;place-items:center}
+.pm-modal__x-face{
   width:34px;height:34px;border-radius:50%;
   background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);
-  cursor:pointer;display:grid;place-items:center;
+  display:grid;place-items:center;
   transition:background .2s,border-color .2s,color .2s}
-.pm-modal__x:hover{border-color:var(--gold-line);color:var(--gold)}
+.pm-modal__x:hover .pm-modal__x-face{border-color:var(--gold-line);color:var(--gold)}
+.pm-modal__x:disabled{cursor:not-allowed}
+.pm-modal__x:disabled .pm-modal__x-face{opacity:.4}
 
 .pm-modal__body{padding:30px 24px 24px}
 .pm-modal__title{
   font-family:var(--font-display);font-size:clamp(21px,4.5vw,25px);
   font-weight:700;color:var(--text-1);margin:0 0 8px}
-.pm-modal__sub{font-size:13.5px;color:var(--text-2);margin:0 0 20px;line-height:1.6}
 
+/* Phase 87 §13 — the filled, bordered, rounded box was the same treatment
+   the tappable method cards wear, which made the one thing on this sheet
+   that CANNOT be pressed look like the things that can. It is a plain row
+   under a divider now: still the easiest figure on the screen to verify,
+   with Place Order left as the only surface that looks pressable. */
 .pm-modal__total{
-  display:flex;align-items:center;justify-content:space-between;
-  background:var(--surface-2);border:1px solid var(--border);
-  border-radius:var(--r-md);padding:13px 16px;margin-bottom:22px}
-.pm-modal__total-label{font-size:12.5px;color:var(--text-2);font-weight:600}
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border-top:1px solid var(--border);
+  padding:14px 2px 0;margin-bottom:18px}
+.pm-modal__total-label{font-size:13px;color:var(--text-2);font-weight:600}
 .pm-modal__total-value{
-  font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--gold)}
+  font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--gold)}
 
-.pm-methods{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+.pm-methods{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
 .pm-method{
   display:flex;align-items:flex-start;gap:13px;width:100%;text-align:start;
   padding:14px 15px;border-radius:var(--r-md);
@@ -1016,17 +1030,35 @@ button{font-family:var(--font-body)}
   color:var(--text-1);cursor:pointer;font-family:var(--font-body);
   transition:border-color .14s var(--ease),background .14s var(--ease),
     transform .1s var(--ease)}
-.pm-method:hover:not(.pm-method--disabled){border-color:var(--gold-line)}
-.pm-method:active:not(.pm-method--disabled){transform:scale(.99)}
-/* Phase 73 §28 — a real selectable card: full-strength gold border and a
-   gold tint, consistent with the Item Details choice rows so the same
-   gesture looks the same in both places. Padding compensates for the
-   thicker border so the list does not shift on selection. */
+/* Phase 87 §6 — must also exclude the SELECTED row. This selector is
+   (0,3,0) and .pm-method--active is (0,1,0), so hover was winning and
+   dropping a chosen method from full Primary to a 35% tint: pointing at
+   your own selection made it look deselected. */
+.pm-method:hover:not(:disabled):not(.pm-method--active){border-color:var(--gold-line)}
+.pm-method:active:not(:disabled){transform:scale(.99)}
+/* Locked, not hidden, while the order is being placed (§18). */
+.pm-method:disabled{cursor:default}
+/* Phase 73 §28 established this as a real selectable card — full-strength
+   Primary border plus a tint, matching the Item Details choice rows so the
+   same gesture looks the same in both places. That intent is unchanged; the
+   two values below that failed to deliver it are corrected. */
+/* Phase 87 §6/§33 — two corrections here.
+
+   COLOUR: the tint was the literal default gold, rgba(212,169,78,.07), so a
+   restaurant themed blue got a gold wash behind its selected method while
+   the border beside it was blue. It is mixed from --gold (the Primary token)
+   now, so the tint follows the restaurant like everything else does.
+
+   WEIGHT: 1.5px was never painted. Blink rounds a used border-width to whole
+   device pixels, so at DPR 1 it rendered as 1px — measured, not assumed —
+   which meant the selected border was recoloured but not actually stronger,
+   and the 13.5/14.5 padding meant to compensate for the missing half-pixel
+   made the row shrink 69px -> 68px on selection. 2px renders exactly, and
+   2+13 = 1+14 keeps the height identical so the list cannot shift. */
 .pm-method--active{
-  background:rgba(212,169,78,.07);
-  border-color:var(--gold);border-width:1.5px;
-  padding:13.5px 14.5px}
-.pm-method--disabled{opacity:.55;cursor:not-allowed}
+  background:color-mix(in srgb, var(--gold) 8%, transparent);
+  border-color:var(--gold);border-width:2px;
+  padding:13px 14px}
 
 /* Phase 73 §15 — sized for a Lucide mark rather than an emoji glyph. */
 .pm-method__icon{
@@ -1039,15 +1071,9 @@ button{font-family:var(--font-body)}
 .pm-method--active .pm-method__icon{
   background:var(--gold-soft);border-color:var(--gold-line);color:var(--gold)}
 .pm-method__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.pm-method__label-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pm-method__label{font-size:14px;font-weight:600;color:var(--text-1)}
 .pm-method--active .pm-method__label{color:var(--gold)}
-.pm-method__badge{
-  font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--text-3);background:var(--surface-3);
-  border:1px solid var(--border-strong);border-radius:999px;padding:2px 8px}
 .pm-method__desc{font-size:12px;color:var(--text-2);line-height:1.5}
-.pm-method__hint{font-size:11.5px;color:var(--gold);font-style:italic;margin-top:2px}
 
 .pm-method__mark{
   flex:none;width:22px;height:22px;border-radius:50%;
@@ -1889,7 +1915,9 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .item-modal__x{right:auto;left:14px}
 [dir="rtl"] .item-modal__oos-badge{left:auto;right:14px}
 [dir="rtl"] .cart-fab__count{right:auto;left:-10px}
-[dir="rtl"] .pm-modal__x{right:auto;left:14px}
+/* Phase 87 §39 — follows the 14->9 inset the LTR rule took when the hit
+   box grew to 44px around a 34px face. */
+[dir="rtl"] .pm-modal__x{right:auto;left:9px}
 /* Timeline connecting line must point toward the previous (visually-right-
    side, in RTL) dot instead of always extending physically left. */
 [dir="rtl"] .track-timeline__step::before{left:auto;right:-50%}
@@ -3484,8 +3512,11 @@ button{font-family:var(--font-body)}
   60%{transform:scale(1.06)}
   100%{transform:scale(1)}
 }
-.cust-option--active .cust-option__mark,
-.pm-method--active .pm-method__mark{
+/* Phase 87 §6 — .pm-method__mark was removed from this rule. The Unit 5
+   brief rules out bounce on the payment selection, and cx-mark-pop
+   overshoots to 1.06 before settling, which is exactly that. Unit 3 chose
+   the pop for its choice rows and is out of scope, so it keeps it. */
+.cust-option--active .cust-option__mark{
   animation:cx-mark-pop .14s var(--ease)}
 
 /* ── Cart attribution footer (§27) ────────────────────────────────────── */
@@ -5256,3 +5287,82 @@ button{font-family:var(--font-body)}
   content:"";position:absolute;left:0;right:0;top:-22px;height:22px;
   pointer-events:none;
   background:linear-gradient(to top,rgba(13,13,13,.94),rgba(13,13,13,0))}
+
+/* ══ Phase 87 — Unit 5: Customer Checkout / Payment Method / Place Order ═══
+
+   The sheet's structure, theming and layering were already right; this block
+   adds only what Unit 5 asked for that did not exist — the submission
+   indicator, the zero-method state, and the distinction between guidance and
+   failure. Everything else was edited in place above, next to the rule it
+   changes, rather than being re-declared down here where it would win by
+   source order and hide what it overrode.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── §14 — Place Order sits in the approved 48–52px band ──────────────────
+   .btn--lg alone lands at 46px (14+14 padding + 18px line box). Nothing else
+   in the app uses .btn--lg at a mandated height, so the floor is set here on
+   the checkout CTA rather than by moving a token four screens rely on. */
+.pm-place{min-height:50px}
+
+/* ── §17/§40 — submission indicator ───────────────────────────────────────
+   A 15px ring beside the label, never replacing it: "Placing order…" stays
+   readable, so the button is never an unlabelled spinning circle for anyone
+   reading it or hearing it. Explicitly NOT the animated PRO·ORDER mark (§41).
+
+   The button keeps .btn's flex row and its 8px gap, and the ring is exactly
+   as tall as the 15px label line box, so adding it changes the button's
+   width slightly but never its height — the CTA does not resize mid-press. */
+.pm-spinner{
+  flex:none;width:15px;height:15px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.34);
+  border-top-color:var(--on-primary);
+  animation:pm-spin .62s linear infinite}
+@keyframes pm-spin{to{transform:rotate(360deg)}}
+
+/* An infinite rotation is one of the cases the global reduced-motion rule
+   cannot fix by shortening: at 0.001s it spins faster, not less. It becomes a
+   static ring, and the label continues to carry the meaning. */
+@media(prefers-reduced-motion:reduce){
+  .pm-spinner{animation:none}
+}
+
+/* ── §11/§21/§23 — guidance is not failure ───────────────────────────────
+   "That method is no longer available, pick another" is not an error the
+   guest caused or can retry, so it does not wear the red failure treatment
+   .pm-modal__error carries for a genuine submission failure. Same slot, same
+   role="alert", calmer voice — which is the whole point of keeping the kinds
+   apart. */
+.pm-modal__error--guidance{
+  background:var(--gold-soft);
+  border-color:var(--gold-line);
+  color:var(--gold)}
+
+/* ── §27/§28 — zero selectable payment methods ────────────────────────────
+   A real state with an explanation and two working exits, replacing what
+   would otherwise be an empty list above a permanently disabled button. */
+.pm-empty{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:10px;padding:6px 0 2px}
+.pm-empty__icon{
+  width:44px;height:44px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold);margin-bottom:2px}
+.pm-empty__title{
+  margin:0;font-size:15px;font-weight:600;color:var(--text-1);line-height:1.5}
+.pm-empty__text{
+  margin:0;font-size:13px;color:var(--text-2);line-height:1.6;max-width:34ch}
+.pm-empty__actions{
+  display:flex;flex-direction:column;gap:10px;width:100%;margin-top:12px}
+
+/* The shared Call Staff control is reused as-is (§29); it only needs to fill
+   this column the way the Back to Cart button under it does. */
+.pm-empty__actions .call-staff--prominent{width:100%;justify-content:center}
+
+/* ── §38 — RTL ────────────────────────────────────────────────────────────
+   The sheet is already built from flex rows and logical properties, so the
+   whole of it mirrors on its own. These two are the exceptions: the close
+   control is physically positioned, and the Total is a bare Latin/numeric
+   token that must keep its own direction inside Arabic copy — the same rule
+   prices, order ids and the notes counter already follow. */
+[dir="rtl"] .pm-modal__total-value{direction:ltr;unicode-bidi:isolate}

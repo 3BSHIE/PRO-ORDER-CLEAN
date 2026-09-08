@@ -612,6 +612,17 @@ export const translations = {
       canceledOrderTotal: "Canceled order total",
       paidBeforeCancellation: "Payment was recorded before cancellation.",
       contactStaffAboutPayment: "Please contact staff regarding the payment.",
+      /* Phase 87 (Unit 5) — checkout states that did not exist before.
+         methodNoLongerAvailable is deliberately NOT phrased as a failure:
+         nothing went wrong and nothing was lost, the restaurant simply
+         stopped offering that option, so it names the next action (§21). */
+      methodNoLongerAvailable:
+        "That payment method is no longer available. Please choose another one.",
+      noMethodsTitle: "No payment methods are currently available.",
+      /* Says the cart survives, because that is the guest's real worry when
+         a checkout tells them it cannot proceed (§27). */
+      noMethodsText: "Please contact the staff to complete your order. Your cart is saved.",
+      backToCart: "Back to cart",
     },
     status: {
       received: "Received",
@@ -1320,6 +1331,11 @@ export const translations = {
       canceledOrderTotal: "إجمالي الطلب الملغى",
       paidBeforeCancellation: "تم تسجيل الدفع قبل إلغاء الطلب.",
       contactStaffAboutPayment: "يرجى التواصل مع الموظف بخصوص عملية الدفع.",
+      /* Phase 87 (Unit 5) */
+      methodNoLongerAvailable: "طريقة الدفع هذه لم تعد متاحة. يرجى اختيار طريقة أخرى.",
+      noMethodsTitle: "لا تتوفر أي طريقة دفع حالياً.",
+      noMethodsText: "يرجى التواصل مع الموظفين لإتمام طلبك. سلة مشترياتك محفوظة.",
+      backToCart: "العودة إلى السلة",
     },
     status: {
       received: "تم الاستلام",

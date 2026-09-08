@@ -24,6 +24,7 @@ import { prefersReducedMotion } from "../../lib/motion.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
 import { getSettings } from "../../lib/settingsData.js";
+import { isPaymentMethodSelectable } from "../../data/paymentMethods.js";
 import { getAcceptingOrdersMode } from "../../lib/acceptingOrdersData.js";
 import { getAcceptingOrdersState } from "../../lib/acceptingOrders.js";
 import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
@@ -434,6 +435,23 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
       return { ok: false, handled: true };
     }
 
+    /* ── Phase 87 §19/§23: payment-method validity, as a BACKSTOP ────────
+       The payment sheet already re-read settings and refused an unavailable
+       method a moment ago, and it owns that conversation with the guest
+       (§21). This is the same belt-and-braces the accepting-orders gate
+       above is: the last check standing between a payload and a written
+       order, so a method withdrawn inside that one remaining tick still
+       cannot be recorded on an order.
+
+       Reported back as reason:"payment" rather than as a bare failure, so
+       the sheet shows "choose another method" instead of inviting a retry
+       that would fail in exactly the same way (§23). Nothing is cleared —
+       not the cart, not the session, not a single customization (§21). */
+    if (!isPaymentMethodSelectable(paymentPayload?.paymentMethodId, getSettings(restaurant.slug))) {
+      createLock.current = false;
+      return { ok: false, reason: "payment" };
+    }
+
     let order;
     try {
       order = createCustomerOrder({
@@ -656,6 +674,11 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
         open={paymentModalOpen}
         total={total}
         restaurantSlug={restaurant.slug}
+        /* Phase 87 §28/§29 — only used by the zero-payment-method state, so the
+           existing Call Staff control can ring for THIS table instead of a
+           second staff-call implementation being written inside the sheet. */
+        table={table}
+        customerName={session.customerName}
         onClose={() => setPaymentModalOpen(false)}
         onContinue={handlePaymentContinue}
       />
