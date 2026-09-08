@@ -735,6 +735,13 @@ export const translations = {
     },
     /* Phase 37 — cart revalidation against the live menu */
     cart: {
+      /* Phase 86 §4/§28/§52 — the cart's heading, its closing action, and the
+         quantity controls' product-scoped accessible names. */
+      yourCart: "Your cart",
+      continueToCheckout: "Continue to checkout",
+      removeFromCart: "Remove {name} from cart",
+      decreaseFor: "Decrease quantity for {name}",
+      increaseFor: "Increase quantity for {name}",
       currentlyUnavailable: "Currently unavailable",
       notAvailableAtThisTime: "Not available at this time",
       optionsUnavailable: "Some selected options are no longer available",
@@ -1428,6 +1435,11 @@ export const translations = {
     },
     /* Phase 37 — cart revalidation against the live menu */
     cart: {
+      yourCart: "سلتك",
+      continueToCheckout: "المتابعة إلى الدفع",
+      removeFromCart: "إزالة {name} من السلة",
+      decreaseFor: "إنقاص كمية {name}",
+      increaseFor: "زيادة كمية {name}",
       currentlyUnavailable: "غير متاح حاليًا",
       notAvailableAtThisTime: "غير متاح في هذا الوقت",
       optionsUnavailable: "بعض الخيارات المختارة لم تعد متاحة",

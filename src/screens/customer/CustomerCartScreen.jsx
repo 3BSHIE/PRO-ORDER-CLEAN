@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, ShoppingCart, X, AlertTriangle, Pencil } from "lucide-react";
+import { ArrowLeft, ShoppingCart, AlertTriangle, Pencil, StickyNote } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -20,6 +20,7 @@ import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import { validateItemSelections } from "../../lib/choiceRules.js";
 import { getMenuItems, getCategories } from "../../lib/menuData.js";
 import { validateCart, CART_ISSUE } from "../../lib/cartValidation.js";
+import { prefersReducedMotion } from "../../lib/motion.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
 import { getSettings } from "../../lib/settingsData.js";
@@ -177,11 +178,35 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     setCart(updated);
   }
 
+  /* ── Phase 86 §18 — removal is a one-shot fade + collapse, no toast ─────
+     The line is marked leaving, the card plays a ~200ms fade and height
+     collapse, and only then does it leave the cart. Doing it in that order is
+     what makes the surrounding lines close the gap smoothly instead of
+     snapping upward the instant the array changes.
+
+     The toast is gone: §18 rules it out, and it was redundant anyway — the
+     card visibly disappearing IS the feedback, exactly as the Cart FAB is the
+     feedback for adding. No confirmation dialog either (§18), and no undo,
+     which is deliberately out of scope for this phase.
+
+     Under reduced motion the removal is immediate: the animation will not run,
+     so waiting for it would just be a stall. */
+  const REMOVE_MS = 200;
+  const [leavingIds, setLeavingIds] = useState(() => new Set());
+
+  function commitRemove(cartItemId) {
+    setLeavingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(cartItemId);
+      return next;
+    });
+    setCart(removeCartItem(cartItemId));
+  }
+
   function handleRemove(cartItemId) {
-    const updated = removeCartItem(cartItemId);
-    setCart(updated);
-    setToastMessage(t("customer.itemRemoved", "Item removed"));
-    setToastVisible(true);
+    if (prefersReducedMotion()) { commitRemove(cartItemId); return; }
+    setLeavingIds((prev) => new Set(prev).add(cartItemId));
+    setTimeout(() => commitRemove(cartItemId), REMOVE_MS);
   }
 
   /* ── Phase 80.1: edit an existing cart line ─────────────────────────────
@@ -480,7 +505,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
 
       <main className={`container ${!isEmpty ? "container--with-cart-bar" : ""}`}>
         <header className="cart-header anim-rise">
-          <h1 className="cart-header__title">{t("orders.yourOrder", "Your order")}</h1>
+          <h1 className="cart-header__title">{t("cart.yourCart", "Your cart")}</h1>
           <p className="cart-header__meta">
             {t("customer.yourTable", "Table")} #{table.tableNumber} &middot; {session.customerName}
           </p>
@@ -500,6 +525,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
                   validation={validation.byLine[line.cartItemId]}
                   onQuantityChange={(q) => handleQuantityChange(line.cartItemId, q)}
                   onRemove={() => handleRemove(line.cartItemId)}
+                  leaving={leavingIds.has(line.cartItemId)}
                   onAcceptPrice={() => handleAcceptPrice(line.cartItemId)}
                   /* §51 — a line whose product no longer exists cannot be
                      edited, so the action is withheld rather than opening a
@@ -520,16 +546,34 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
                 <span>{t("common.subtotal", "Subtotal")}</span>
                 <span>{fmtPrice(subtotal)}</span>
               </div>
-              <div className="cart-summary__row">
-                <span>{t("common.serviceCharge", "Service charge")} ({serviceChargePercent}%)</span>
-                <span>{fmtPrice(serviceCharge)}</span>
+              {/* §26 — a restaurant charging 0% would otherwise show
+                   "Service charge (0%)  JOD 0.000", which is a row that tells
+                   the guest nothing. The financial logic is untouched: the
+                   charge is still calculated and still added to the total,
+                   this only decides whether the row is worth printing. */}
+              {serviceCharge > 0 && (
+                <div className="cart-summary__row">
+                  <span>{t("common.serviceCharge", "Service charge")} ({serviceChargePercent}%)</span>
+                  <span>{fmtPrice(serviceCharge)}</span>
+                </div>
+              )}
+              {/* Phase 86 §24/§27 — the Total returns to the summary, below a
+                  divider, as the strongest figure in it.
+
+                  Phase 73 had removed it because it appeared here AND in the
+                  sticky bar at the same time and neither read as
+                  authoritative. Unit 4 reverses that deliberately: an order
+                  REVIEW that stops at "service charge" makes the guest do the
+                  final addition themselves, or scroll their eye to a floating
+                  bar to find it. §31 anticipates the overlap and permits the
+                  compact total beside the CTA precisely because the summary
+                  carries the full one — what it rules out is a second full
+                  breakdown, which this is not. The calculation is unchanged. */}
+              <div className="cart-summary__divider" />
+              <div className="cart-summary__row cart-summary__row--total">
+                <span>{t("common.total", "Total")}</span>
+                <span>{fmtPrice(total)}</span>
               </div>
-              {/* Phase 73 §26 — the grand total used to be printed here AND in
-                  the sticky bar directly beneath it, both visible at once, so
-                  the guest saw the same figure twice and neither read as the
-                  authoritative one. It now appears exactly once, in the sticky
-                  checkout bar where the payment decision is actually made.
-                  Nothing about the calculation changed. */}
             </Card>
 
           </>
@@ -580,7 +624,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
               onClick={handlePayClick}
               disabled={!validation.canCheckout || !acceptingOrders}
             >
-              {t("customer.continueToPayment", "Continue to payment")}
+              {/* §28/§30 — "Continue to Checkout", not Place Order. This
+                   button only opens the existing Payment Method flow; Unit 5
+                   still owns payment selection and order submission. */}
+              {t("cart.continueToCheckout", "Continue to checkout")}
             </Button>
           </div>
         </div>
@@ -703,7 +750,7 @@ function CartLineIssue({ result, onRemove, onAcceptPrice, onEdit }) {
   );
 }
 
-function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRemove, onAcceptPrice, onEdit }) {
+function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRemove, onAcceptPrice, onEdit, leaving = false }) {
   const [imgErr, setImgErr] = useState(false);
   const { categories } = useMenuData(restaurantSlug);
   const category = categories.find((c) => c.id === line.categoryId);
@@ -728,7 +775,7 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
   const hasIssue = !!validation && validation.issues.length > 0;
 
   return (
-    <Card className={`cart-line ${hasIssue ? "cart-line--flagged" : ""}`}>
+    <Card className={`cart-line ${hasIssue ? "cart-line--flagged" : ""} ${leaving ? "cart-line--leaving" : ""}`}>
       <div className="cart-line__top">
         <div className="cart-line__img-wrap">
           {useImg ? (
@@ -746,16 +793,13 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
         </div>
 
         <div className="cart-line__info">
+          {/* Phase 86 §6/§16 — the X removal button is gone. Removal now
+              happens by pressing minus at quantity 1 (see the stepper below),
+              which is the approved single interaction. Keeping both would have
+              given the guest two ways to delete a line, one of them sitting
+              directly beside the product name where a mis-tap is expensive. */}
           <div className="cart-line__head">
             <p className="cart-line__name">{line.name}</p>
-            <button
-              type="button"
-              className="cart-line__remove"
-              onClick={onRemove}
-              aria-label={`${t("common.remove", "Remove")} ${line.name}`}
-            >
-              <X size={15} strokeWidth={2.2} />
-            </button>
           </div>
 
           {(hasRemovals || hasChoices || hasAddOns || hasNotes) && (
@@ -778,9 +822,17 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
                   {line.selectedPaidAddOns.map((a) => a.name).join(", ")}
                 </p>
               )}
+              {/* Phase 86 §10 — the guest's own words are the one piece of
+                   this block a kitchen cannot infer from the product, so they
+                   stop being just another grey row. A small Primary icon, a
+                   Primary label and a Primary start-border lift them out of
+                   the customization list without turning the note into a
+                   coloured card. Omitted entirely when absent (§11). */}
               {hasNotes && (
-                <p className="cart-line__custom-row cart-line__custom-row--note">
-                  <span className="cart-line__custom-label">{t("common.noteLabel", "Note")}:</span> {line.notes}
+                <p className="cart-line__note">
+                  <StickyNote size={12} strokeWidth={2.2} aria-hidden="true" />
+                  <span className="cart-line__note-label">{t("common.noteLabel", "Note")}:</span>{" "}
+                  <span className="cart-line__note-text">{line.notes}</span>
                 </p>
               )}
             </div>
@@ -816,11 +868,17 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
             <span>{t("common.edit", "Edit")}</span>
           </button>
         )}
+        {/* §17/§52 — at quantity 1 minus REMOVES the line, and says so to
+            assistive tech. Limits are unchanged (1–20, §20). */}
         <QuantityStepper
           value={line.quantity}
           onChange={onQuantityChange}
           min={1}
           max={20}
+          minAction={onRemove}
+          minActionLabel={t("cart.removeFromCart", "Remove {name} from cart").replace("{name}", line.name)}
+          decreaseLabel={t("cart.decreaseFor", "Decrease quantity for {name}").replace("{name}", line.name)}
+          increaseLabel={t("cart.increaseFor", "Increase quantity for {name}").replace("{name}", line.name)}
         />
       </div>
 

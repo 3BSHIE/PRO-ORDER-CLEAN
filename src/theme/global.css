@@ -5153,3 +5153,92 @@ button{font-family:var(--font-body)}
   .customer-theme .cust-footer__contact-link,
   .customer-theme .cust-footer__contact-text{font-size:11px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 86 — CUSTOMER CART (UNIT 4)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Review width (§5) ────────────────────────────────────────────────────
+   The cart shares .container (max 1000px), which is right for a menu grid and
+   wrong for a review list: at 1280 the line cards stretched the product name
+   and its price to opposite ends of a very wide row, so the eye had to travel
+   the full width to connect them.
+
+   Constrained to 660px — the middle of the approved 600–700px band — and only
+   for the cart's own content, so the topbar and every other screen keep the
+   width they had. Mobile is unaffected: the value is a max, not a width. */
+.cart-header,
+.cart-lines,
+.cart-summary,
+.cart-empty{max-width:660px;margin-inline:auto}
+.cart-bottom-bar__inner{max-width:660px}
+
+/* ── Line removal (§18) ───────────────────────────────────────────────────
+   One shot, ~200ms, matching the timeout in handleRemove. Fade plus a height
+   and margin collapse so the lines below close the gap instead of jumping.
+
+   max-height rather than height because a cart line has no fixed size — its
+   height depends on how much customization it carries — and 600px is a safe
+   ceiling that no realistic line exceeds. transform is left alone: the card
+   should recede, not slide. */
+.cart-line--leaving{
+  overflow:hidden;
+  animation:cart-line-out .2s var(--ease) both;
+  pointer-events:none}
+@keyframes cart-line-out{
+  from{opacity:1;max-height:600px}
+  to{opacity:0;max-height:0;
+     margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0}
+}
+/* Reduced motion removes the line immediately in JS, so this never runs —
+   the rule is here so a mid-flight card cannot be left frozen half-faded. */
+@media(prefers-reduced-motion:reduce){
+  .cart-line--leaving{animation:none;display:none}
+}
+
+/* ── Customer notes (§10) ─────────────────────────────────────────────────
+   Primary family, used with restraint: an icon, a label and a start border,
+   over a very light Primary wash. Deliberately NOT a filled card — the note
+   has to be noticeable to a guest reviewing and to staff reading the order,
+   without out-shouting the product name above it. */
+.cart-line__note{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;
+  margin:8px 0 0;padding:7px 10px;
+  border-inline-start:2px solid var(--gold);
+  border-radius:0 var(--r-sm) var(--r-sm) 0;
+  background:var(--gold-soft);
+  font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.cart-line__note svg{color:var(--gold);flex:none;align-self:center}
+.cart-line__note-label{
+  font-weight:700;color:var(--gold);letter-spacing:.02em}
+/* The guest's own words wrap freely however long they are (§47). */
+.cart-line__note-text{min-width:0;overflow-wrap:anywhere}
+
+/* ── Sticky checkout scrim (§29) ──────────────────────────────────────────
+   A 22px fade above the bar so the last summary row dissolves under it
+   instead of being cut by a hard edge — the same treatment the Item Details
+   footer uses. Pointer-events off so it can never swallow a tap. */
+/* ── Edit touch target (§47/§51) ──────────────────────────────────────────
+   The Edit action is deliberately a small ghost control so it never competes
+   with the line total or the checkout button (§21), which left it 73x36 — a
+   comfortable size to read and an uncomfortable one to hit, especially since
+   it sits directly beside the quantity stepper where a mis-tap opens a sheet.
+
+   Sized directly rather than extended with a pseudo-element. The extension
+   was measured at only ~40px effective: its outer few pixels fall outside the
+   button's parent row, where the card wins the hit test, so the target never
+   reached the full 44. Growing the control itself is unambiguous.
+
+   It does cost 8px: the action row goes from 49px to 57px, so each cart card
+   is 8px taller. That is the honest trade and it is worth taking — a cart line
+   is already tall by design (§7 wants every customization visible), and a
+   missable Edit is a worse problem than eight pixels.
+
+   The restraint §21 asks for is carried by type size, weight and the absence
+   of a fill, not by being small enough to miss. */
+.cart-line__edit{min-height:44px}
+
+.cart-bottom-bar::before{
+  content:"";position:absolute;left:0;right:0;top:-22px;height:22px;
+  pointer-events:none;
+  background:linear-gradient(to top,rgba(13,13,13,.94),rgba(13,13,13,0))}
