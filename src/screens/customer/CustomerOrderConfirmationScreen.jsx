@@ -1,14 +1,13 @@
-import { useEffect } from "react";
-import { ArrowLeft, PackageSearch } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, PackageSearch, Check } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
-import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
-import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
+import { prefersReducedMotion } from "../../lib/motion.js";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
@@ -17,7 +16,6 @@ import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
-import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -140,103 +138,133 @@ const METHOD_LABEL_KEY = {
   online_payment: "payment.onlinePayment",
 };
 
-/* ── Confirmed order view ────────────────────────────────────────────────── */
+/* ── Confirmed order view ──────────────────────────────────────────────────
+   Phase 88 §1 — refined hierarchy.
+
+   WHAT CAME OUT, AND WHY
+     The screen used to end in a full Order Summary card: item count, subtotal,
+     service charge, total, payment method, payment status. That is the Cart's
+     job, and the guest had already read and accepted every line of it two
+     screens earlier. §1 asks for a compact summary "only", so what survives is
+     the four facts that are genuinely NEW at this moment or that a guest
+     glances back at while sitting at the table: which table, how they are
+     paying, what it came to, and how long it should be.
+
+     The status badge and the "For <name>" line also came out. Both are
+     restated on Tracking, which is one tap away, and neither is something the
+     guest needs to be told a second before they are told it again.
+
+   WHAT MOVED UP
+     The order number. §1 makes it the strongest functional element after the
+     success message, and it was previously a small grey token sharing a row
+     with a status pill. It is now its own labelled block directly under the
+     title — it is the thing a guest reads out to a waiter.
+   ── */
 function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
   const { t } = useLanguage();
+
   /* Phase 36 — this route stays reachable after an order is canceled (browser
      back, or a bookmarked link), and it used to keep asserting "Order
-     received … Pending at table" for an order that no longer exists as a
-     live one. Showing "No payment due" while the header still claimed the
-     order had been received would have been contradictory, so the canceled
-     case now states the cancellation as well. Every other status renders
-     exactly as before. */
+     received" for an order that no longer exists as a live one. Every other
+     status renders exactly as before. */
   const isCanceled = order.status === "canceled";
-  const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
-  const paymentLabel =
-    order.paymentStatus === "paid"
-      ? t("payment.paid", "Paid")
-      : t("payment.pendingAtTable", "Pending at table");
+
+  /* §2 — Confirmation settles out before Tracking arrives, rather than being
+     replaced between two frames. Deliberately short: this is a hand-off
+     between two screens the guest asked for, not a transition to admire, and
+     anything longer would read as the app being slow. Under reduced motion
+     the navigation happens immediately with no fade at all. */
+  const [leaving, setLeaving] = useState(false);
+  function handleTrackOrder() {
+    if (prefersReducedMotion()) { onViewTracking(); return; }
+    setLeaving(true);
+    setTimeout(onViewTracking, 160);
+  }
+
   const paymentMethodLabel = t(
     METHOD_LABEL_KEY[order.paymentMethod.id],
     order.paymentMethod.label
   );
 
-  return (
-    <div className="confirm anim-rise">
-      <span className={`confirm__icon ${isCanceled ? "confirm__icon--canceled" : ""}`}>
-        {isCanceled ? "✕" : "✓"}
-      </span>
+  /* §1 — "Estimated Time if available". Orders placed before Phase 26 carry
+     no estimate and simply omit the row; nothing is invented. A canceled
+     order has no estimate worth showing either. */
+  const minutes = order.estimatedPrepMinutes;
+  const showEstimate = !isCanceled && Number.isInteger(minutes) && minutes > 0;
 
-      <p className="confirm__rest">{order.restaurantName}</p>
-      <p className="confirm__table">{t("customer.yourTable", "Table")} #{order.tableNumber}</p>
+  return (
+    <div className={`confirm ${leaving ? "confirm--leaving" : ""}`}>
+      {/* §1 — calm and premium: a thin ring that draws itself once and a
+          check that fades in behind it. No confetti, no bounce, no loop, and
+          explicitly not the animated PRO·ORDER mark, which stays reserved for
+          the Main Timer and system loading (§1, §18). */}
+      <span
+        className={`confirm__mark ${isCanceled ? "confirm__mark--canceled" : ""}`}
+        aria-hidden="true"
+      >
+        {isCanceled ? <span className="confirm__mark-x">✕</span> : <Check size={26} strokeWidth={2.4} />}
+      </span>
 
       <h1 className="confirm__title">
         {isCanceled
           ? t("orders.canceledBanner", "This order was canceled.")
-          : t("orders.orderReceived", "Order received")}
+          : t("orders.orderPlacedSuccessfully", "Order placed successfully")}
       </h1>
-      <p className="confirm__msg">
-        {isCanceled
-          ? t("orders.trackingMsgCanceled", "This order was canceled. Please contact the staff if you need help.")
-          : t("orders.orderReceivedMsg", "Your order has been sent to the restaurant.")}
-      </p>
 
-      <div className="confirm__meta-row">
-        <Badge tone={isCanceled ? "canceled" : "received"} dot>
-          {isCanceled ? t("status.canceled", "Canceled") : t("status.received", "Received")}
-        </Badge>
+      {isCanceled && (
+        <p className="confirm__msg">
+          {t("orders.trackingMsgCanceled", "This order was canceled. Please contact the staff if you need help.")}
+        </p>
+      )}
+
+      {/* §1 — the strongest functional element after the success message. */}
+      <div className="confirm__order">
+        <span className="confirm__order-label">{t("orders.orderNumber", "Order number")}</span>
         <span className="confirm__order-id">{order.orderId}</span>
       </div>
-      <p className="confirm__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
 
-      {/* Phase 26 — the estimate the guest was given at checkout, frozen on
-          the order. Renders nothing for pre-Phase-26 orders. */}
-      <PrepTimeEstimate order={order} />
-
-      <Card className="confirm__summary">
-        <h3 className="confirm__summary-title">{t("orders.orderSummary", "Order summary")}</h3>
-        <div className="confirm__summary-row">
-          <span>{t("orders.items", "Items")}</span>
-          <span>{formatItemCount(t, itemCount)}</span>
+      {/* §1 — compact summary only. Not the Cart's breakdown again. */}
+      <dl className="confirm__facts">
+        <div className="confirm__fact">
+          <dt>{t("customer.yourTable", "Table")}</dt>
+          <dd className="confirm__fact-num">#{order.tableNumber}</dd>
         </div>
-        <div className="confirm__summary-row">
-          <span>{t("common.subtotal", "Subtotal")}</span>
-          <span>{fmtPrice(order.subtotal)}</span>
+        <div className="confirm__fact">
+          <dt>{t("payment.paymentMethod", "Payment method")}</dt>
+          <dd>{paymentMethodLabel}</dd>
         </div>
-        <div className="confirm__summary-row">
-          <span>{t("common.serviceCharge", "Service charge")} ({order.serviceChargePercent}%)</span>
-          <span>{fmtPrice(order.serviceCharge)}</span>
-        </div>
-        <div className="confirm__summary-divider" />
-        <div className={`confirm__summary-row confirm__summary-row--total ${isCanceled ? "track__summary-row--void" : ""}`}>
-          <span>
+        <div className="confirm__fact">
+          <dt>
             {isCanceled
               ? t("payment.canceledOrderTotal", "Canceled order total")
               : t("common.total", "Total")}
-          </span>
-          <span>{fmtPrice(order.total)}</span>
+          </dt>
+          <dd className={`confirm__fact-total ${isCanceled ? "confirm__fact-total--void" : ""}`}>
+            {fmtPrice(order.total)}
+          </dd>
         </div>
-        <div className="confirm__summary-divider" />
-        {(!isCanceled || order.paymentStatus === "paid") && (
-          <div className="confirm__summary-row">
-            <span>{t("payment.paymentMethod", "Payment method")}</span>
-            <span>{paymentMethodLabel}</span>
+        {showEstimate && (
+          <div className="confirm__fact">
+            <dt>{t("prep.estimatedPrepTime", "Estimated preparation time")}</dt>
+            <dd>{t("prep.aboutXMinutes", "About {n} minutes").replace("{n}", minutes)}</dd>
           </div>
         )}
-        {isCanceled ? (
+      </dl>
+
+      {/* Phase 36 — preserved: for a canceled order the payment situation is
+          the thing the guest most needs stated plainly. */}
+      {isCanceled && (
+        <div className="confirm__canceled-payment">
           <CanceledPaymentNotice order={order} />
-        ) : (
-          <div className="confirm__summary-row">
-            <span>{t("payment.paymentStatus", "Payment status")}</span>
-            <span className="confirm__payment-status">{paymentLabel}</span>
-          </div>
-        )}
-      </Card>
+        </div>
+      )}
 
       <div className="confirm__actions">
-        <Button size="lg" full onClick={onViewTracking}>
-          {t("orders.viewOrderTracking", "View order tracking")}
+        <Button size="lg" full onClick={handleTrackOrder}>
+          {t("orders.trackOrder", "Track order")}
         </Button>
+        {/* Navigates only — it writes nothing, so the customer session and
+            the stored order are untouched by leaving this screen (§1). */}
         <Button variant="outline" size="md" full icon={ArrowLeft} onClick={onBackToMenu}>
           {t("common.backToMenu", "Back to menu")}
         </Button>

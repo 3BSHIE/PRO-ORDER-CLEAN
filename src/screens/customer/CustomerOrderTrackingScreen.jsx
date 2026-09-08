@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, PackageSearch, Check, Info } from "lucide-react";
+import { ArrowLeft, PackageSearch, Info } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
-import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CallStaffButton   from "./components/CallStaffButton.jsx";
-import PrepTimeEstimate  from "./components/PrepTimeEstimate.jsx";
 import OrderFeedback     from "./components/OrderFeedback.jsx";
-import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
+import StatusRoute        from "./components/StatusRoute.jsx";
+import OrderTimer         from "./components/OrderTimer.jsx";
+import OrderDetailsPanel  from "./components/OrderDetailsPanel.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
@@ -23,19 +23,23 @@ import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 
-/* Ordered progress steps for the visual timeline (canceled is handled separately) */
-const TIMELINE_STEPS = [
-  { status: "received",  label: "Received"  },
-  { status: "preparing", label: "Preparing" },
-  { status: "ready",     label: "Ready"      },
-  { status: "delivered", label: "Delivered"  },
-];
-
+/* Phase 88 §6 — one concise sentence for the real current status.
+ *
+ * These replace the previous wording, which was vaguer in the two places it
+ * mattered most. "Your order is ready and will be served soon" left it open
+ * whether the guest was meant to go and collect it; §6 is explicit that Ready
+ * must say a waiter is bringing it, so it now does. "Sent to the restaurant"
+ * became "received and sent to the kitchen", which is the fact the guest
+ * actually wants confirmed.
+ *
+ * Canceled keeps its own copy but is NOT rendered as a sentence — the
+ * canceled notice below states it once (§13, no duplicate cancellation
+ * copy). */
 const STATUS_MESSAGE = {
-  received:  "Your order has been sent to the restaurant.",
-  preparing: "The kitchen is preparing your order.",
-  ready:     "Your order is ready and will be served soon.",
-  delivered: "Your order has been delivered. We hope you enjoyed it.",
+  received:  "Your order has been received and sent to the kitchen.",
+  preparing: "Your order is being prepared now.",
+  ready:     "Your order is ready. A waiter is on the way to your table.",
+  delivered: "Your order has been delivered to your table.",
   canceled:  "This order was canceled. Please contact the staff if you need help.",
 };
 
@@ -47,22 +51,13 @@ const STATUS_BADGE_TONE = {
   canceled:  "canceled",
 };
 
-/* Maps a payment method's stable id to its translation key — order.paymentMethod.label
-   is captured verbatim in English at order-creation time, so we re-resolve a live
-   translation from the id instead, with that frozen label as the fallback. */
-const METHOD_LABEL_KEY = {
-  cash_at_table: "payment.cashAtTable",
-  card_at_table: "payment.cardAtTable",
-  online_payment: "payment.onlinePayment",
-};
-
 /* Maps each order status to its translation key for the longer tracking message
    (STATUS_MESSAGE above is the English fallback source). */
 const TRACKING_MSG_KEY = {
-  received:  "orders.trackingMsgReceived",
-  preparing: "orders.trackingMsgPreparing",
-  ready:     "orders.trackingMsgReady",
-  delivered: "orders.trackingMsgDelivered",
+  received:  "track.sentenceReceived",
+  preparing: "track.sentencePreparing",
+  ready:     "track.sentenceReady",
+  delivered: "track.sentenceDelivered",
   canceled:  "orders.trackingMsgCanceled",
 };
 
@@ -259,51 +254,46 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
 function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
   const { t } = useLanguage();
   const isCanceled = order.status === "canceled";
-  const paymentMethodLabel = t(
-    METHOD_LABEL_KEY[order.paymentMethod.id],
-    order.paymentMethod.label
-  );
-  const statusLabel =
-    t(`status.${order.status}`, null) ||
-    TIMELINE_STEPS.find((s) => s.status === order.status)?.label ||
-    (isCanceled ? "Canceled" : order.status);
+  const statusLabel = t(`status.${order.status}`, null) || order.status;
   const statusMsg = TRACKING_MSG_KEY[order.status]
     ? t(TRACKING_MSG_KEY[order.status], STATUS_MESSAGE[order.status])
     : t("orders.trackingFallbackMsg", "We're tracking your order.");
 
   return (
-    <div className="track anim-rise">
-      <p className="track__rest">{order.restaurantName}</p>
-      <p className="track__table">{t("customer.yourTable", "Table")} #{order.tableNumber}</p>
-
-      <div className="track__order-row">
-        <span className="track__order-id">{order.orderId}</span>
+    /* Phase 88 §2 — a restrained entrance: opacity plus a few pixels of
+       vertical motion, played once on mount. It replaces .anim-rise so the
+       arrival from Confirmation feels continuous rather than like a second
+       page load. No splash and no loader sit between the two screens; the
+       order is already in hand when this renders. */
+    <div className="track track--enter">
+      {/* ── 1. compact restaurant / order context (§3) ──────────────────
+          Everything identifying the order, in one block, once. The old
+          screen spread the same four facts over four separate lines and
+          then repeated them again inside the details card. */}
+      <header className="track__context">
+        <p className="track__rest">{order.restaurantName}</p>
+        <p className="track__idline">
+          <span>{t("customer.yourTable", "Table")} #{order.tableNumber}</span>
+          <span className="track__sep" aria-hidden="true">·</span>
+          {/* A bare Latin/numeric token inside Arabic copy, so it keeps its
+              own direction exactly as prices and totals do (§17). */}
+          <span className="track__order-id">{order.orderId}</span>
+          <span className="track__sep" aria-hidden="true">·</span>
+          <span className="track__who">{order.customerName}</span>
+        </p>
         <Badge tone={STATUS_BADGE_TONE[order.status] || "neutral"} dot>
           {statusLabel}
         </Badge>
-      </div>
-      <p className="track__customer">{t("common.forCustomer", "For")} {order.customerName}</p>
-
-      {/* Phase 74 §24 — a canceled order used to state its cancellation
-          here AND again in the banner below, in near-identical words. The
-          banner is the one clear message now, so this subtitle steps aside
-          for canceled only; every other status keeps it. */}
-      {!isCanceled && <p className="track__msg">{statusMsg}</p>}
-
-      {/* Phase 26 — shown only while the order is still Received/Preparing.
-          Once it's Ready or Delivered the status message above already says
-          what matters, so the estimate steps aside rather than contradicting
-          it. Component handles that rule internally. */}
-      <PrepTimeEstimate order={order} />
+      </header>
 
       {isCanceled ? (
-        /* Phase 74 §23 — softened from a red failure banner with a Circle-X
-           to a warm-neutral notice with an information mark. A cancellation
-           is frequently the restaurant's own action and is not a guest
-           error; the CANCELED status pill above already carries the red
-           semantic (§22), so repeating it here in alarm colours was double
-           signalling. The helper line is the genuinely useful part and is
-           now the second tier rather than being buried. */
+        /* Phase 74 §23, preserved wholesale by Phase 88 §13 — a warm-neutral
+           notice with an information mark, not a red failure banner. The
+           CANCELED pill above already carries the red semantic, so repeating
+           it here in alarm colours would be double signalling, and a
+           cancellation is frequently the restaurant's own action rather than
+           a guest error. No status route and no timer for a canceled order:
+           there is no journey left to draw and nothing left to count. */
         <div className="track__canceled" role="status">
           <span className="track__canceled-icon" aria-hidden="true">
             <Info size={20} strokeWidth={2} />
@@ -318,177 +308,77 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
           </span>
         </div>
       ) : (
-        <StatusTimeline currentStatus={order.status} />
+        <>
+          {/* ── 2. the route (§4) ─────────────────────────────────────── */}
+          <StatusRoute currentStatus={order.status} />
+
+          {/* ── 3. one sentence for the real current status (§6) ───────
+              role="status" so an advance arriving over the 4s poll is
+              announced once, politely, rather than silently changing. */}
+          <p className="track__sentence" role="status">{statusMsg}</p>
+
+          {/* ── 4. the Main Timer (§7) ─────────────────────────────────
+              Renders nothing at Ready/Delivered, and nothing for an order
+              with no estimate. It decides that itself, from the order's
+              real status — never from the clock. */}
+          <OrderTimer order={order} />
+        </>
       )}
 
-      {/* Phase 25 — Digital Waiter Bell. A canceled order is exactly when a
-          guest is most likely to need a person, so that case gets the
-          prominent centered action the phase spec calls for; every other
-          status keeps the same quiet inline pill used on the Menu screen. */}
-      <div className={`track__call-staff ${isCanceled ? "track__call-staff--prominent" : ""}`}>
+      {/* ── 5. Call Staff (§14) ───────────────────────────────────────────
+          Prominent and centered for EVERY status now, not only for a
+          canceled order. §14 makes this deliberate: on a screen whose whole
+          purpose is waiting, "fetch me a person" is the one action the guest
+          may actually need, and it was previously a quiet inline pill unless
+          something had already gone wrong. */}
+      <div className="track__call-staff track__call-staff--prominent">
         <CallStaffButton
           restaurantSlug={restaurantSlug}
           tableId={table.id}
           tableNumber={table.tableNumber}
           customerName={session.customerName}
-          variant={isCanceled ? "prominent" : "subtle"}
+          variant="prominent"
           onNotify={onNotify}
         />
       </div>
 
-      {/* ── Feedback (Phase 29) ─────────────────────────────────────────
-          Self-gating: renders only for a delivered order that belongs to
-          this session, and flips to read-only once submitted. */}
+      {/* ── Feedback (Phase 29, untouched) ───────────────────────────────
+          Self-gating: renders only for a delivered order belonging to this
+          session, and flips to read-only once submitted. */}
       <OrderFeedback order={order} session={session} />
 
-      {/* ── Order updates (status history) ─────────────────────────────── */}
-      {order.statusHistory?.length > 0 && (
-        <Card className="track__updates">
-          <h3 className="track__updates-title">{t("orders.orderUpdates", "Order updates")}</h3>
-          <ul className="track__updates-list">
-            {order.statusHistory.map((entry, i) => (
-              <li key={i} className="track__updates-item">
-                <span className="track__updates-dot" />
-                <span className="track__updates-label">
-                  {STATUS_HISTORY_LABEL_KEY[entry.status]
-                    ? t(STATUS_HISTORY_LABEL_KEY[entry.status], entry.label || entry.status)
-                    : entry.label || entry.status}
-                </span>
-                <span className="track__updates-time">{formatTimestamp(entry.at)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {/* ── Order details ───────────────────────────────────────────────── */}
-      <Card className="track__details">
-        <h3 className="track__details-title">{t("orders.orderDetails", "Order details")}</h3>
-        <div className="track__items">
-          {order.items.map((line) => (
-            <TrackingLineItem key={line.cartItemId} line={line} restaurantSlug={order.restaurantSlug} />
-          ))}
-        </div>
-
-        <div className="track__summary">
-          <div className="track__summary-row">
-            <span>{t("common.subtotal", "Subtotal")}</span>
-            <span>{fmtPrice(order.subtotal)}</span>
+      {/* ── 6. Order Details, secondary and collapsible (§15) ─────────── */}
+      <OrderDetailsPanel
+        order={order}
+        renderLineItem={(line) => (
+          <TrackingLineItem
+            key={line.cartItemId}
+            line={line}
+            restaurantSlug={order.restaurantSlug}
+          />
+        )}
+      >
+        {order.statusHistory?.length > 0 && (
+          <div className="odetails__history">
+            <h4 className="odetails__history-title">
+              {t("orders.orderUpdates", "Order updates")}
+            </h4>
+            <ul className="odetails__history-list">
+              {order.statusHistory.map((entry, i) => (
+                <li key={i} className="odetails__history-item">
+                  <span className="odetails__history-dot" aria-hidden="true" />
+                  <span className="odetails__history-label">
+                    {STATUS_HISTORY_LABEL_KEY[entry.status]
+                      ? t(STATUS_HISTORY_LABEL_KEY[entry.status], entry.label || entry.status)
+                      : entry.label || entry.status}
+                  </span>
+                  <span className="odetails__history-time">{formatTimestamp(entry.at)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="track__summary-row">
-            <span>{t("common.serviceCharge", "Service charge")} ({order.serviceChargePercent}%)</span>
-            <span>{fmtPrice(order.serviceCharge)}</span>
-          </div>
-          <div className="track__summary-divider" />
-
-          {/* Phase 36 — a canceled order's total is history, not a bill, so it
-              is relabelled and struck through rather than presented as an
-              amount owed. The stored value is untouched. */}
-          <div className={`track__summary-row track__summary-row--total ${isCanceled ? "track__summary-row--void" : ""}`}>
-            <span>
-              {isCanceled
-                ? t("payment.canceledOrderTotal", "Canceled order total")
-                : t("common.total", "Total")}
-            </span>
-            <span>{fmtPrice(order.total)}</span>
-          </div>
-
-          <div className="track__summary-divider" />
-
-          {/* Payment method stays visible for a normal order, and for a
-              canceled-but-paid one where it is useful historical context when
-              the guest speaks to staff. For a canceled unpaid order it adds
-              nothing and only invites "do I still owe this?", so it is
-              dropped in favour of the notice below. */}
-          {(!isCanceled || order.paymentStatus === "paid") && (
-            <div className="track__summary-row">
-              <span>{t("payment.paymentMethod", "Payment method")}</span>
-              <span>{paymentMethodLabel}</span>
-            </div>
-          )}
-
-          {isCanceled ? (
-            <CanceledPaymentNotice order={order} />
-          ) : (
-            <div className="track__summary-row">
-              <span>{t("payment.paymentStatus", "Payment status")}</span>
-              <span className="track__payment-status">
-                {order.paymentStatus === "paid"
-                  ? t("payment.paid", "Paid")
-                  : t("payment.pendingAtTable", "Pending at table")}
-              </span>
-            </div>
-          )}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ── Visual status timeline ──────────────────────────────────────────────── */
-function StatusTimeline({ currentStatus }) {
-  const { t } = useLanguage();
-  const currentIndex = TIMELINE_STEPS.findIndex((s) => s.status === currentStatus);
-
-  /* Phase 74 §51 — the transition belongs to a genuine advance, not to every
-     render. The first pass after mount only RECORDS the status, so opening
-     Tracking on an already-Ready order shows the finished state calmly
-     instead of replaying a sweep the guest never witnessed. A refresh, a
-     re-visit, or a poll returning the same status all fall through here and
-     animate nothing. Same seeding rule the Kitchen board uses. */
-  const prevStatusRef = useRef(null);
-  const seededRef = useRef(false);
-  const [advanced, setAdvanced] = useState(false);
-
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    prevStatusRef.current = currentStatus;
-
-    if (!seededRef.current) { seededRef.current = true; return; }
-    if (prev === currentStatus) return;
-
-    setAdvanced(true);
-    /* Long enough to cover the 260ms connector sweep and the Ready ring;
-       cleared so a later advance can play it again, and so it never loops. */
-    const id = setTimeout(() => setAdvanced(false), 420);
-    return () => clearTimeout(id);
-  }, [currentStatus]);
-
-  return (
-    /* The status modifier is what makes the active step take its own
-       semantic colour (§5): a Received order can no longer show a blue pill
-       above a gold step. */
-    <div className={`track-timeline track-timeline--${currentStatus} ${advanced ? "track-timeline--advanced" : ""}`}>
-      {TIMELINE_STEPS.map((step, i) => {
-        const isDone    = currentIndex >= 0 && i < currentIndex;
-        const isCurrent = i === currentIndex;
-        const isFuture  = currentIndex >= 0 && i > currentIndex;
-
-        return (
-          <div
-            key={step.status}
-            className={`track-timeline__step ${isDone ? "track-timeline__step--done" : ""} ${
-              isCurrent ? "track-timeline__step--current" : ""
-            } ${isFuture ? "track-timeline__step--future" : ""}`}
-          >
-            <span className="track-timeline__dot">
-              {/* Both marks are mounted on the active step and crossfaded
-                  (§10) rather than swapped, so advancing looks like the same
-                  dot changing state instead of two elements flashing. */}
-              {isDone ? (
-                <Check size={13} strokeWidth={3} />
-              ) : (
-                <span className="track-timeline__dot-inner" />
-              )}
-              {isCurrent && step.status === "ready" && (
-                /* §9 — one restrained ring on entering Ready, never a loop. */
-                <span className="track-timeline__ring" aria-hidden="true" />
-              )}
-            </span>
-            <span className="track-timeline__label">{t(`status.${step.status}`, step.label)}</span>
-          </div>
-        );
-      })}
+        )}
+      </OrderDetailsPanel>
     </div>
   );
 }

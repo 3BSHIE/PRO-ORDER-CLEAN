@@ -540,6 +540,12 @@ export const translations = {
       orderReceived: "Order received",
       orderReceivedMsg: "Your order has been sent to the restaurant.",
       trackOrder: "Track order",
+      /* Phase 88 §1 — the confirmation headline. "Order received" moved to
+         being the Received STATUS everywhere else, so reusing it as the
+         success message made the two mean different things in the same
+         flow. */
+      orderPlacedSuccessfully: "Order placed successfully",
+      orderNumber: "Order number",
       /* Phase 74 §30/§31 — subdued actions for finished/dead orders. */
       viewOrder: "View order",
       viewDetails: "View details",
@@ -573,6 +579,35 @@ export const translations = {
       shortMsgReady: "Ready — will be served soon.",
       shortMsgDelivered: "Delivered. Enjoy!",
       shortMsgCanceled: "This order was canceled.",
+    },
+    /* ── Phase 88 (Unit 6) — Tracking, the Status Route and the Main Timer.
+       Kept in their own namespace rather than piled into the orders block, which had
+       already grown to cover confirmation copy, My Orders copy and status
+       history labels. */
+    track: {
+      /* §6 — one sentence per real status. Ready is the one that had to
+         change meaning: the old wording ("ready and will be served soon")
+         left it ambiguous whether the guest should get up and collect it. */
+      sentenceReceived:  "Your order has been received and sent to the kitchen.",
+      sentencePreparing: "Your order is being prepared now.",
+      sentenceReady:     "Your order is ready. A waiter is on the way to your table.",
+      sentenceDelivered: "Your order has been delivered to your table.",
+
+      /* §19 — route state for screen readers, so current/completed/upcoming
+         does not depend on the disc being bigger or a different colour. */
+      stepCurrent:   "Current step",
+      stepCompleted: "Completed",
+      stepUpcoming:  "Upcoming",
+
+      /* §7/§10 — the Main Timer. {n} is substituted rather than concatenated
+         so Arabic can place the number where it reads naturally. */
+      timerRegion:         "Estimated time",
+      minutesRemaining:    "{n} min",
+      estimatedRemaining:  "Estimated time remaining",
+      /* §10 — an estimate running out is not a failure and not a status
+         change, so this is calm and says nothing about being late. */
+      takingLonger:        "Taking a little longer",
+      takingLongerHelp:    "Your order is still being prepared. Thank you for your patience.",
     },
     payment: {
       paymentTitle: "Payment",
@@ -1263,6 +1298,9 @@ export const translations = {
       orderReceived: "تم استلام الطلب",
       orderReceivedMsg: "تم إرسال طلبك إلى المطعم.",
       trackOrder: "تتبع الطلب",
+      /* Phase 88 §1 */
+      orderPlacedSuccessfully: "تم تأكيد طلبك بنجاح",
+      orderNumber: "رقم الطلب",
       viewOrder: "عرض الطلب",
       viewDetails: "عرض التفاصيل",
       yourOrderIsReady: "طلبك جاهز",
@@ -1293,6 +1331,26 @@ export const translations = {
       shortMsgReady: "جاهز — سيُقدَّم قريباً.",
       shortMsgDelivered: "تم التسليم. بالهناء والشفاء!",
       shortMsgCanceled: "تم إلغاء هذا الطلب.",
+    },
+    /* ── Phase 88 (Unit 6) ── */
+    track: {
+      /* §6 — natural Arabic rather than literal renderings. Ready states
+         outright that the waiter is on the way (النادل في طريقه), which is
+         the point §6 insists on. */
+      sentenceReceived:  "تم استلام طلبك وإرساله إلى المطبخ.",
+      sentencePreparing: "يتم تحضير طلبك الآن.",
+      sentenceReady:     "طلبك جاهز، والنادل في طريقه إلى طاولتك.",
+      sentenceDelivered: "تم تقديم طلبك على طاولتك.",
+
+      stepCurrent:   "الخطوة الحالية",
+      stepCompleted: "مكتملة",
+      stepUpcoming:  "قادمة",
+
+      timerRegion:        "الوقت المتوقع",
+      minutesRemaining:   "{n} دقيقة",
+      estimatedRemaining: "الوقت المتبقي المتوقع",
+      takingLonger:       "يستغرق وقتاً أطول قليلاً",
+      takingLongerHelp:   "لا يزال طلبك قيد التحضير. شكراً لسعة صدرك.",
     },
     payment: {
       paymentTitle: "الدفع",

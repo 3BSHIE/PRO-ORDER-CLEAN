@@ -1089,34 +1089,12 @@ button{font-family:var(--font-body)}
 .confirm{
   display:flex;flex-direction:column;align-items:center;text-align:center;
   padding:44px 20px 60px;max-width:480px;margin:0 auto}
-.confirm__icon{
-  width:60px;height:60px;display:grid;place-items:center;
-  background:var(--ready-soft);color:var(--ready);
-  border:1px solid rgba(63,214,143,.35);border-radius:50%;
-  font-size:26px;font-weight:800;margin-bottom:20px}
-.confirm__rest{font-size:11px;font-weight:700;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--gold);margin:0 0 4px}
-.confirm__table{font-size:12px;color:var(--text-3);margin:0 0 18px;
-  letter-spacing:.05em}
 .confirm__title{font-family:var(--font-display);font-size:clamp(24px,5vw,30px);
   font-weight:700;color:var(--text-1);margin:0 0 8px}
 .confirm__msg{font-size:14px;color:var(--text-2);line-height:1.6;
   max-width:340px;margin:0 0 18px}
-.confirm__meta-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .confirm__order-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:13px;color:var(--text-2);letter-spacing:.03em}
-.confirm__customer{font-size:12.5px;color:var(--text-3);margin:0 0 26px}
-
-.confirm__summary{width:100%;text-align:start;margin-bottom:24px}
-.confirm__summary-title{font-family:var(--font-display);font-size:16px;
-  font-weight:600;color:var(--text-1);margin:0 0 14px}
-.confirm__summary-row{display:flex;align-items:center;justify-content:space-between;
-  font-size:13px;color:var(--text-2);padding:5px 0}
-.confirm__summary-row--total{font-size:16px;font-weight:700;color:var(--text-1)}
-.confirm__summary-row--total span:last-child{
-  font-family:var(--font-display);color:var(--gold);font-size:18px}
-.confirm__summary-divider{height:1px;background:var(--border);margin:8px 0}
-.confirm__payment-status{color:var(--preparing);font-weight:600}
 
 .confirm__actions{width:100%;display:flex;flex-direction:column;gap:10px}
 
@@ -1138,17 +1116,8 @@ button{font-family:var(--font-body)}
 .track{max-width:520px;margin:0 auto;padding:32px 20px 60px}
 .track__rest{font-size:11px;font-weight:700;letter-spacing:.24em;
   text-transform:uppercase;color:var(--gold);margin:0 0 4px;text-align:center}
-.track__table{font-size:12px;color:var(--text-3);margin:0 0 18px;
-  letter-spacing:.05em;text-align:center}
-
-.track__order-row{display:flex;align-items:center;justify-content:center;
-  gap:10px;margin-bottom:6px}
 .track__order-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:13px;color:var(--text-2);letter-spacing:.03em}
-.track__customer{font-size:12.5px;color:var(--text-3);margin:0 0 20px;
-  text-align:center}
-.track__msg{font-size:14px;color:var(--text-2);line-height:1.6;
-  text-align:center;max-width:380px;margin:0 auto 28px}
 
 /* ── canceled state ── */
 /* Phase 74 §23 — softened from a red alarm to a warm-neutral notice. The
@@ -1166,76 +1135,6 @@ button{font-family:var(--font-body)}
 .track__canceled-text{display:flex;flex-direction:column;gap:3px;min-width:0}
 .track__canceled-title{font-size:14px;font-weight:700;color:var(--text-1)}
 .track__canceled-help{font-size:12.5px;color:var(--text-2);line-height:1.5}
-
-/* ── visual timeline ── */
-.track-timeline{display:flex;align-items:flex-start;margin-bottom:32px}
-.track-timeline__step{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  position:relative;text-align:center}
-.track-timeline__step::before{
-  content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;
-  background:var(--border);z-index:0}
-.track-timeline__step:first-child::before{display:none}
-.track-timeline__step--done::before,
-.track-timeline__step--current::before{background:var(--gold-line)}
-
-.track-timeline__dot{
-  width:28px;height:28px;border-radius:50%;flex:none;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--surface-2);border:2px solid var(--border-strong);
-  color:var(--text-3);position:relative;z-index:1;margin-bottom:8px;
-  transition:background .2s,border-color .2s,color .2s}
-.track-timeline__dot-inner{width:7px;height:7px;border-radius:50%;
-  background:currentColor}
-/* Phase 74 §5 — the active step now speaks the SAME language as the status
-   pill. It used to be gold for every status, so a Received order showed a
-   blue "Received" badge directly above a gold "Received" step and the two
-   disagreed about what colour that state is.
-
-   Completed steps moved off green for the same reason: green is Ready's
-   semantic, and painting every passed step green meant three green dots
-   before the order was anywhere near ready. They are gold now — the brand
-   "done" colour, carrying no status meaning of its own.
-
-   --step-tone is set per status on the container below; each step reads it,
-   so there is one place to change a status colour rather than four. */
-.track-timeline__step--done .track-timeline__dot{
-  background:var(--gold);border-color:var(--gold);color:var(--on-primary)}
-.track-timeline__step--current .track-timeline__dot{
-  background:var(--step-tone-soft,var(--gold-soft));
-  border-color:var(--step-tone,var(--gold));
-  color:var(--step-tone,var(--gold));
-  box-shadow:0 0 0 4px var(--step-tone-soft,var(--gold-soft))}
-.track-timeline__step--future .track-timeline__dot{opacity:.6}
-
-/* One declaration per status, consumed by the rules above. */
-.track-timeline--received{--step-tone:var(--received);--step-tone-soft:var(--received-soft)}
-.track-timeline--preparing{--step-tone:var(--preparing);--step-tone-soft:var(--preparing-soft)}
-.track-timeline--ready{--step-tone:var(--ready);--step-tone-soft:var(--ready-soft)}
-.track-timeline--delivered{--step-tone:var(--gold);--step-tone-soft:var(--gold-soft)}
-
-.track-timeline__label{font-size:11.5px;font-weight:600;color:var(--text-3)}
-.track-timeline__step--done .track-timeline__label{color:var(--text-1)}
-.track-timeline__step--current .track-timeline__label{
-  color:var(--step-tone,var(--gold))}
-
-/* ── order updates (status history) ── */
-.track__updates{margin-bottom:20px}
-.track__updates-title{font-family:var(--font-display);font-size:15px;
-  font-weight:600;color:var(--text-1);margin:0 0 12px}
-.track__updates-list{list-style:none;margin:0;padding:0;
-  display:flex;flex-direction:column;gap:10px}
-.track__updates-item{display:flex;align-items:center;gap:10px;
-  font-size:12.5px;color:var(--text-2)}
-.track__updates-dot{width:6px;height:6px;border-radius:50%;
-  background:var(--gold);flex:none}
-.track__updates-label{flex:1;color:var(--text-1);font-weight:500}
-.track__updates-time{color:var(--text-3);white-space:nowrap;font-size:11.5px}
-
-/* ── order details card ── */
-.track__details{text-align:start}
-.track__details-title{font-family:var(--font-display);font-size:16px;
-  font-weight:600;color:var(--text-1);margin:0 0 14px}
 .track__items{display:flex;flex-direction:column;gap:14px;margin-bottom:16px;
   padding-bottom:16px;border-bottom:1px solid var(--border)}
 
@@ -1249,15 +1148,6 @@ button{font-family:var(--font-body)}
 .track-item__custom-row{font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0}
 .track-item__custom-label{color:var(--text-3);font-weight:600}
 .track-item__custom-row--note{color:var(--gold);font-style:italic}
-
-.track__summary{display:flex;flex-direction:column;gap:2px}
-.track__summary-row{display:flex;align-items:center;justify-content:space-between;
-  font-size:13px;color:var(--text-2);padding:4px 0}
-.track__summary-row--total{font-size:15px;font-weight:700;color:var(--text-1)}
-.track__summary-row--total span:last-child{
-  font-family:var(--font-display);color:var(--gold);font-size:17px}
-.track__summary-divider{height:1px;background:var(--border);margin:6px 0}
-.track__payment-status{color:var(--preparing);font-weight:600}
 
 /* ══ Phase 12 — Customer My Orders Page ══════════════════════════════════════ */
 
@@ -1892,8 +1782,6 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .cart-summary__row--total span:last-child,
 [dir="rtl"] .cart-bottom-bar__total-value,
 [dir="rtl"] .item-modal__total-value,
-[dir="rtl"] .confirm__summary-row--total span:last-child,
-[dir="rtl"] .track__summary-row--total span:last-child,
 [dir="rtl"] .ad-order__total,
 [dir="rtl"] .ad-live-card__total,
 [dir="rtl"] .ad-live-card__totals-row--total span:last-child,
@@ -1918,9 +1806,6 @@ button{font-family:var(--font-body)}
 /* Phase 87 §39 — follows the 14->9 inset the LTR rule took when the hit
    box grew to 44px around a 34px face. */
 [dir="rtl"] .pm-modal__x{right:auto;left:9px}
-/* Timeline connecting line must point toward the previous (visually-right-
-   side, in RTL) dot instead of always extending physically left. */
-[dir="rtl"] .track-timeline__step::before{left:auto;right:-50%}
 [dir="rtl"] .ad-stat__dot{right:auto;left:16px}
 
 /* ══ Phase 21 — Admin Menu Management (Categories & Products) ═══════════════ */
@@ -2599,7 +2484,6 @@ button{font-family:var(--font-body)}
 /* A canceled order's total is historical context, not a bill. Struck through
    AND relabelled ("Canceled order total") so the meaning never rests on the
    styling alone. */
-.track__summary-row--void span,
 .order-card__total--void{
   text-decoration:line-through;
   text-decoration-thickness:1px;
@@ -2627,13 +2511,6 @@ button{font-family:var(--font-body)}
 /* Compact form for the My Orders card meta line. */
 .cx-pay-inline{color:var(--text-2);font-weight:600}
 .cx-pay-inline--paid{color:var(--preparing)}
-
-/* The confirmation route stays reachable after cancellation; its success tick
-   becomes a neutral canceled mark so the page does not celebrate an order
-   that no longer stands. */
-.confirm__icon--canceled{
-  background:var(--canceled-soft);color:var(--canceled);
-  border-color:rgba(241,106,106,.35)}
 
 /* ══ Phase 34 — Checkout submit feedback ══════════════════════════════════ */
 
@@ -3647,32 +3524,7 @@ button{font-family:var(--font-body)}
   60%{opacity:1;transform:scale(1.04)}
   to{opacity:1;transform:scale(1)}
 }
-.confirm__icon{animation:confirm-pop .25s var(--ease) both}
-
-/* ── Tracking advance transition (§6–§10) ─────────────────────────────── */
-
-/* The connector already exists as the step's ::before. Its colour change is
-   now transitioned rather than instant, and on a genuine advance an overlay
-   sweeps across it in the reading direction. */
-.track-timeline__step::before{
-  transition:background .26s var(--ease)}
-.track-timeline__step::after{
-  content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;
-  background:var(--step-tone,var(--gold));z-index:0;
-  transform:scaleX(0);transform-origin:left center;
-  opacity:0}
-.track-timeline__step:first-child::after{display:none}
-/* §7 — the sweep fills toward the newly active step, and only on a real
-   advance. transform-origin flips for RTL below so it always travels the
-   way the eye reads. */
-.track-timeline--advanced .track-timeline__step--current::after{
-  opacity:1;
-  animation:track-sweep .26s var(--ease) forwards}
 @keyframes track-sweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-
-.track-timeline__dot{
-  transition:background .26s var(--ease),border-color .26s var(--ease),
-    color .26s var(--ease),box-shadow .26s var(--ease)}
 /* §8 — one small acknowledgement on the dot that just became active.
    Completed dots never move. */
 @keyframes track-dot-ack{
@@ -3680,38 +3532,14 @@ button{font-family:var(--font-body)}
   45%{transform:scale(1.08)}
   100%{transform:scale(1)}
 }
-.track-timeline--advanced .track-timeline__step--current .track-timeline__dot{
-  animation:track-dot-ack .26s var(--ease)}
-
-/* §10 — the inner mark crossfades with a small scale rather than snapping. */
-.track-timeline__dot-inner,
-.track-timeline__dot svg{
-  transition:opacity .26s var(--ease),transform .26s var(--ease)}
-.track-timeline--advanced .track-timeline__step--current .track-timeline__dot-inner,
-.track-timeline--advanced .track-timeline__step--done .track-timeline__dot svg{
-  animation:track-icon-in .26s var(--ease)}
 @keyframes track-icon-in{
   from{opacity:0;transform:scale(.85)}
   to{opacity:1;transform:scale(1)}
 }
-
-/* §9 — the Ready signature. One ring expands out of the dot and stops; it is
-   mounted only on the Ready step and only animates on a real advance, so it
-   can never become a looping alarm. */
-.track-timeline__ring{
-  position:absolute;inset:-2px;border-radius:50%;
-  border:2px solid var(--ready);opacity:0;pointer-events:none}
-.track-timeline--advanced.track-timeline--ready .track-timeline__step--current .track-timeline__ring{
-  animation:track-ready-ring .3s var(--ease) forwards}
 @keyframes track-ready-ring{
   from{opacity:.75;transform:scale(1)}
   to{opacity:0;transform:scale(1.65)}
 }
-
-/* RTL — the connector and its sweep live on the opposite edge and must
-   travel the other way (§7, §58). */
-[dir="rtl"] .track-timeline__step::after{left:auto;right:-50%;
-  transform-origin:right center}
 
 /* ── Shared recovery pattern (§39) ────────────────────────────────────── */
 
@@ -3804,13 +3632,7 @@ button{font-family:var(--font-body)}
      a faint static line across the mark, so it is removed outright */
   .brand-mark__flow{opacity:0}
   .brand-mark__ready-ring{display:none}
-  .track-timeline__step::after{display:none}
-  .track-timeline__ring{display:none}
-  .track-timeline--advanced .track-timeline__step--current .track-timeline__dot,
-  .track-timeline--advanced .track-timeline__step--current .track-timeline__dot-inner,
-  .track-timeline--advanced .track-timeline__step--done .track-timeline__dot svg,
-  .star-rating__option--on:not(:has(~ .star-rating__option--on)) .star-rating__star,
-  .confirm__icon{animation:none}
+  .star-rating__option--on:not(:has(~ .star-rating__option--on)) .star-rating__star{animation:none}
 }
 
 /* ══ Phase 75 — Admin Core Operations Polish ═══════════════════════════════
@@ -5366,3 +5188,589 @@ button{font-family:var(--font-body)}
    token that must keep its own direction inside Arabic copy — the same rule
    prices, order ids and the notes counter already follow. */
 [dir="rtl"] .pm-modal__total-value{direction:ltr;unicode-bidi:isolate}
+
+/* ══ Phase 88 — Confirmation, Status Route, Main Timer, Order Details ══════
+
+   Unit 6. Everything below belongs to the Customer's post-checkout screens.
+   Semantic status colours (--received/--preparing/--ready/--canceled) stay
+   independent of the restaurant theme throughout; the restaurant's Primary
+   appears as an accent and owns the brand mark, never a full recolour.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ══ 1. Confirmation (§1) ════════════════════════════════════════════════ */
+
+.confirm{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:26px 0 8px;
+  animation:rise .5s var(--ease) both}
+
+/* §2 — settles out on the way to Tracking. Opacity plus a few pixels, no
+   scale: the two screens share a restaurant identity in the topbar and
+   scaling the body would drag the eye away from the one element that is
+   supposed to stay put. */
+.confirm--leaving{
+  opacity:0;transform:translateY(-6px);
+  transition:opacity .16s var(--ease),transform .16s var(--ease)}
+
+/* Calm success mark: a thin ring, a soft tint, one check. No fill-flood, no
+   bounce, no loop (§1, §18). The ring draws once via a rotated conic sweep
+   that finishes and stops. */
+.confirm__mark{
+  position:relative;
+  width:64px;height:64px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--ready-soft);
+  border:1.5px solid color-mix(in srgb, var(--ready) 46%, transparent);
+  color:var(--ready);
+  margin-bottom:16px;
+  animation:confirm-mark-in .42s var(--ease) both}
+.confirm__mark--canceled{
+  background:var(--canceled-soft);
+  border-color:color-mix(in srgb, var(--canceled) 42%, transparent);
+  color:var(--canceled)}
+.confirm__mark-x{font-size:24px;line-height:1;font-weight:400}
+
+/* Fade + a 4px rise that settles. Deliberately NOT a scale-up-from-zero:
+   that is the celebratory pop §1 rules out. */
+@keyframes confirm-mark-in{
+  from{opacity:0;transform:translateY(4px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+
+.confirm__title{
+  font-family:var(--font-display);
+  font-size:clamp(22px,5.4vw,27px);font-weight:700;
+  color:var(--text-1);margin:0 0 6px;line-height:1.3}
+
+.confirm__msg{
+  font-size:13.5px;color:var(--text-2);line-height:1.6;
+  margin:0 0 4px;max-width:34ch}
+
+/* §1 — the order number, promoted to the strongest functional element after
+   the headline. Its own block, its own label, tabular figures, and isolated
+   so an id keeps its direction inside Arabic copy. */
+.confirm__order{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  margin:18px 0 4px}
+.confirm__order-label{
+  font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3)}
+.confirm__order-id{
+  font-family:var(--font-display);
+  font-size:clamp(24px,6.4vw,30px);font-weight:700;
+  color:var(--gold);letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;
+  direction:ltr;unicode-bidi:isolate}
+
+/* §1 — compact facts, not the Cart's breakdown. A definition list because
+   that is what it is: four labelled values. */
+.confirm__facts{
+  width:100%;max-width:420px;margin:20px 0 4px;padding:0;
+  display:flex;flex-direction:column;gap:1px;
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--border);overflow:hidden}
+.confirm__fact{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 15px;background:var(--surface-1);text-align:start}
+.confirm__fact dt{
+  font-size:12.5px;color:var(--text-2);margin:0;flex:none}
+.confirm__fact dd{
+  font-size:13.5px;color:var(--text-1);font-weight:600;margin:0;
+  text-align:end;min-width:0;overflow-wrap:anywhere}
+/* Bare Latin/numeric tokens keep their own direction in Arabic (§17). */
+.confirm__fact-num,
+.confirm__fact-total{direction:ltr;unicode-bidi:isolate}
+.confirm__fact-total{color:var(--gold);font-family:var(--font-display);font-size:16px}
+.confirm__fact-total--void{
+  color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
+
+.confirm__canceled-payment{width:100%;max-width:420px;margin-top:12px}
+
+.confirm__actions{
+  display:flex;flex-direction:column;gap:10px;
+  width:100%;max-width:420px;margin-top:24px}
+
+/* ══ 2. Tracking shell (§3) ══════════════════════════════════════════════ */
+
+/* §2 — restrained entrance: opacity and a small vertical move, once. */
+.track--enter{animation:track-enter .34s var(--ease) both}
+@keyframes track-enter{
+  from{opacity:0;transform:translateY(8px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+
+/* One compact context block. Four facts, one place, once (§3). */
+.track__context{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  text-align:center;padding:20px 0 22px}
+.track__rest{
+  font-family:var(--font-display);
+  font-size:clamp(17px,4.4vw,20px);font-weight:700;
+  color:var(--text-1);margin:0;line-height:1.3}
+.track__idline{
+  display:flex;align-items:center;justify-content:center;
+  flex-wrap:wrap;gap:0 7px;
+  font-size:12.5px;color:var(--text-2);margin:0;line-height:1.6}
+.track__sep{color:var(--text-3)}
+.track__order-id{
+  color:var(--text-1);font-weight:600;font-variant-numeric:tabular-nums;
+  direction:ltr;unicode-bidi:isolate}
+.track__who{max-width:18ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* §6 — the one sentence. Sits directly under the route and is the only
+   place the current status is described in words. */
+.track__sentence{
+  font-size:14.5px;line-height:1.6;color:var(--text-1);
+  text-align:center;margin:0 auto;max-width:36ch}
+
+/* §14 — Call Staff, prominent and centered for every status. Generous space
+   above so it never crowds the timer, and below so it never crowds the
+   details panel. */
+.track__call-staff{display:flex;justify-content:center;margin:26px 0 24px}
+.track__call-staff .call-staff--prominent{min-height:48px}
+
+/* ══ 3. Status Route (§4, §5) ════════════════════════════════════════════ */
+
+.sroute{position:relative;margin:4px 0 22px;padding:0}
+
+/* The drawn line, stretched to the row width. preserveAspectRatio="none"
+   would normally distort the stroke; non-scaling-stroke keeps it at a true
+   1.5px at every viewport. */
+.sroute__line{
+  position:absolute;inset:0 0 auto 0;
+  width:100%;height:52px;overflow:visible;pointer-events:none}
+.sroute__path{
+  fill:none;stroke-width:1.6;stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+  stroke:var(--border-strong)}
+/* The filled portion takes the CURRENT status's semantic colour — one
+   colour on screen at a time, which is what keeps the route from becoming
+   the rainbow §4 warns against. */
+.sroute__path--fill{
+  stroke:var(--route-tone,var(--gold));
+  transition:stroke-dashoffset .52s var(--ease)}
+
+/* Four equal columns put the discs at 12.5/37.5/62.5/87.5% of the width,
+   which is exactly where the path's four anchor points sit. The 52px first
+   row keeps every disc centred on the line regardless of its own size, so
+   changing a disc's diameter can never drag it off the route. */
+.sroute__stations{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  list-style:none;margin:0;padding:0}
+.sroute__station{
+  display:grid;grid-template-rows:52px auto;
+  justify-items:center;align-items:center;
+  gap:7px;min-width:0}
+
+.sroute__disc{
+  display:grid;place-items:center;border-radius:50%;
+  background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-3);
+  width:34px;height:34px;
+  transition:width .3s var(--ease),height .3s var(--ease),
+    background .3s var(--ease),border-color .3s var(--ease),
+    color .3s var(--ease),box-shadow .3s var(--ease)}
+
+/* Semantic tone per station, consumed only by the CURRENT state below. */
+.sroute__station--received {--tone:var(--received); --tone-soft:var(--received-soft)}
+.sroute__station--preparing{--tone:var(--preparing);--tone-soft:var(--preparing-soft)}
+.sroute__station--ready    {--tone:var(--ready);    --tone-soft:var(--ready-soft)}
+/* Delivered is the completed endpoint, so it takes the theme's own accent
+   rather than a fifth semantic hue — consistent with how the system already
+   badges a delivered order. */
+.sroute__station--delivered{--tone:var(--gold);     --tone-soft:var(--gold-soft)}
+
+/* CURRENT — largest, its semantic tone, a soft ring, motion running. */
+.sroute__station--current .sroute__disc{
+  width:46px;height:46px;
+  background:var(--tone-soft);
+  border-color:var(--tone);border-width:1.5px;
+  color:var(--tone);
+  box-shadow:0 0 0 5px color-mix(in srgb, var(--tone) 9%, transparent)}
+.sroute__station--current .sroute__label{
+  color:var(--tone);font-weight:700}
+
+/* COMPLETED — smaller and quieter, but unmistakably done, and it KEEPS ITS
+   OWN ICON (§4). A neutral treatment rather than its semantic colour is
+   what stops four finished stations turning the route into a rainbow. */
+.sroute__station--done .sroute__disc{
+  width:32px;height:32px;
+  background:var(--surface-3);
+  border-color:var(--border-strong);
+  color:var(--text-2)}
+.sroute__station--done .sroute__label{color:var(--text-2)}
+
+/* UPCOMING — smallest, muted, still legible. */
+.sroute__station--future .sroute__disc{
+  width:30px;height:30px;
+  background:var(--surface-2);
+  border-color:var(--border);
+  color:var(--text-3);opacity:.72}
+.sroute__station--future .sroute__label{color:var(--text-3)}
+
+.sroute__label{
+  font-size:11px;font-weight:600;color:var(--text-3);
+  text-align:center;line-height:1.35;
+  max-width:100%;overflow-wrap:anywhere}
+
+/* The parent carries the current status so the path fill can read one tone. */
+.sroute--received {--route-tone:var(--received)}
+.sroute--preparing{--route-tone:var(--preparing)}
+.sroute--ready    {--route-tone:var(--ready)}
+.sroute--delivered{--route-tone:var(--gold)}
+
+/* §17 — RTL. The station grid reverses on its own with the writing mode, so
+   only the drawn path has to be mirrored to stay under the discs. The route
+   then runs right-to-left and still means Received first. */
+[dir="rtl"] .sroute__line{transform:scaleX(-1)}
+
+/* ══ 4. Station icons and their motions (§5) ═════════════════════════════ */
+
+.sicon{
+  position:relative;display:grid;place-items:center;
+  width:100%;height:100%;overflow:visible}
+
+/* ── Received: an arrival signal ────────────────────────────────────────
+   The ticket is still; a short line sweeps down across it once per cycle,
+   like a docket being printed. No bounce (§5). */
+.sicon--received .sicon__scan{
+  position:absolute;left:26%;right:26%;top:34%;height:1.5px;
+  border-radius:1px;background:currentColor;opacity:0}
+.sicon--received.is-live .sicon__scan{
+  animation:sicon-scan 3.4s var(--ease) infinite}
+@keyframes sicon-scan{
+  0%,10%   {opacity:0;transform:translateY(-4px)}
+  22%      {opacity:.85}
+  44%      {opacity:0;transform:translateY(5px)}
+  100%     {opacity:0;transform:translateY(5px)}
+}
+
+/* ── Preparing: steam ───────────────────────────────────────────────────
+   Three wisps on staggered delays drifting up out of the pot and fading.
+   The POT NEVER MOVES — §5 rules out pan-shaking cartoon cooking, and a
+   still pot under moving steam is also simply the more expensive-looking
+   of the two. */
+.sicon--preparing .sicon__steam{
+  position:absolute;left:0;right:0;top:-2px;height:12px;
+  display:flex;justify-content:center;gap:3px;pointer-events:none}
+.sicon--preparing .sicon__steam i{
+  width:1.5px;height:7px;border-radius:1px;
+  background:currentColor;opacity:0}
+.sicon--preparing.is-live .sicon__steam i{
+  animation:sicon-steam 2.6s ease-in-out infinite}
+.sicon--preparing.is-live .sicon__steam i:nth-child(2){animation-delay:.42s}
+.sicon--preparing.is-live .sicon__steam i:nth-child(3){animation-delay:.86s}
+@keyframes sicon-steam{
+  0%  {opacity:0;transform:translateY(3px) scaleY(.6)}
+  30% {opacity:.55}
+  70% {opacity:.22}
+  100%{opacity:0;transform:translateY(-6px) scaleY(1.15)}
+}
+
+/* ── Ready: the cloche is lifted ────────────────────────────────────────
+   The whole mark rises two pixels and settles, once per cycle, with a
+   restrained gleam crossing it. A lift, not a bell bounce (§5). */
+.sicon--ready.is-live > svg{animation:sicon-lift 3.6s var(--ease) infinite}
+@keyframes sicon-lift{
+  0%,64%,100%{transform:translateY(0)}
+  76%        {transform:translateY(-2px)}
+  88%        {transform:translateY(0)}
+}
+.sicon--ready .sicon__gleam{
+  position:absolute;inset:0;border-radius:50%;opacity:0;
+  background:linear-gradient(115deg,transparent 38%,
+    color-mix(in srgb, currentColor 44%, transparent) 50%,transparent 62%)}
+.sicon--ready.is-live .sicon__gleam{
+  animation:sicon-gleam 3.6s var(--ease) infinite}
+@keyframes sicon-gleam{
+  0%,58%  {opacity:0;transform:translateX(-42%)}
+  74%     {opacity:.9}
+  92%,100%{opacity:0;transform:translateX(42%)}
+}
+
+/* ── Delivered: Plate Settle (§5, §12) ──────────────────────────────────
+   The plate is the artwork's OWN plate/fork/knife, lifted from the master
+   PNG as a mask — see BrandTimerMark for how the layers were derived. It is
+   masked rather than tinted so it takes currentColor and follows the
+   station's state like every other icon.
+
+   The settle runs ONCE on mount and then the mark is still forever: the
+   plate drops its last 3px onto the baseline and a single highlight sweeps
+   across as it lands. `both` holds the final frame, which is what makes
+   "then remains still" true rather than aspirational. */
+.sicon--delivered .sicon__plate{
+  display:block;width:21px;height:16px;
+  background:currentColor;
+  -webkit-mask:var(--sicon-plate) center/contain no-repeat;
+  mask:var(--sicon-plate) center/contain no-repeat}
+.sicon--delivered.is-live .sicon__plate{
+  animation:sicon-settle .58s var(--ease) both}
+@keyframes sicon-settle{
+  0%  {transform:translateY(-3px);opacity:.55}
+  70% {opacity:1}
+  100%{transform:translateY(0);opacity:1}
+}
+.sicon--delivered .sicon__settle-sheen{
+  position:absolute;inset:0;border-radius:50%;opacity:0;
+  background:linear-gradient(110deg,transparent 40%,
+    color-mix(in srgb, currentColor 38%, transparent) 50%,transparent 60%)}
+.sicon--delivered.is-live .sicon__settle-sheen{
+  animation:sicon-sheen .8s var(--ease) .16s both}
+@keyframes sicon-sheen{
+  0%  {opacity:0;transform:translateX(-40%)}
+  45% {opacity:.85}
+  100%{opacity:0;transform:translateX(40%)}
+}
+
+/* ══ 5. Main Timer (§7) ══════════════════════════════════════════════════ */
+
+/* An open section, not a card: no border, no fill, no semantic tint. That
+   absence is the point — there is nothing for the eye to group it with, so
+   it cannot be mistaken for a second status pill (§7). */
+.otimer{
+  display:flex;flex-direction:column;align-items:center;
+  gap:4px;padding:22px 0 6px;text-align:center}
+.otimer__mark{display:block;height:70px}
+.otimer__value{
+  font-family:var(--font-display);
+  font-size:clamp(30px,8.4vw,38px);font-weight:700;
+  color:var(--text-1);margin:10px 0 0;line-height:1.1;
+  letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+/* §10 — the delayed message is a sentence, not a number, so it takes a
+   sentence's size. Still no red, no warning tint, no status colour. */
+.otimer--overdue .otimer__value{
+  font-size:clamp(19px,5vw,23px);color:var(--text-1)}
+.otimer__label{
+  font-size:12.5px;color:var(--text-3);margin:0;line-height:1.55;max-width:32ch}
+
+/* ══ 6. The layered brand mark (§8, §9) ══════════════════════════════════
+
+   Two masks cut from the master artwork, stacked in perfect registration:
+     --btm-body  everything except the clock hand
+     --btm-hand  the clock hand alone
+   Their alphas sum back to the master's exactly, so the mark on screen is
+   the original artwork and not a rendition of it.
+
+   The container carries the master's own 495:888 ratio, so `contain` fills
+   the box exactly and percentage coordinates map straight onto image
+   pixels — which is what lets transform-origin name the hand's real rivet.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.btm{position:relative;display:block;height:100%;aspect-ratio:495 / 888}
+.btm__body,.btm__hand,.btm__energy,.btm__glow{position:absolute;inset:0}
+
+.btm__body,.btm__energy,.btm__glow{
+  -webkit-mask:var(--btm-body) center/contain no-repeat;
+  mask:var(--btm-body) center/contain no-repeat}
+.btm__body{background:var(--brand-mark)}
+
+/* The hand. 50% 29.673% is the hub's measured centre in the master —
+   (247.5, 263.5) of 495x888 — so this pivots on the rivet the artist drew,
+   not near it. */
+.btm__hand{
+  -webkit-mask:var(--btm-hand) center/contain no-repeat;
+  mask:var(--btm-hand) center/contain no-repeat;
+  background:var(--brand-mark);
+  transform-origin:50% 29.673%}
+/* Slow and ambient. 14s per revolution is visibly moving without ever
+   suggesting a countdown — the hand is NOT tied to the remaining minutes,
+   because a hand racing a deadline would be a second timer competing with
+   the real one (§7). */
+.btm--active .btm__hand{animation:btm-hand 14s linear infinite}
+@keyframes btm-hand{to{transform:rotate(360deg)}}
+
+/* Energy, clipped to the artwork so it is only ever visible ON the mark. */
+.btm__energy{overflow:hidden}
+.btm__spark{
+  position:absolute;left:50%;top:50%;
+  width:60%;height:33.4%;
+  background:radial-gradient(circle closest-side,
+    var(--brand-mark-energy) 0%,
+    color-mix(in srgb, var(--brand-mark-energy) 55%, transparent) 45%,
+    transparent 72%);
+  transform:translate(-50%,-51.5%);opacity:0}
+.btm--active .btm__spark{
+  opacity:1;animation:btm-travel 5.4s linear infinite}
+
+/* The figure-eight, using the waypoints Phase 83.1 measured from this
+   silhouette: upper circle at 29.7% of the height, waist at 49.5%, lower
+   circle at 73%. The two loops wind opposite ways, which is what makes it
+   read as one continuous flow rather than two circles. Slower than the
+   loading mark's 1.65s: this one sits on screen for minutes, not
+   milliseconds (§8 — elegant transfer, not neon). */
+@keyframes btm-travel{
+  0%    {transform:translate(-50%,   -51.5%)}
+  12.5% {transform:translate(-3.3%,  -85.9%)}
+  25%   {transform:translate(-50%,   -157.8%)}
+  37.5% {transform:translate(-96.7%, -85.9%)}
+  50%   {transform:translate(-50%,   -51.5%)}
+  62.5% {transform:translate(-108.3%,-14.1%)}
+  75%   {transform:translate(-50%,    78.7%)}
+  87.5% {transform:translate(8.3%,   -14.1%)}
+  100%  {transform:translate(-50%,   -51.5%)}
+}
+
+/* §8 — the lower circle answers only when the energy reaches it. Timed to
+   the 62.5–87.5% window of the same 5.4s cycle, which is the spark's pass
+   through the plate. The plate, fork and knife never move; only the light
+   on them changes. */
+.btm__glow{
+  background:radial-gradient(circle at 50% 73%,
+    var(--brand-mark-energy) 0%,
+    color-mix(in srgb, var(--brand-mark-energy) 40%, transparent) 26%,
+    transparent 42%);
+  opacity:0}
+.btm--active .btm__glow{animation:btm-glow 5.4s linear infinite}
+@keyframes btm-glow{
+  0%,56%  {opacity:0}
+  75%     {opacity:.42}
+  94%,100%{opacity:0}
+}
+
+/* §10/§11/§12 — settled. No animation class is applied at all in this
+   state, so the mark is genuinely still rather than animating slowly; the
+   energy layer fades out instead of being cut mid-flight. */
+.btm--settled .btm__spark{opacity:0;transition:opacity .5s var(--ease)}
+.btm--settled .btm__glow{opacity:0}
+
+/* ══ 7. Order Details accordion (§15) ════════════════════════════════════ */
+
+.odetails{
+  border:1px solid var(--border);border-radius:var(--r-lg);
+  background:var(--surface-1);overflow:hidden;margin-bottom:20px}
+
+.odetails__toggle{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:56px;padding:13px 16px;
+  background:none;border:0;cursor:pointer;
+  color:var(--text-1);font-family:var(--font-body);text-align:start}
+.odetails__toggle:hover{background:var(--surface-2)}
+.odetails__toggle-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.odetails__toggle-title{font-size:14px;font-weight:600;color:var(--text-1)}
+/* The one-line answer, so the panel is useful without being opened. */
+.odetails__toggle-summary{font-size:12.5px;color:var(--text-2)}
+.odetails__dot{color:var(--text-3)}
+.odetails__amount{
+  color:var(--gold);font-weight:600;
+  direction:ltr;unicode-bidi:isolate}
+.odetails__chevron{
+  flex:none;display:grid;place-items:center;color:var(--text-3);
+  transition:transform .24s var(--ease),color .24s var(--ease)}
+.odetails--open .odetails__chevron{transform:rotate(180deg);color:var(--gold)}
+
+/* The region is unmounted with [hidden] rather than merely hidden, so its
+   content stays out of the tab order and the accessibility tree when closed
+   (§19). A class selector outranks the user-agent [hidden] rule, so the
+   display has to be restored explicitly or the panel never closes.
+
+   Opening is a fade and a 6px settle, NOT a height animation. The obvious
+   0fr -> 1fr grid trick was tried and measured at 16px: with no definite
+   height on the container, 1fr has no free space to resolve against and the
+   track collapses, so the panel opened to its own padding. Transform and
+   opacity cost no layout, cannot clip a long note, and are the more
+   restrained motion in any case. Closing is instant — [hidden] cannot be
+   transitioned, and an accordion that lingers on the way out is worse than
+   one that simply goes. */
+.odetails__wrap{display:block}
+.odetails__wrap[hidden]{display:none}
+.odetails--open .odetails__wrap{animation:odetails-open .24s var(--ease) both}
+@keyframes odetails-open{
+  from{opacity:0;transform:translateY(-6px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+.odetails__inner{padding:0 16px 16px}
+
+.odetails__items{display:flex;flex-direction:column;gap:12px}
+.odetails__summary{
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:8px}
+.odetails__row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:13px;color:var(--text-2)}
+.odetails__row span:last-child{
+  color:var(--text-1);direction:ltr;unicode-bidi:isolate}
+.odetails__row--total{font-size:15px;font-weight:700}
+.odetails__row--total span:last-child{
+  color:var(--gold);font-family:var(--font-display)}
+.odetails__row--void span:last-child{
+  color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
+.odetails__divider{height:1px;background:var(--border);margin:2px 0}
+/* The payment status is a word, not a figure — it must not be bidi-isolated
+   or Arabic would render it left-to-right inside a right-to-left row. */
+.odetails__payment-status{direction:inherit!important;unicode-bidi:normal!important}
+
+/* Status history, demoted into the panel (§15 judgment call — documented in
+   OrderDetailsPanel). */
+.odetails__history{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.odetails__history-title{
+  font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3);margin:0 0 10px}
+.odetails__history-list{list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:8px}
+.odetails__history-item{
+  display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2)}
+.odetails__history-dot{
+  flex:none;width:6px;height:6px;border-radius:50%;background:var(--gold-line)}
+.odetails__history-label{flex:1;min-width:0;color:var(--text-1)}
+.odetails__history-time{
+  flex:none;color:var(--text-3);font-size:11.5px;
+  direction:ltr;unicode-bidi:isolate}
+
+/* ══ 8. Responsive (§17) ═════════════════════════════════════════════════ */
+
+/* Narrow phones: the route is the one thing at real risk of clipping, so
+   the discs and the label type step down together rather than the labels
+   being truncated. Four stations still fit on 320px. */
+@media(max-width:400px){
+  .sroute__label{font-size:10px}
+  .sroute__station--current .sroute__disc{width:42px;height:42px}
+  .sroute__station--done .sroute__disc{width:30px;height:30px}
+  .sroute__station--future .sroute__disc{width:28px;height:28px}
+  .track__idline{font-size:12px}
+}
+@media(max-width:340px){
+  .sroute__label{font-size:9.5px;letter-spacing:-.01em}
+  .sroute{margin-inline:-4px}
+}
+
+/* Desktop: a comfortable centred column. §17 explicitly rules out stretching
+   the route and the timer across the viewport — a four-station journey 900px
+   wide stops reading as a journey and becomes four unrelated icons. */
+@media(min-width:720px){
+  .sroute,
+  .track__sentence,
+  .otimer,
+  .track__call-staff,
+  .odetails,
+  .track__canceled{max-width:520px;margin-inline:auto}
+  .sroute{margin-bottom:26px}
+  .otimer__mark{height:78px}
+}
+
+/* ══ 9. Reduced motion (§18) ═════════════════════════════════════════════
+
+   The global rule collapses durations to ~0.001s, which is right for a
+   one-shot transition and wrong for an infinite one: a spark at 0.001s does
+   not stop, it strobes. Every looping piece is switched OFF here and left in
+   a correct, complete resting state — nothing is hidden and no information
+   is lost, because none of this motion carries meaning that the text does
+   not already carry. */
+@media(prefers-reduced-motion:reduce){
+  .btm__energy,
+  .btm__glow{display:none}
+  .btm__hand{animation:none!important}
+  .sicon__scan,
+  .sicon__steam,
+  .sicon__gleam,
+  .sicon__settle-sheen{display:none}
+  .sicon--ready.is-live > svg,
+  .sicon--delivered.is-live .sicon__plate{animation:none!important}
+  .confirm__mark{animation:none!important}
+  .track--enter{animation:none!important}
+  .odetails--open .odetails__wrap{animation:none!important}
+  /* A one-shot transition is fine at ~0s, but naming it here makes the
+     connector snap to its final position rather than easing at a duration
+     nobody asked for. */
+  .sroute__path--fill{transition:none!important}
+}
