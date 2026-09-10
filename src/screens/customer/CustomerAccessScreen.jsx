@@ -15,7 +15,6 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
 import CustomerLoadingScreen from "./components/CustomerLoadingScreen.jsx";
 import RestaurantInfo, { isSafeImageUrl } from "./components/RestaurantInfo.jsx";
-import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* How long the landing composition is given to leave before the Menu route is
    pushed. Must stay in step with the .cx-landing--leaving transitions in
@@ -125,21 +124,14 @@ export default function CustomerAccessScreen({
           right={<Badge tone="neutral">{t("common.qrAccess", "QR access")}</Badge>}
         />
         <main className="container">
-          {/* Phase 74 §42 — name the venue only when it genuinely resolved. */}
+          {/* Phase 90 §3 — the venue is named only when it genuinely resolved.
+               The settings override and the logo are now resolved inside the
+               view itself, so all six call sites are identical. */}
           <InvalidAccessView
             reason={result.reason}
             onHome={onHome}
-            restaurantName={
-              result.restaurant
-                ? resolveRestaurantDisplayName(
-                    settings,
-                    /* the helper reads .restaurantName (the shape an order
-                       has); a Restaurant record calls it .name */
-                    { restaurantName: result.restaurant.name },
-                    null
-                  )
-                : undefined
-            }
+            restaurantName={result.restaurant?.name}
+            restaurantSlug={restaurantSlug}
           />
         </main>
       </>

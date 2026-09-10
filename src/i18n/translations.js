@@ -28,7 +28,11 @@ export const translations = {
          "token", "slug" or "invalid access": these describe what the guest
          should do, not what the system failed to parse. */
       tableUnavailableTitle: "This table isn’t available right now",
-      qrNotOpenedTitle: "This QR code couldn’t be opened",
+      qrNotOpenedTitle: "This QR code couldn't be opened",
+      /* Phase 90 §12 — a venue that cannot be resolved is NOT a bad QR code,
+         and telling the guest to re-scan a code that was never the problem
+         sends them in circles. Its own sentence now. */
+      restaurantNotFoundTitle: "We couldn't find this restaurant",
       askStaffForHelp: "Please ask a staff member for assistance.",
       rescanTableQr: "Please scan the QR code on your table again.",
       back: "Back",
@@ -773,6 +777,15 @@ export const translations = {
       workingHoursHint:
         "Used by Accepting Orders on the Overview page when its mode is set to Auto. A closing time earlier than the opening time means the restaurant stays open past midnight.",
       customerClosedTitle: "We're not accepting orders right now",
+      /* Phase 90 §8 — a genuine physical closure per Working Hours. */
+      customerClosedNowTitle: "We're closed right now",
+      customerClosedNowSub:
+        "You can still view your existing orders. Please check again during opening hours.",
+      /* Phase 90 §9 — the venue may well be open; only online ordering is
+         paused, so this must not claim the restaurant is closed. */
+      orderingUnavailableTitle: "Online ordering is temporarily unavailable",
+      orderingUnavailableSub:
+        "New orders can't be placed at the moment. You can still view your existing orders, or ask a staff member for help.",
       customerClosedSub:
         "You can still view your existing orders. Please check again later or ask a staff member for help.",
       cartBlockedNotice:
@@ -846,6 +859,9 @@ export const translations = {
       showLess: "عرض أقل",
       tableUnavailableTitle: "هذه الطاولة غير متاحة حاليًا",
       qrNotOpenedTitle: "تعذر فتح رمز QR",
+      /* Phase 90 §12 — natural, not literal: this is how you would say it out
+         loud, rather than a formal "لم يتم العثور على المطعم". */
+      restaurantNotFoundTitle: "لم نتمكن من العثور على هذا المطعم",
       askStaffForHelp: "يرجى طلب المساعدة من أحد الموظفين.",
       rescanTableQr: "يرجى مسح رمز QR الموجود على طاولتك مرة أخرى.",
       back: "رجوع",
@@ -1504,7 +1520,16 @@ export const translations = {
       toastClosed: "تم إيقاف الطلبات الجديدة",
       workingHoursHint:
         "تستخدمها ميزة استقبال الطلبات في صفحة النظرة العامة عندما يكون وضعها تلقائيًا. إذا كان وقت الإغلاق أبكر من وقت الفتح، فهذا يعني أن المطعم يبقى مفتوحًا بعد منتصف الليل.",
-      customerClosedTitle: "لا نستقبل طلبات جديدة حاليًا",
+      customerClosedTitle: "لا نستقبل الطلبات حالياً",
+      /* Phase 90 §8/§9 — "نحن مغلقون الآن" is the plain spoken form; the
+         ordering one avoids saying the restaurant is shut, because it may not
+         be. */
+      customerClosedNowTitle: "نحن مغلقون الآن",
+      customerClosedNowSub:
+        "لا يزال بإمكانك عرض طلباتك السابقة. يرجى المحاولة خلال ساعات العمل.",
+      orderingUnavailableTitle: "الطلب عبر الإنترنت غير متاح حالياً",
+      orderingUnavailableSub:
+        "لا يمكن إرسال طلبات جديدة في الوقت الحالي. لا يزال بإمكانك عرض طلباتك السابقة، أو طلب المساعدة من أحد الموظفين.",
       customerClosedSub:
         "لا يزال بإمكانك عرض طلباتك السابقة. يرجى المحاولة لاحقًا أو طلب المساعدة من أحد الموظفين.",
       cartBlockedNotice: "المطعم لا يستقبل طلبات جديدة حاليًا. تم حفظ اختياراتك.",

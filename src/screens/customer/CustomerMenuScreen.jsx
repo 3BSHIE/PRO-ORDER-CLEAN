@@ -89,7 +89,16 @@ export default function CustomerMenuScreen({
           right={<span className="badge badge--canceled">{t("common.qrAccess", "QR access")}</span>}
         />
         <main className="container">
-          <InvalidAccessView reason={result.reason} onHome={onHome} />
+          <InvalidAccessView
+            reason={result.reason}
+            onHome={onHome}
+            /* Phase 90 §3 — resolveTableAccess carries the restaurant on the
+               token and inactive failures, so the recovery screen can name the
+               venue instead of being anonymous. Five screens were dropping it
+               on the floor. */
+            restaurantName={result.restaurant?.name}
+            restaurantSlug={restaurantSlug}
+          />
         </main>
       </>
     );
@@ -128,7 +137,10 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      its own poll and clock tick, so an Admin flipping the mode in another tab
      and an auto-mode window simply closing both reach this screen without a
      reload. */
-  const { accepting: acceptingOrders } = useAcceptingOrders(restaurant.slug);
+  /* Phase 90 §8/§9 — the REASON comes through now, not just the verdict, so
+     the notice can tell a shut restaurant apart from a paused one. */
+  const { accepting: acceptingOrders, reason: acceptingReason } =
+    useAcceptingOrders(restaurant.slug);
   /* Phase 28 — the restaurant's own timezone drives schedule evaluation, not
      the guest's device clock (a tourist's phone on the wrong timezone must
      not see a different menu than the table next to them). */
@@ -507,7 +519,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             a render branch, and everything returns the moment the restaurant
             reopens (§18, §24). */}
         {!acceptingOrders ? (
-          <RestaurantClosedNotice />
+          <RestaurantClosedNotice reason={acceptingReason} />
         ) : !hasAnyAvailableItem ? (
           <MenuUnavailable />
         ) : (

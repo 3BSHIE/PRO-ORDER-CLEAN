@@ -6323,3 +6323,41 @@ button{font-family:var(--font-body)}
   .fb-card--just .fb-card__icon--done{animation:none!important}
   .fb-spinner{animation:none}
 }
+
+/* ══ Phase 90 — Customer recovery states ═════════════════════════════════
+
+   These are exceptional safeguards, not product screens. Almost everything
+   they need already existed — the shared rounded-square geometry, the amber
+   /red severity marks, the safe logo fallback — so this block adds only what
+   §16 asked for that was missing: an entrance calibrated for a state that is
+   supposed to feel stable rather than to arrive.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* §16 — 550ms -> 220ms for recovery surfaces only.
+   Every one of these inherits the customer surface's shared .anim-rise, which
+   is tuned at 550ms for content the guest WANTS to watch settle: a menu, a
+   cart, a confirmation. A thing that appears because something went wrong
+   should already be there by the time the eye arrives — a slow rise reads as
+   the app still deciding. Scoped to these four selectors, so .anim-rise keeps
+   its own timing everywhere else (§22).
+
+   Fade and 6px, no scale: these states must not feel like they are being
+   presented. */
+.access--recovery.anim-rise,
+.menu-unavailable.anim-rise,
+.closed-notice.anim-rise,
+.eb-fallback{
+  animation:recovery-in .22s var(--ease) both}
+@keyframes recovery-in{
+  from{opacity:0;transform:translateY(6px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+
+/* §16/§19 — nothing here loops, so reduced motion only has to remove the one
+   entrance. The state itself is entirely static, which is the point. */
+@media(prefers-reduced-motion:reduce){
+  .access--recovery.anim-rise,
+  .menu-unavailable.anim-rise,
+  .closed-notice.anim-rise,
+  .eb-fallback{animation:none!important}
+}

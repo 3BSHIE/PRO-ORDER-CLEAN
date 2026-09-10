@@ -116,7 +116,16 @@ export default function CustomerOrdersScreen({
           right={<Badge tone="canceled">{t("common.qrAccess", "QR access")}</Badge>}
         />
         <main className="container">
-          <InvalidAccessView reason={result.reason} onHome={onHome} />
+          <InvalidAccessView
+            reason={result.reason}
+            onHome={onHome}
+            /* Phase 90 §3 — resolveTableAccess carries the restaurant on the
+               token and inactive failures, so the recovery screen can name the
+               venue instead of being anonymous. Five screens were dropping it
+               on the floor. */
+            restaurantName={result.restaurant?.name}
+            restaurantSlug={restaurantSlug}
+          />
         </main>
       </>
     );
