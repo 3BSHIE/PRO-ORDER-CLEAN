@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, ClipboardList } from "lucide-react";
+import { ArrowLeft, ClipboardList, Check } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -63,15 +63,6 @@ const SHORT_MSG_KEY = {
   delivered: "orders.shortMsgDelivered",
   canceled: "orders.shortMsgCanceled",
 };
-/* order.paymentMethod.label is captured verbatim in English at order-creation
-   time, so we re-resolve a live translation from the stable id instead, with
-   that frozen label as the fallback — same pattern as the other order screens. */
-const METHOD_LABEL_KEY = {
-  cash_at_table: "payment.cashAtTable",
-  card_at_table: "payment.cardAtTable",
-  online_payment: "payment.onlinePayment",
-};
-
 /* ═══════════════════════════════════════════════════════════════════════════
    CustomerOrdersScreen — Phase 12
 
@@ -276,17 +267,20 @@ function OrderCard({ order, onTrackOrder }) {
   const { t } = useLanguage();
   const isCanceled = order.status === "canceled";
   const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
-  const paymentLabel =
-    order.paymentStatus === "paid"
-      ? t("payment.paid", "Paid")
-      : t("payment.pendingAtTable", "Pending at table");
-  const paymentMethodLabel = t(
-    METHOD_LABEL_KEY[order.paymentMethod.id],
-    order.paymentMethod.label
-  );
+
+  /* Phase 89 §4 — the card's weight follows where the order actually is.
+     A live order and a three-hour-old canceled one used to sit at identical
+     visual strength, so a glance down the list told the guest nothing about
+     which one still mattered. */
+  const phase =
+    isCanceled ? "canceled" : order.status === "delivered" ? "done" : "active";
 
   return (
-    <Card className="order-card">
+    /* Two classes: the PHASE drives the card's weight, the STATUS supplies
+       the --card-tone the active accent edge reads. Keeping them separate
+       means the tone table stays next to the semantic colours in CSS rather
+       than being duplicated per phase. */
+    <Card className={`order-card order-card--${phase} order-card--${order.status}`}>
       <div className="order-card__top">
         <div>
           <p className="order-card__id">{order.orderId}</p>
@@ -301,22 +295,29 @@ function OrderCard({ order, onTrackOrder }) {
         {SHORT_MSG_KEY[order.status] ? t(SHORT_MSG_KEY[order.status], STATUS_SHORT_MESSAGE[order.status]) : ""}
       </p>
 
-      {/* Phase 36 — a canceled card drops the "Pending at table" wording that
-          read as an outstanding bill, and states the payment position
-          directly instead. Every other status keeps its existing meta line. */}
+      {/* Phase 89 §3 — the facts a guest scans for, and only those: how many
+          items, which table, and (for a canceled order) where the money
+          stands.
+
+          The payment METHOD and the "Pending at table" status came out. §3
+          asks that this card not become a second Order Details, and those two
+          are exactly that — they never change what the guest does next, and
+          they were pushing the table number out of a line that had already
+          grown to four segments. Both are one tap away on the order itself.
+
+          The canceled notice stays: "was I charged?" is the one payment
+          question that genuinely belongs on a summary card (Phase 36). */}
       <div className="order-card__meta">
         <span>{formatItemCount(t, itemCount)}</span>
-        {isCanceled ? (
+        <span className="order-card__dot">&middot;</span>
+        <span>
+          {t("customer.yourTable", "Table")}{" "}
+          <span className="order-card__table-num">#{order.tableNumber}</span>
+        </span>
+        {isCanceled && (
           <>
             <span className="order-card__dot">&middot;</span>
             <CanceledPaymentNotice order={order} variant="inline" />
-          </>
-        ) : (
-          <>
-            <span className="order-card__dot">&middot;</span>
-            <span>{paymentMethodLabel}</span>
-            <span className="order-card__dot">&middot;</span>
-            <span>{paymentLabel}</span>
           </>
         )}
       </div>
@@ -325,11 +326,10 @@ function OrderCard({ order, onTrackOrder }) {
           orders placed before this phase, so the list stays uncluttered. */}
       <PrepTimeEstimate order={order} variant="inline" />
 
-      {/* Phase 29 — a delivered order shows the rating it already has. The
-          "leave one" nudge moved OUT of here in Phase 74 §32: it used to be a
-          second call to action stranded mid-card above the real action row.
-          This now renders only the read-only rating readout. */}
-      <OrderCardFeedback order={order} />
+      {/* Phase 89 §5/§6 — the read-only rating readout that used to sit here
+          moved INTO the action row as the "Rated" state. Two places on one
+          card reporting the same rating was duplication, and §6 wants a
+          single predictable row at the bottom. */}
 
       {/* Phase 74 §29–§32 — ONE action row per card, and the action matches
           where the order actually is in its life:
@@ -359,7 +359,25 @@ function OrderCard({ order, onTrackOrder }) {
   );
 }
 
-/* ── The single lifecycle-aware action for a My Orders card ──────────────── */
+/* ── The single lifecycle-aware action for a My Orders card (§5, §6) ──────
+   One row, one action, and the action is whatever is actually useful now:
+
+     received / preparing / ready   Track order, PRIMARY — the order is live
+                                    and where it is is the only open question
+     delivered, not yet rated       Rate your order, PRIMARY — tracking has
+                                    nothing left to say, and the rating is the
+                                    one thing still worth the guest's time
+     delivered, already rated       "Rated" — a state, not a button. Nothing
+                                    is asked of the guest, and v1 does not
+                                    allow editing a submitted rating, so
+                                    offering something pressable here would
+                                    promise an action that does not exist
+     canceled                       View details, SECONDARY — the order screen
+                                    carries the cancellation notice and the
+                                    payment position, so it has real value, but
+                                    a canceled order must not look like it is
+                                    waiting for the guest to do something (§5)
+   ── */
 function OrderCardAction({ order, onTrackOrder }) {
   const { t } = useLanguage();
   const { feedback } = useOrderFeedback(order.restaurantSlug, order.orderId);
@@ -374,11 +392,25 @@ function OrderCardAction({ order, onTrackOrder }) {
   }
 
   if (order.status === "delivered") {
-    return feedback ? (
-      <Button size="sm" variant="outline" onClick={go}>
-        {t("orders.viewOrder", "View order")}
-      </Button>
-    ) : (
+    if (feedback) {
+      /* Calm, complete, and inert. The stars carry the actual rating so the
+         guest can see WHAT they said without opening anything, and the check
+         says it landed. Not a button: there is nowhere for it to go. */
+      return (
+        <span className="order-card__rated">
+          <Check size={13} strokeWidth={2.6} aria-hidden="true" />
+          <span className="order-card__rated-label">{t("feedback.rated", "Rated")}</span>
+          <StarRating
+            readOnly
+            size={12}
+            name={`oc-rated-${order.orderId}`}
+            label={t("feedback.foodQuality", "Food Quality")}
+            value={feedback.foodRating}
+          />
+        </span>
+      );
+    }
+    return (
       <Button size="sm" onClick={go}>
         {t("feedback.rateYourOrder", "Rate your order")}
       </Button>
@@ -390,35 +422,6 @@ function OrderCardAction({ order, onTrackOrder }) {
       {t("orders.trackOrder", "Track order")}
     </Button>
   );
-}
-
-/* ── Delivered-order feedback strip on a My Orders card ──────────────────── */
-function OrderCardFeedback({ order }) {
-  const { t } = useLanguage();
-  const { feedback } = useOrderFeedback(order.restaurantSlug, order.orderId);
-
-  /* Only delivered orders can be rated, so nothing else shows anything. */
-  if (order.status !== "delivered") return null;
-
-  if (feedback) {
-    return (
-      <div className="order-card__rating">
-        <span className="order-card__rating-label">{t("feedback.yourRating", "Your rating")}</span>
-        <StarRating
-          readOnly
-          size={13}
-          name={`oc-food-${order.orderId}`}
-          label={t("feedback.foodQuality", "Food Quality")}
-          value={feedback.foodRating}
-        />
-      </div>
-    );
-  }
-
-  /* Phase 74 §32 — no rating nudge here any more. An unrated delivered order
-     gets its prompt as the card's single primary action instead (see
-     OrderCardAction), rather than as a second button mid-card. */
-  return null;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */

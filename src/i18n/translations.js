@@ -812,6 +812,9 @@ export const translations = {
       optionalComment: "Optional Comment",
       commentPlaceholder: "Anything you'd like us to know?",
       submitFeedback: "Submit Feedback",
+      /* Phase 89 §11/§5 */
+      submitting: "Submitting…",
+      rated: "Rated",
       thankYou: "Thank you for your feedback.",
       alreadySubmitted: "Already submitted",
       bothRatingsRequired: "Please rate both food quality and service.",
@@ -1538,6 +1541,10 @@ export const translations = {
       optionalComment: "تعليق اختياري",
       commentPlaceholder: "هل هناك ما تودّ إخبارنا به؟",
       submitFeedback: "إرسال التقييم",
+      /* Phase 89 — natural, not literal: "تم التقييم" is how a guest would say
+         the rating is done, rather than a formal noun phrase. */
+      submitting: "جارٍ الإرسال…",
+      rated: "تم التقييم",
       thankYou: "شكرًا لتقييمك.",
       alreadySubmitted: "تم إرسال التقييم",
       bothRatingsRequired: "يرجى تقييم جودة الطعام والخدمة معًا.",

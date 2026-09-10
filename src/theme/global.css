@@ -6182,3 +6182,144 @@ button{font-family:var(--font-body)}
      nobody asked for. */
   .sroute__path--fill{transition:none!important}
 }
+
+/* ══ Phase 89 — My Orders, Feedback, Call Staff ═══════════════════════════
+
+   Unit 7. My Orders stays a single-column list of summary cards; what changes
+   is that a card now carries its lifecycle in its weight, and its action row
+   ends in a state rather than a button once there is nothing left to do.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── §1/§21 — the column ─────────────────────────────────────────────────
+   .orders-list is already capped at 620px and centred. The tabs above it were
+   not, so on a tablet the filter row ran the full container width while the
+   cards under it stopped short — the list looked mis-hung. Same cap, same
+   centring, so the two edges line up. */
+.orders-tabs{max-width:620px;margin-inline:auto}
+
+/* ── §4 — lifecycle weight ───────────────────────────────────────────────
+   Three tiers, and the difference is deliberately carried by the SURFACE
+   rather than by colour: §19 keeps the semantic hue in the badge, and a card
+   tinted blue/amber/green/red down the whole list would be the "rainbow" the
+   route was kept away from too.
+
+   active     full card surface, a slightly stronger edge, and a hairline of
+              the status tone down the leading edge — enough to pick the live
+              order out of a list at a glance
+   done       the same card, quieter: dimmer border, no accent edge. Complete,
+              but still worth opening because it can be rated
+   canceled   quieter again, and the only place red appears is the badge and
+              the struck-through total that Phase 36 already established */
+.order-card{
+  position:relative;overflow:hidden;
+  transition:border-color .2s var(--ease),background .2s var(--ease)}
+
+/* The leading-edge accent. inset-inline-start so it mirrors in Arabic without
+   a second rule, and it sits behind the content rather than insetting it. */
+.order-card--active::before{
+  content:"";position:absolute;inset-block:0;inset-inline-start:0;
+  width:2px;background:var(--card-tone,var(--gold));opacity:.65}
+.order-card--active{border-color:var(--border-strong)}
+
+.order-card--received {--card-tone:var(--received)}
+.order-card--preparing{--card-tone:var(--preparing)}
+.order-card--ready    {--card-tone:var(--ready)}
+
+.order-card--done{
+  background:color-mix(in srgb, var(--surface-1) 88%, transparent);
+  border-color:var(--border)}
+.order-card--done .order-card__id{color:var(--text-2)}
+
+.order-card--canceled{
+  background:color-mix(in srgb, var(--surface-1) 82%, transparent);
+  border-color:var(--border)}
+.order-card--canceled .order-card__id,
+.order-card--canceled .order-card__msg{color:var(--text-3)}
+
+/* §3 — the table number is a bare numeric token, so it keeps its own
+   direction inside Arabic copy exactly as prices and order ids do. */
+.order-card__table-num{
+  color:var(--text-2);font-variant-numeric:tabular-nums;
+  direction:ltr;unicode-bidi:isolate}
+
+/* ── §5 — the Rated state ────────────────────────────────────────────────
+   A state, not a control: no border, no fill, nothing that invites a press,
+   because v1 does not allow editing a submitted rating. The check says it
+   landed and the stars say what was said, so the guest gets the whole answer
+   without opening anything.
+
+   min-height matches the small button it replaces, so a list of mixed
+   lifecycles keeps one action-row height and the cards do not jitter. */
+.order-card__rated{
+  display:inline-flex;align-items:center;gap:7px;min-height:32px;
+  color:var(--ready);font-size:12.5px;font-weight:600}
+.order-card__rated-label{color:var(--text-2)}
+.order-card__rated .star-rating{gap:1px}
+
+/* ── §12 — the success check ─────────────────────────────────────────────
+   One 220ms settle, and ONLY under --just, which the component sets solely
+   for a submission that happened in this tab. Opening an order rated an hour
+   ago replays nothing. */
+.fb-card--just .fb-card__icon--done{
+  animation:fb-done-in .22s var(--ease) both}
+@keyframes fb-done-in{
+  0%  {opacity:0;transform:scale(.82)}
+  60% {opacity:1}
+  100%{opacity:1;transform:scale(1)}
+}
+/* The card itself settles rather than snapping in — a fade and 4px, no more.
+   §12 rules out anything larger, and there is no toast anywhere near this. */
+.fb-card--just{animation:fb-done-settle .22s var(--ease) both}
+@keyframes fb-done-settle{
+  from{opacity:.5;transform:translateY(4px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+
+/* ── §11 — inline submit spinner ─────────────────────────────────────────
+   The same 15px ring the checkout CTA uses, beside the label and never
+   instead of it, so the button is never an unlabelled spinning circle. */
+.fb-spinner{
+  flex:none;width:15px;height:15px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.34);
+  border-top-color:var(--on-primary);
+  animation:fb-spin .62s linear infinite}
+@keyframes fb-spin{to{transform:rotate(360deg)}}
+
+/* ── §14/§15 — Call Staff as a utility outside Tracking ──────────────────
+   The resting treatment was already restrained — transparent surface, muted
+   text, a Secondary-derived border — and that stays. What changes is the
+   HOVER, which pulled the control into the restaurant's Primary (gold fill,
+   gold border, gold text) the moment a pointer touched it. On the Menu strip
+   that made the one action a guest should reach for least the only thing on
+   the bar that lit up in the brand colour.
+
+   It now warms within the neutral/Secondary family instead: the surface
+   lifts, the border firms, the label reaches full strength. Still obviously
+   interactive, no longer advertising itself. Tracking keeps its own scoped
+   treatment from Unit 6 and is untouched by this (§14). */
+.call-staff:hover{
+  background:var(--surface-2);
+  border-color:var(--secondary-line, var(--border-strong));
+  color:var(--text-1)}
+.call-staff:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* §16 — the confirmed state stays exactly as approved: a calm green
+   acknowledgement, no celebration, and hovering it does not re-tint toward
+   Primary either. */
+.call-staff--called:hover{
+  background:var(--ready-soft);
+  border-color:rgba(63,214,143,.45);
+  color:var(--ready)}
+
+/* ── §23 — reduced motion ────────────────────────────────────────────────
+   The one-shot success animations are decorative acknowledgement; the state
+   itself is carried by the check mark, the heading and the read-only stars,
+   so switching the motion off loses nothing. The spinner is an infinite
+   rotation, which the global duration collapse cannot fix — at 0.001s it
+   strobes — so it is stopped outright and the "Submitting…" label carries
+   the meaning. */
+@media(prefers-reduced-motion:reduce){
+  .fb-card--just,
+  .fb-card--just .fb-card__icon--done{animation:none!important}
+  .fb-spinner{animation:none}
+}

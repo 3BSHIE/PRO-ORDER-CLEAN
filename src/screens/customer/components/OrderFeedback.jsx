@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MessageSquareHeart, CheckCircle2 } from "lucide-react";
 import Card from "../../../components/ui/Card.jsx";
 import Button from "../../../components/ui/Button.jsx";
@@ -40,6 +40,19 @@ export default function OrderFeedback({ order, session }) {
   const [comment, setComment] = useState("");
   const [error, setError] = useState(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /* Phase 89 §11 — SYNCHRONOUS double-submit guard, the same idiom checkout
+     uses. isSubmitting alone cannot stop a double-tap: setState is async, so
+     two clicks in one event-loop tick both read the old value and both
+     proceed. The ref flips inside the first call's own execution, so the
+     second returns before reaching createFeedback.
+
+     createFeedback already refuses a second record for the same order, so a
+     duplicate could never have been WRITTEN — but without this the guest
+     could still fire two calls and see the second one's refusal handled as a
+     race. The state exists only to drive the button's visible busy state. */
+  const submitLock = useRef(false);
 
   /* Reset the draft whenever this component is pointed at a different order.
      Without this, navigating between two orders inside the SPA reuses the
@@ -54,6 +67,8 @@ export default function OrderFeedback({ order, session }) {
     setComment("");
     setError(null);
     setJustSubmitted(false);
+    setIsSubmitting(false);
+    submitLock.current = false;
   }, [order?.orderId]);
 
   /* Gate 1 — only a delivered order can be rated. */
@@ -74,13 +89,17 @@ export default function OrderFeedback({ order, session }) {
      tab or a minute ago in another one. */
   if (feedback) {
     return (
-      <Card className="fb-card fb-card--done">
+      <Card className={`fb-card fb-card--done ${justSubmitted ? "fb-card--just" : ""}`}>
         <div className="fb-card__head">
+          {/* §12 — the check animates ONCE, and only when this submission
+              just happened in this tab. Re-opening an order rated an hour ago
+              shows the same state completely still: replaying a success
+              flourish for something the guest already knows about is noise. */}
           <span className="fb-card__icon fb-card__icon--done">
             <CheckCircle2 size={17} strokeWidth={2} />
           </span>
           <div>
-            <h3 className="fb-card__title">
+            <h3 className="fb-card__title" {...(justSubmitted ? { role: "status" } : {})}>
               {justSubmitted
                 ? t("feedback.thankYou", "Thank you for your feedback.")
                 : t("feedback.alreadySubmitted", "Already submitted")}
@@ -117,10 +136,16 @@ export default function OrderFeedback({ order, session }) {
   }
 
   function handleSubmit() {
+    /* Synchronous gate FIRST — before any state update or work. */
+    if (submitLock.current) return;
+
     if (!foodRating || !serviceRating) {
       setError(t("feedback.bothRatingsRequired", "Please rate both food quality and service."));
       return;
     }
+
+    submitLock.current = true;
+    setIsSubmitting(true);
     setError(null);
 
     const result = createFeedback(restaurantSlug, {
@@ -137,23 +162,31 @@ export default function OrderFeedback({ order, session }) {
        form for that submission's read-only view rather than showing an error
        the guest can do nothing about. */
     if (!result.ok && result.reason !== "already_exists") {
+      /* Released, so the guest can genuinely retry — never leave them on a
+         dead button with a rating they cannot submit. */
+      submitLock.current = false;
+      setIsSubmitting(false);
       setError(t("feedback.submitFailed", "Sorry, that didn't go through. Please try again."));
       return;
     }
 
+    /* On success the lock STAYS set: this instance is about to swap itself
+       for the read-only view, and nothing should be submittable in between. */
     setJustSubmitted(true);
     refresh();
   }
 
   return (
     <Card className="fb-card">
+      {/* §8 — the question IS the heading now. "Feedback" sat above it as a
+          label for a card that already looked like a form, and pushed the
+          actual question down into subtitle grey. One line, asked plainly. */}
       <div className="fb-card__head">
         <span className="fb-card__icon">
           <MessageSquareHeart size={17} strokeWidth={2} />
         </span>
         <div>
-          <h3 className="fb-card__title">{t("feedback.feedback", "Feedback")}</h3>
-          <p className="fb-card__sub">{t("feedback.howWasIt", "How was your order?")}</p>
+          <h3 className="fb-card__title">{t("feedback.howWasIt", "How was your order?")}</h3>
         </div>
       </div>
 
@@ -194,8 +227,13 @@ export default function OrderFeedback({ order, session }) {
 
       {error && <p className="fb-error" role="alert">{error}</p>}
 
-      <Button full size="lg" onClick={handleSubmit}>
-        {t("feedback.submitFeedback", "Submit Feedback")}
+      {/* A small inline busy state, never the animated PRO·ORDER mark — that
+          stays reserved for the Main Timer and system loading (§11). */}
+      <Button full size="lg" onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting}>
+        {isSubmitting && <span className="fb-spinner" aria-hidden="true" />}
+        {isSubmitting
+          ? t("feedback.submitting", "Submitting…")
+          : t("feedback.submitFeedback", "Submit Feedback")}
       </Button>
     </Card>
   );
