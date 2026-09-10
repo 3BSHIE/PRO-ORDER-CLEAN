@@ -5388,7 +5388,11 @@ button{font-family:var(--font-body)}
    point stays inside 0..1, so there is no overshoot: no spring, no bounce. */
 .sroute{
   position:relative;margin:4px 0 22px;padding:0;
-  --route-dur:.46s;
+  /* Phase 88.4 §1 — 460ms -> 580ms. Still one duration shared by the discs,
+     the connector fill and (new this phase) the active icon's size, so the
+     whole station change remains a single movement rather than three things
+     that happen to overlap. */
+  --route-dur:.58s;
   --ease-route:cubic-bezier(.34,.68,.24,1)}
 
 /* The drawn line, stretched to the row width by preserveAspectRatio="none".
@@ -5560,6 +5564,30 @@ button{font-family:var(--font-body)}
   position:relative;display:grid;place-items:center;
   width:100%;height:100%;overflow:visible}
 
+/* Phase 88.4 §2 — the glyph scales WITH its station.
+   Phase 88.3 grew the current disc to 52/47px but left every icon at 17px, so
+   the live station read as a large empty ring with a small mark adrift in it.
+   The size is set in CSS rather than by lucide's size prop because a prop is
+   fixed per element, while a rule can respond to the station's state — and
+   because width/height animate, so the glyph grows on the SAME shared duration
+   and easing as the disc it sits in.
+
+   17 -> 19px is +11.8%, and the Delivered setting 26 -> 29px is +11.5%, both
+   matching the station's own +11.9% so the disc, the mark and the halo read as
+   one object being promoted. Setting real dimensions rather than transform:
+   scale() keeps the strokes crisp at the larger size and leaves the transform
+   channel free for each icon's own motion. */
+.sicon > svg,
+.sicon__setting{
+  transition:width var(--route-dur) var(--ease-route),
+    height var(--route-dur) var(--ease-route)}
+.sicon > svg{width:17px;height:17px}
+.sroute__station--current .sicon > svg{width:19px;height:19px}
+/* The Delivered setting needs one extra class to win: .sicon--delivered
+   .sicon__setting also sets a width and ties on specificity while sitting
+   later in the file, so a two-class selector here would silently lose. */
+.sroute__station--current .sicon--delivered .sicon__setting{width:29px}
+
 /* ── Received: an arrival signal (§4) ───────────────────────────────────
    The ticket stays still; a line sweeps down across it, like a docket being
    printed. Phase 88.1 shortens the cycle 3.4s -> 2.2s, widens the sweep, and
@@ -5575,8 +5603,14 @@ button{font-family:var(--font-body)}
    The pause is real: the line holds at 46% of its travel from 40% to 54% of
    the cycle — 0.36s of a 2.6s loop — like a scanner reading a block before
    carrying on to the bottom. */
+/* §2 — the band is retuned for the 19px current glyph. The receipt occupies
+   y 2..22 of the 24-unit box, which at 19px inside a 47px disc spans 33.2% to
+   66.8% of the station and at 52px spans 34.8% to 65.2%. 33% + 34% covers both
+   with a hair to spare at each end, so the line still crosses the whole
+   receipt rather than stopping short of it (§2, and the Phase 88.2 rule that
+   the scan must not appear to reset halfway). */
 .sicon--received .sicon__scan{
-  position:absolute;left:22%;right:22%;top:33%;height:32%;
+  position:absolute;left:22%;right:22%;top:33%;height:34%;
   opacity:0;pointer-events:none}
 .sicon--received .sicon__scan::after{
   content:"";position:absolute;left:0;right:0;top:0;height:1.6px;
@@ -5617,14 +5651,30 @@ button{font-family:var(--font-body)}
    The origin stays at 50% 82%, down on the band: the base is planted and only
    the crown moves. Still no translation and no rotation of the whole hat, so
    the icon never bounces (§3). 2.4s -> 2.3s. */
+/* Phase 88.4 §3 — pushed until it reads at arm's length, and anchored harder.
+   The origin drops 82% -> 88%, which is the band itself: the base now moves
+   0.36px across the whole cycle instead of 0.55px, while the crown travels
+   further because it is further from the pivot. */
 .sicon--preparing.is-live > svg{
-  transform-origin:50% 82%;
-  animation:sicon-toque 2.3s ease-in-out infinite}
+  transform-origin:50% 88%;
+  animation:sicon-toque 2.2s ease-in-out infinite}
+/* scaleY 1.11 -> 1.16 and scaleX .962 -> .938, so the crown rises about 2.7px
+   on the 19px glyph while narrowing — volume moving through soft fabric, not
+   the icon being stretched. The lean roughly doubles, 2.1deg -> 4.4deg, which
+   is where the side-to-side movement §3 asks for actually comes from: skewing
+   about a pivot down on the band slides the crown horizontally while the base
+   stays put, and it is the only way to move part of a single-path glyph
+   without translating or rotating the whole thing.
+
+   Five stops at 22/44/64/84 rather than even quarters, with the lean
+   alternating and shrinking each time (-4.4, +2.8, -2.0, +0.9). The uneven
+   rhythm is the difference between fabric shifting and a mechanical pulse. */
 @keyframes sicon-toque{
   0%   {transform:scaleY(1)     scaleX(1)     skewX(0deg)}
-  24%  {transform:scaleY(1.11)  scaleX(.962)  skewX(-2.1deg)}
-  50%  {transform:scaleY(1.02)  scaleX(1.014) skewX(1.4deg)}
-  72%  {transform:scaleY(1.075) scaleX(.985)  skewX(-0.8deg)}
+  22%  {transform:scaleY(1.16)  scaleX(.938)  skewX(-4.4deg)}
+  44%  {transform:scaleY(1.035) scaleX(1.018) skewX(2.8deg)}
+  64%  {transform:scaleY(1.115) scaleX(.968)  skewX(-2deg)}
+  84%  {transform:scaleY(1.05)  scaleX(1.006) skewX(.9deg)}
   100% {transform:scaleY(1)     scaleX(1)     skewX(0deg)}
 }
 
