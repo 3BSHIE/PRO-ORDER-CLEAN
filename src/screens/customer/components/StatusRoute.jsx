@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ReceiptText, CookingPot, HandPlatter } from "lucide-react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
-import settingSrc from "../../../assets/brand/pro-order-plate-setting.png";
+import plateSrc from "../../../assets/brand/pro-order-plate-only.png";
+import forkSrc  from "../../../assets/brand/pro-order-fork.png";
+import knifeSrc from "../../../assets/brand/pro-order-knife.png";
 
 /**
  * StatusRoute — Phase 88 (§4, §5, §19).
@@ -114,7 +116,11 @@ export default function StatusRoute({ currentStatus }) {
           className="sroute__path sroute__path--fill"
           d={ROUTE_PATH}
           pathLength="300"
-          style={{ strokeDasharray: 300, strokeDashoffset: 300 - filled }}
+          /* Only the offset is inline — it is the value that changes with the
+             status. The dash PATTERN lives in the stylesheet, where Phase 88.1
+             gave it a gap longer than the whole route so it can never wrap and
+             repaint a second dash over the tail (§2). */
+          style={{ strokeDashoffset: 300 - filled }}
         />
       </svg>
 
@@ -201,26 +207,27 @@ function StationIcon({ status, active }) {
     );
   }
 
-  /* Delivered — the plate, and the one icon that is not a Lucide glyph.
-     §5 asks it to reference the plate/fork/knife language of the PRO·ORDER
-     mark without using the whole logo and without redrawing it. Both halves
-     of that are satisfied by taking the artwork's OWN plate, fork and knife
-     straight out of the master PNG as a mask (see the extraction described in
-     BrandTimerMark): the three shapes are separate connected components, so
-     lifting them needs no drawing at all, and leaving the surrounding ring
-     behind is exactly what stops it reading as the logo.
+  /* Delivered — the one icon that is not a Lucide glyph. It references the
+     plate/fork/knife language of the PRO·ORDER mark without using the whole
+     logo and without redrawing it: the three shapes are separate connected
+     components of the master PNG, so lifting them out needs no drawing at
+     all, and leaving the surrounding ring behind is what stops it reading as
+     the logo.
 
-     "Plate Settle": the mark drops its last two pixels onto the baseline and
-     stops. One restrained highlight sweeps across once as it lands, and then
-     nothing — no loop, no bounce (§5, §12). */
+     Phase 88.1 splits what was one combined mask into three, cut to a single
+     shared 269x202 box so they register with no positioning of any kind.
+     Their alphas recombine to the Phase 88 mask with zero mismatching pixels.
+
+     The motion is now §7's: the plate holds still and the utensils draw in
+     toward it, then return — "the food has arrived". The plate deliberately
+     carries no animation at all. */
   return (
     <span className={`sicon sicon--delivered ${active ? "is-live" : ""}`}>
-      <span
-        className="sicon__plate"
-        style={{ "--sicon-plate": `url(${settingSrc})` }}
-        aria-hidden="true"
-      />
-      <span className="sicon__settle-sheen" aria-hidden="true" />
+      <span className="sicon__setting" aria-hidden="true">
+        <span className="sicon__fork"  style={{ "--u": `url(${forkSrc})` }} />
+        <span className="sicon__plate" style={{ "--u": `url(${plateSrc})` }} />
+        <span className="sicon__knife" style={{ "--u": `url(${knifeSrc})` }} />
+      </span>
     </span>
   );
 }
