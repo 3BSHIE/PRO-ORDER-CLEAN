@@ -1,5 +1,6 @@
 import bodySrc from "../../../assets/brand/pro-order-mark-body.png";
 import handSrc from "../../../assets/brand/pro-order-mark-hand.png";
+import frontSrc from "../../../assets/brand/pro-order-mark-front.png";
 
 /**
  * BrandTimerMark — Phase 88 (§8, §9).
@@ -76,7 +77,11 @@ export default function BrandTimerMark({ active = false, settled = false }) {
       className={`btm ${active ? "btm--active" : ""} ${settled ? "btm--settled" : ""}`}
       /* Bundler-hashed URLs have to reach CSS somehow; custom properties are
          how, exactly as BrandLoadingMark does it. */
-      style={{ "--btm-body": `url(${bodySrc})`, "--btm-hand": `url(${handSrc})` }}
+      style={{
+        "--btm-body": `url(${bodySrc})`,
+        "--btm-hand": `url(${handSrc})`,
+        "--btm-front": `url(${frontSrc})`,
+      }}
       /* Decorative. The timer's own text carries the meaning, and §19 asks
          that animated ornament stay quiet for screen readers. */
       aria-hidden="true"
@@ -95,6 +100,24 @@ export default function BrandTimerMark({ active = false, settled = false }) {
 
       {/* The lower circle's response as energy reaches it. */}
       <span className="btm__glow" />
+
+      {/* Phase 88.2 §1 — the crossover's FOREGROUND stroke, repainted on top
+          of the energy in the same colour as the body.
+
+          The mark's two circles do not merely touch, they interlock: at 3x
+          magnification one ribbon runs unbroken from lower-left to upper-right
+          while the other is visibly CUT into two stubs by it. The spark
+          travels the cut one (it leaves the upper lobe's left side heading
+          down-right), so it ought to disappear behind the ribbon that crosses
+          in front of it — and until now it slid over the top of everything,
+          which is what made it read as painted on rather than running inside
+          the mark.
+
+          This layer is that front ribbon and nothing else. Because it is
+          filled with --brand-mark, identical to the body beneath, it is
+          invisible except in the moment the spark passes underneath it: then
+          it hides the spark, and the occlusion is the only thing you see. */}
+      <span className="btm__front" />
     </span>
   );
 }

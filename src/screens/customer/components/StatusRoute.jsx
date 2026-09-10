@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ReceiptText, CookingPot, HandPlatter } from "lucide-react";
+import { ReceiptText, ChefHat, HandPlatter } from "lucide-react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import plateSrc from "../../../assets/brand/pro-order-plate-only.png";
 import forkSrc  from "../../../assets/brand/pro-order-fork.png";
@@ -86,10 +86,10 @@ export default function StatusRoute({ currentStatus }) {
     if (prev === currentStatus) return;
 
     setAdvanced(true);
-    /* Long enough to cover the 520ms path sweep and the arriving station's
-       settle; cleared so a later advance can play again and this can never
-       become a loop. */
-    const id = setTimeout(() => setAdvanced(false), 700);
+    /* Covers the 340ms path sweep plus the 300ms station resize with a
+       little slack; cleared so a later advance can play again and this can
+       never become a loop. */
+    const id = setTimeout(() => setAdvanced(false), 460);
     return () => clearTimeout(id);
   }, [currentStatus]);
 
@@ -156,20 +156,23 @@ export default function StatusRoute({ currentStatus }) {
 }
 
 /**
- * One station's mark and its motion (§5).
+ * One station's mark and its motion.
  *
- * Each icon is wrapped in its own element so the motion belongs to the icon
- * rather than to the disc — a disc that moved would drag its tinted ring and
- * border with it, which is how status indicators end up looking bouncy.
+ * Each icon sits in its own element so the motion belongs to the ICON rather
+ * than to the disc — a disc that moved would drag its tinted ring and border
+ * with it, which is how status indicators end up looking bouncy.
  *
  * `active` gates every animation, so a completed or upcoming station is
  * genuinely still rather than animating at low opacity.
  */
 function StationIcon({ status, active }) {
   if (status === "received") {
-    /* Order ticket. The motion is an arrival: the ticket eases in and a short
-       line sweeps across it once per cycle, like a docket being printed. No
-       bounce — it settles rather than overshooting. */
+    /* Order ticket, scanned top to bottom (§2).
+       The scan element is a BAND the height of the receipt with the line drawn
+       at its top edge, so translateY(100%) walks the line the band's full
+       height — the whole receipt — and stays correct at any disc size. Phase
+       88.1 translated a bare 1.6px line by a fixed 5px, which is why the scan
+       only ever covered the middle third and appeared to reset halfway. */
     return (
       <span className={`sicon sicon--received ${active ? "is-live" : ""}`}>
         <ReceiptText size={17} strokeWidth={1.9} aria-hidden="true" />
@@ -179,53 +182,59 @@ function StationIcon({ status, active }) {
   }
 
   if (status === "preparing") {
-    /* Cooking pot with steam. Three wisps on staggered delays, drifting up
-       and fading. The POT itself never moves: §5 rules out pan-shaking
-       cartoon cooking, and a still pot with moving steam is also simply the
-       more expensive-looking of the two. */
+    /* Chef hat (§3). The pot and its steam are gone: steam says "hot food",
+       and plenty of orders are a salad or a bottle of water, so it was
+       promising something the order might not contain. A toque says "the
+       kitchen has it" regardless of what was ordered.
+
+       The hat is a single lucide path, so the motion cannot be split across
+       sub-paths the way Ready's lid is. It is deformed instead — anchored at
+       the band so the crown breathes and shifts while the base stays put. */
     return (
       <span className={`sicon sicon--preparing ${active ? "is-live" : ""}`}>
-        <span className="sicon__steam" aria-hidden="true">
-          <i /><i /><i />
-        </span>
-        <CookingPot size={17} strokeWidth={1.9} aria-hidden="true" />
+        <ChefHat size={17} strokeWidth={1.9} aria-hidden="true" />
       </span>
     );
   }
 
   if (status === "ready") {
-    /* Serving tray / cloche, carried. Deliberately a DIFFERENT object from
-       Delivered's plate (§5): a covered dish on its way, versus a plate set
-       down. The motion is a gentle lift-and-settle of the whole mark, a
-       couple of pixels, once per cycle — the cloche being raised, not a bell
-       bouncing. */
+    /* Waiter's tray (§4). lucide's HandPlatter is literally a hand presenting
+       a platter, which is the "tray + service gesture" the brief asks for, so
+       the ICON stays; what changes is the treatment.
+
+       Phase 88.1 lifted the cloche lid off the tray. That read as the dish
+       being uncovered rather than served, and was not approved. Now the tray
+       and its dome rise together as one presented object while the hand and
+       arm stay planted — a waiter raising the tray toward the table.
+
+       The sparkle is anchored ON the tray's surface (see .sicon__spark's
+       position), not floating around the icon: §4 rules out decorative
+       sparkles scattered over the station. */
     return (
       <span className={`sicon sicon--ready ${active ? "is-live" : ""}`}>
         <HandPlatter size={17} strokeWidth={1.9} aria-hidden="true" />
-        <span className="sicon__gleam" aria-hidden="true" />
+        <span className="sicon__spark" aria-hidden="true" />
       </span>
     );
   }
 
-  /* Delivered — the one icon that is not a Lucide glyph. It references the
+  /* Delivered — the one icon that is not a lucide glyph. It references the
      plate/fork/knife language of the PRO·ORDER mark without using the whole
      logo and without redrawing it: the three shapes are separate connected
-     components of the master PNG, so lifting them out needs no drawing at
-     all, and leaving the surrounding ring behind is what stops it reading as
-     the logo.
+     components of the master PNG, lifted into one shared 269x202 box so they
+     register with no positioning of any kind.
 
-     Phase 88.1 splits what was one combined mask into three, cut to a single
-     shared 269x202 box so they register with no positioning of any kind.
-     Their alphas recombine to the Phase 88 mask with zero mismatching pixels.
-
-     The motion is now §7's: the plate holds still and the utensils draw in
-     toward it, then return — "the food has arrived". The plate deliberately
-     carries no animation at all. */
+     Phase 88.2 §5 — the utensils now travel right into the plate and cross
+     into an X before returning: "the food has arrived and eating has begun".
+     Painting order is plate, fork, knife — the plate at the BACK, so the
+     utensils cross in front of it rather than being swallowed by it, and each
+     utensil carries a halo in the station's own surface colour so the
+     silhouettes stay separate where they overlap (see .sicon__setting). */
   return (
     <span className={`sicon sicon--delivered ${active ? "is-live" : ""}`}>
       <span className="sicon__setting" aria-hidden="true">
-        <span className="sicon__fork"  style={{ "--u": `url(${forkSrc})` }} />
         <span className="sicon__plate" style={{ "--u": `url(${plateSrc})` }} />
+        <span className="sicon__fork"  style={{ "--u": `url(${forkSrc})` }} />
         <span className="sicon__knife" style={{ "--u": `url(${knifeSrc})` }} />
       </span>
     </span>

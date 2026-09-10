@@ -2215,6 +2215,33 @@ button{font-family:var(--font-body)}
 
 /* Placement inside the customer Menu header */
 
+/* Phase 88.2 §12 — on TRACKING, Call Staff is a utility, not the goal.
+   It was wearing the Primary gradient, .btn--primary's shadow and --on-primary
+   text: identical to Place Order. That made fetching a waiter look like the
+   thing the guest was supposed to do next.
+
+   It keeps its size, its centring and its 48px target — it must still be easy
+   to find — but drops to a neutral surface with a Secondary-derived border.
+   Scoped to .track__call-staff on purpose: .call-staff--prominent is also
+   used by the checkout sheet's no-payment-methods state, and Checkout is out
+   of scope this phase. */
+.track__call-staff .call-staff--prominent{
+  color:var(--text-1);
+  background:var(--surface-2);
+  border:1px solid var(--border-strong);
+  box-shadow:none}
+.track__call-staff .call-staff--prominent:hover{
+  color:var(--text-1);
+  background:var(--surface-3);
+  border-color:var(--secondary-line, var(--border-strong));
+  filter:none}
+/* The confirmed state keeps its calm green acknowledgement — clear feedback,
+   no celebration (§12). */
+.track__call-staff .call-staff--prominent.call-staff--called{
+  background:var(--ready-soft);
+  border-color:rgba(63,214,143,.3);
+  color:var(--ready)}
+
 /* Placement inside Order Tracking */
 .track__call-staff{display:flex;justify-content:center;margin:0 0 28px}
 .track__call-staff--prominent{margin:0 0 32px}
@@ -5333,15 +5360,32 @@ button{font-family:var(--font-body)}
 
 .sroute{position:relative;margin:4px 0 22px;padding:0}
 
-/* The drawn line, stretched to the row width. preserveAspectRatio="none"
-   would normally distort the stroke; non-scaling-stroke keeps it at a true
-   1.5px at every viewport. */
+/* The drawn line, stretched to the row width by preserveAspectRatio="none".
+   That non-uniform stretch is exactly why the paths below must NOT use
+   vector-effect — see the note on .sroute__path. */
 .sroute__line{
   position:absolute;inset:0 0 auto 0;
   width:100%;height:52px;overflow:visible;pointer-events:none}
+/* Phase 88.2 §7 — vector-effect:non-scaling-stroke REMOVED, and that is the
+   fix for the connector break.
+
+   The svg carries preserveAspectRatio="none", so its scale is non-uniform:
+   measured 1.0333 across and 1.3 down on a phone. With non-scaling-stroke,
+   Chrome strokes — and therefore DASHES — in device space, where this path is
+   252.31 units long, while pathLength="300" normalises the USER-space length
+   of 237.49. The dash walk and the normalisation disagreed by that 1.0624
+   ratio, so "two thirds filled" actually painted 0.6275 of the path and the
+   progress stopped 12.1px short of the station it was supposed to reach. With
+   the discs hidden the grey stub between the colour and the station is plainly
+   visible — that stub is what read as a broken route.
+
+   Without the vector effect the dash is computed in user space, which is
+   exactly what pathLength normalises, so the fill lands on the station centre
+   at every width. The cost is that the 1.4 stroke is scaled anisotropically —
+   roughly 1.45px across and 1.82px down — and at these weights that variation
+   is smaller than the antialiasing either side of it. */
 .sroute__path{
-  fill:none;stroke-width:1.6;stroke-linecap:round;
-  vector-effect:non-scaling-stroke;
+  fill:none;stroke-width:1.4;stroke-linecap:round;
   stroke:var(--border-strong)}
 /* The filled portion takes the CURRENT status's semantic colour — one
    colour on screen at a time, which is what keeps the route from becoming
@@ -5363,7 +5407,11 @@ button{font-family:var(--font-body)}
 .sroute__path--fill{
   stroke:var(--route-tone,var(--gold));
   stroke-dasharray:300 600;
-  transition:stroke-dashoffset .52s var(--ease)}
+  /* Phase 88.2 §8 — 520ms -> 340ms. The sweep now finishes inside the same
+     window the stations use to resize (300ms), so an advance reads as ONE
+     movement rather than the discs settling and the line still travelling
+     after them. Still a sweep, not a jump. */
+  transition:stroke-dashoffset .34s var(--ease)}
 
 /* Four equal columns put the discs at 12.5/37.5/62.5/87.5% of the width,
    which is exactly where the path's four anchor points sit. The 52px first
@@ -5378,9 +5426,19 @@ button{font-family:var(--font-body)}
   justify-items:center;align-items:center;
   gap:7px;min-width:0}
 
+/* Phase 88.2 §6 — every station surface is OPAQUE, and it publishes that
+   colour as --station-surface so anything that needs to knock itself out
+   against it (the Delivered utensil halos) can use the same value.
+
+   The bug this fixes: the current station's background was --tone-soft, which
+   is a 13%-alpha tint, so the connector ran straight through the middle of
+   the live station. The upcoming stations additionally carried opacity:.72,
+   which made their whole surface translucent for the same reason. Both are
+   gone — the route now passes BEHIND every station, as §6 requires. */
 .sroute__disc{
+  --station-surface:var(--surface-2);
   display:grid;place-items:center;border-radius:50%;
-  background:var(--surface-2);border:1px solid var(--border);
+  background:var(--station-surface);border:1px solid var(--border);
   color:var(--text-3);
   width:34px;height:34px;
   transition:width .3s var(--ease),height .3s var(--ease),
@@ -5397,9 +5455,15 @@ button{font-family:var(--font-body)}
 .sroute__station--delivered{--tone:var(--gold);     --tone-soft:var(--gold-soft)}
 
 /* CURRENT — largest, its semantic tone, a soft ring, motion running. */
+/* CURRENT — largest, its semantic tone, a soft ring, motion running. The
+   surface is the tone mixed INTO an opaque base rather than laid over the
+   page as a tint, so it reads the same but hides what is behind it. The outer
+   ring stays translucent on purpose: it is a halo around the station, not the
+   station's face, and the route may show through it. */
 .sroute__station--current .sroute__disc{
+  --station-surface:color-mix(in srgb, var(--tone) 15%, var(--surface-1));
   width:46px;height:46px;
-  background:var(--tone-soft);
+  background:var(--station-surface);
   border-color:var(--tone);border-width:1.5px;
   color:var(--tone);
   box-shadow:0 0 0 5px color-mix(in srgb, var(--tone) 9%, transparent)}
@@ -5410,18 +5474,24 @@ button{font-family:var(--font-body)}
    OWN ICON (§4). A neutral treatment rather than its semantic colour is
    what stops four finished stations turning the route into a rainbow. */
 .sroute__station--done .sroute__disc{
+  --station-surface:var(--surface-3);
   width:32px;height:32px;
-  background:var(--surface-3);
+  background:var(--station-surface);
   border-color:var(--border-strong);
   color:var(--text-2)}
 .sroute__station--done .sroute__label{color:var(--text-2)}
 
 /* UPCOMING — smallest, muted, still legible. */
+/* UPCOMING — muted by COLOUR, never by opacity. opacity on the disc made the
+   whole surface translucent and let the connector through (§6); the icon
+   inside is dimmed instead, which is invisible to the route. */
 .sroute__station--future .sroute__disc{
+  --station-surface:var(--surface-2);
   width:30px;height:30px;
-  background:var(--surface-2);
+  background:var(--station-surface);
   border-color:var(--border);
-  color:var(--text-3);opacity:.72}
+  color:var(--text-3)}
+.sroute__station--future .sicon{opacity:.72}
 .sroute__station--future .sroute__label{color:var(--text-3)}
 
 .sroute__label{
@@ -5451,78 +5521,105 @@ button{font-family:var(--font-body)}
    printed. Phase 88.1 shortens the cycle 3.4s -> 2.2s, widens the sweep, and
    raises it to near-full strength — at .85 opacity over 3.4s it was a hint
    rather than a signal. It still never bounces the icon. */
+/* ── Received: the whole receipt is scanned (§2) ────────────────────────
+   The scan element is now a BAND the height of the receipt with the line
+   drawn at its top edge, so translateY(100%) walks the line the band's full
+   height and stays correct at any disc size. Phase 88.1 translated a bare
+   1.6px line by a fixed ±5px, which covered only the middle third and looked
+   exactly like a scan resetting halfway.
+
+   The pause is real: the line holds at 46% of its travel from 40% to 54% of
+   the cycle — 0.36s of a 2.6s loop — like a scanner reading a block before
+   carrying on to the bottom. */
 .sicon--received .sicon__scan{
-  position:absolute;left:22%;right:22%;top:32%;height:1.6px;
-  border-radius:1px;background:currentColor;opacity:0}
+  position:absolute;left:22%;right:22%;top:33%;height:32%;
+  opacity:0;pointer-events:none}
+.sicon--received .sicon__scan::after{
+  content:"";position:absolute;left:0;right:0;top:0;height:1.6px;
+  border-radius:1px;background:currentColor}
 .sicon--received.is-live .sicon__scan{
-  animation:sicon-scan 2.2s var(--ease) infinite}
+  animation:sicon-scan 2.6s var(--ease) infinite}
 @keyframes sicon-scan{
-  0%,6%    {opacity:0;transform:translateY(-5px)}
-  18%      {opacity:1}
-  46%      {opacity:1;transform:translateY(5px)}
-  58%,100% {opacity:0;transform:translateY(5px)}
+  0%,4%    {transform:translateY(0);    opacity:0}
+  12%      {transform:translateY(8%);   opacity:1}
+  40%      {transform:translateY(46%);  opacity:1}   /* reach the middle    */
+  54%      {transform:translateY(46%);  opacity:1}   /* hold — processing   */
+  86%      {transform:translateY(100%); opacity:1}   /* all the way down    */
+  94%,100% {transform:translateY(100%); opacity:0}   /* fade, then restart  */
 }
 
-/* ── Preparing: steam (§5) ──────────────────────────────────────────────
-   Three wisps rising out of the pot on staggered delays. The POT NEVER
-   MOVES — §5 rules out pan-shaking cartoon cooking, and a still pot under
-   moving steam is also the more expensive-looking of the two.
+/* ── Preparing: the toque breathes (§3) ─────────────────────────────────
+   The pot and its steam are retired. Steam promises HOT food, and a good
+   share of orders are a salad, a dessert or a bottle of water — the icon was
+   describing the dish instead of the kitchen. A chef's hat says "the kitchen
+   has your order" whatever is on the ticket.
 
-   Phase 88.1 makes the steam actually visible: 2.6s -> 2.0s, peak opacity
-   .55 -> .8, travel 9px -> 12px, wisps a little taller, and the stagger
-   spread evenly across the cycle (0 / .34s / .68s) so three distinct wisps
-   read as a stream rather than arriving almost together.
+   lucide draws the toque as ONE path, so the crown cannot be animated apart
+   from the band the way Ready's lid can. The glyph is deformed instead, with
+   the origin down at the band (50% 82%): the base stays planted and the crown
+   swells and leans. scaleY and scaleX move in opposite directions so it reads
+   as VOLUME shifting inside soft fabric rather than the icon being stretched,
+   and the keyframes are deliberately uneven — a slight lean left, a smaller
+   settle right — so it never looks like a mechanical pulse.
 
-   The column is anchored INSIDE the disc — top:16% with the wisps sitting on
-   the bottom of a 30% band — so at the current station's 42-46px disc the
-   steam rises from the pot's rim to roughly a third of the way up and never
-   escapes the circle. */
-.sicon--preparing .sicon__steam{
-  position:absolute;left:0;right:0;top:16%;height:30%;
-  display:flex;justify-content:center;align-items:flex-end;gap:3px;
-  pointer-events:none}
-.sicon--preparing .sicon__steam i{
-  width:1.6px;height:8px;border-radius:1px;
-  background:currentColor;opacity:0}
-.sicon--preparing.is-live .sicon__steam i{
-  animation:sicon-steam 2s ease-in-out infinite}
-.sicon--preparing.is-live .sicon__steam i:nth-child(2){animation-delay:.34s}
-.sicon--preparing.is-live .sicon__steam i:nth-child(3){animation-delay:.68s}
-@keyframes sicon-steam{
-  0%  {opacity:0;transform:translateY(3px)  scaleY(.5)}
-  22% {opacity:.8}
-  62% {opacity:.5}
-  100%{opacity:0;transform:translateY(-9px) scaleY(1.25)}
+   No translation anywhere: the icon itself never bounces (§3). */
+.sicon--preparing.is-live > svg{
+  transform-origin:50% 82%;
+  animation:sicon-toque 2.4s ease-in-out infinite}
+@keyframes sicon-toque{
+  0%   {transform:scaleY(1)     scaleX(1)    skewX(0deg)}
+  26%  {transform:scaleY(1.05)  scaleX(.985) skewX(-0.9deg)}
+  52%  {transform:scaleY(1.012) scaleX(1.008) skewX(0.7deg)}
+  74%  {transform:scaleY(1.038) scaleX(.994) skewX(-0.35deg)}
+  100% {transform:scaleY(1)     scaleX(1)    skewX(0deg)}
 }
 
-/* ── Ready: the LID lifts (§6) ──────────────────────────────────────────
-   Phase 88 lifted the whole glyph, which reads as the object hopping. The
-   cloche's dome is separable: lucide's HandPlatter draws the knob and the
-   dome arc as its first two paths, and the rim, tray, hand and arm as the
-   rest. Animating only those two lifts the LID off a stationary tray —
-   the reveal §6 asks for, with nothing redrawn.
+/* ── Ready: the tray is presented (§4) ──────────────────────────────────
+   Phase 88.1 lifted the cloche's LID off the tray. That read as uncovering
+   the dish rather than serving it, and was not approved.
 
-   Transform lengths on an SVG child resolve in user units, so -2px here is
-   2/24 of the glyph: about 1.4px at the rendered size. Small on purpose; the
-   gleam underneath it carries the rest of the read. 3.6s -> 2.4s. */
+   The tray and everything standing on it now rise together while the hand and
+   arm stay planted: HandPlatter's first three paths are the knob, the dome
+   and the tray line, and paths 4-6 are the hand and arm. Lifting 1-3 as one
+   object is a waiter raising the tray toward the table — a presentation, not
+   a reveal, and the icon as a whole never moves (§4).
+
+   Transform lengths on an SVG child resolve in user units, so -1.8px is
+   1.8/24 of the glyph: a little over a pixel at the rendered size. */
 .sicon--ready.is-live svg > path:nth-of-type(1),
-.sicon--ready.is-live svg > path:nth-of-type(2){
-  animation:sicon-lid 2.4s var(--ease) infinite}
-@keyframes sicon-lid{
-  0%,12%   {transform:translateY(0)}
-  34%,56%  {transform:translateY(-2px)}
-  80%,100% {transform:translateY(0)}
+.sicon--ready.is-live svg > path:nth-of-type(2),
+.sicon--ready.is-live svg > path:nth-of-type(3){
+  animation:sicon-present 2.4s var(--ease) infinite}
+@keyframes sicon-present{
+  0%,14%   {transform:translateY(0)}
+  38%,58%  {transform:translateY(-1.8px)}
+  84%,100% {transform:translateY(0)}
 }
-.sicon--ready .sicon__gleam{
-  position:absolute;inset:0;border-radius:50%;opacity:0;
-  background:linear-gradient(115deg,transparent 36%,
-    color-mix(in srgb, currentColor 58%, transparent) 50%,transparent 64%)}
-.sicon--ready.is-live .sicon__gleam{
-  animation:sicon-gleam 2.4s var(--ease) infinite}
-@keyframes sicon-gleam{
-  0%,30%  {opacity:0;transform:translateX(-42%)}
-  50%     {opacity:1}
-  74%,100%{opacity:0;transform:translateX(42%)}
+
+/* The sparkle ORIGINATES ON THE TRAY (§4). It is parked at 58%/41% of the
+   station, which is where HandPlatter's tray line sits once the 17px glyph is
+   centred in the disc — not scattered around the icon, which §4 rules out.
+   Two crossed bars scaling out of nothing and rotating a quarter turn: a
+   catchlight on polished metal, not a magic star.
+
+   It fires at 56% of the cycle — just after the tray reaches the top of its
+   lift at 38-58% — so the shine reads as a consequence of the presentation
+   rather than an unrelated twinkle. */
+.sicon--ready .sicon__spark{
+  position:absolute;left:58%;top:41%;width:7px;height:7px;
+  transform:translate(-50%,-50%) scale(0);opacity:0;pointer-events:none}
+.sicon--ready .sicon__spark::before,
+.sicon--ready .sicon__spark::after{
+  content:"";position:absolute;left:50%;top:50%;
+  background:currentColor;border-radius:1px}
+.sicon--ready .sicon__spark::before{width:100%;height:1.3px;transform:translate(-50%,-50%)}
+.sicon--ready .sicon__spark::after{width:1.3px;height:100%;transform:translate(-50%,-50%)}
+.sicon--ready.is-live .sicon__spark{
+  animation:sicon-spark 2.4s var(--ease) infinite}
+@keyframes sicon-spark{
+  0%,42%   {transform:translate(-50%,-50%) scale(0)   rotate(0deg);  opacity:0}
+  56%      {transform:translate(-50%,-50%) scale(1)   rotate(45deg); opacity:1}
+  78%,100% {transform:translate(-50%,-50%) scale(0)   rotate(90deg); opacity:0}
 }
 
 /* ── Delivered: Plate Settle (§5, §12) ──────────────────────────────────
@@ -5562,25 +5659,70 @@ button{font-family:var(--font-body)}
    the drawing rather than by taste: the master already parks the utensils
    about 1% of the icon's width from the plate. What makes the gesture read is
    the hold at each end of the loop, not the distance. */
+/* The setting is a touch larger than Phase 88.1's 24px, which §5 explicitly
+   allows: the utensils now travel across the plate, and the extra 2px is what
+   keeps two crossing silhouettes legible at station size. */
 .sicon--delivered .sicon__setting{
-  position:relative;display:block;width:24px;aspect-ratio:269 / 202}
+  position:relative;display:block;width:26px;aspect-ratio:269 / 202}
 .sicon--delivered .sicon__setting > span{
   position:absolute;inset:0;background:currentColor;
   -webkit-mask:var(--u) center/contain no-repeat;
   mask:var(--u) center/contain no-repeat}
+
+/* READABILITY WHERE THEY CROSS. Plate, fork and knife are all currentColor,
+   so any overlap merges into one blob — that is what capped Phase 88.1's
+   travel at an almost invisible 1.2px. Each utensil now carries a halo in the
+   station's own surface colour, which is invisible against the disc and opens
+   a clean hairline gap wherever it passes over the plate or the other
+   utensil. Two passes, because one is too soft to separate reliably. This is
+   what lets §5's much larger movement stay sleek instead of turning to mush. */
+.sicon--delivered .sicon__fork,
+.sicon--delivered .sicon__knife{
+  filter:drop-shadow(0 0 1.1px var(--station-surface))
+         drop-shadow(0 0 1.1px var(--station-surface))}
+
+/* Each utensil rotates about ITS OWN centroid in the shared box — measured
+   from the master, fork at 9%/45% and knife at 93%/50% — so they pivot where
+   a hand would hold them rather than about the middle of the plate. */
+/* Rotation origins sit at each utensil's own MID-HEIGHT, measured from the
+   master crop: fork centre (9%, 50%), knife centre (92%, 50%). Rotating about
+   the middle tilts each utensil symmetrically, which is what makes the two of
+   them meet in a real X. Phase 88.2's first attempt pivoted the fork low, at
+   45%, and that swung only the tips inward — the pair met near the top of the
+   plate and read as a lambda rather than a crossing. */
+.sicon--delivered .sicon__fork{transform-origin:9% 50%}
+.sicon--delivered .sicon__knife{transform-origin:92% 50%}
 .sicon--delivered.is-live .sicon__fork{
-  animation:sicon-fork 2.6s var(--ease) infinite}
+  animation:sicon-fork 2.8s var(--ease) infinite}
 .sicon--delivered.is-live .sicon__knife{
-  animation:sicon-knife 2.6s var(--ease) .1s infinite}
+  animation:sicon-knife 2.8s var(--ease) .08s infinite}
+
+/* Both travel 36% of the box — fork right, knife left — which carries them
+   from beside the plate to over its centre, and each leans 17 degrees the
+   opposite way so they finish crossed in an X. They hold there briefly
+   (46%-60%) and return. 17 degrees is a lean, not a spin: §5 rules out
+   extreme rotation, and anything steeper starts to look like cutlery being
+   thrown at the plate. The 3% vertical offsets separate the two crossing
+   bodies so the X has a legible over/under. The PLATE never moves. */
+/* Each utensil travels ~42% of the box — far enough to put BOTH of them over
+   the plate centre rather than merely leaning toward it — and leans 20 degrees
+   the opposite way, so they finish genuinely crossed. They hold there from 46%
+   to 60% and return.
+
+   These numbers were chosen by rendering four candidates side by side at 150px
+   and comparing: 36%/17 and 40%/15 both left the pair meeting near the top of
+   the plate (a lambda), and 42%/13 left them almost parallel. Only 42%/20
+   produced a legible X. 20 degrees is still a lean rather than a spin, which
+   is the line §5 draws. */
 @keyframes sicon-fork{
-  0%,10%   {transform:translateX(0)}
-  38%,60%  {transform:translateX(5%)}
-  86%,100% {transform:translateX(0)}
+  0%,8%    {transform:translate(0,0) rotate(0deg)}
+  46%,60%  {transform:translate(42%,0) rotate(20deg)}
+  92%,100% {transform:translate(0,0) rotate(0deg)}
 }
 @keyframes sicon-knife{
-  0%,10%   {transform:translateX(0)}
-  38%,60%  {transform:translateX(-5%)}
-  86%,100% {transform:translateX(0)}
+  0%,8%    {transform:translate(0,0) rotate(0deg)}
+  46%,60%  {transform:translate(-41%,0) rotate(-20deg)}
+  92%,100% {transform:translate(0,0) rotate(0deg)}
 }
 
 /* ══ 5. Main Timer (§7) ══════════════════════════════════════════════════ */
@@ -5597,6 +5739,12 @@ button{font-family:var(--font-body)}
   font-size:clamp(30px,8.4vw,38px);font-weight:700;
   color:var(--text-1);margin:10px 0 0;line-height:1.1;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+/* §10 — MM:SS. tabular figures are what stop the whole line twitching every
+   second as digit widths change, and the LTR isolation keeps the clock
+   reading left-to-right inside Arabic copy (§16). */
+.otimer__value--count{
+  direction:ltr;unicode-bidi:isolate;
+  font-variant-numeric:tabular-nums}
 /* §10 — the delayed message is a sentence, not a number, so it takes a
    sentence's size. Still no red, no warning tint, no status colour. */
 .otimer--overdue .otimer__value{
@@ -5618,7 +5766,7 @@ button{font-family:var(--font-body)}
    ═══════════════════════════════════════════════════════════════════════ */
 
 .btm{position:relative;display:block;height:100%;aspect-ratio:495 / 888}
-.btm__body,.btm__hand,.btm__energy,.btm__glow{position:absolute;inset:0}
+.btm__body,.btm__hand,.btm__energy,.btm__glow,.btm__front{position:absolute;inset:0}
 
 .btm__body,.btm__energy,.btm__glow{
   -webkit-mask:var(--btm-body) center/contain no-repeat;
@@ -5731,6 +5879,26 @@ button{font-family:var(--font-body)}
   75%     {opacity:.55}
   96%,100%{opacity:0}
 }
+
+/* Phase 88.2 §1 — the interlock's FOREGROUND stroke, painted over the energy
+   in exactly the body's colour.
+
+   The mark's circles interlock rather than touch: at 3x, one ribbon runs
+   unbroken from lower-left to upper-right and the other is visibly CUT into
+   two stubs by it. The spark travels the cut one, so it should vanish behind
+   the ribbon crossing in front — and until now it slid over the top of
+   everything, which is what made it look painted on.
+
+   The mask was derived from the master, not drawn: the front ribbon's centre
+   was sampled row by row where the two strokes are cleanly separated, then
+   interpolated across the merge zone and intersected with the artwork's own
+   alpha. Because this layer is --brand-mark, identical to the body under it,
+   it is invisible at every other moment — the only thing it ever shows is the
+   spark disappearing and coming back out. */
+.btm__front{
+  -webkit-mask:var(--btm-front) center/contain no-repeat;
+  mask:var(--btm-front) center/contain no-repeat;
+  background:var(--brand-mark)}
 
 /* §10/§11/§12 — settled. No animation class is applied at all in this
    state, so the mark is genuinely still rather than animating slowly; the
@@ -5868,15 +6036,20 @@ button{font-family:var(--font-body)}
      those layers, and makes the intent legible on its own. */
   .btm__spark{animation:none!important}
   .btm__hand{animation:none!important}
+  /* §17 — every looping station motion is switched OFF and each icon is left
+     in its correct resting state: the receipt unscanned, the toque at rest,
+     the tray down, the utensils at their normal places beside the plate. No
+     information is carried by motion alone, so nothing is lost.
+
+     The COUNTDOWN is deliberately not listed. It is functional information
+     rather than decoration, so it keeps updating — reduced motion asks for
+     less movement, not for a clock that stops. */
   .sicon__scan,
-  .sicon__steam,
-  .sicon__gleam{display:none}
-  /* §9 — every looping station motion is switched OFF, and each icon is left
-     in its correct resting state: the lid down, the utensils at their normal
-     places beside the plate. No information is carried by the motion alone,
-     so nothing is lost. */
+  .sicon__spark{display:none}
+  .sicon--preparing.is-live > svg,
   .sicon--ready.is-live svg > path:nth-of-type(1),
   .sicon--ready.is-live svg > path:nth-of-type(2),
+  .sicon--ready.is-live svg > path:nth-of-type(3),
   .sicon--delivered.is-live .sicon__fork,
   .sicon--delivered.is-live .sicon__knife{animation:none!important}
   .confirm__mark{animation:none!important}

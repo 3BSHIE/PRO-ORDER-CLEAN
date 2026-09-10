@@ -1,66 +1,64 @@
 import { useEffect, useState } from "react";
 import BrandTimerMark from "./BrandTimerMark.jsx";
-import { getTimerState, TIMER_MODE } from "../../../lib/orderTimer.js";
+import { getTimerState, formatCountdown, TIMER_MODE } from "../../../lib/orderTimer.js";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 
 /**
- * OrderTimer — Phase 88 (§7, §10, §11, §12).
- *
- * The Main Timer: an open section on the page, not a card.
+ * OrderTimer — Phase 88 (§7, §10–§12), reworked into a live countdown in
+ * Phase 88.2 (§10, §11, §20).
  *
  * ══ WHY THERE IS NO BOX ══════════════════════════════════════════════════
- *   The old PrepTimeEstimate was a bordered, tinted pill, and §7 asks for the
- *   opposite on purpose. A tinted box sitting under the Status Route reads as
- *   a second status — which is exactly what happened in practice: a blue
- *   "Received" badge above a coloured estimate pill made the estimate look
- *   like part of the status system. Removing the container is what makes the
- *   separation legible; there is nothing for the eye to group it with.
+ *   The old estimate was a bordered, tinted pill, and §7 asked for the
+ *   opposite on purpose. A tinted box under the Status Route reads as a
+ *   second status — which is exactly what happened in practice. Removing the
+ *   container is what makes the separation legible; there is nothing for the
+ *   eye to group it with. No semantic colour, in any mode: this is the
+ *   restaurant's own Primary family throughout (§13, preserved).
  *
- *   And no semantic colour, in any mode. The timer never turns amber for
- *   Preparing or green for Ready (§7). It is the restaurant's own Primary
- *   family throughout, which is also why it cannot be mistaken for a status.
+ * ══ THE COUNTDOWN IS DERIVED, NEVER STORED (§10) ═════════════════════════
+ *   Nothing here decrements. Every render recomputes the remainder from the
+ *   order's frozen createdAt + estimatedPrepMinutes against the current
+ *   clock, so the number is a pure function of (order, now).
  *
- * ══ HIERARCHY (§7) ═══════════════════════════════════════════════════════
- *   the animated mark, then the large remaining time, then a small label.
- *   The number sits BELOW the mark rather than inside its circles — §7 rules
- *   that out, and it is right to: the artwork's upper circle is a dial with
- *   its own hand, and putting "12 min" in it would produce a clock face
- *   showing two different times.
+ *   That is what makes it survive the guest leaving. Open the Menu, come back
+ *   two minutes later, refresh the tab, restore it from the background — the
+ *   timer shows the truth, because there was never any running state to lose
+ *   or to drift. `now` below only controls how often the display REFRESHES;
+ *   it can never itself become the source of the value.
  *
- * ══ THE FOUR MODES ═══════════════════════════════════════════════════════
- *   ACTIVE   counting down; mark animates
- *   OVERDUE  the estimate ran out and the order is still in the kitchen.
- *            "Taking a little longer", motion settles, nothing turns red and
- *            the status route is not touched (§10)
- *   SETTLED  Ready or Delivered. The countdown is over by status, never by
- *            arithmetic; the mark goes still and the number gives way to the
- *            status sentence above it (§11, §12)
- *   NONE     canceled, or an order with no estimate — renders nothing
+ * ══ TICKING, AND WHY IT STOPS ════════════════════════════════════════════
+ *   One second while the countdown is genuinely running, and no interval at
+ *   all in any other mode — a delivered order sitting open on a table must
+ *   not hold a timer forever.
+ *
+ * ══ SCREEN READERS (§20) ═════════════════════════════════════════════════
+ *   The MM:SS value is deliberately NOT in a live region. It changes every
+ *   second, and announcing it every second would bury everything else on the
+ *   screen. The section carries an accessible name so the value can be read
+ *   on demand, and role="status" is reserved for the two things worth
+ *   interrupting for: the order taking longer than estimated, and nothing
+ *   else.
  */
 export default function OrderTimer({ order }) {
   const { t } = useLanguage();
 
-  /* A tick, not a clock: everything is recomputed from order.createdAt on
-     each pass, so this only decides HOW OFTEN the display refreshes and can
-     never itself drift. 5s is well under the one-minute display granularity
-     and keeps the ACTIVE -> OVERDUE handover prompt without a per-second
-     interval running behind a screen the guest may leave open for an hour. */
   const [now, setNow] = useState(() => Date.now());
   const state = getTimerState(order, now);
   const isActive = state.mode === TIMER_MODE.ACTIVE;
 
   useEffect(() => {
-    if (!isActive) return undefined;      // nothing left to count
-    const id = setInterval(() => setNow(Date.now()), 5000);
+    if (!isActive) return undefined;   // nothing left to count
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [isActive]);
 
   if (state.mode === TIMER_MODE.NONE) return null;
 
-  /* Ready/Delivered: the status sentence above already says what is happening
-     and §11/§12 both say the timer stops being a prep countdown. Rendering a
-     stalled number next to "your order has been delivered" would be noise, so
-     the section steps aside entirely rather than lingering as decoration. */
+  /* Ready/Delivered: the status sentence above already says what is happening,
+     and §11 is explicit that the countdown stops being a preparation timer the
+     moment the STATUS says so — never because the arithmetic ran out. A
+     stalled number beside "your order has been delivered" is noise, so the
+     section steps aside rather than lingering as decoration. */
   if (state.mode === TIMER_MODE.SETTLED) return null;
 
   const overdue = state.mode === TIMER_MODE.OVERDUE;
@@ -74,17 +72,19 @@ export default function OrderTimer({ order }) {
         <BrandTimerMark active={!overdue} settled={overdue} />
       </span>
 
-      {/* role="status" so a change is announced once, politely. The mark
-          itself is aria-hidden, so what reaches a screen reader is the two
-          lines of text and nothing about the animation (§19). */}
-      <p className="otimer__value" role="status">
-        {overdue
-          ? t("track.takingLonger", "Taking a little longer")
-          /* {n} is substituted rather than concatenated so Arabic can place
-             the number where it reads naturally instead of being forced into
-             English word order. */
-          : t("track.minutesRemaining", "{n} min").replace("{n}", state.remainingMinutes)}
-      </p>
+      {overdue ? (
+        /* The one thing worth announcing: the estimate has passed and the
+           order is still in the kitchen. Polite, once. */
+        <p className="otimer__value otimer__value--msg" role="status">
+          {t("track.takingLonger", "Taking a little longer")}
+        </p>
+      ) : (
+        /* No live region — see the note above. tabular-nums in the stylesheet
+           stops the digits jittering as they change. */
+        <p className="otimer__value otimer__value--count">
+          {formatCountdown(state.remainingSeconds)}
+        </p>
+      )}
 
       <p className="otimer__label">
         {overdue

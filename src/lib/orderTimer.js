@@ -70,9 +70,31 @@ export function getTimerState(order, now = Date.now()) {
   return {
     mode: TIMER_MODE.ACTIVE,
     remainingMs,
-    /* Rounded UP so the guest sees "1 min" for the whole final minute rather
-       than "0 min" for sixty seconds while food is still coming. */
+    /* Phase 88.2 §10 — the display is a real MM:SS countdown now, so what the
+       timer needs is whole SECONDS. Rounded up for the same reason the minute
+       figure was: the guest should see 00:01 for the whole final second, not
+       00:00 while food is still coming. */
+    remainingSeconds: Math.ceil(remainingMs / 1000),
     remainingMinutes: Math.ceil(remainingMs / 60000),
     endsAt,
   };
+}
+
+/**
+ * Phase 88.2 §10 — MM:SS for display.
+ *
+ * Takes seconds rather than a timestamp on purpose: every caller has already
+ * derived the remainder from the order's own timestamps through
+ * getTimerState(), and passing the derived value keeps this a pure formatter
+ * with nothing of its own to get out of step.
+ *
+ * Minutes are NOT clamped to two digits — an estimate over an hour renders as
+ * "72:30" rather than silently wrapping to "12:30". That is a promise made to
+ * a guest; it should never quietly become a smaller number.
+ */
+export function formatCountdown(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const mm = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }

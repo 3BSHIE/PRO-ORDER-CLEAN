@@ -12,6 +12,7 @@ import OrderFeedback     from "./components/OrderFeedback.jsx";
 import StatusRoute        from "./components/StatusRoute.jsx";
 import OrderTimer         from "./components/OrderTimer.jsx";
 import OrderDetailsPanel  from "./components/OrderDetailsPanel.jsx";
+import DevStatusPreview   from "./components/DevStatusPreview.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
@@ -209,6 +210,17 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
      exists, which is exactly the leak this guard closes. */
   const visibleOrder = orderBelongsToSession(order, session) ? order : null;
 
+  /* Phase 88.2 §9 — development-only status preview.
+     Held in component state and applied by SHALLOW COPY at render time, so
+     the object in storage is never touched and the 4s poll keeps returning
+     the real order underneath. Reset drops the override and the next paint
+     shows the truth again. */
+  const [previewStatus, setPreviewStatus] = useState(null);
+  const shownOrder =
+    visibleOrder && previewStatus
+      ? { ...visibleOrder, status: previewStatus }
+      : visibleOrder;
+
   return (
     <>
       <Topbar
@@ -226,9 +238,20 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
         }
       />
       <main className="container">
-        {visibleOrder ? (
+        {/* Stripped from production builds: import.meta.env.DEV is replaced
+            with the literal false at build time and the branch is dropped. */}
+        {import.meta.env.DEV && visibleOrder && (
+          <DevStatusPreview
+            actualStatus={visibleOrder.status}
+            previewStatus={previewStatus}
+            onPreview={setPreviewStatus}
+            onReset={() => setPreviewStatus(null)}
+          />
+        )}
+
+        {shownOrder ? (
           <TrackingView
-            order={visibleOrder}
+            order={shownOrder}
             restaurantSlug={restaurantSlug}
             table={table}
             session={session}
