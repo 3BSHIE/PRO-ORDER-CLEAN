@@ -519,8 +519,18 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
      order with pending payment still shows this action. */
   const canMarkAsPaid = order.paymentStatus === "pending_at_table" && !isCanceled;
 
+  /* §10/§11 — recomputed on every render, which the screen's existing 4s
+     refresh already drives. */
+  const mins = elapsedMinutes(order.createdAt);
+  const elapsedLabel = formatElapsed(t, mins);
+  const delayed = isDelayed(order, mins);
+
   return (
-    <Card className={`ad-live-card ${isNew ? "ad-live-card--new" : ""}`}>
+    <Card
+      className={`ad-live-card ${isNew ? "ad-live-card--new" : ""} ${
+        delayed ? "ad-live-card--delayed" : ""
+      }`}
+    >
       <button
         type="button"
         className="ad-live-card__summary"
@@ -561,6 +571,20 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
                 : t("payment.pendingShort", "Pending")}
             </span>
           </div>
+          {/* §10 — elapsed leads, because that is the operational question.
+              §11 — when the estimate has been passed the figure takes the
+              amber treatment and gains an explicit "Delayed" word, so the
+              state never rests on colour alone (§28). */}
+          <span className={`ad-live-card__elapsed ${delayed ? "ad-live-card__elapsed--delayed" : ""}`}>
+            {elapsedLabel && (
+              <span className="ad-live-card__elapsed-value">{elapsedLabel}</span>
+            )}
+            {delayed && (
+              <span className="ad-live-card__delayed-tag">
+                {t("kitchen.delayed", "Delayed")}
+              </span>
+            )}
+          </span>
           <span className="ad-live-card__time">{formatTimestamp(order.createdAt)}</span>
         </div>
 
@@ -792,6 +816,56 @@ function EmptyOrdersView({ filterKey, filterLabel, isAll }) {
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+/* Phase 91 §10 — how long ago the order was placed.
+   The card previously showed only an absolute wall-clock stamp ("Sep 11,
+   10:09 PM"). On an operational board that is the wrong unit: nobody is asked
+   "when was this placed", they are asked "how long has this table been
+   waiting". Both are shown now — elapsed leads, the clock time stays as the
+   quieter secondary reference.
+
+   No new timer architecture (§10): the screen already re-reads orders every
+   4 seconds, which re-renders this at a granularity far finer than the
+   minutes it displays. */
+function elapsedMinutes(iso, now = Date.now()) {
+  const started = Date.parse(iso);
+  if (!Number.isFinite(started)) return null;
+  return Math.max(0, Math.floor((now - started) / 60000));
+}
+
+/* Under an hour reads as plain minutes; past that, hours and minutes, so a
+   forgotten ticket does not render as "184 min". */
+function formatElapsed(t, mins) {
+  if (mins === null) return null;
+  if (mins < 60) return t("admin.elapsedMinutes", "{n} min").replace("{n}", mins);
+  return t("admin.elapsedHours", "{h}h {m}m")
+    .replace("{h}", Math.floor(mins / 60))
+    .replace("{m}", mins % 60);
+}
+
+/* Phase 91 §11 — is this order running late?
+   Deliberately the SAME question the customer's timer asks: has the estimate
+   frozen on the order at checkout been passed while the kitchen still has it.
+   Reusing that definition means the guest's "Taking a little longer" and the
+   operator's "Delayed" can never disagree about the same ticket.
+
+   Only an order still in the kitchen can be late — a ready, delivered or
+   canceled one has stopped waiting — and an order with no estimate (placed
+   before Phase 26) is never labelled, because there is nothing to be late
+   against and inventing a threshold would be fabricating a promise.
+
+   The Kitchen board keeps its own three-tier model (normal / delayed /
+   critical, Phase 71) untouched: §11 asks for that logic to stay separate,
+   and Admin only needs the one restrained amber step. */
+const IN_KITCHEN_STATUSES = ["received", "preparing"];
+function isDelayed(order, mins) {
+  if (mins === null) return false;
+  if (!IN_KITCHEN_STATUSES.includes(order.status)) return false;
+  const estimate = order.estimatedPrepMinutes;
+  if (!Number.isInteger(estimate) || estimate <= 0) return false;
+  return mins > estimate;
+}
+
 function formatTimestamp(iso) {
   try {
     return new Date(iso).toLocaleString(undefined, {

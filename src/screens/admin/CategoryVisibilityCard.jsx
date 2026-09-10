@@ -124,7 +124,7 @@ export default function CategoryVisibilityCard({ restaurant }) {
                   its window, the reason is spelled out so nobody hunts for a
                   broken switch. */}
               {state.visible ? (
-                <Badge tone="ready" dot>{t("admin.stateAvailableNow", "Available Now")}</Badge>
+                <Badge tone="ready" dot>{t("admin.stateAvailableShort", "Available")}</Badge>
               ) : state.reason === "schedule" ? (
                 <Badge tone="preparing" dot>{t("admin.stateOutsideHours", "Outside hours")}</Badge>
               ) : state.reason === "inactive" ? (

@@ -3714,7 +3714,15 @@ button{font-family:var(--font-body)}
 .ad-ops{
   display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:30px}
 @media(min-width:900px){
-  .ad-ops{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+  /* Phase 91 §5 — an ASYMMETRIC split, not 50/50.
+     The two cards do not want the same width: Busy Mode is a title, a toggle
+     and two small number inputs, while Category Availability has to fit as
+     many chips per line as it can. An even split left the widest chip at
+     293px in a 572px column — eleven pixels short of pairing, so every
+     category still took its own line and the card read as the column §5 was
+     trying to get rid of. Giving categories the larger share fits two per
+     line while Busy Mode keeps ample room for its controls. */
+  .ad-ops{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:start}
 }
 /* Both cards were previously wrapped in their own spacing divs; inside the
    grid they manage their own height. */
@@ -3871,9 +3879,13 @@ button{font-family:var(--font-body)}
 .cv-card__summary-dot{color:var(--text-3);opacity:.6}
 
 @media(min-width:900px){
-  /* Only when the two cards actually sit side by side. On a stacked mobile
-     layout the list is free to run its natural length. */
-  .ad-ops .cv-list{max-height:172px;overflow-y:auto;scrollbar-width:thin}
+  /* Phase 91 §5/§6 — the max-height:172px + overflow-y:auto that used to sit
+     here is GONE. It turned the Dashboard snapshot into a scroll region: a
+     restaurant with more than a handful of categories had the rest hidden
+     behind an inner scrollbar, so the one thing this card exists to give —
+     the whole category position at a glance — was the thing it withheld.
+     The chips wrap instead and the card grows; the page scrolls, not the
+     card. */
   .ad-ops .cv-row{padding-top:9px;padding-bottom:9px}
 }
 
@@ -4241,7 +4253,21 @@ button{font-family:var(--font-body)}
    Operations section still has exactly two children and the rule never
    matches. No :has(), and no count passed down from React. */
 @media(min-width:900px){
-  .ad-ops > *:last-child:nth-child(3){grid-column:1 / -1}
+  /* Phase 91 §3 — the span moved from the LAST card to the FIRST.
+
+     Phase 79 spanned Category Availability because it was "a list rather than
+     a compact control", which was true of a tall column of full-width rows.
+     It is a wrap of chips now, so that premise is gone — and §3 names Busy
+     Mode and Category Availability as the pair that belongs side by side.
+     Accepting Orders takes the full-width band above them instead, which
+     suits it: it is the outer question (is the venue taking orders at all)
+     and its three mode buttons have room to breathe across the row.
+
+     Same :nth-child guard, same reason: AcceptingOrdersCard renders nothing
+     for Cashier, so that role still has exactly two children and neither rule
+     matches. nth-last-child(3) on the first child is the mirror of the old
+     last-child:nth-child(3). */
+  .ad-ops > *:first-child:nth-last-child(3){grid-column:1 / -1}
 }
 
 /* ══ Phase 79.1 — per-weekday Working Hours editor ════════════════════════
@@ -6360,4 +6386,82 @@ button{font-family:var(--font-body)}
   .menu-unavailable.anim-rise,
   .closed-notice.anim-rise,
   .eb-fallback{animation:none!important}
+}
+
+/* ══ Phase 91 — Admin operations ═════════════════════════════════════════
+
+   The Dashboard's KPI grid (2x2, 4-up at 1024) and the Operations two-column
+   layout already matched the brief from Phase 75, so they are untouched. What
+   changes here is the category snapshot's shape, and the Live Orders board
+   finally answering "how long has this table been waiting".
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── §5/§6 — Category Availability becomes a wrap of chips ───────────────
+   It was a flex COLUMN of full-width rows: every category, however short its
+   name, stretched the whole card, so a restaurant with a dozen categories got
+   a tall panel that dominated a Dashboard meant to be a glance. §5 asks for a
+   compact wrap where each category takes only the width it needs.
+
+   The row's contents are deliberately unchanged — emoji, name, schedule, the
+   effective-state badge and the manual toggle all stay exactly as they were.
+   Phase 51/54 fixed real accessibility bugs in the split between the MANUAL
+   switch and the EFFECTIVE customer-facing state (a category can be switched
+   on yet hidden by its schedule), and collapsing those two into one chip to
+   save width would have thrown that away. Only the geometry moved.
+
+   A desktop-only max-height:172px + overflow-y:auto DID exist on this list
+   (added when it was a column) and has been removed above — that was a real
+   internal scroll region hiding categories behind an inner scrollbar. With it
+   gone the card simply grows and the PAGE scrolls, which is what §6 asks. */
+.cv-list{
+  display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;
+  align-items:flex-start}
+.cv-row{
+  /* content-width, not a stretched row */
+  flex:0 1 auto;max-width:100%;min-width:0;
+  /* tighter than the old full-width row needed: at chip scale 12px of gap and
+     side padding was buying nothing but width, and width is exactly what
+     decides how many categories fit on a line (§5). */
+  gap:9px;padding:9px 11px}
+/* The name no longer needs to absorb leftover space, so it stops being a
+   flex:1 spacer and lets the chip shrink to its text. */
+.cv-row__info{flex:0 1 auto;min-width:0}
+
+/* ── §10/§11 — elapsed time on the Live Orders board ─────────────────────
+   The elapsed figure is the operational unit and leads; the absolute clock
+   time stays underneath it as the quieter reference it always was. */
+.ad-live-card__elapsed{
+  display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;
+  justify-content:flex-end}
+.ad-live-card__elapsed-value{
+  font-size:13px;font-weight:700;color:var(--text-1);
+  font-variant-numeric:tabular-nums;
+  /* a bare numeric token keeps its own direction inside Arabic (§29) */
+  direction:ltr;unicode-bidi:isolate}
+
+/* §11 — amber, and ONLY amber. Red stays reserved for destructive and error
+   semantics across Admin, so a late ticket must not borrow it; the Kitchen
+   board keeps its own separate critical tier. The whole card is not flooded
+   either — a hairline edge and the figure carry it. */
+.ad-live-card__elapsed--delayed .ad-live-card__elapsed-value{color:var(--preparing)}
+.ad-live-card__delayed-tag{
+  font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 6px;border-radius:999px;
+  color:var(--preparing);
+  background:var(--preparing-soft);
+  border:1px solid color-mix(in srgb, var(--preparing) 32%, transparent)}
+
+/* A restrained edge so a delayed ticket is findable while scanning, without
+   the card itself changing colour. inset-inline-start mirrors in Arabic. */
+.ad-live-card--delayed{position:relative;overflow:hidden}
+.ad-live-card--delayed::before{
+  content:"";position:absolute;inset-block:0;inset-inline-start:0;
+  width:2px;background:var(--preparing);opacity:.7}
+
+/* ── §15 — narrow Admin widths ───────────────────────────────────────────
+   The summary's middle column carries the badges and now the elapsed figure
+   too; on a phone-width admin session it gets its own line rather than
+   squeezing the order id. */
+@media(max-width:560px){
+  .ad-live-card__elapsed{justify-content:flex-start}
 }

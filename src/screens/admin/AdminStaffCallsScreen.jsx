@@ -34,7 +34,24 @@ const RESOLVED_LIMIT = 10;
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, onNavigate }) {
-  const { calls, openCalls } = useStaffCalls(restaurant.slug);
+  const { calls, openCalls: openCallsRaw } = useStaffCalls(restaurant.slug);
+
+  /* Phase 91 §17 — OLDEST first.
+     getStaffCalls sorts the whole list newest-first, which is right for the
+     resolved trail below (the most recently handled call at the top) but
+     exactly backwards for a queue: it put the table that had been waiting
+     longest at the BOTTOM, under every call that arrived after it. The
+     person who has waited longest is the most urgent, so the open list is
+     re-sorted ascending here.
+
+     Done at the display site rather than in useStaffCalls on purpose: the
+     shared hook also feeds the layout's new-call alert, which tracks calls by
+     id, and the resolved trail below still wants newest-first. Only this one
+     list needed reversing. */
+  const openCalls = useMemo(
+    () => [...openCallsRaw].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    [openCallsRaw]
+  );
   const { t } = useLanguage();
 
   const [resolvingId, setResolvingId] = useState(null);

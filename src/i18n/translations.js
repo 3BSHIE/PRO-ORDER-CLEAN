@@ -225,6 +225,11 @@ export const translations = {
       restaurantNotFoundMsg: "This admin link doesn't match a known restaurant.",
       overview: "Overview",
       liveOrders: "Live Orders",
+      /* Phase 91 §10 — elapsed time on the Live Orders board. {n}/{h}/{m} are
+         substituted rather than concatenated so Arabic can place the number
+         where it reads naturally. */
+      elapsedMinutes: "{n} min",
+      elapsedHours: "{h}h {m}m",
       categories: "Categories",
       tablesAndQr: "Tables & QR",
       soon: "Soon",
@@ -487,6 +492,11 @@ export const translations = {
       /* Effective customer-facing outcome, one badge per row. These replace
          a pair of badges where "Hidden" meant two different things. */
       stateAvailableNow: "Available Now",
+      /* Phase 91 §5 — the compact Dashboard snapshot sits INSIDE a card titled
+         "Available Now", so repeating those two words on every chip adds no
+         meaning and costs ~40px of chip width each. The full label stays on
+         the Categories management page, which has no such heading. */
+      stateAvailableShort: "Available",
       stateUnavailable: "Unavailable",
       stateOutsideHours: "Outside hours",
       stateOffMenu: "Off Menu",
@@ -1034,6 +1044,9 @@ export const translations = {
       restaurantNotFoundMsg: "رابط الإدارة هذا لا يطابق مطعماً معروفاً.",
       overview: "نظرة عامة",
       liveOrders: "الطلبات المباشرة",
+      /* Phase 91 §10 */
+      elapsedMinutes: "{n} دقيقة",
+      elapsedHours: "{h} س {m} د",
       categories: "الفئات",
       tablesAndQr: "الطاولات ورموز QR",
       soon: "قريباً",
@@ -1267,6 +1280,8 @@ export const translations = {
       scheduleExplainer: "يمكن أن يجعله غير متاح تلقائيًا في أوقات محددة.",
 
       stateAvailableNow: "متاح حاليًا",
+      /* Phase 91 §5 */
+      stateAvailableShort: "متاح",
       stateUnavailable: "غير متاح",
       stateOutsideHours: "خارج ساعات التوفر",
       stateOffMenu: "خارج المنيو",

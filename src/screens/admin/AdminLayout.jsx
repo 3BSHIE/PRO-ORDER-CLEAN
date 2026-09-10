@@ -29,8 +29,12 @@ export const ADMIN_NAV_ITEMS = [
   { key: "staffCalls", label: "Staff Calls", icon: BellRing,        active: true },
   { key: "menu",       label: "Menu",        icon: UtensilsCrossed, active: true },
   { key: "categories", label: "Categories",  icon: Tags,            active: true },
-  { key: "tables",     label: "Tables & QR", icon: QrCode,          active: true },
+  /* Phase 91 §22 — Feedback and Tables & QR were the other way round. The
+     approved order puts Tables & QR immediately before Settings: both are
+     setup surfaces a manager visits rarely and together, while Feedback is
+     something they read alongside the operational pages above it. */
   { key: "feedback",   label: "Feedback",    icon: MessageSquareHeart, active: true },
+  { key: "tables",     label: "Tables & QR", icon: QrCode,          active: true },
   { key: "settings",   label: "Settings",    icon: Settings,        active: true },
 ];
 /* Phase 21 architecture review — Menu & Categories management are
