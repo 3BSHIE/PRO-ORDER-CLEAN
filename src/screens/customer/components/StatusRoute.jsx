@@ -86,10 +86,10 @@ export default function StatusRoute({ currentStatus }) {
     if (prev === currentStatus) return;
 
     setAdvanced(true);
-    /* Covers the 340ms path sweep plus the 300ms station resize with a
-       little slack; cleared so a later advance can play again and this can
-       never become a loop. */
-    const id = setTimeout(() => setAdvanced(false), 460);
+    /* Covers the 460ms transition the stations and the connector now share,
+       plus a little slack; cleared so a later advance can play again and this
+       can never become a loop. */
+    const id = setTimeout(() => setAdvanced(false), 620);
     return () => clearTimeout(id);
   }, [currentStatus]);
 

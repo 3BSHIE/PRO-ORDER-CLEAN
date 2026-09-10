@@ -2225,11 +2225,24 @@ button{font-family:var(--font-body)}
    Scoped to .track__call-staff on purpose: .call-staff--prominent is also
    used by the checkout sheet's no-payment-methods state, and Checkout is out
    of scope this phase. */
+/* Phase 88.3 §5 — same neutral treatment, smaller footprint. It measured 48px
+   tall with 26px of side padding, which made a help action the biggest control
+   on the screen. min-height pins it at 45px — comfortably over the 44px touch
+   minimum — and the padding comes in to 20px, so it reads as available rather
+   than as the thing to press. Still centred, still the same icon and label,
+   still the same behaviour and confirmed state. */
 .track__call-staff .call-staff--prominent{
   color:var(--text-1);
   background:var(--surface-2);
   border:1px solid var(--border-strong);
-  box-shadow:none}
+  box-shadow:none;
+  /* 44px, not 45: the customer surface already carries a shared touch-target
+     floor (.customer-theme .call-staff and friends) at min-height:44px, and
+     that selector ties this one on specificity while sitting later in the
+     file. Declaring 45 here would simply never take effect. 44px is the
+     approved floor and the bottom of the 44-46px target, so the rule now
+     states what actually renders instead of an intention that loses. */
+  min-height:44px;padding:0 20px;font-size:14px}
 .track__call-staff .call-staff--prominent:hover{
   color:var(--text-1);
   background:var(--surface-3);
@@ -5354,11 +5367,29 @@ button{font-family:var(--font-body)}
    above so it never crowds the timer, and below so it never crowds the
    details panel. */
 .track__call-staff{display:flex;justify-content:center;margin:26px 0 24px}
-.track__call-staff .call-staff--prominent{min-height:48px}
+/* Phase 88.3 §5 — the 48px floor that used to live here was silently
+   beating the sizing rule up in the Call Staff block (same specificity, later
+   in the file), so the button stayed 48px however that rule was edited. The
+   height now has ONE source: see .track__call-staff .call-staff--prominent. */
 
 /* ══ 3. Status Route (§4, §5) ════════════════════════════════════════════ */
 
-.sroute{position:relative;margin:4px 0 22px;padding:0}
+/* Phase 88.3 §1 — the structural transition, defined ONCE here and inherited
+   by both the discs and the connector fill, because §1 asks that the previous
+   station settling, the sweep and the new station arriving read as a single
+   movement. Two separate durations is exactly how they stop feeling like one.
+
+   300/340ms -> 460ms: long enough to actually watch the progression, still
+   inside the range where a UI feels like it answered you.
+
+   The easing is gentler at both ends than the app's default --ease
+   (cubic-bezier(.2,.8,.2,1)), which front-loads almost all of its motion and
+   at 460ms would look like a jump followed by a long coast. Every control
+   point stays inside 0..1, so there is no overshoot: no spring, no bounce. */
+.sroute{
+  position:relative;margin:4px 0 22px;padding:0;
+  --route-dur:.46s;
+  --ease-route:cubic-bezier(.34,.68,.24,1)}
 
 /* The drawn line, stretched to the row width by preserveAspectRatio="none".
    That non-uniform stretch is exactly why the paths below must NOT use
@@ -5407,11 +5438,10 @@ button{font-family:var(--font-body)}
 .sroute__path--fill{
   stroke:var(--route-tone,var(--gold));
   stroke-dasharray:300 600;
-  /* Phase 88.2 §8 — 520ms -> 340ms. The sweep now finishes inside the same
-     window the stations use to resize (300ms), so an advance reads as ONE
-     movement rather than the discs settling and the line still travelling
-     after them. Still a sweep, not a jump. */
-  transition:stroke-dashoffset .34s var(--ease)}
+  /* Phase 88.3 §1 — shares the stations' exact duration and easing, so the
+     line and the discs move as one thing rather than two things that happen
+     to overlap. */
+  transition:stroke-dashoffset var(--route-dur) var(--ease-route)}
 
 /* Four equal columns put the discs at 12.5/37.5/62.5/87.5% of the width,
    which is exactly where the path's four anchor points sit. The 52px first
@@ -5441,9 +5471,12 @@ button{font-family:var(--font-body)}
   background:var(--station-surface);border:1px solid var(--border);
   color:var(--text-3);
   width:34px;height:34px;
-  transition:width .3s var(--ease),height .3s var(--ease),
-    background .3s var(--ease),border-color .3s var(--ease),
-    color .3s var(--ease),box-shadow .3s var(--ease)}
+  transition:width var(--route-dur) var(--ease-route),
+    height var(--route-dur) var(--ease-route),
+    background var(--route-dur) var(--ease-route),
+    border-color var(--route-dur) var(--ease-route),
+    color var(--route-dur) var(--ease-route),
+    box-shadow var(--route-dur) var(--ease-route)}
 
 /* Semantic tone per station, consumed only by the CURRENT state below. */
 .sroute__station--received {--tone:var(--received); --tone-soft:var(--received-soft)}
@@ -5460,13 +5493,24 @@ button{font-family:var(--font-body)}
    page as a tint, so it reads the same but hides what is behind it. The outer
    ring stays translucent on purpose: it is a halo around the station, not the
    station's face, and the route may show through it. */
+/* CURRENT — largest, its semantic tone, a soft ring, motion running. The
+   surface is the tone mixed INTO an opaque base rather than laid over the page
+   as a tint, so it reads the same but hides what is behind it. The outer ring
+   stays translucent on purpose: it is a halo around the station, not the
+   station's face, and the route may show through it.
+
+   Phase 88.3 §2 — 46px -> 52px (+13%), with the halo widened 5px -> 6px so it
+   keeps its proportion to the disc. Against 32px completed stations the live
+   one is now 1.63x their diameter, which is what makes "your order is HERE"
+   land at a glance. Sizes still clear their columns easily: at 320px a column
+   is ~72px and the disc plus halo is 64px. */
 .sroute__station--current .sroute__disc{
   --station-surface:color-mix(in srgb, var(--tone) 15%, var(--surface-1));
-  width:46px;height:46px;
+  width:52px;height:52px;
   background:var(--station-surface);
   border-color:var(--tone);border-width:1.5px;
   color:var(--tone);
-  box-shadow:0 0 0 5px color-mix(in srgb, var(--tone) 9%, transparent)}
+  box-shadow:0 0 0 6px color-mix(in srgb, var(--tone) 9%, transparent)}
 .sroute__station--current .sroute__label{
   color:var(--tone);font-weight:700}
 
@@ -5563,15 +5607,25 @@ button{font-family:var(--font-body)}
    settle right — so it never looks like a mechanical pulse.
 
    No translation anywhere: the icon itself never bounces (§3). */
+/* Phase 88.3 §3 — the same motion, pushed until it actually reads.
+   scaleY 1.05 -> 1.11 and scaleX .985 -> .962, so the crown rises about 1.9px
+   on a 17px glyph while narrowing — volume moving through soft fabric rather
+   than the icon being stretched. The lean grows from 0.9deg to 2.1deg and
+   keeps its uneven rhythm (a bigger lean left, a smaller settle right, a third
+   smaller nudge), which is what stops it reading as a mechanical pulse.
+
+   The origin stays at 50% 82%, down on the band: the base is planted and only
+   the crown moves. Still no translation and no rotation of the whole hat, so
+   the icon never bounces (§3). 2.4s -> 2.3s. */
 .sicon--preparing.is-live > svg{
   transform-origin:50% 82%;
-  animation:sicon-toque 2.4s ease-in-out infinite}
+  animation:sicon-toque 2.3s ease-in-out infinite}
 @keyframes sicon-toque{
-  0%   {transform:scaleY(1)     scaleX(1)    skewX(0deg)}
-  26%  {transform:scaleY(1.05)  scaleX(.985) skewX(-0.9deg)}
-  52%  {transform:scaleY(1.012) scaleX(1.008) skewX(0.7deg)}
-  74%  {transform:scaleY(1.038) scaleX(.994) skewX(-0.35deg)}
-  100% {transform:scaleY(1)     scaleX(1)    skewX(0deg)}
+  0%   {transform:scaleY(1)     scaleX(1)     skewX(0deg)}
+  24%  {transform:scaleY(1.11)  scaleX(.962)  skewX(-2.1deg)}
+  50%  {transform:scaleY(1.02)  scaleX(1.014) skewX(1.4deg)}
+  72%  {transform:scaleY(1.075) scaleX(.985)  skewX(-0.8deg)}
+  100% {transform:scaleY(1)     scaleX(1)     skewX(0deg)}
 }
 
 /* ── Ready: the tray is presented (§4) ──────────────────────────────────
@@ -5714,14 +5768,31 @@ button{font-family:var(--font-body)}
    the plate (a lambda), and 42%/13 left them almost parallel. Only 42%/20
    produced a legible X. 20 degrees is still a lean rather than a spin, which
    is the line §5 draws. */
+/* Phase 88.3 §4 — 42%/20deg -> 48%/34deg.
+
+   88.2 travelled far enough for the pair to touch but leaned too little, so
+   they met high on the plate and still read as a lambda. The extra 6% of
+   travel carries both utensils properly across the plate centre and the extra
+   14 degrees opens a 68-degree included angle, which is what turns an overlap
+   into a legible X.
+
+   Chosen against three alternatives rendered side by side at 150px: 42/20 was
+   the lambda, 46/28 crossed correctly but shallowly, and a variant with a
+   larger glyph gained nothing 48/34 did not already have — so the glyph stays
+   at 26px rather than growing, which §4 prefers. At this pose the tips stay
+   inside the plate ring, so nothing flies off the plate, and 34 degrees is a
+   decisive tilt rather than a spin.
+
+   The hold from 46% to 60% is the brief pause at the strongest pose; the
+   return is the same eased curve, so the loop never snaps back. */
 @keyframes sicon-fork{
   0%,8%    {transform:translate(0,0) rotate(0deg)}
-  46%,60%  {transform:translate(42%,0) rotate(20deg)}
+  46%,60%  {transform:translate(48%,0) rotate(34deg)}
   92%,100% {transform:translate(0,0) rotate(0deg)}
 }
 @keyframes sicon-knife{
   0%,8%    {transform:translate(0,0) rotate(0deg)}
-  46%,60%  {transform:translate(-41%,0) rotate(-20deg)}
+  46%,60%  {transform:translate(-47%,0) rotate(-34deg)}
   92%,100% {transform:translate(0,0) rotate(0deg)}
 }
 
@@ -5996,7 +6067,8 @@ button{font-family:var(--font-body)}
    being truncated. Four stations still fit on 320px. */
 @media(max-width:400px){
   .sroute__label{font-size:10px}
-  .sroute__station--current .sroute__disc{width:42px;height:42px}
+  /* §2 — 42px -> 47px (+12%), the same uplift the wide layout takes. */
+  .sroute__station--current .sroute__disc{width:47px;height:47px}
   .sroute__station--done .sroute__disc{width:30px;height:30px}
   .sroute__station--future .sroute__disc{width:28px;height:28px}
   .track__idline{font-size:12px}
