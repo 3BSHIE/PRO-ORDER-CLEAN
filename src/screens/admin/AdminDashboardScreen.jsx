@@ -424,7 +424,13 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
             return (
               <Card key={order.orderId} className="ad-order">
                 <div className="ad-order__top">
-                  <div>
+                  {/* Phase 91.3 — this wrapper was unclassed, so it took the flex
+                      default min-width:auto and could not shrink below the
+                      min-content width of the customer name inside it. One long
+                      unbreakable name was enough to push the status badge past
+                      the card and the page. It needs a name so the stylesheet
+                      can reach it. */}
+                  <div className="ad-order__info">
                     <p className="ad-order__id">{order.orderId}</p>
                     <p className="ad-order__meta">
                       {t("customer.yourTable", "Table")} #{order.tableNumber} &middot; {order.customerName}

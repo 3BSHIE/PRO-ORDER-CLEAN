@@ -6670,3 +6670,119 @@ button{font-family:var(--font-body)}
 .cv-toggle::after{
   content:"";position:absolute;
   inset-block:-9px;inset-inline:0}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 91.3 — ADMIN NARROW-WIDTH OVERFLOW
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §2/§7 — the Categories row is the ONLY document-level overflow ───────
+
+   Measured at a 320px layout viewport, English, before this rule:
+
+     .container--admin content   280px  (320 − 20 − 20)
+     .mm-cat-row content box     248px  (280 − 16 − 16 padding)
+     children demanded           286.9px:
+       .mm-cat-row__reorder       26.0  flex:none
+       .mm-cat-row__emoji         36.0  flex:none
+       .mm-cat-row__info           0.0  flex:1 1 0% — collapsed to NOTHING
+       CategoryStateBadge         98.9  shrinkable, but min-width:auto floors
+                                        it at its own min-content
+       .mm-cat-row__actions       70.0  flex:none
+       4 × 14px gap               56.0
+     document scrollWidth        324px → 4px of page-level overflow
+
+   Two separate faults, one cause — a nowrap row whose fixed parts alone
+   exceed the space:
+
+   1. The 4px page overflow, contributed by .mm-cat-row__actions ending at
+      323.9px. Only English overflows: the Arabic badge is 58px against
+      English's 98.9px, and that 40.9px is what absorbs the overshoot. Fixing
+      only the English case would leave the row one translation away from
+      breaking again, so the fix is width-driven, not language-driven.
+
+   2. Worse than the overflow, and invisible in a scrollWidth check: the row
+      squeezes .mm-cat-row__info to 0px at 320, 360 AND 390. The category NAME
+      — the one thing identifying which row you are looking at — is gone on
+      every phone, while the reorder arrows, the emoji and the icon buttons
+      all keep their full size. §16 forbids removing information to make a
+      layout fit; this was doing exactly that, silently.
+
+   Wrapping fixes both: the name gets a real width back, and the parts that
+   used to push past the viewport move to a second line instead.
+
+   WHY 60% AND NOT A PIXEL BASIS — flex wrapping is decided on each item's
+   hypothetical main size, so a content-based basis (flex:1 1 auto) would wrap
+   or not wrap depending on how long a category happens to be named, giving
+   "Starters" a different layout from "Cold Mezze & Appetizers". A percentage
+   basis is resolved against the line, so the split is identical for every row
+   at every width in this range:
+
+     line 1   26 + 36 + 60% + 2 gaps  = 238.8 ≤ 248  ✓ (info then grows to 158)
+     + badge  +14 + 98.9              = 351.7 > 248  → badge wraps
+     line 2   98.9 + 14 + 70          = 182.9 ≤ 248  ✓
+
+   520px is measured, not picked: a single line only gives the name a usable
+   width (≥120px) from about 511px up — below that the name is being starved
+   whether or not the page overflows. */
+@media (max-width:520px){
+  .mm-cat-row{flex-wrap:wrap;row-gap:10px}
+  .mm-cat-row__info{flex:1 1 60%}
+  /* Logical, so line 2 reads badge-then-actions in English and
+     badge-then-actions mirrored in Arabic, with no physical-side override. */
+  .mm-cat-row__actions{margin-inline-start:auto}
+}
+
+/* ── §14 — the nav's focus ring had exactly 0px of clearance ──────────────
+
+   .ad-nav is a horizontal scroller (overflow-x:auto), and setting one axis to
+   auto makes the other axis clip too — so the bar clips at its PADDING box on
+   every side, not just the sides it scrolls.
+
+   The global ring is `outline:2px solid` at `outline-offset:2px`, i.e. it
+   extends exactly 4px past the item. .ad-nav's padding-bottom was exactly
+   4px, which put the ring's outer edge precisely ON the clipping boundary:
+
+     item bottom 119.0 + ring 4 = 123.0
+     nav padding-box bottom     = 123.0   → clearance 0.0px
+
+   Not clipped today, but with nothing at all in hand — one device-pixel of
+   rounding on a fractional-DPI screen takes the ring's last row with it. 6px
+   restores a 2px margin. Nothing else moves: the bar grows 2px, and the nav
+   is not a measured surface in any earlier phase.
+
+   Only the block-end padding changes; the 20px block-start and the 0 inline
+   padding stay as they were. */
+.ad-nav{padding-block-end:6px}
+
+/* ── §15/§7 — the Dashboard order row could not shrink ────────────────────
+
+   .ad-order__top is a nowrap flex row: an identity block on one side, the
+   status badge on the other. The identity block had no class and therefore
+   no styles, which left it at the flex default `min-width:auto` — a floor at
+   its own min-content width. Min-content for a line reading
+
+     Table #1 · Wolfeschlegelsteinhausenbergerdorff
+
+   is the width of that unbreakable word, so the block refused to shrink and
+   shoved the badge out of the card and off the page:
+
+     .ad-order__top content   [37.0 .. 283.0]   246px
+     badge                    [245.3 .. 346.4]  → document scrollWidth 346
+     overflow at 320px vw     26px
+
+   The badge was only where the overflow surfaced; the cause was the sibling
+   that would not give way. min-width:0 removes the floor.
+
+   The name then still has to go SOMEWHERE, and it must not be thrown away —
+   §7 rules out hiding operational information to make a layout fit. So the
+   meta line is allowed to break inside a word rather than truncate: every
+   character stays on screen and the row grows downward instead of sideways.
+   `anywhere` rather than `break-word` because only `anywhere` also lowers the
+   min-content contribution, which is the half that actually stops the row
+   from forcing the page wider.
+
+   The order id is deliberately NOT given the same treatment: it is a short
+   bare token, and breaking an id across two lines makes it harder to read
+   aloud to a kitchen, not easier. */
+.ad-order__info{min-width:0}
+.ad-order__meta{overflow-wrap:anywhere}
