@@ -1501,7 +1501,10 @@ button{font-family:var(--font-body)}
   min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ad-topbar-user{font-size:12px;color:var(--text-3);white-space:nowrap;
   min-width:0;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:640px){.ad-topbar-rest,.ad-topbar-user{display:none}}
+/* Phase 91.1 §15 — .ad-topbar-rest is gone (the restaurant is rendered by
+   RestaurantIdentity now and deliberately SURVIVES on narrow widths). Only
+   the signed-in user name gives way here. */
+@media(max-width:640px){.ad-topbar-user{display:none}}
 
 .container--admin{max-width:1200px}
 
@@ -6464,4 +6467,102 @@ button{font-family:var(--font-body)}
    squeezing the order id. */
 @media(max-width:560px){
   .ad-live-card__elapsed{justify-content:flex-start}
+}
+
+/* ══ Phase 91.1 — Admin header + Operations layout ═══════════════════════ */
+
+/* ── §9/§11/§12 — the header's three zones ───────────────────────────────
+   Identity on the leading side, page context and utilities on the trailing
+   side. The Topbar shell is untouched: it was already sticky at z-index 50
+   with a 60px inner row (§8/§14), so nothing about layering, height or
+   scroll behaviour changes here. */
+.ad-topbar-identity{
+  display:flex;align-items:center;gap:10px;min-width:0}
+
+/* §11 — a brand anchor, not a banner. The mark is deliberately smaller than
+   the restaurant's own logo beside it: PRO·ORDER is the system, the
+   restaurant is the thing being managed. --brand-mark comes from
+   RestaurantTheme, so it follows Primary with no extra plumbing (§10). */
+.ad-topbar-mark{flex:none;opacity:.92}
+
+.ad-topbar-divider{
+  flex:none;width:1px;height:18px;
+  background:var(--border-strong);opacity:.8}
+
+/* §13 — the current page. Sits with the utilities rather than centred, so it
+   reads as a label on the chrome instead of competing with the page's own
+   <h1> a few pixels below it. */
+.ad-topbar-page{
+  font-size:12.5px;font-weight:700;color:var(--text-1);
+  letter-spacing:.02em;white-space:nowrap;
+  padding-inline-end:10px;margin-inline-end:2px;
+  border-inline-end:1px solid var(--border);
+  line-height:1}
+
+/* The restaurant's compact identity inside the header: small logo, readable
+   name, and the existing safe-image fallback comes with the component (§12). */
+.ad-topbar-identity .rest-identity--compact{min-width:0}
+.ad-topbar-identity .rest-identity__name{
+  font-size:13px;font-weight:700;color:var(--text-1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch}
+
+/* ── §15 — narrow admin ──────────────────────────────────────────────────
+   The old rule hid the restaurant name outright below 640px, which took away
+   the one thing §12 says must always be answerable: which venue am I in.
+   The name stays; the signed-in user's name and the page label are what give
+   way, because the sidebar's active item still answers "which page" and the
+   role badge still answers "as whom". */
+@media(max-width:640px){
+  .ad-topbar-page{display:none}
+  .ad-topbar-identity .rest-identity__name{max-width:12ch}
+}
+@media(max-width:420px){
+  .ad-topbar-divider{display:none}
+  .ad-topbar-identity{gap:7px}
+  .ad-topbar-identity .rest-identity__name{max-width:9ch}
+}
+
+/* ── §1/§2 — equal-size category controls ────────────────────────────────
+   Phase 91 made these content-width chips, which fixed the full-width column
+   but left every chip a different width — "Desserts" wider than "Pasta" — so
+   a wrapped row read as a ragged pile rather than a set. They are equal cells
+   now: one auto-fill grid, every cell the same width and the same height,
+   still compact, still wrapping, still never stretching one category to the
+   card's full width.
+
+   auto-fill + minmax is what keeps it responsive without breakpoints: the
+   card fits as many 200px columns as it can and the rest wrap. */
+.cv-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:8px;align-items:stretch}
+.cv-row{
+  /* the grid owns the width now */
+  width:auto;max-width:none;min-width:0;
+  /* §1 — same height regardless of whether a schedule line is present */
+  height:100%;align-items:center}
+
+/* §2 — a long name truncates rather than widening its cell or wrapping into
+   a taller one. The full name stays available to assistive tech and on hover
+   through the control's own accessible label, which already carries it. */
+.cv-row__info{flex:1 1 auto;min-width:0}
+.cv-row__name{
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* The toggle must not be squeezed by a long name. */
+.cv-row .cv-toggle{flex:none}
+
+/* ── §4 — Busy Mode and Category Availability share a row height ──────────
+   align-items was `start`, so the two cards ended at different heights and
+   the Operations row looked like two unrelated panels. They stretch now.
+   Busy Mode's CONTENT stays at the top of its card (§4 explicitly rules out
+   centring it to fill space) — only the outer card grows. */
+@media(min-width:900px){
+  .ad-ops{align-items:stretch}
+  .ad-ops > *{height:100%}
+  .ad-ops .busy-card{display:flex;flex-direction:column;justify-content:flex-start}
+}
+/* §6 — stacked on mobile, where equal height would only add empty space. */
+@media(max-width:899px){
+  .ad-ops > *{height:auto}
 }

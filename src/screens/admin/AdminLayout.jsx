@@ -4,12 +4,21 @@ import {
   MessageSquareHeart,
 } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
-import Logo    from "../../components/brand/Logo.jsx";
+/* Phase 91.1 §10 — the theme-aware static mark, NOT Logo.
+   Logo renders an <img> of pro-order-icon.png, whose gold is baked into the
+   pixels, so a restaurant on green had a gold PRO·ORDER glyph sitting in its
+   Admin header. BrandMarkStatic is the approved static component: the same
+   authoritative artwork, used as a CSS mask and filled with --brand-mark,
+   which buildRestaurantThemeVars already derives from the restaurant's
+   Primary and which RestaurantTheme already puts in scope for Admin. */
+import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
+import RestaurantIdentity from "../customer/components/RestaurantIdentity.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
 import { playAlertSound } from "../../lib/alertSound.js";
@@ -82,6 +91,10 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
      Admin/Cashier sitting on Overview or Live Orders still notices a new
      call without navigating anywhere or refreshing. */
   const { openCalls } = useStaffCalls(restaurant.slug);
+  /* §12 — the restaurant's live logo and name, from the same source every
+     other surface reads, so an Admin always knows which venue they are
+     managing and a renamed restaurant updates here too. */
+  const { settings } = useSettingsData(restaurant.slug);
   const { settings: staffAlertSettings } = useStaffCallAlertSettings(restaurant.slug);
   /* Which arrival the banner is currently naming; null = no banner. */
   const [alertCallId, setAlertCallId] = useState(null);
@@ -199,11 +212,40 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
 
   return (
     <>
+      {/* Phase 91.1 §9 — three zones instead of "a logo, then everything
+          crammed on the right":
+
+            identity   PRO·ORDER mark + the restaurant being managed
+            context    which page you are on (§13) — previously the header
+                       said nothing about this and the sidebar's active pill
+                       was the only clue
+            utilities  who you are signed in as, language, sign out
+
+          The header is NOT a second navigation bar (§17): no links, no page
+          switching, nothing that duplicates the sidebar. */}
       <Topbar
-        left={<Logo variant="icon" size="nav" />}
+        left={
+          <div className="ad-topbar-identity">
+            {/* §11 — the system's anchor, deliberately small: 20px against a
+                28px restaurant logo, because the restaurant is the entity
+                being managed and PRO·ORDER is only the thing managing it. */}
+            <BrandMarkStatic size={20} className="ad-topbar-mark" />
+            <span className="ad-topbar-divider" aria-hidden="true" />
+            <RestaurantIdentity
+              name={settings.name?.trim() || restaurant.name}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
+        }
         right={
           <div className="ad-topbar-right">
-            <span className="ad-topbar-rest">{restaurant.name}</span>
+            {/* §13 — the current page, driven by the route's own activeKey and
+                the same translation map the sidebar uses, so the two can never
+                disagree about what this page is called. */}
+            <span className="ad-topbar-page">
+              {t(NAV_ITEM_KEY[activeKey], activeKey)}
+            </span>
             <span className="ad-topbar-user">{session.name}</span>
             <Badge tone="gold">{t(ROLE_LABEL_KEY[session.role], ROLE_LABEL[session.role] || session.role)}</Badge>
             <LanguageSwitcher className="ad-topbar-lang-switcher" />
