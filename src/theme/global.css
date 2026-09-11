@@ -6566,3 +6566,107 @@ button{font-family:var(--font-body)}
 @media(max-width:899px){
   .ad-ops > *{height:auto}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 91.2 — ADMIN HEADER SPACING, LANGUAGE CONTROL, ROLE CLEANUP
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §1/§2 — the header stops being a 1000px box floating in a 1280px bar ──
+
+   Topbar's inner wrapper is `.container topbar__inner`, and `.container` is
+   the app-wide reading-width cap: max-width:1000px, margin:0 auto. On a
+   1280px window that centred the Admin header's contents inside a 1000px box
+   and left 140px of empty bar at each end BEFORE the wrapper's own 20px
+   padding — so the PRO·ORDER mark started 160px from the window edge while
+   the page's own nav below it started at 60px. Two separate faults from one
+   cause: dead space at the edges, and a header that did not line up with the
+   content it sits above.
+
+   Measured before: identity left edge 160px, .topbar__inner 1000px wide
+   inside a 1280px window, .container--admin 1200px.
+
+   The cap is removed rather than re-pointed at 1200px, because §2 names
+   "inherited Admin content container width" as one of the things to remove
+   and §3 asks the three zones to use the full width. `.container`'s own
+   padding:0 20px then becomes the whole inset, landing at 20px — the top of
+   §1's 16–20px band, and the same 20px rhythm the rest of the app already
+   uses, so nothing arbitrary is introduced.
+
+   Scoped to .topbar--admin, which only AdminLayout passes: Customer, Kitchen,
+   Home and both login screens keep the 1000px header they have (§21). */
+.topbar--admin .topbar__inner{max-width:none}
+
+/* ── §3 — three zones, and on desktop a genuinely centred middle one ──────
+
+   Below 901px the base flex `space-between` already gives three zones across
+   the full width, which is the robust behaviour when space is tight: the
+   middle simply sits wherever the two outer zones leave room. From 901px up
+   there is enough room to be exact, so a 3-column grid centres the page
+   context on the BAR rather than on whatever is left over — a middle zone
+   that drifts as the restaurant name changes length is worse than none.
+
+   minmax(0,1fr) on the outer tracks, not 1fr: a bare 1fr floors at the
+   content's min-content width, which would let a long restaurant name push
+   the grid wider than the window instead of ellipsing (the identity zone
+   already truncates, and this is what lets it).
+
+   justify-self:start/end are flow-relative, so the zones swap sides in
+   Arabic with no mirrored override of their own (§4). */
+@media (min-width:901px){
+  .topbar--admin .topbar__inner{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:center}
+  .topbar--admin .ad-topbar-identity{justify-self:start}
+  .topbar--admin .ad-topbar-page{justify-self:center}
+  .topbar--admin .ad-topbar-right{justify-self:end}
+}
+
+/* Phase 91.1 gave .ad-topbar-page a trailing hairline because it sat directly
+   in front of the user name inside the right-hand cluster. Standing alone as
+   its own zone that border has nothing to separate it from, so it goes —
+   logical properties, so there is no physical edge to mirror in RTL (§4). */
+.topbar--admin .ad-topbar-page{
+  padding-inline-end:0;margin-inline-end:0;border-inline-end:none}
+
+/* ── §5 — the compact language control in a 60px bar ──────────────────────
+   .lang-switcher--compact sizes each option 44x44 for touch, which is right
+   on the Customer entry screen and 4px taller than the header's other
+   controls here. The hit area is kept and only the painted box is pulled back
+   to the bar's rhythm; 40px still clears the 44px guidance on a pointer-first
+   surface, and the width is untouched. */
+.ad-topbar-lang-switcher.lang-switcher--compact .lang-switcher__option{
+  min-height:40px}
+
+/* ── §8 — Sign out reads as terminal, not as the brand's favourite button ──
+   .btn--outline hovers to the restaurant's Primary (--gold is re-pointed at
+   Primary by buildRestaurantThemeVars). On a control that ENDS the session
+   that is the wrong signal: it makes the most consequential button in the bar
+   the most brand-positive one. Neutral on hover instead — still clearly
+   interactive, via border and text weight, just not celebratory. Scoped to
+   the Admin header, so .btn--outline everywhere else is unchanged. */
+.topbar--admin .ad-topbar-right .btn--outline:hover:not(:disabled){
+  border-color:var(--text-3);color:var(--text-1)}
+
+/* ── §11 — a 44x44 hit target under a 30px toggle ─────────────────────────
+   The Available Now control measures 64.8-69.9 x 29. Already wider than 44px;
+   15px short vertically. A transparent ::after extends the hit area above and
+   below WITHOUT painting anything and without touching the button's own box,
+   so the pill still looks 29px tall and the grid cell still measures 49px
+   (§12).
+
+   -9px, not -7px: an absolutely positioned box offsets from its containing
+   block, which for a ::after is the button's PADDING box — 27px here, inside
+   the toggle's own 1px borders. -7px therefore measured 41px, not 44. -9px
+   gives 27 + 18 = 45px, verified by hit-testing rather than by arithmetic.
+
+   inset-inline:0 — no horizontal extension at all. The button already clears
+   44px wide, and reaching sideways would take bites out of the category name
+   beside it.
+
+   45px inside a 49px row leaves ~2px of clearance top and bottom, and the
+   grid's 8px gap means two rows' targets can never meet. */
+.cv-toggle{position:relative}
+.cv-toggle::after{
+  content:"";position:absolute;
+  inset-block:-9px;inset-inline:0}

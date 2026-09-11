@@ -14,7 +14,6 @@ import Topbar  from "../../components/layout/Topbar.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import RestaurantIdentity from "../customer/components/RestaurantIdentity.jsx";
 import Button  from "../../components/ui/Button.jsx";
-import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -25,9 +24,16 @@ import { playAlertSound } from "../../lib/alertSound.js";
 import StaffCallAlert from "./StaffCallAlert.jsx";
 import ErrorBoundary from "../../components/system/ErrorBoundary.jsx";
 
-const ROLE_LABEL = { admin: "Admin", cashier: "Cashier" };
-/* Translation keys for the role badge, keyed by session.role. */
-const ROLE_LABEL_KEY = { admin: "admin.adminRole", cashier: "admin.cashierRole" };
+/* Phase 91.2 §7 — ROLE_LABEL / ROLE_LABEL_KEY are gone along with the badge
+   they fed.
+
+   VERIFIED BEFORE DELETING, because §7 warns specifically against removing
+   the signed-in user's identity by mistake. The header rendered TWO role-ish
+   strings: session.name, and a badge derived from session.role. In
+   mockStaff.js those resolve to "Restaurant Admin" + "Admin" for the admin
+   and "Cashier Staff" + "Cashier" for the cashier — so in BOTH roles the
+   badge is the derived duplicate and session.name is the real identity
+   field. The badge is what goes; the name stays. */
 
 /* Nav items shared by every admin page. "overview" and "liveOrders" are the
    only two real destinations this phase — clicking them calls onNavigate.
@@ -224,6 +230,10 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
           The header is NOT a second navigation bar (§17): no links, no page
           switching, nothing that duplicates the sidebar. */}
       <Topbar
+        /* §2 — opts this ONE header out of the shared 1000px .container cap.
+           The bar spans the window now, so its three zones sit ~20px from the
+           window edges instead of 160px in from them. */
+        className="topbar--admin"
         left={
           <div className="ad-topbar-identity">
             {/* §11 — the system's anchor, deliberately small: 20px against a
@@ -238,17 +248,29 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
             />
           </div>
         }
+        /* §3 — the page context moves OUT of the utilities cluster and
+           becomes the middle zone in its own right. It was welded to the
+           right-hand group only because the shell had nowhere else to put it;
+           with three real zones it reads as "where you are", between "which
+           venue" and "who you are". Same source as before (the route's own
+           activeKey through the sidebar's translation map), so the header and
+           the sidebar still cannot disagree about a page's name. */
+        center={
+          <span className="ad-topbar-page">
+            {t(NAV_ITEM_KEY[activeKey], activeKey)}
+          </span>
+        }
         right={
           <div className="ad-topbar-right">
-            {/* §13 — the current page, driven by the route's own activeKey and
-                the same translation map the sidebar uses, so the two can never
-                disagree about what this page is called. */}
-            <span className="ad-topbar-page">
-              {t(NAV_ITEM_KEY[activeKey], activeKey)}
-            </span>
             <span className="ad-topbar-user">{session.name}</span>
-            <Badge tone="gold">{t(ROLE_LABEL_KEY[session.role], ROLE_LABEL[session.role] || session.role)}</Badge>
-            <LanguageSwitcher className="ad-topbar-lang-switcher" />
+            {/* §5 — the SAME compact control the Customer header uses, not a
+                third style invented for Admin: the component and its styles
+                already exist, so this is a variant switch and nothing more.
+                The filled gold pill it replaces was the loudest thing in the
+                bar, which is backwards for a control nobody touches twice a
+                shift. Switching logic, persistence and RTL are the component's
+                own and are untouched (§6). */}
+            <LanguageSwitcher variant="compact" className="ad-topbar-lang-switcher" />
             <Button variant="outline" size="sm" icon={LogOut} onClick={onSignOut}>
               {t("common.signOut", "Sign out")}
             </Button>
