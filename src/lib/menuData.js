@@ -372,6 +372,17 @@ export function createMenuItem(restaurantSlug, data) {
     isPopular: !!data.isPopular,
     sortOrder: resolvedSortOrder,
     removableIngredients: Array.isArray(data.removableIngredients) ? data.removableIngredients : [],
+    /* Phase 92 §16 — where the removals and add-ons blocks sit in the guest's
+       Item Details sheet. createMenuItem builds its item explicitly rather
+       than spreading its input, which is the safe default but silently drops any
+       field not listed here — so these two had to be named or a brand-new
+       product could never carry a configured customization order.
+
+       Omitted stays omitted: buildCustomizationSections falls back to the
+       shipped defaults when the field is absent, and writing a position
+       nobody chose would make every new product look configured. */
+    ...(data.removalsSortOrder != null ? { removalsSortOrder: data.removalsSortOrder } : {}),
+    ...(data.addOnsSortOrder != null ? { addOnsSortOrder: data.addOnsSortOrder } : {}),
     /* The validated copies: same objects, same ids, prices normalised to
        Numbers. */
     choices: priced.choices,

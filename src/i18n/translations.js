@@ -68,6 +68,7 @@ export const translations = {
       cancel: "Cancel",
       confirm: "Confirm",
       save: "Save",
+      saving: "Saving…",
       keepOrder: "Keep order",
       close: "Close",
       remove: "Remove",
@@ -316,6 +317,23 @@ export const translations = {
       editProduct: "Edit Item",
       deleteProduct: "Delete Item",
       noProductsYet: "No items yet.",
+      /* Phase 92 §43 — the empty menu and the empty search result are
+         different facts and get different sentences. */
+      noProductsSub: "Add your first item to start building the menu.",
+      noProductsMatch: "No items match your search.",
+      noProductsMatchSub: "Try a different search term or category.",
+      clearFilters: "Clear search and filters",
+      /* §44 */
+      noCategoriesSub: "Categories group your menu items for guests.",
+      /* §12 — the overview strip before a product has a name. */
+      newProduct: "New item",
+      untitledProduct: "Untitled item",
+      /* §16/§17 — the customization order list. */
+      customization: "Customization",
+      customizationOrderHint: "Guests see these sections in this order.",
+      untitledGroup: "Untitled group",
+      /* §29 */
+      dangerZone: "Delete this item",
       productSaved: "Item saved",
       /* Phase 66 — storage-boundary rejection; the inline field errors from
          Phases 47/48/56 remain the primary, specific messages. */
@@ -900,6 +918,7 @@ export const translations = {
       continue: "متابعة",
       cancel: "إلغاء",
       save: "حفظ",
+      saving: "جارٍ الحفظ…",
       confirm: "تأكيد",
       keepOrder: "الإبقاء على الطلب",
       close: "إغلاق",
@@ -1125,6 +1144,19 @@ export const translations = {
       editProduct: "تعديل العنصر",
       deleteProduct: "حذف العنصر",
       noProductsYet: "لا توجد عناصر بعد.",
+      /* Phase 92 §43 — natural spoken Arabic, not a literal rendering of the
+         English: "لا توجد نتائج مطابقة" is how you would say it out loud. */
+      noProductsSub: "أضف أول عنصر لبدء بناء القائمة.",
+      noProductsMatch: "لا توجد عناصر مطابقة لبحثك.",
+      noProductsMatchSub: "جرّب كلمة بحث أخرى أو فئة مختلفة.",
+      clearFilters: "مسح البحث والفلاتر",
+      noCategoriesSub: "الفئات تنظّم عناصر قائمتك للضيوف.",
+      newProduct: "عنصر جديد",
+      untitledProduct: "عنصر بدون اسم",
+      customization: "التخصيص",
+      customizationOrderHint: "يرى الضيوف هذه الأقسام بهذا الترتيب.",
+      untitledGroup: "مجموعة بدون اسم",
+      dangerZone: "حذف هذا العنصر",
       productSaved: "تم حفظ العنصر",
       productSaveFailed: "تعذر حفظ هذا العنصر. يرجى التحقق من الأسعار والمحاولة مرة أخرى.",
       productDeleted: "تم حذف العنصر",

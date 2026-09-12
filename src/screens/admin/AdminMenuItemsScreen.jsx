@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -24,6 +24,7 @@ import { parseSortOrder } from "../../lib/menuSortOrder.js";
 import {
   validateGroupConfig,
   parseSelectionBound,
+  buildCustomizationSections,
   describeGroupRule,
 } from "../../lib/choiceRules.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
@@ -291,6 +292,12 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
     setPendingDelete(null);
     if (!item) return;
     deleteMenuItem(restaurant.slug, item.id);
+    /* Phase 92 §29 — the delete can now be started from inside the editor, so
+       the editor has to come down with the product it was editing. Closing it
+       here rather than in the editor keeps the draft mounted until the
+       manager actually confirms: cancelling the dialog returns them to their
+       work untouched. */
+    setEditingItem(null);
     setToastMessage(t("admin.productDeleted", "Item deleted"));
     setToastVisible(true);
   }
@@ -340,11 +347,47 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
       </div>
 
       {filteredItems.length === 0 ? (
+        /* Phase 92 §43 — "you have no items" and "your search matched
+           nothing" are different facts, and showing the first when the second
+           is true tells a manager their menu is empty while it is not. The
+           distinction is the same one Phase 90 made mandatory on the Customer
+           side; it was missing here.
+
+           Only the genuinely-empty state offers Add Item. Offering it under a
+           failed search would answer a question nobody asked — the fix there
+           is to clear the search, which is what the action does. */
         <div className="ad-empty anim-rise">
           <span className="ad-empty__icon">
-            <UtensilsCrossed size={28} strokeWidth={1.7} />
+            {items.length === 0 ? <UtensilsCrossed size={28} strokeWidth={1.7} /> : <Search size={28} strokeWidth={1.7} />}
           </span>
-          <h3 className="ad-empty__title">{t("admin.noProductsYet", "No items yet.")}</h3>
+          <h3 className="ad-empty__title">
+            {items.length === 0
+              ? t("admin.noProductsYet", "No items yet.")
+              : t("admin.noProductsMatch", "No items match your search.")}
+          </h3>
+          <p className="ad-empty__sub">
+            {items.length === 0
+              ? t("admin.noProductsSub", "Add your first item to start building the menu.")
+              : t("admin.noProductsMatchSub", "Try a different search term or category.")}
+          </p>
+          <div className="ad-empty__actions">
+            {items.length === 0 ? (
+              <Button
+                icon={Plus}
+                disabled={categories.length === 0}
+                onClick={() => setEditingItem({ categoryId: categories[0]?.id })}
+              >
+                {t("admin.addProduct", "Add Item")}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => { setSearchQuery(""); setCategoryFilter("all"); }}
+              >
+                {t("admin.clearFilters", "Clear search and filters")}
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="mm-item-list anim-rise">
@@ -426,6 +469,10 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
           categories={categories}
           onSave={handleSave}
           onClose={() => setEditingItem(null)}
+          /* §29 — the editor raises the request; the confirmation dialog and
+             the delete itself stay here, so there is exactly one delete path
+             and one confirmation in this screen. */
+          onRequestDelete={() => setPendingDelete(editingItem)}
         />
       )}
 
@@ -460,7 +507,7 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
 }
 
 /* ── Add/Edit item form modal — the big one ──────────────────────────────── */
-function MenuItemEditorModal({ item, categories, onSave, onClose }) {
+function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelete }) {
   const { t } = useLanguage();
   const isNew = !item.id;
 
@@ -477,6 +524,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   const [newIngredient, setNewIngredient] = useState("");
   const [choices, setChoices] = useState(item.choices || []);
   const [paidAddOns, setPaidAddOns] = useState(item.paidAddOns || []);
+  /* Phase 92 §16 — where the removals and add-ons blocks sit in the guest's
+     Item Details sheet. Choice groups carry their own sortOrder on the group
+     object; these two kinds have nowhere to put it, so the position lives on
+     the product. null means "never configured", which is what lets
+     buildCustomizationSections fall back to the shipped defaults and keeps
+     an untouched product rendering exactly as it does today. */
+  const [removalsSortOrder, setRemovalsSortOrder] = useState(
+    item.removalsSortOrder != null ? item.removalsSortOrder : null
+  );
+  const [addOnsSortOrder, setAddOnsSortOrder] = useState(
+    item.addOnsSortOrder != null ? item.addOnsSortOrder : null
+  );
   const [error, setError] = useState(null);
   /* Phase 47 — kept separate from `error` so the message can render against
      the price field itself rather than under the item name, which is where
@@ -609,12 +668,30 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
     name, description, price, categoryId, imageUrl, sortOrder,
     isAvailable, isFeatured, isPopular,
     removableIngredients, choices, paidAddOns,
+    /* §28 — reordering customization sections is a real edit, so it has to
+       arm the unsaved-changes guard like any other. */
+    removalsSortOrder, addOnsSortOrder,
   });
   const initialSignature = useRef(null);
   if (initialSignature.current === null) initialSignature.current = draftSignature;
   const isDirty = draftSignature !== initialSignature.current;
 
   const [showDiscard, setShowDiscard] = useState(false);
+
+  /* ── Phase 92 §23 — one save per press ────────────────────────────────
+     The write is synchronous today, so two clicks landing in the same tick
+     both reached onSave: on an existing product that was a harmless double
+     write, but on a NEW one it called createMenuItem twice and produced two
+     products from one press. Nothing prevented it.
+
+     The ref is the actual guard — state updates are batched and a second
+     click in the same tick would still read the old isSaving. The state
+     exists only so the button can show it is busy, which matters the moment
+     this stops being synchronous. */
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   /* Every dismissal path — X, overlay, Escape and Cancel — comes through
      here, because this component owns both the Modal and its footer. A clean
@@ -689,7 +766,9 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
   }
 
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    /* Before validation, so a double press cannot even re-run the checks. */
+    if (savingRef.current) return;
     if (!name.trim()) { setError(t("admin.productNameRequired", "Please enter an item name.")); return; }
     if (!categoryId) { setError(t("admin.productCategoryRequired", "Please choose a category.")); return; }
 
@@ -757,7 +836,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       return;
     }
 
-    onSave({
+    /* Every validation gate above returns early, so reaching here means the
+       draft is good and a write is genuinely about to happen — which is the
+       only point at which blocking further presses is correct. Flagging on
+       entry instead would leave the editor stuck after a failed validation.
+
+       await + finally so this still behaves when onSave becomes a request:
+       an awaited promise keeps the lock for the whole round trip, and a
+       rejection releases it instead of freezing the button forever. */
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      await onSave({
       name: name.trim(),
       description: description.trim(),
       /* Already a validated finite Number > 0 — storage shape is unchanged. */
@@ -769,6 +859,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       isFeatured,
       isPopular,
       removableIngredients,
+      /* §16 — undefined rather than null when never configured, so the data
+         layer leaves the stored value alone instead of writing a position
+         nobody chose. */
+      removalsSortOrder: removalsSortOrder == null ? undefined : removalsSortOrder,
+      addOnsSortOrder: addOnsSortOrder == null ? undefined : addOnsSortOrder,
       // Drop any choice group left with an empty name, or an option left with
       // an empty name — a half-filled row shouldn't silently save as blank.
       //
@@ -806,151 +901,90 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
       paidAddOns: paidAddOns
         .filter((a) => a.name.trim())
         .map((a) => ({ ...a, price: parseAddOnPrice(a.price) })),
-    });
+      });
+    } finally {
+      savingRef.current = false;
+      /* A successful save unmounts this editor, so only touch state if the
+         component is still mounted. */
+      if (mountedRef.current) setIsSaving(false);
+    }
   }
 
-  return (
-    <>
-    <Modal
-      open
-      onClose={handleRequestClose}
-      title={isNew ? t("admin.addProduct", "Add Item") : t("admin.editProduct", "Edit Item")}
-      footer={
-        <>
-          <Button variant="ghost" onClick={handleRequestClose}>{t("common.cancel", "Cancel")}</Button>
-          <Button onClick={handleSubmit}>{t("common.save", "Save")}</Button>
-        </>
-      }
-    >
-      <div className="mm-editor">
-        <Input
-          label={t("admin.productName", "Item name")}
-          value={name}
-          error={error}
-          onChange={(e) => { setName(e.target.value); if (error) setError(null); }}
-          autoFocus
-        />
+  /* ── Phase 92 §16/§18 — configurable customization order ──────────────
+     The guest's Item Details sheet has rendered customization sections from
+     data since Phase 85: buildCustomizationSections reads item.removalsSortOrder,
+     each group's own sortOrder and item.addOnsSortOrder, and sorts all three
+     kinds into ONE sequence so they can interleave. Nothing in Admin ever
+     wrote those numbers, so the capability existed and was unreachable — the
+     order a guest saw was whatever the defaults produced.
 
-        <label className="field mm-field">
-          <span className="field__label">{t("admin.productDescription", "Description")}</span>
-          <textarea
-            className="mm-textarea"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-          />
-        </label>
+     This calls the very same function the guest's sheet calls, rather than
+     re-deriving the order here. That is the whole point: if these two ever
+     disagreed, the Admin would be arranging one order and the guest reading
+     another, which is exactly what §18 forbids.
 
-        <div className="mm-row-2">
-          <Input
-            id={PRICE_FIELD_ID}
-            label={t("admin.productPrice", "Price")}
-            type="number"
-            step="0.01"
-            /* Phase 47 — min is 0.01 rather than 0 so the browser's own
-               spinner and native hints agree with the rule actually enforced
-               on save. It is a hint, not the guard: parseProductPrice is
-               what decides, since min is trivially bypassed by typing. */
-            min="0.01"
-            value={price}
-            error={priceError}
-            aria-invalid={priceError ? "true" : undefined}
-            onChange={(e) => {
-              setPrice(e.target.value);
-              /* Phase 47 — clear as soon as the value becomes valid, so a
-                 corrected price re-enables Save without pressing it first. */
-              if (priceError && parseProductPrice(e.target.value) !== null) setPriceError(null);
-            }}
-          />
-          <label className="field mm-field">
-            <span className="field__label">{t("admin.productCategory", "Category")}</span>
-            <select
-              className="mm-select mm-select--full"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+     The placeholder arrays force the removals and add-ons sections to be
+     present even when empty — buildCustomizationSections drops empty ones
+     because a guest should not see an empty heading, but a manager still has
+     to be able to position a block before filling it. The bodies rendered
+     below are the real (possibly empty) ones. */
+  const editorSections = useMemo(
+    () =>
+      buildCustomizationSections(
+        {
+          removableIngredients: ["__section_placeholder__"],
+          removalsSortOrder,
+          choices,
+          addOnsSortOrder,
+        },
+        [{ id: "__section_placeholder__" }]
+      ),
+    [removalsSortOrder, choices, addOnsSortOrder]
+  );
 
-        <div className="mm-row-2">
-          <Input
-            label={t("admin.productImageUrl", "Image URL")}
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…"
-          />
-          <Input
-            id={SORT_ORDER_FIELD_ID}
-            label={t("admin.productSortOrder", "Sort order")}
-            type="number"
-            min="0"
-            step="1"
-            value={sortOrder}
-            error={sortOrderError}
-            aria-invalid={sortOrderError ? "true" : undefined}
-            onChange={(e) => {
-              setSortOrder(e.target.value);
-              /* Clear as soon as it becomes valid again — including when it
-                 is emptied, which is a legitimate "leave it to the system". */
-              const next = e.target.value.trim();
-              if (sortOrderError && (next === "" || parseSortOrder(next) !== null)) {
-                setSortOrderError(null);
-              }
-            }}
-          />
-        </div>
+  /* Swap one section with its neighbour, then renumber EVERY section from the
+     resulting arrangement. Renumbering all of them, rather than editing the
+     two that moved, is what stops a product accumulating a half-configured
+     mix of stored numbers and defaults — after any move the stored order is
+     complete and describes exactly what is on screen.
 
-        <div className="mm-toggles">
-          <label className="mm-toggle-row">
-            <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} />
-            <span>{t("admin.available", "Available")}</span>
-          </label>
-          <label className="mm-toggle-row">
-            <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
-            <span>{t("common.featured", "Featured")}</span>
-          </label>
-          <label className="mm-toggle-row">
-            <input type="checkbox" checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)} />
-            <span>{t("common.popular", "Popular")}</span>
-          </label>
-        </div>
+     Spacing of 10 leaves room for a future drag-to-position to land between
+     two sections without renumbering, and keeps these values clear of the
+     100/200/300 defaults so a configured product is recognisable as such. */
+  function moveCustomizationSection(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= editorSections.length) return;
+    const arranged = [...editorSections];
+    [arranged[index], arranged[target]] = [arranged[target], arranged[index]];
 
-        <div className="mm-divider" />
+    let nextRemovals = removalsSortOrder;
+    let nextAddOns = addOnsSortOrder;
+    const groupOrder = {};
+    arranged.forEach((sec, i) => {
+      const position = (i + 1) * 10;
+      if (sec.kind === "removals") nextRemovals = position;
+      else if (sec.kind === "addOns") nextAddOns = position;
+      else groupOrder[sec.group.id] = position;
+    });
+    setRemovalsSortOrder(nextRemovals);
+    setAddOnsSortOrder(nextAddOns);
+    setChoices((prev) =>
+      prev.map((g) => (groupOrder[g.id] != null ? { ...g, sortOrder: groupOrder[g.id] } : g))
+    );
+  }
 
-        {/* ── Removable ingredients ─────────────────────────────────────── */}
-        <h4 className="mm-section-title">{t("admin.removableIngredientsLabel", "Removable ingredients")}</h4>
-        <div className="mm-tags">
-          {removableIngredients.map((ing, idx) => (
-            <span className="mm-tag" key={`${ing}-${idx}`}>
-              {ing}
-              <button type="button" onClick={() => handleRemoveIngredient(idx)} aria-label={t("common.remove", "Remove")}>
-                <X size={12} strokeWidth={2.4} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="mm-inline-add">
-          <input
-            className="input"
-            value={newIngredient}
-            onChange={(e) => setNewIngredient(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddIngredient(); } }}
-            placeholder={t("admin.ingredientPlaceholder", "e.g. onions")}
-          />
-          <Button type="button" variant="outline" size="sm" onClick={handleAddIngredient}>
-            {t("admin.addIngredient", "Add ingredient")}
-          </Button>
-        </div>
+  const sectionLabel = (sec) =>
+    sec.kind === "removals"
+      ? t("admin.removableIngredientsLabel", "Removable ingredients")
+      : sec.kind === "addOns"
+      ? t("admin.paidAddOns", "Paid add-ons")
+      : sec.group.name.trim() || t("admin.untitledGroup", "Untitled group");
 
-        <div className="mm-divider" />
-
-        {/* ── Choice groups ──────────────────────────────────────────────── */}
-        <h4 className="mm-section-title">{t("admin.choiceGroups", "Choice groups")}</h4>
-        {choices.map((group) => {
+  /* Phase 92 §16/§17 — the choice-group card, lifted out of the JSX so the
+     editor can emit each group wherever the configured customization order
+     puts it rather than always in array order. The body is unchanged from
+     Phase 80; only its wrapper moved. */
+  const renderChoiceGroupCard = (group) => {
           /* Phase 48 — this group's outstanding problems, if any. */
           const gErr = groupErrors[group.id] || {};
           const maxErrorText =
@@ -1208,15 +1242,42 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
             </div>
           </Card>
           );
-        })}
-        <Button type="button" variant="outline" size="sm" icon={Plus} onClick={handleAddChoiceGroup}>
-          {t("admin.addChoiceGroup", "Add choice group")}
-        </Button>
+  };
 
-        <div className="mm-divider" />
+  /* Phase 92 §16 — the removals and add-ons editors, lifted out of the JSX
+     so they can be emitted at whatever position the configured order gives
+     them. Both bodies are unchanged; only their wrapper moved. Their own
+     <h4> headings are gone because the section bar above each one now
+     carries the label, and two headings for one block read as two blocks. */
+  const removalsBody = (
+    <>
+        <div className="mm-tags">
+          {removableIngredients.map((ing, idx) => (
+            <span className="mm-tag" key={`${ing}-${idx}`}>
+              {ing}
+              <button type="button" onClick={() => handleRemoveIngredient(idx)} aria-label={t("common.remove", "Remove")}>
+                <X size={12} strokeWidth={2.4} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mm-inline-add">
+          <input
+            className="input"
+            value={newIngredient}
+            onChange={(e) => setNewIngredient(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddIngredient(); } }}
+            placeholder={t("admin.ingredientPlaceholder", "e.g. onions")}
+          />
+          <Button type="button" variant="outline" size="sm" onClick={handleAddIngredient}>
+            {t("admin.addIngredient", "Add ingredient")}
+          </Button>
+        </div>
+    </>
+  );
 
-        {/* ── Paid add-ons ───────────────────────────────────────────────── */}
-        <h4 className="mm-section-title">{t("admin.paidAddOns", "Paid add-ons")}</h4>
+  const addOnsBody = (
+    <>
         <div className="mm-options-list">
           {paidAddOns.map((addon) => {
             const addOnPriceError = !!addOnPriceErrors[addon.id];
@@ -1263,6 +1324,252 @@ function MenuItemEditorModal({ item, categories, onSave, onClose }) {
         <Button type="button" variant="outline" size="sm" icon={Plus} onClick={handleAddAddOn}>
           {t("admin.addAddOn", "Add add-on")}
         </Button>
+    </>
+  );
+
+  return (
+    <>
+    <Modal
+      open
+      onClose={handleRequestClose}
+      title={isNew ? t("admin.addProduct", "Add Item") : t("admin.editProduct", "Edit Item")}
+      footer={
+        <>
+          {/* §23 — both disabled while a save is in flight: leaving Cancel
+              live would let a manager dismiss the editor mid-write. */}
+          <Button variant="ghost" disabled={isSaving} onClick={handleRequestClose}>
+            {t("common.cancel", "Cancel")}
+          </Button>
+          <Button disabled={isSaving} onClick={handleSubmit}>
+            {isSaving ? t("common.saving", "Saving…") : t("common.save", "Save")}
+          </Button>
+        </>
+      }
+    >
+      <div className="mm-editor">
+        {/* Phase 92 §12 — what this product currently is, not a second form.
+            The editor is a tall scrolling sheet and the name field scrolls
+            away; this keeps "which product am I in" answerable from anywhere
+            in it. Values come from the live draft, so it tracks edits.
+
+            A new product has nothing to summarise yet, so it gets the
+            new-product treatment instead of an overview full of blanks. */}
+        <div className="mm-overview">
+          <span className="mm-overview__thumb">
+            {imageUrl.trim() ? (
+              /* alt="" — the name is right beside it, so announcing the image
+                 too would just repeat it (§48). */
+              <img src={imageUrl.trim()} alt="" loading="lazy" />
+            ) : (
+              <span aria-hidden="true">
+                {categories.find((c) => c.id === categoryId)?.emoji || "🍽️"}
+              </span>
+            )}
+          </span>
+          <span className="mm-overview__info">
+            <p className="mm-overview__name">
+              {name.trim() || (isNew
+                ? t("admin.newProduct", "New item")
+                : t("admin.untitledProduct", "Untitled item"))}
+            </p>
+            <span className="mm-overview__meta">
+              <span className="mm-overview__price">
+                {parseProductPrice(price) !== null ? fmtPrice(parseProductPrice(price)) : "—"}
+              </span>
+              <span>·</span>
+              <span>{categories.find((c) => c.id === categoryId)?.name || "—"}</span>
+              <span>·</span>
+              {/* Stated in words, never colour alone (§48). */}
+              <span className={isAvailable ? "mm-avail mm-avail--on" : "mm-avail mm-avail--off"}>
+                {isAvailable ? t("admin.available", "Available") : t("admin.unavailable", "Unavailable")}
+              </span>
+            </span>
+          </span>
+        </div>
+
+        <Input
+          label={t("admin.productName", "Item name")}
+          value={name}
+          error={error}
+          onChange={(e) => { setName(e.target.value); if (error) setError(null); }}
+          autoFocus
+        />
+
+        <label className="field mm-field">
+          <span className="field__label">{t("admin.productDescription", "Description")}</span>
+          <textarea
+            className="mm-textarea"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+          />
+        </label>
+
+        <div className="mm-row-2">
+          <Input
+            id={PRICE_FIELD_ID}
+            label={t("admin.productPrice", "Price")}
+            type="number"
+            step="0.01"
+            /* Phase 47 — min is 0.01 rather than 0 so the browser's own
+               spinner and native hints agree with the rule actually enforced
+               on save. It is a hint, not the guard: parseProductPrice is
+               what decides, since min is trivially bypassed by typing. */
+            min="0.01"
+            value={price}
+            error={priceError}
+            aria-invalid={priceError ? "true" : undefined}
+            onChange={(e) => {
+              setPrice(e.target.value);
+              /* Phase 47 — clear as soon as the value becomes valid, so a
+                 corrected price re-enables Save without pressing it first. */
+              if (priceError && parseProductPrice(e.target.value) !== null) setPriceError(null);
+            }}
+          />
+          <label className="field mm-field">
+            <span className="field__label">{t("admin.productCategory", "Category")}</span>
+            <select
+              className="mm-select mm-select--full"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mm-row-2">
+          <Input
+            label={t("admin.productImageUrl", "Image URL")}
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://…"
+          />
+          <Input
+            id={SORT_ORDER_FIELD_ID}
+            label={t("admin.productSortOrder", "Sort order")}
+            type="number"
+            min="0"
+            step="1"
+            value={sortOrder}
+            error={sortOrderError}
+            aria-invalid={sortOrderError ? "true" : undefined}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              /* Clear as soon as it becomes valid again — including when it
+                 is emptied, which is a legitimate "leave it to the system". */
+              const next = e.target.value.trim();
+              if (sortOrderError && (next === "" || parseSortOrder(next) !== null)) {
+                setSortOrderError(null);
+              }
+            }}
+          />
+        </div>
+
+        {/* Phase 92 §15 — three identical checkbox rows said these three
+            matter equally. They do not: Available decides whether a guest can
+            order the thing at all, Featured and Popular only decide where it
+            is shown. Same control, same behaviour — availability just gets
+            its own framed row and the two merchandising flags share a quieter
+            line underneath. */}
+        <div className="mm-toggles">
+          <label className="mm-toggle-row mm-toggle-row--primary">
+            <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} />
+            <span>{t("admin.available", "Available")}</span>
+          </label>
+          <div className="mm-flags-row">
+            <label className="mm-toggle-row">
+              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+              <span>{t("common.featured", "Featured")}</span>
+            </label>
+            <label className="mm-toggle-row">
+              <input type="checkbox" checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)} />
+              <span>{t("common.popular", "Popular")}</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mm-divider" />
+
+        {/* ── Phase 92 §16/§17 — Customization, in the order guests see it ──
+            One sequence, not three fixed blocks. Each choice group is its own
+            movable section, so a product can put removals between two groups
+            or add-ons first — the arrangement the guest sheet already
+            supports and nothing could previously express. */}
+        <div className="mm-cz-head">
+          <h4 className="mm-section-title">{t("admin.customization", "Customization")}</h4>
+          <p className="mm-cz-head__hint">
+            {t("admin.customizationOrderHint", "Guests see these sections in this order.")}
+          </p>
+        </div>
+
+        <div className="mm-cz-list">
+          {editorSections.map((sec, index) => (
+            <section className="mm-cz" key={sec.key}>
+              <div className="mm-cz__bar">
+                <span className="mm-cz__pos" aria-hidden="true">{index + 1}</span>
+                <span className="mm-cz__label">{sectionLabel(sec)}</span>
+                {/* §19 — quiet controls, and §50/§49: each one names the
+                    section it moves, so a screen reader user is never left
+                    with a column of identical "Move up" buttons. */}
+                <div className="mm-cz__move">
+                  <button
+                    type="button"
+                    className="mm-reorder-btn"
+                    disabled={index === 0}
+                    onClick={() => moveCustomizationSection(index, -1)}
+                    aria-label={`${t("admin.moveUp", "Move up")} — ${sectionLabel(sec)}`}
+                  >
+                    <ChevronUp size={15} strokeWidth={2.4} />
+                  </button>
+                  <button
+                    type="button"
+                    className="mm-reorder-btn"
+                    disabled={index === editorSections.length - 1}
+                    onClick={() => moveCustomizationSection(index, 1)}
+                    aria-label={`${t("admin.moveDown", "Move down")} — ${sectionLabel(sec)}`}
+                  >
+                    <ChevronDown size={15} strokeWidth={2.4} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mm-cz__body">
+                {sec.kind === "removals" && removalsBody}
+                {sec.kind === "addOns" && addOnsBody}
+                {sec.kind === "choice" && renderChoiceGroupCard(sec.group)}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <Button type="button" variant="outline" size="sm" icon={Plus} onClick={handleAddChoiceGroup}>
+          {t("admin.addChoiceGroup", "Add choice group")}
+        </Button>
+
+        {/* Phase 92 §29 — Delete lives at the far end of the sheet, in its own
+            framed area, and never beside Save. An existing product only: there
+            is nothing to delete before the first save.
+
+            It opens the same confirmation the list uses (§52) rather than a
+            second dialog of its own, so there is one delete path in this
+            screen and one place where the wording can be got right. */}
+        {!isNew && onRequestDelete && (
+          <div className="mm-danger-zone">
+            <p className="mm-danger-zone__title">{t("admin.dangerZone", "Delete this item")}</p>
+            <p className="mm-danger-zone__text">
+              {t(
+                "admin.deleteProductConfirmMsg",
+                "This will permanently remove it from the menu. Existing orders are not affected."
+              )}
+            </p>
+            <Button type="button" variant="danger" size="sm" icon={Trash2} onClick={onRequestDelete}>
+              {t("admin.deleteProduct", "Delete Item")}
+            </Button>
+          </div>
+        )}
       </div>
     </Modal>
 

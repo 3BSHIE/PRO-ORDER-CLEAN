@@ -157,6 +157,17 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
             <Tags size={28} strokeWidth={1.7} />
           </span>
           <h3 className="ad-empty__title">{t("admin.noCategoriesYet", "No categories yet.")}</h3>
+          {/* Phase 92 §44 — a manager with no categories is mid-setup, not
+              stuck: one line on what categories are for, and the action that
+              resolves it. Deliberately brief — §44 rules out over-explaining. */}
+          <p className="ad-empty__sub">
+            {t("admin.noCategoriesSub", "Categories group your menu items for guests.")}
+          </p>
+          <div className="ad-empty__actions">
+            <Button icon={Plus} onClick={() => setEditingCategory({})}>
+              {t("admin.addCategory", "Add Category")}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="mm-cat-list anim-rise">

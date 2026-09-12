@@ -6786,3 +6786,115 @@ button{font-family:var(--font-body)}
    aloud to a kitchen, not easier. */
 .ad-order__info{min-width:0}
 .ad-order__meta{overflow-wrap:anywhere}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 92 — ADMIN MENU, PRODUCT EDITOR, CATEGORIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §16/§17 — the customization order list ───────────────────────────────
+
+   One sequence replaces the three fixed blocks (removable ingredients, then
+   choice groups, then paid add-ons). Each section carries a quiet bar with
+   its position, its name and two move controls; the editing body underneath
+   is the same markup as before.
+
+   The bar is deliberately plainer than the content it labels — §19 asks for
+   quiet reorder controls, and a heavy header on every section would turn a
+   product with six groups into a stack of competing title bars. */
+.mm-cz-head{margin:0 0 4px}
+.mm-cz-head__hint{
+  margin:2px 0 0;font-size:12px;color:var(--text-3);line-height:1.5}
+
+.mm-cz-list{display:flex;flex-direction:column;gap:10px;margin:12px 0 14px}
+
+.mm-cz{
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface-2);overflow:hidden}
+.mm-cz__bar{
+  display:flex;align-items:center;gap:10px;min-width:0;
+  padding:8px 10px;border-bottom:1px solid var(--border)}
+/* A plain ordinal, not a badge: it answers "where does this sit" and nothing
+   more, so it must not read as a status. aria-hidden in the markup — the
+   move buttons already name their own section, and a bare number announced
+   before every heading is noise. */
+.mm-cz__pos{
+  flex:none;width:20px;height:20px;display:grid;place-items:center;
+  border-radius:999px;background:var(--surface-3);
+  color:var(--text-3);font-size:11px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+/* min-width:0 + ellipsis: a long group name must not widen the editor, which
+   at 320px is already the tightest surface in Admin (Phase 91.3). */
+.mm-cz__label{
+  flex:1 1 auto;min-width:0;
+  font-size:12.5px;font-weight:700;color:var(--text-2);letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-cz__move{display:flex;gap:4px;flex:none}
+.mm-cz__body{padding:10px}
+/* The group card already has its own frame; nested inside a section shell
+   that would read as a box in a box, so it gives up its border here. */
+.mm-cz__body > .mm-group-card{
+  border:none;background:transparent;padding:0}
+
+/* ── §12 — product overview strip ─────────────────────────────────────────
+   Context, not a second form: what this product currently IS, so a manager
+   editing a long way down the sheet can still see which one they are in. */
+.mm-overview{
+  display:flex;align-items:center;gap:12px;min-width:0;
+  padding:10px;margin-bottom:16px;
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface-2)}
+.mm-overview__thumb{
+  flex:none;width:44px;height:44px;border-radius:var(--r-sm);overflow:hidden;
+  background:var(--surface-3);display:grid;place-items:center;font-size:20px}
+.mm-overview__thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.mm-overview__info{flex:1 1 auto;min-width:0}
+.mm-overview__name{
+  margin:0;font-size:14px;font-weight:700;color:var(--text-1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-overview__meta{
+  margin:2px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:12px;color:var(--text-3)}
+/* A price is a bare numeric token — LTR inside an Arabic page, the same
+   convention prices, order ids and timers already follow (§47). */
+.mm-overview__price{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+
+/* ── §15 — availability outranks the marketing flags ──────────────────────
+   All three were identical checkbox rows, which said they matter equally.
+   They do not: availability decides whether guests can order the thing at
+   all, Featured and Popular decide where it is shown. Same control, quieter
+   frame for the two that are merchandising. */
+.mm-toggles{display:flex;flex-direction:column;gap:8px}
+.mm-toggle-row--primary{
+  padding:9px 10px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface-2)}
+.mm-toggle-row--primary span{font-weight:600;color:var(--text-1)}
+.mm-flags-row{display:flex;flex-wrap:wrap;gap:8px 18px}
+
+/* ── §43/§44 — management empty states ───────────────────────────────────
+   An Admin with no products is mid-workflow, not in a recovery state, so the
+   action that resolves it sits right there. */
+.ad-empty__actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;
+  justify-content:center}
+
+/* ── §29 — the destructive area ───────────────────────────────────────────
+   Deliberately far from Save and framed in its own restrained red, so Delete
+   can never be reached by aiming at the primary action and missing. */
+.mm-danger-zone{
+  margin-top:22px;padding:14px;
+  border:1px solid rgba(241,106,106,.28);border-radius:var(--r-md);
+  background:var(--canceled-soft)}
+.mm-danger-zone__title{
+  margin:0 0 2px;font-size:13px;font-weight:700;color:var(--canceled)}
+.mm-danger-zone__text{
+  margin:0 0 10px;font-size:12px;color:var(--text-3);line-height:1.5}
+
+/* ── §45/§46 — the editor must not widen the page at 320px ────────────────
+   The sticky footer is a flex row of two buttons; on the narrowest phones a
+   full-width primary reads better and removes any chance of the pair
+   overflowing. Logical padding so RTL mirrors without a second rule. */
+@media (max-width:400px){
+  .modal__foot{gap:8px}
+  .modal__foot .btn{flex:1 1 auto;min-width:0}
+  .mm-cz__bar{padding-inline:8px;gap:8px}
+  .mm-cz__body{padding:8px}
+}
