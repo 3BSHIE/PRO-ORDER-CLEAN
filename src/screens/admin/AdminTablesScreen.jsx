@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Pencil, Trash2, Plus, QrCode, Copy, Check, ExternalLink, RefreshCw, Search, X, Printer } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Pencil, Trash2, Plus, QrCode, Copy, Check, ExternalLink, RefreshCw, Search, X, Printer, Power } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -107,6 +107,10 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   const [editingTable, setEditingTable] = useState(null); // table object, or {} for "new"
   const [previewTable, setPreviewTable] = useState(null);
   const [pendingRegenerate, setPendingRegenerate] = useState(null);
+  /* Phase 93 §8/§10 — the table whose deactivation is awaiting confirmation.
+     Only deactivation asks: turning a table back ON is not a decision anyone
+     needs protecting from (§9), so Activate applies immediately. */
+  const [pendingDeactivate, setPendingDeactivate] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -159,6 +163,41 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
       return null; // no error
     }
     return result.reason; // let the form show the specific validation error
+  }
+
+  /* ── Phase 93 §8/§9 — Active / Inactive ───────────────────────────────
+     Deactivating is NOT deleting and NOT regenerating: it flips one boolean
+     and nothing else. updateTable restores qrToken from the stored record
+     regardless of what the patch carries, so the table keeps its identity,
+     its printed stand stays valid for when it reopens, and historical orders
+     — which snapshot their own tableNumber — are untouched.
+
+     resolveTableAccess already refuses an inactive table with reason
+     "inactive", which routes a new scan to the approved Inactive Table state
+     (§62) rather than Invalid QR. This screen only had to make that state
+     reachable: until now the toggle existed solely inside the Edit form, so
+     the most routine operation on this page — close a table for the evening
+     — meant opening a form and hunting for a checkbox. */
+  function setTableActive(table, nextActive) {
+    const result = updateTable(restaurant.slug, table.id, { isActive: nextActive });
+    if (!result.ok) {
+      setToastMessage(t("admin.tableSaveFailed", "Couldn't update this table. Please try again."));
+      setToastVisible(true);
+      return;
+    }
+    setToastMessage(
+      nextActive
+        ? t("admin.tableActivated", "Table activated")
+        : t("admin.tableDeactivated", "Table deactivated")
+    );
+    setToastVisible(true);
+  }
+
+  function handleConfirmDeactivate() {
+    const table = pendingDeactivate;
+    setPendingDeactivate(null);
+    if (!table) return;
+    setTableActive(table, false);
   }
 
   function handleConfirmRegenerate() {
@@ -398,26 +437,50 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 </div>
               </details>
 
+              {/* Phase 93 §3/§14/§20 — the row carried SIX equally-weighted
+                  controls: View QR, Copy URL, Open customer page, Edit,
+                  Regenerate and Delete, five of them unlabelled icons of
+                  identical size. With everything equally loud nothing reads as
+                  the main action, and Regenerate — which invalidates a printed
+                  stand — sat one icon away from Edit.
+
+                  Copy URL, Open customer page and Regenerate all move into the
+                  QR modal, which is where §14 places them and where they have
+                  the table's QR in front of them for context. Nothing is
+                  removed. What is left is the four things this page is for:
+                  see the QR, open or close the table, rename it, remove it. */}
               <div className="tb-row__actions">
-                {/* §23 — the QR is what this screen exists for, so its action
-                    is labelled while the rest stay icons. */}
+                {/* §3 — the QR is what this screen exists for. */}
                 <button type="button" className="mm-edit-btn" onClick={() => setPreviewTable(table)}>
                   <QrCode size={14} strokeWidth={2.2} aria-hidden="true" />
                   <span>{t("admin.viewQr", "View QR")}</span>
                 </button>
-                <button type="button" className="mm-icon-btn" onClick={() => handleCopyUrl(table)} aria-label={t("admin.copyUrl", "Copy URL")}>
-                  <Copy size={15} strokeWidth={2.2} />
+                {/* §7/§50 — labelled, not a bare icon: "which way does this
+                    power symbol point right now" is exactly the question a
+                    manager should not have to answer. The name states the
+                    action AND implies the current state. */}
+                <button
+                  type="button"
+                  className={`tb-toggle-btn ${table.isActive ? "" : "tb-toggle-btn--off"}`}
+                  onClick={() =>
+                    table.isActive ? setPendingDeactivate(table) : setTableActive(table, true)
+                  }
+                >
+                  <Power size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <span>
+                    {table.isActive
+                      ? t("admin.deactivateTable", "Deactivate")
+                      : t("admin.activateTable", "Activate")}
+                  </span>
                 </button>
-                <button type="button" className="mm-icon-btn" onClick={() => handleOpenUrl(table)} aria-label={t("admin.openCustomerPage", "Open customer page")}>
-                  <ExternalLink size={15} strokeWidth={2.2} />
-                </button>
-                <button type="button" className="mm-icon-btn" onClick={() => setEditingTable(table)} aria-label={t("admin.editTable", "Edit Table")}>
+                <button type="button" className="mm-icon-btn" onClick={() => setEditingTable(table)} aria-label={`${t("admin.editTable", "Edit Table")} — ${table.displayName}`}>
                   <Pencil size={15} strokeWidth={2.2} />
                 </button>
-                <button type="button" className="mm-icon-btn mm-icon-btn--warn" onClick={() => setPendingRegenerate(table)} aria-label={t("admin.regenerateQr", "Regenerate QR")}>
-                  <RefreshCw size={15} strokeWidth={2.2} />
-                </button>
-                <button type="button" className="mm-icon-btn mm-icon-btn--danger" onClick={() => setPendingDelete(table)} aria-label={t("admin.deleteTable", "Delete Table")}>
+                {/* §29 — Delete is pushed to its own end of the row by the
+                    separator so it is never the button next to the one you
+                    meant to press. */}
+                <span className="tb-row__actions-sep" aria-hidden="true" />
+                <button type="button" className="mm-icon-btn mm-icon-btn--danger" onClick={() => setPendingDelete(table)} aria-label={`${t("admin.deleteTable", "Delete Table")} — ${table.displayName}`}>
                   <Trash2 size={15} strokeWidth={2.2} />
                 </button>
               </div>
@@ -491,7 +554,49 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
             {/* The same URL the code encodes, shown as text so the modal is
                 usable without a second phone — and readable to a screen
                 reader, which cannot scan anything. */}
+            {/* §19/§44 — the link the code encodes, shown as text so the
+                modal works without a second phone and so a screen reader has
+                something to read. LTR-isolated in CSS: a URL inside an Arabic
+                page must not be reordered by the bidi algorithm. */}
             <p className="tb-qr-preview__url">{previewUrl}</p>
+
+            {/* §14 — the secondary pair. Copy and Preview live here now
+                rather than as two more icons in the row: both are about THIS
+                table's link, and here the QR they belong to is on screen.
+                Ghost weight, so Print in the footer stays the primary. */}
+            <div className="tb-qr-actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ExternalLink}
+                onClick={() => handleOpenUrl(previewLive)}
+              >
+                {t("admin.openCustomerPage", "Open customer page")}
+              </Button>
+            </div>
+
+            {/* §20 — Regenerate is sensitive and rare, so it sits below the
+                actions a manager actually came here for, in its own quiet
+                framed area rather than as a peer of Print. Amber, not red:
+                §52 — this is consequential but recoverable, and Delete keeps
+                the filled red. */}
+            <div className="tb-qr-sensitive">
+              <p className="tb-qr-sensitive__title">{t("admin.regenerateQr", "Regenerate QR")}</p>
+              <p className="tb-qr-sensitive__text">
+                {t(
+                  "admin.regenerateQrHint",
+                  "Replaces this table's code. Only needed if the printed QR was copied or misused."
+                )}
+              </p>
+              <Button
+                variant="warn"
+                size="sm"
+                icon={RefreshCw}
+                onClick={() => { setPreviewTable(null); setPendingRegenerate(previewLive); }}
+              >
+                {t("admin.regenerateQr", "Regenerate QR")}
+              </Button>
+            </div>
             {/* Phase 69 — an inactive table can still be printed; the stand
                 is a physical object and the restaurant may be preparing a
                 table before opening it. This warns the Admin on screen only
@@ -555,10 +660,63 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               ("will invalidate the previous customer link") described what
               happens to a URL; what actually matters to the person clicking
               is that the printed card on the table stops working. */}
+          {/* Phase 93 §21 — the old copy said only what BREAKS. §21 asks the
+              dialog to also say what SURVIVES, so a manager can judge the
+              real cost of pressing it.
+
+              MEASURED, not assumed. §22 states the approved rule as "active
+              sessions survive regeneration", and this dialog originally said
+              so — until the end-to-end test showed the current build does not
+              behave that way: every Customer screen gates on the token in the
+              URL (session.qrToken === qrToken, five screens), so a guest
+              already ordering lands on Invalid QR the moment the token
+              changes. Closing that gap means making the Customer session
+              table-bound rather than token-bound, which is Customer session
+              architecture and is explicitly out of scope here (§61/§62).
+
+              So the dialog states what is true of THIS build: the order
+              records are untouched, and guests have to re-scan. Promising
+              uninterrupted service would be the one failure mode that
+              actually costs a restaurant money mid-shift. */}
           <p className="ad-cancel-modal__msg">
             {t(
               "admin.regenerateQrWarning",
               "The current QR code for this table will stop working. Any printed stand using the old QR will need to be replaced."
+            )}
+          </p>
+          <ul className="tb-regen-effects">
+            <li>{t("admin.regenerateKeepsOrders", "Open orders, tracking and past history are not changed.")}</li>
+            <li>{t("admin.regenerateRescanNeeded", "Guests currently ordering at this table will need to scan the new code to continue.")}</li>
+            <li>{t("admin.regenerateBetweenServices", "Best done between services, when no one is seated at this table.")}</li>
+          </ul>
+        </Modal>
+      )}
+
+      {/* Phase 93 §10 — deactivation is operational, not destructive, so it
+          gets a light confirmation in neutral/amber rather than the filled red
+          Delete uses (§52). The point of the dialog is not to frighten anyone;
+          it is to state the two facts a manager needs: guests can no longer
+          start here, and nothing has been thrown away. */}
+      {pendingDeactivate && (
+        <Modal
+          open
+          onClose={() => setPendingDeactivate(null)}
+          title={t("admin.deactivateTableTitle", "Close this table?")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setPendingDeactivate(null)}>
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button variant="warn" onClick={handleConfirmDeactivate}>
+                {t("admin.deactivateTable", "Deactivate")}
+              </Button>
+            </>
+          }
+        >
+          <p className="ad-cancel-modal__msg">
+            {t(
+              "admin.deactivateTableMsg",
+              "Guests scanning this table's QR won't be able to start a new order. The table and its QR code are kept, and you can reactivate it at any time."
             )}
           </p>
         </Modal>
@@ -587,6 +745,9 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   );
 }
 
+/* The one field validation can land on, so focus never has to be guessed. */
+const TABLE_NUMBER_FIELD_ID = "tb-table-number";
+
 /* ── Add/Edit table form modal ────────────────────────────────────────────── */
 function TableEditorModal({ table, onSave, onClose }) {
   const { t } = useLanguage();
@@ -597,19 +758,59 @@ function TableEditorModal({ table, onSave, onClose }) {
   const [sortOrder, setSortOrder] = useState(table.sortOrder != null ? String(table.sortOrder) : "");
   const [error, setError] = useState(null);
 
+  /* ── Phase 93 §27 — one save per press ────────────────────────────────
+     Same defect Phase 92 found in the Product Editor, and the same fix.
+     createTable is synchronous, so two clicks landing in the same tick both
+     reached it and produced TWO tables — each with its own generated QR
+     token — from one press. On this screen that is worse than a duplicate
+     product: the second table is a second printable code for a table that
+     does not exist.
+
+     The ref is the guard; state updates are batched and a second click in
+     the same tick would still read the old flag. await + finally so the lock
+     survives onSave becoming a request later, and releases on rejection. */
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const ERROR_MESSAGE = {
     invalid_number: t("admin.tableNumberRequired", "Please enter a valid table number."),
     duplicate_number: t("admin.tableNumberDuplicate", "This table number is already in use."),
   };
 
-  function handleSubmit() {
-    const reason = onSave({
-      tableNumber,
-      displayName: displayName.trim(),
-      isActive,
-      sortOrder: sortOrder !== "" ? sortOrder : undefined,
-    });
-    if (reason) setError(ERROR_MESSAGE[reason] || reason);
+  async function handleSubmit() {
+    if (savingRef.current) return;
+    /* §26/§27 — validated before anything is written. An empty or
+       non-numeric table number is caught here rather than being handed to
+       the data layer, so the message lands on the field instead of arriving
+       as a generic failure. The data layer still rejects it independently
+       (duplicate numbers included); this is the inline half. */
+    const trimmedNumber = String(tableNumber).trim();
+    if (trimmedNumber === "" || !Number.isFinite(Number(trimmedNumber)) || Number(trimmedNumber) < 1) {
+      setError(ERROR_MESSAGE.invalid_number);
+      document.getElementById(TABLE_NUMBER_FIELD_ID)?.focus();
+      return;
+    }
+
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      const reason = await onSave({
+        tableNumber,
+        displayName: displayName.trim(),
+        isActive,
+        sortOrder: sortOrder !== "" ? sortOrder : undefined,
+      });
+      if (reason) {
+        setError(ERROR_MESSAGE[reason] || reason);
+        document.getElementById(TABLE_NUMBER_FIELD_ID)?.focus();
+      }
+    } finally {
+      savingRef.current = false;
+      /* A successful save unmounts this modal. */
+      if (mountedRef.current) setIsSaving(false);
+    }
   }
 
   return (
@@ -619,12 +820,17 @@ function TableEditorModal({ table, onSave, onClose }) {
       title={isNew ? t("admin.addTable", "Add Table") : t("admin.editTable", "Edit Table")}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>{t("common.cancel", "Cancel")}</Button>
-          <Button onClick={handleSubmit}>{t("common.save", "Save")}</Button>
+          {/* §27 — both disabled mid-save: leaving Cancel live would let the
+              modal be dismissed while a write is in flight. */}
+          <Button variant="ghost" disabled={isSaving} onClick={onClose}>{t("common.cancel", "Cancel")}</Button>
+          <Button disabled={isSaving} onClick={handleSubmit}>
+            {isSaving ? t("common.saving", "Saving…") : t("common.save", "Save")}
+          </Button>
         </>
       }
     >
       <Input
+        id={TABLE_NUMBER_FIELD_ID}
         label={t("admin.tableNumber", "Table Number")}
         type="number"
         min="1"

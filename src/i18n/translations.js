@@ -422,6 +422,23 @@ export const translations = {
       tableCountOther: "{n} tables",
       tableCountFiltered: "{n} of {total} tables",
       regenerateQr: "Regenerate QR",
+      /* Phase 93 §14/§20 — the sensitive area's own explanation. */
+      regenerateQrHint: "Replaces this table's code. Only needed if the printed QR was copied or misused.",
+      /* §21/§22 — what regeneration does NOT break. The approved rule is that
+         it affects new scans only; a manager who cannot see that stated will
+         never press it during service. */
+      regenerateKeepsOrders: "Open orders, tracking and past history are not changed.",
+      regenerateRescanNeeded: "Guests currently ordering at this table will need to scan the new code to continue.",
+      regenerateBetweenServices: "Best done between services, when no one is seated at this table.",
+      /* §7/§8/§10 — Active / Inactive, reachable from the row at last. */
+      activateTable: "Activate",
+      deactivateTable: "Deactivate",
+      deactivateTableTitle: "Close this table?",
+      deactivateTableMsg:
+        "Guests scanning this table's QR won't be able to start a new order. The table and its QR code are kept, and you can reactivate it at any time.",
+      tableActivated: "Table activated",
+      tableDeactivated: "Table deactivated",
+      tableSaveFailed: "Couldn't update this table. Please try again.",
       keepCurrentQr: "Keep Current QR",
       regenerateQrConfirmTitle: "Generate a new QR code?",
       regenerateQrWarning: "The current QR code for this table will stop working. Any printed stand using the old QR will need to be replaced.",
@@ -1235,6 +1252,19 @@ export const translations = {
       tableCountOther: "الطاولات: {n}",
       tableCountFiltered: "{n} من أصل {total} طاولة",
       regenerateQr: "إعادة إنشاء رمز QR",
+      /* Phase 93 — natural spoken Arabic rather than a literal rendering. */
+      regenerateQrHint: "يستبدل رمز هذه الطاولة. لا تحتاجه إلا إذا تم نسخ الرمز المطبوع أو إساءة استخدامه.",
+      regenerateKeepsOrders: "الطلبات المفتوحة وتتبّعها والسجل السابق لن تتغيّر.",
+      regenerateRescanNeeded: "الضيوف الذين يطلبون حالياً على هذه الطاولة سيحتاجون لمسح الرمز الجديد للمتابعة.",
+      regenerateBetweenServices: "يُفضّل تنفيذها بين الفترات، عندما لا يكون أحد جالساً على هذه الطاولة.",
+      activateTable: "تفعيل",
+      deactivateTable: "إيقاف",
+      deactivateTableTitle: "إغلاق هذه الطاولة؟",
+      deactivateTableMsg:
+        "لن يتمكن الضيوف الذين يمسحون رمز هذه الطاولة من بدء طلب جديد. الطاولة ورمزها محفوظان، ويمكنك تفعيلها مرة أخرى في أي وقت.",
+      tableActivated: "تم تفعيل الطاولة",
+      tableDeactivated: "تم إيقاف الطاولة",
+      tableSaveFailed: "تعذر تحديث هذه الطاولة. يرجى المحاولة مرة أخرى.",
       keepCurrentQr: "الإبقاء على الرمز الحالي",
       regenerateQrConfirmTitle: "إنشاء رمز QR جديد؟",
       regenerateQrWarning: "سيتوقف رمز QR الحالي لهذه الطاولة عن العمل. وسيلزم استبدال أي مطبوعة تستخدم الرمز القديم.",

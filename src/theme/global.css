@@ -6898,3 +6898,87 @@ button{font-family:var(--font-body)}
   .mm-cz__bar{padding-inline:8px;gap:8px}
   .mm-cz__body{padding:8px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 93 — ADMIN TABLES & QR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §7/§50 — the Active / Inactive control ───────────────────────────────
+   Labelled rather than an icon, because a bare power glyph cannot say which
+   state you are in OR which way you are about to go. min-height 36 with the
+   row's own padding clears a 44px effective target on touch without making
+   it as loud as View QR (§3).
+
+   The two states differ in border and text weight as well as hue, so the
+   control is never read by colour alone (§7). */
+.tb-toggle-btn{
+  display:inline-flex;align-items:center;gap:7px;flex:none;
+  min-height:36px;padding:0 13px;border-radius:999px;cursor:pointer;
+  background:transparent;border:1px solid var(--border-strong);
+  color:var(--text-2);font-family:var(--font-body);
+  font-size:12.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;
+  transition:border-color .18s,color .18s,background .18s}
+.tb-toggle-btn:hover{border-color:var(--text-3);color:var(--text-1)}
+/* Inactive table → the button offers "Activate", and reads as the positive
+   thing to do. Amber, never red: an inactive table is a normal operational
+   state, not a failure (§7/§40). */
+.tb-toggle-btn--off{
+  border-color:rgba(245,158,75,.42);color:var(--preparing);
+  background:var(--preparing-soft)}
+.tb-toggle-btn--off:hover{border-color:var(--preparing);color:var(--preparing)}
+
+/* §29 — a hair of space and a hairline between the routine controls and
+   Delete, so the destructive one is never simply "the next button along". */
+.tb-row__actions-sep{
+  flex:none;width:1px;align-self:stretch;min-height:22px;
+  margin-inline:2px;background:var(--border);opacity:.9}
+
+/* ── §14 — the QR modal's secondary action row ────────────────────────────
+   Ghost weight so Print in the footer stays the primary (§16). */
+.tb-qr-actions{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  margin-top:10px}
+
+/* ── §20 — the sensitive area ─────────────────────────────────────────────
+   Regenerate used to be one unlabelled icon in a row of six. It is rare and
+   consequential, so it sits below everything a manager actually opened this
+   modal for, framed in the same restrained amber the confirmation uses —
+   visibly a different class of action from Print, and visibly not Delete. */
+.tb-qr-sensitive{
+  margin-top:18px;padding:12px;
+  border:1px solid rgba(245,158,75,.28);border-radius:var(--r-md);
+  background:var(--preparing-soft);text-align:start}
+.tb-qr-sensitive__title{
+  margin:0 0 2px;font-size:12.5px;font-weight:700;color:var(--preparing)}
+.tb-qr-sensitive__text{
+  margin:0 0 10px;font-size:11.5px;line-height:1.55;color:var(--text-3)}
+
+/* ── §21 — what regeneration does NOT break ───────────────────────────────
+   Three short facts, not a paragraph: a manager scanning a dialog mid-service
+   reads a list and stops reading a block. */
+.tb-regen-effects{
+  margin:10px 0 0;padding-inline-start:18px;
+  font-size:12.5px;line-height:1.65;color:var(--text-3)}
+.tb-regen-effects li{margin:0}
+
+/* ── §44 — URLs and tokens stay LTR inside an Arabic page ─────────────────
+   A bare Latin/numeric token under RTL gets reordered by the bidi algorithm,
+   which silently rearranges a URL into something that is not the URL. The
+   same isolation prices, order ids and timers already use.
+
+   overflow-wrap:anywhere so a long token wraps inside its own box instead of
+   widening the row — the Phase 91.3 rule (§46). */
+.tb-row__token,
+.tb-row__url,
+.tb-qr-preview__url{
+  direction:ltr;unicode-bidi:isolate;
+  overflow-wrap:anywhere;min-width:0}
+
+/* ── §45/§47 — the QR modal on a 320px phone ──────────────────────────────
+   The QR is the one thing that must not shrink to fit the buttons around it
+   (§47), so the actions wrap and the code keeps its size. */
+@media (max-width:400px){
+  .tb-row__actions{flex-wrap:wrap;gap:8px}
+  .tb-row__actions-sep{display:none}
+  .tb-qr-actions .btn{flex:1 1 auto;min-width:0}
+}
