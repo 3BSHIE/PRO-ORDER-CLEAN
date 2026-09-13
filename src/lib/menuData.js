@@ -145,6 +145,37 @@ export function getMenuItems(restaurantSlug) {
   }
 }
 
+/* ── Phase 95.2 — the raw stored list, with NO read-time normalization ────
+   getCategories()/getMenuItems() deliberately normalize what they return
+   (Phase 28 and Phase 80) and getCategories() also sorts. That is right for
+   every CONSUMER: one predictable shape, no migration step.
+
+   It is wrong as the basis of a targeted write. A setter that reads through
+   those functions and saves the result persists the normalization of every
+   record in the list — so flipping one product's availability also rewrote
+   the customization groups of seven others (`required: true` becoming
+   `minSelections: 1`, `isAvailable` added to every option), and flipping one
+   category's switch re-serialized the whole catalogue in sorted order.
+   Semantically equivalent, but a routine availability toggle should not
+   produce a diff across records nobody touched.
+
+   So the two availability setters below read THIS instead: exactly what is
+   in storage, unsorted and untransformed. They patch one field on one record
+   and write the list back, leaving every other byte as it was found.
+
+   Returns null when nothing usable is stored, which the callers treat the
+   same way they treat a missing id. */
+function readStoredList(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function saveCategories(restaurantSlug, categories) {
   try {
     localStorage.setItem(categoriesKey(restaurantSlug), JSON.stringify(categories));
@@ -241,13 +272,31 @@ export function updateCategory(restaurantSlug, categoryId, patch) {
  * @returns {object|null} the updated category, or null if not found
  */
 export function setCategoryVisible(restaurantSlug, categoryId, isVisible) {
-  const categories = getCategories(restaurantSlug);
-  const idx = categories.findIndex((c) => c.id === categoryId);
+  seedIfEmpty(restaurantSlug);
+  /* Phase 95.2 — raw, so the schedule fields, sortOrder, emoji, imageUrl and
+     the stored ORDER of the list are all left exactly as found. Reading
+     through getCategories() here used to normalize and re-sort every
+     category on every toggle. */
+  const stored = readStoredList(categoriesKey(restaurantSlug));
+  if (!stored) return null;
+
+  const idx = stored.findIndex((c) => c.id === categoryId);
   if (idx === -1) return null;
 
-  const updated = { ...categories[idx], isVisible: isVisible !== false };
-  saveCategories(restaurantSlug, categories.map((c, i) => (i === idx ? updated : c)));
-  return updated;
+  const next = isVisible !== false;
+  /* Strict compare: a legacy category with no isVisible key is not equal to
+     `true`, so turning one explicitly on still writes the field it is being
+     asked to write. Identical values write nothing at all. */
+  if (stored[idx].isVisible === next) return normalizeCategory(stored[idx]);
+
+  const updated = { ...stored[idx], isVisible: next };
+  const list = stored.slice();
+  list[idx] = updated;
+  saveCategories(restaurantSlug, list);
+  /* Normalized on the way out, because callers expect the same shape
+     getCategories() hands them — the normalization just never reaches
+     storage. */
+  return normalizeCategory(updated);
 }
 
 /**
@@ -270,13 +319,27 @@ export function setCategoryVisible(restaurantSlug, categoryId, isVisible) {
  * @returns {object|null} the updated item, or null if not found
  */
 export function setMenuItemAvailable(restaurantSlug, itemId, isAvailable) {
-  const items = getMenuItems(restaurantSlug);
-  const idx = items.findIndex((i) => i.id === itemId);
+  seedIfEmpty(restaurantSlug);
+  /* Phase 95.2 — raw, so the choice groups, options, add-ons, price, image,
+     flags and sortOrder of THIS item and of every other item are left byte
+     for byte as found. Reading through getMenuItems() here used to run the
+     Phase 80 choice-group normalizer over the whole menu and persist it, so
+     one availability toggle rewrote unrelated products' customization. */
+  const stored = readStoredList(itemsKey(restaurantSlug));
+  if (!stored) return null;
+
+  const idx = stored.findIndex((i) => i.id === itemId);
   if (idx === -1) return null;
 
-  const updated = { ...items[idx], isAvailable: isAvailable !== false };
-  saveMenuItems(restaurantSlug, items.map((i, n) => (n === idx ? updated : i)));
-  return updated;
+  const next = isAvailable !== false;
+  if (stored[idx].isAvailable === next) return normalizeItem(stored[idx]);
+
+  const updated = { ...stored[idx], isAvailable: next };
+  const list = stored.slice();
+  list[idx] = updated;
+  saveMenuItems(restaurantSlug, list);
+  /* Normalized on the way out only — storage keeps the original shape. */
+  return normalizeItem(updated);
 }
 
 /**
