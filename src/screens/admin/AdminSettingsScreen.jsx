@@ -70,6 +70,56 @@ const DAY_LABEL_FALLBACK = {
    holding identical values can serialise differently — and comparing those
    strings would leave the page permanently dirty from the moment it mounted.
    Sorting keys at every level removes that as a source of false positives. */
+/* §52/§59 — what counts as a colour. Accepts 3- and 6-digit HEX with or
+   without the leading #, because a manager pasting from a brand guide should
+   not have to care which form it was written in. */
+const HEX_PATTERN = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+function isValidHex(value) {
+  return HEX_PATTERN.test(String(value || "").trim());
+}
+
+/* Stored in one canonical shape: lowercase, six digits, leading #. */
+function normalizeHex(value) {
+  let hex = String(value).trim().replace(/^#/, "").toLowerCase();
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  return `#${hex}`;
+}
+
+const hexFieldId = (field) => `st-hex-${field}`;
+const LANGUAGES_FIELD_ID = "st-default-language";
+
+/* One colour control: swatch, HEX field, and its own error line. Declared
+   here rather than inline so the two colours cannot drift apart (§25). */
+function ColorField({ field, label, value, draftText, error, onChange }) {
+  const id = hexFieldId(field);
+  return (
+    <div className="field mm-field">
+      <span className="field__label">{label}</span>
+      <div className="th-color">
+        <input
+          type="color"
+          className="th-color__swatch"
+          value={value}
+          aria-label={label}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <input
+          id={id}
+          type="text"
+          className={`input th-color__hex ${error ? "input--error" : ""}`}
+          value={draftText !== null && draftText !== undefined ? draftText : value}
+          spellCheck="false"
+          aria-label={`${label} HEX`}
+          aria-invalid={error ? "true" : undefined}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+      {error && <p className="th-color__error">{error}</p>}
+    </div>
+  );
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") {
@@ -114,6 +164,37 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   const [toastMessage, setToastMessage] = useState("");
   const [error, setError] = useState(null);
   const [showDiscard, setShowDiscard] = useState(false);
+
+  /* Phase 94 §52/§59 — the HEX text a manager is mid-way through typing.
+     Kept separate from the draft because "#C8A" is a legitimate keystroke on
+     the way to "#C8A96A": writing every partial value straight into the theme
+     would repaint the preview with garbage on each character. Only a value
+     that parses reaches the draft; anything else is remembered as text and
+     flagged, which is what lets Save refuse it. */
+  const [hexDraft, setHexDraft] = useState({ primaryColor: null, accentColor: null });
+  const hexErrors = {
+    primaryColor: hexDraft.primaryColor !== null && !isValidHex(hexDraft.primaryColor),
+    accentColor: hexDraft.accentColor !== null && !isValidHex(hexDraft.accentColor),
+  };
+
+  function setHexField(field, next) {
+    setHexDraft((prev) => ({ ...prev, [field]: next }));
+    if (isValidHex(next)) {
+      setField(field, normalizeHex(next));
+      /* a good value clears its own draft so the field follows the picker
+         again rather than freezing on the typed text */
+      setHexDraft((prev) => ({ ...prev, [field]: null }));
+    }
+  }
+
+  /* §64 — one save per press. The write is synchronous, so two clicks in the
+     same tick both reached updateSettings; the ref is the guard because state
+     updates are batched and a second click would still read the old flag.
+     await + finally so it still behaves when this becomes a request. */
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   /* ── Phase 79.2 — unsaved-changes guard ────────────────────────────────
      This screen has always held its edits in a local draft and written them
@@ -265,12 +346,26 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     });
   }
 
-  function handleSaveAll() {
+  async function handleSaveAll() {
+    if (savingRef.current) return;
+
     const bothLanguagesDisabled = !draft.languagesEnabled.en && !draft.languagesEnabled.ar;
     if (bothLanguagesDisabled) {
       setError(t("admin.atLeastOneLanguageRequired", "At least one language must stay enabled."));
+      document.getElementById(LANGUAGES_FIELD_ID)?.focus();
       return;
     }
+
+    /* §59 — a malformed HEX blocks the write outright rather than being
+       silently coerced. Focus goes to the first bad field so the manager is
+       looking at the thing that stopped them (§66). */
+    const badHex = ["primaryColor", "accentColor"].find((f) => hexErrors[f]);
+    if (badHex) {
+      setError(t("admin.invalidHexBlocksSave", "Fix the colour value before saving."));
+      document.getElementById(hexFieldId(badHex))?.focus();
+      return;
+    }
+
     setError(null);
     /* Phase 79.2 — adopt what was actually persisted as the new draft.
        updateSettings normalises on write (working hours above all), so the
@@ -285,10 +380,20 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        the draft adopts the returned record, the form holds the coerced value
        rather than the pre-coercion one and the dirty check stays honest. The
        same applies to currency being resolved to JOD. */
-    const saved = updateSettings(restaurant.slug, draft);
-    setDraft(saved);
-    setToastMessage(t("admin.settingsSaved", "Settings saved"));
-    setToastVisible(true);
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      const saved = await updateSettings(restaurant.slug, draft);
+      setDraft(saved);
+      /* §67 — the committed record becomes the draft, so the live preview
+         becomes the saved theme and the dirty check goes quiet. */
+      setHexDraft({ primaryColor: null, accentColor: null });
+      setToastMessage(t("admin.settingsSaved", "Settings saved"));
+      setToastVisible(true);
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) setIsSaving(false);
+    }
   }
 
   /* Phase 31 — restores ONLY the four theme fields on the draft. Identity,
@@ -317,8 +422,18 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
 
       {error && <p className="ad-settings__error">{error}</p>}
 
-      <div className="ad-settings__grid anim-rise">
-        {/* ── General ─────────────────────────────────────────────────── */}
+        {/* Phase 94 §12 — four named groups instead of eight flat cards.
+            The page was one long column of equally-weighted sections, so a
+            manager looking for Working Hours had to read every heading on
+            the way down. Grouping gives the page a shape: who the
+            restaurant is, what guests get, how it runs, how it looks. */}
+
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("admin.groupProfile", "Restaurant Profile")}</h2>
+            <p className="ad-settings__group-hint">{t("admin.groupProfileHint", "Identity and contact details shown to guests.")}</p>
+          </header>
+          <div className="ad-settings__row ad-settings__row--pair">
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.general", "General")}</h3>
           <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
@@ -332,137 +447,24 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <textarea className="mm-textarea" value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} />
           </label>
         </Card>
-
-        {/* ── Branding ─────────────────────────────────────────────────── */}
         <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.branding", "Branding")}</h3>
-
-          {/* Live preview — PRO·ORDER always appears together with the
-              restaurant's own branding, never replaced by it. */}
-          <div className="ad-brand-preview" style={{ "--preview-primary": draft.primaryColor, "--preview-accent": draft.accentColor }}>
-            <Logo variant="icon" size="sm" />
-            <div className="ad-brand-preview__divider" />
-            <div className="ad-brand-preview__restaurant">
-              {draft.logoUrl && <img src={draft.logoUrl} alt="" className="ad-brand-preview__logo" />}
-              <span className="ad-brand-preview__name">{previewName}</span>
-            </div>
-          </div>
-          <p className="ad-settings__hint">
-            {t("admin.brandLockupHint", "PRO·ORDER always appears alongside your restaurant's identity.")}
-          </p>
+          <h3 className="mm-section-title">{t("admin.contactInformation", "Contact Information")}</h3>
+          <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
+            onChange={(e) => setField("contactPhone", e.target.value)} style={{ marginBottom: 14 }} />
+          <Input label={t("admin.email", "Email")} value={draft.contactEmail}
+            onChange={(e) => setField("contactEmail", e.target.value)} style={{ marginBottom: 14 }} />
+          <Input label={t("admin.address", "Address")} value={draft.contactAddress}
+            onChange={(e) => setField("contactAddress", e.target.value)} />
         </Card>
-
-        {/* ── Theme (Phase 31) ─────────────────────────────────────────────
-            The colour fields moved here from Branding — same draft, same
-            save, just grouped with the typography they combine with so the
-            whole customer look lives in one place. Branding above keeps the
-            PRO·ORDER + restaurant lockup, which is about brand protection
-            rather than theming. */}
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.theme", "Theme")}</h3>
-          <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
-            {t("admin.themeHint", "Applies to your customer menu and ordering screens only.")}
-          </p>
-
-          <div className="th-row">
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.primaryColor", "Primary Color")}</span>
-              <input type="color" className="ad-settings__color" value={draft.primaryColor} onChange={(e) => setField("primaryColor", e.target.value)} />
-            </label>
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.accentColor", "Accent Color")}</span>
-              <input type="color" className="ad-settings__color" value={draft.accentColor} onChange={(e) => setField("accentColor", e.target.value)} />
-            </label>
           </div>
+        </section>
 
-          <div className="th-row" style={{ marginTop: 12 }}>
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.headingFont", "Heading Font")}</span>
-              <select
-                className="mm-select mm-select--full"
-                value={draft.headingFont}
-                onChange={(e) => setField("headingFont", e.target.value)}
-              >
-                {Object.entries(HEADING_FONTS).map(([key, font]) => (
-                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field mm-field">
-              <span className="field__label">{t("admin.bodyFont", "Body Font")}</span>
-              <select
-                className="mm-select mm-select--full"
-                value={draft.bodyFont}
-                onChange={(e) => setField("bodyFont", e.target.value)}
-              >
-                {Object.entries(BODY_FONTS).map(([key, font]) => (
-                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {/* Compact preview of the DRAFT values, produced by the same
-              buildCustomerThemeVars() the customer screens run through. */}
-          <span className="field__label" style={{ display: "block", margin: "14px 0 8px" }}>
-            {t("admin.preview", "Preview")}
-          </span>
-          <div className="th-preview" style={themePreviewVars}>
-            <h4 className="th-preview__heading">{previewName}</h4>
-            <p className="th-preview__body">
-              {t("admin.themePreviewText", "Your guests see this typography and accent while ordering.")}
-            </p>
-            <div className="th-preview__row">
-              <span className="th-preview__swatch" />
-              <span className="th-preview__btn">{t("customer.addToCart", "Add to cart")}</span>
-              <span className="th-preview__chip">{t("customer.popular", "Popular")}</span>
-            </div>
-          </div>
-
-          <div className="th-actions">
-            <Button variant="outline" size="sm" onClick={handleResetTheme} disabled={themeIsDefault}>
-              {t("admin.resetToDefault", "Reset to Default")}
-            </Button>
-            <p className="th-note">
-              {t("admin.themeResetNote", "Restores theme colors and fonts only. Save to apply.")}
-            </p>
-          </div>
-        </Card>
-
-        {/* ── Business ─────────────────────────────────────────────────── */}
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.business", "Business")}</h3>
-          <Input label={t("admin.serviceChargeLabel", "Service Charge %")} type="number" min="0" step="0.1"
-            value={draft.serviceChargePercent ?? ""} placeholder={String(restaurant.serviceChargePercent)}
-            onChange={(e) => setField("serviceChargePercent", e.target.value === "" ? null : Number(e.target.value))}
-            style={{ marginBottom: 14 }} />
-          {/* Phase 82.1 — Currency is shown, not edited.
-
-              This was a free-text input for many phases, and nothing ever read
-              what it stored: every price in Customer, Kitchen and Admin comes
-              from fmtPrice(), which formats JOD. A manager could type "USD",
-              save successfully, and change nothing anywhere — the exact
-              "saves but does nothing" class of defect Phase 82 called a P0
-              blocker.
-
-              Rendered as a plain read-only value rather than a disabled input
-              (§23): a greyed-out field still reads as "editable, just not
-              right now", which would be a second small lie. The field itself
-              stays in the settings record — it is the seam multi-currency
-              grows from — and normalizeCurrency() in settingsData resolves
-              whatever is stored, including a legacy "USD", to JOD. */}
-          <div className="ad-settings__readonly" style={{ marginBottom: 14 }}>
-            <span className="ad-settings__readonly-label">{t("admin.currency", "Currency")}</span>
-            <span className="ad-settings__readonly-value">{SUPPORTED_CURRENCY}</span>
-            <span className="ad-settings__readonly-note">
-              {t("admin.currencyFixedHint", "JOD only in this version.")}
-            </span>
-          </div>
-          <Input label={t("admin.timeZone", "Time Zone")} value={draft.timeZone}
-            onChange={(e) => setField("timeZone", e.target.value)} />
-        </Card>
-
-        {/* ── Languages ────────────────────────────────────────────────── */}
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("admin.groupExperience", "Customer Experience")}</h2>
+            <p className="ad-settings__group-hint">{t("admin.groupExperienceHint", "What guests can choose when they order.")}</p>
+          </header>
+          <div className="ad-settings__row ad-settings__row--pair">
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.languages", "Languages")}</h3>
           <label className="field mm-field" style={{ marginBottom: 14 }}>
@@ -482,6 +484,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <select
               className="mm-select mm-select--full"
               value={effectiveDefaultLanguage}
+              id={LANGUAGES_FIELD_ID}
               onChange={(e) => setField("defaultLanguage", e.target.value)}
             >
               {draftEnabledLanguages.map((code) => (
@@ -503,8 +506,6 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             </label>
           </div>
         </Card>
-
-        {/* ── Payment Methods ──────────────────────────────────────────── */}
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.paymentMethodsSection", "Payment Methods")}</h3>
           <div className="mm-toggles" style={{ flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
@@ -523,19 +524,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           </div>
           <p className="ad-settings__hint">{t("admin.onlinePaymentStillDisabledHint", "Online Payment remains functionally disabled — this only controls whether it's shown as an upcoming option.")}</p>
         </Card>
+          </div>
+        </section>
 
-        {/* ── Contact Information ──────────────────────────────────────── */}
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.contactInformation", "Contact Information")}</h3>
-          <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
-            onChange={(e) => setField("contactPhone", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.email", "Email")} value={draft.contactEmail}
-            onChange={(e) => setField("contactEmail", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.address", "Address")} value={draft.contactAddress}
-            onChange={(e) => setField("contactAddress", e.target.value)} />
-        </Card>
-
-        {/* ── Working Hours ────────────────────────────────────────────── */}
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("admin.groupOperations", "Operations")}</h2>
+            <p className="ad-settings__group-hint">{t("admin.groupOperationsHint", "When and how the restaurant takes orders.")}</p>
+          </header>
+          <div className="ad-settings__row">
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.workingHours", "Working Hours")}</h3>
           {/* Phase 79 §31 — these fields had no effect on anything until that
@@ -608,7 +605,41 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             </Button>
           </div>
         </Card>
+          </div>
+          <div className="ad-settings__row">
+        <Card className="ad-settings__section">
+          <h3 className="mm-section-title">{t("admin.business", "Business")}</h3>
+          <Input label={t("admin.serviceChargeLabel", "Service Charge %")} type="number" min="0" step="0.1"
+            value={draft.serviceChargePercent ?? ""} placeholder={String(restaurant.serviceChargePercent)}
+            onChange={(e) => setField("serviceChargePercent", e.target.value === "" ? null : Number(e.target.value))}
+            style={{ marginBottom: 14 }} />
+          {/* Phase 82.1 — Currency is shown, not edited.
 
+              This was a free-text input for many phases, and nothing ever read
+              what it stored: every price in Customer, Kitchen and Admin comes
+              from fmtPrice(), which formats JOD. A manager could type "USD",
+              save successfully, and change nothing anywhere — the exact
+              "saves but does nothing" class of defect Phase 82 called a P0
+              blocker.
+
+              Rendered as a plain read-only value rather than a disabled input
+              (§23): a greyed-out field still reads as "editable, just not
+              right now", which would be a second small lie. The field itself
+              stays in the settings record — it is the seam multi-currency
+              grows from — and normalizeCurrency() in settingsData resolves
+              whatever is stored, including a legacy "USD", to JOD. */}
+          <div className="ad-settings__readonly" style={{ marginBottom: 14 }}>
+            <span className="ad-settings__readonly-label">{t("admin.currency", "Currency")}</span>
+            <span className="ad-settings__readonly-value">{SUPPORTED_CURRENCY}</span>
+            <span className="ad-settings__readonly-note">
+              {t("admin.currencyFixedHint", "JOD only in this version.")}
+            </span>
+          </div>
+          <Input label={t("admin.timeZone", "Time Zone")} value={draft.timeZone}
+            onChange={(e) => setField("timeZone", e.target.value)} />
+        </Card>
+          </div>
+          <div className="ad-settings__row ad-settings__row--pair">
         {/* ── Kitchen Alerts (Phase 27) ────────────────────────────────────
             Self-contained: it writes to its own storage key the moment a
             control changes, so it is intentionally NOT wired to the Save
@@ -620,7 +651,6 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             setToastVisible(true);
           }}
         />
-
         {/* ── Staff Call Alerts (Phase 59) ─────────────────────────────────
             Sits beside Kitchen Alerts because they are the same kind of
             control, but writes to its own key and is likewise not wired to
@@ -633,10 +663,130 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             setToastVisible(true);
           }}
         />
-      </div>
+          </div>
+        </section>
+
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("admin.groupBranding", "Branding")}</h2>
+            <p className="ad-settings__group-hint">{t("admin.groupBrandingHint", "How your restaurant looks to guests.")}</p>
+          </header>
+          <div className="ad-settings__row ad-settings__row--pair">
+        <Card className="ad-settings__section">
+          <h3 className="mm-section-title">{t("admin.branding", "Branding")}</h3>
+
+          {/* Live preview — PRO·ORDER always appears together with the
+              restaurant's own branding, never replaced by it. */}
+          <div className="ad-brand-preview" style={{ "--preview-primary": draft.primaryColor, "--preview-accent": draft.accentColor }}>
+            <Logo variant="icon" size="sm" />
+            <div className="ad-brand-preview__divider" />
+            <div className="ad-brand-preview__restaurant">
+              {draft.logoUrl && <img src={draft.logoUrl} alt="" className="ad-brand-preview__logo" />}
+              <span className="ad-brand-preview__name">{previewName}</span>
+            </div>
+          </div>
+          <p className="ad-settings__hint">
+            {t("admin.brandLockupHint", "PRO·ORDER always appears alongside your restaurant's identity.")}
+          </p>
+        </Card>
+        <Card className="ad-settings__section">
+          <h3 className="mm-section-title">{t("admin.theme", "Theme")}</h3>
+          <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
+            {t("admin.themeHint", "Applies to your customer menu and ordering screens only.")}
+          </p>
+
+          {/* Phase 94 §52 — a swatch AND a HEX field for each colour.
+              The picker alone could never produce an invalid value, which is
+              also why it could never be typed, pasted from a brand guide, or
+              read aloud. The HEX input makes the value first-class — and
+              introduces the invalid case §59 asks us to catch. */}
+          <div className="th-row">
+            <ColorField
+              field="primaryColor"
+              label={t("admin.primaryColor", "Primary Color")}
+              value={draft.primaryColor}
+              draftText={hexDraft.primaryColor}
+              error={hexErrors.primaryColor ? t("admin.invalidHex", "Enter a valid colour, e.g. #C8A96A.") : null}
+              onChange={(next) => setHexField("primaryColor", next)}
+            />
+            <ColorField
+              field="accentColor"
+              label={t("admin.secondaryColor", "Secondary Color")}
+              value={draft.accentColor}
+              draftText={hexDraft.accentColor}
+              error={hexErrors.accentColor ? t("admin.invalidHex", "Enter a valid colour, e.g. #C8A96A.") : null}
+              onChange={(next) => setHexField("accentColor", next)}
+            />
+          </div>
+
+          <div className="th-row" style={{ marginTop: 12 }}>
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.headingFont", "Heading Font")}</span>
+              <select
+                className="mm-select mm-select--full"
+                value={draft.headingFont}
+                onChange={(e) => setField("headingFont", e.target.value)}
+              >
+                {Object.entries(HEADING_FONTS).map(([key, font]) => (
+                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field mm-field">
+              <span className="field__label">{t("admin.bodyFont", "Body Font")}</span>
+              <select
+                className="mm-select mm-select--full"
+                value={draft.bodyFont}
+                onChange={(e) => setField("bodyFont", e.target.value)}
+              >
+                {Object.entries(BODY_FONTS).map(([key, font]) => (
+                  <option key={key} value={key}>{t(font.labelKey, key)}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {/* Compact preview of the DRAFT values, produced by the same
+              buildCustomerThemeVars() the customer screens run through. */}
+          <span className="field__label" style={{ display: "block", margin: "14px 0 8px" }}>
+            {t("admin.preview", "Preview")}
+          </span>
+          <div className="th-preview" style={themePreviewVars}>
+            <h4 className="th-preview__heading">{previewName}</h4>
+            <p className="th-preview__body">
+              {t("admin.themePreviewText", "Your guests see this typography and accent while ordering.")}
+            </p>
+            <div className="th-preview__row">
+              <span className="th-preview__swatch" />
+              <span className="th-preview__btn">{t("customer.addToCart", "Add to cart")}</span>
+              <span className="th-preview__chip">{t("customer.popular", "Popular")}</span>
+            </div>
+          </div>
+
+          <div className="th-actions">
+            <Button variant="outline" size="sm" onClick={handleResetTheme} disabled={themeIsDefault}>
+              {t("admin.resetToDefault", "Reset to Default")}
+            </Button>
+            <p className="th-note">
+              {t("admin.themeResetNote", "Restores theme colors and fonts only. Save to apply.")}
+            </p>
+          </div>
+        </Card>
+          </div>
+        </section>
+
 
       <div className="ad-settings__save-bar anim-rise">
-        <Button icon={Save} onClick={handleSaveAll}>{t("common.save", "Save")}</Button>
+        {/* §63/§81 — stated in words, not by colour alone. */}
+        <span className={`ad-settings__dirty ${isDirty ? "" : "ad-settings__dirty--clean"}`} role="status">
+          <span className="ad-settings__dirty-dot" aria-hidden="true" />
+          {isDirty
+            ? t("admin.unsavedChanges", "Unsaved changes")
+            : t("admin.allChangesSaved", "All changes saved")}
+        </span>
+        <Button icon={Save} disabled={isSaving} onClick={handleSaveAll}>
+          {isSaving ? t("common.saving", "Saving…") : t("admin.saveSettings", "Save Settings")}
+        </Button>
       </div>
 
       {/* Phase 79.2 — the SAME dialog the Product editor raises, down to the

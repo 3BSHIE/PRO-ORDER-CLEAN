@@ -31,7 +31,7 @@ import { useLanguage } from "../../i18n/useLanguage.js";
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function AdminFeedbackScreen({ restaurant, session, onSignOut, onNavigate }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { feedback } = useFeedback(restaurant.slug);
 
   const summary = useMemo(() => summarizeFeedback(feedback), [feedback]);
@@ -136,8 +136,16 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
         </div>
       ) : (
         <div className="fb-list anim-rise" style={{ animationDelay: "120ms" }}>
-          {feedback.map((entry) => (
-            <FeedbackRow key={entry.id} entry={entry} />
+          {groupFeedbackByDay(feedback).map((group) => (
+            <section className="fb-group" key={group.key}>
+              {/* §4 — the date is part of the page's structure, not a field
+                  repeated on every card. Sticky so the day a manager is
+                  reading stays named while they scroll through it. */}
+              <h3 className="fb-group__heading">{dayHeading(group.date, t, language)}</h3>
+              {group.entries.map((entry) => (
+                <FeedbackRow key={entry.id} entry={entry} />
+              ))}
+            </section>
           ))}
         </div>
       )}
@@ -213,7 +221,15 @@ function FeedbackRow({ entry }) {
           >
             “{entry.comment}”
           </p>
-          {clamped && (
+          {/* Phase 94 §8 — `clamped || expanded`, not `clamped` alone.
+              The clamp is measured from the live element, so expanding it made
+              scrollHeight equal clientHeight, the measurement reported "not
+              clamped", and the button unmounted — leaving the review open with
+              no way back. Reproduced before fixing: Show more appeared, worked
+              once, and Show less never existed. Keeping it mounted while
+              expanded is what makes the control a toggle rather than a
+              one-way door. */}
+          {(clamped || expanded) && (
             <button
               type="button"
               className="fb-row__more"
@@ -245,15 +261,71 @@ function FeedbackRow({ entry }) {
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+/* Phase 94 §5 — TIME ONLY.
+   This used to render "8:42 PM, Sep 12" on every card. Under a date heading
+   that repeats the same date on every review beneath it, which is noise: the
+   heading already answers "which day", so the card only has to answer "when
+   that day". */
 function formatTimestamp(iso) {
   try {
-    return new Date(iso).toLocaleString(undefined, {
+    return new Date(iso).toLocaleTimeString(undefined, {
       hour: "numeric",
       minute: "2-digit",
-      month: "short",
-      day: "numeric",
     });
   } catch {
     return iso;
+  }
+}
+
+/* ── Phase 94 §4/§80 — date grouping ──────────────────────────────────────
+   Groups by LOCAL calendar day, keyed on the local Y-M-D rather than on a
+   slice of the ISO string: the stored timestamp is UTC, so slicing it would
+   put a 1:00am local review under the previous day for anyone east of
+   Greenwich. Amman is UTC+3, so that is not hypothetical here.
+
+   The incoming list is already newest-first (getFeedback sorts on read), and
+   both the group order and the order within each group simply inherit that —
+   nothing is re-sorted, so there is one sort order in the system and no way
+   for the two to disagree (§7). */
+function dayKey(date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function groupFeedbackByDay(list) {
+  const groups = [];
+  const byKey = new Map();
+  for (const entry of list) {
+    const date = new Date(entry.createdAt);
+    if (Number.isNaN(date.getTime())) continue;
+    const key = dayKey(date);
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, date, entries: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.entries.push(entry);
+  }
+  return groups;
+}
+
+/* "Today" / "Yesterday" / an absolute date, in the active locale.
+   Compared on the local calendar day, not on elapsed hours: a review from
+   11:50pm is "Yesterday" at 00:10, not "23 minutes ago". */
+function dayHeading(date, t, language) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (dayKey(date) === dayKey(today)) return t("feedback.today", "Today");
+  if (dayKey(date) === dayKey(yesterday)) return t("feedback.yesterday", "Yesterday");
+
+  try {
+    /* Phase 94 §80 — the APP language, not the browser locale. Passing
+       undefined localised the heading to whatever the device was set to, so
+       an Arabic interface still printed "Sep 8, 2026". */
+    return date.toLocaleDateString(language === "ar" ? "ar" : "en", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return date.toISOString().slice(0, 10);
   }
 }

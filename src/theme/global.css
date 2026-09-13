@@ -7206,3 +7206,105 @@ button{font-family:var(--font-body)}
    reliably (§30). Padding only; it stays visually a quiet summary line. */
 .tb-tech__summary{padding-block:11px}
 .tb-tech{padding-top:4px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 94 — FEEDBACK GROUPING + SETTINGS HIERARCHY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §4 — feedback date groups ───────────────────────────────────────────
+   The date belongs to the page's structure, not to each card. Sticky so the
+   day being read stays named while scrolling through a long run of reviews;
+   z-index 1 only, so it never rides over a modal. */
+.fb-group{display:flex;flex-direction:column;gap:10px}
+.fb-group + .fb-group{margin-top:22px}
+.fb-group__heading{
+  position:sticky;top:60px;z-index:1;
+  margin:0 0 2px;padding:6px 0;
+  font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3);
+  background:var(--bg)}
+
+/* ── §12 — the four Settings groups ──────────────────────────────────────
+   Hierarchy by typography and whitespace rather than another layer of cards
+   (§24/§72): the group title is not itself a card, so the page gains shape
+   without gaining nesting. */
+.ad-settings__group + .ad-settings__group{margin-top:30px}
+.ad-settings__group-head{margin:0 0 12px}
+.ad-settings__group-title{
+  margin:0;font-family:var(--font-display);
+  font-size:17px;font-weight:700;color:var(--text-1);letter-spacing:.01em}
+.ad-settings__group-hint{
+  margin:3px 0 0;font-size:12.5px;line-height:1.5;color:var(--text-3)}
+
+/* ── §14/§73 — rows, and equal height ONLY where cards are paired ────────
+   The old layout was one auto-flowing two-column grid with align-items:start,
+   so whichever two cards happened to land beside each other kept their own
+   heights — Working Hours (seven day rows) could sit next to Payment Methods
+   and leave a large dead gap, and which cards paired was an accident of
+   source order rather than a decision.
+
+   Rows are explicit now. A `--pair` row stretches its two cards so their
+   outer heights match; a plain row is full width. Only genuinely related
+   cards are paired — Profile+Contact, Languages+Payment, the two alert
+   cards, Branding+Theme — so nothing unrelated is stretched to match
+   something it has nothing to do with (§14). */
+.ad-settings__row{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.ad-settings__row + .ad-settings__row{margin-top:16px}
+
+@media (min-width:861px){
+  .ad-settings__row--pair{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    align-items:stretch}
+  /* stretch reaches the card itself, not just its grid area */
+  .ad-settings__row--pair > *{height:100%}
+}
+
+/* §74 — below the breakpoint every card returns to its natural height. No
+   equal-height constraint survives onto a phone, where stretching one card to
+   match a taller sibling would only add empty space to a column nobody is
+   comparing side by side. */
+@media (max-width:860px){
+  .ad-settings__row--pair > *{height:auto}
+}
+
+/* ── §52/§77 — the colour controls ───────────────────────────────────────
+   Swatch and HEX sit on one line at comfortable widths and stack on phones,
+   rather than being squeezed into two tiny side-by-side columns (§77). */
+.th-color{display:flex;align-items:center;gap:10px;min-width:0}
+.th-color__swatch{
+  flex:none;width:44px;height:44px;padding:0;cursor:pointer;
+  border:1px solid var(--border-strong);border-radius:var(--r-sm);
+  background:transparent}
+/* §79 — a HEX value is a bare Latin/numeric token: it must not be reordered
+   by the bidi algorithm inside an Arabic page. */
+.th-color__hex{
+  flex:1 1 auto;min-width:0;
+  direction:ltr;unicode-bidi:isolate;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}
+.th-color__error{
+  margin:4px 0 0;font-size:11.5px;color:var(--canceled)}
+
+@media (max-width:400px){
+  .th-row{display:flex;flex-direction:column;gap:12px}
+}
+
+/* ── §63 — the unsaved-changes indicator ─────────────────────────────────
+   The save bar was a lone button that looked identical whether or not there
+   was anything to save. It now states which of the two it is, in words and
+   not by colour alone (§81). */
+.ad-settings__save-bar{
+  justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.ad-settings__dirty{
+  display:inline-flex;align-items:center;gap:7px;min-width:0;
+  font-size:12.5px;font-weight:600;color:var(--preparing)}
+.ad-settings__dirty--clean{color:var(--text-3);font-weight:500}
+.ad-settings__dirty-dot{
+  flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* §75 — on a phone the bar stacks and Save goes full width, so the primary
+   action is never the narrower half of a cramped row. */
+@media (max-width:520px){
+  .ad-settings__save-bar{flex-direction:column;align-items:stretch}
+  .ad-settings__save-bar .btn{width:100%}
+  .ad-settings__dirty{justify-content:center}
+}
