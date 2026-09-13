@@ -428,8 +428,7 @@ export const translations = {
          it affects new scans only; a manager who cannot see that stated will
          never press it during service. */
       regenerateKeepsOrders: "Open orders, tracking and past history are not changed.",
-      regenerateRescanNeeded: "Guests currently ordering at this table will need to scan the new code to continue.",
-      regenerateBetweenServices: "Best done between services, when no one is seated at this table.",
+      regenerateKeepsSessions: "Guests who are already ordering at this table can carry on as normal.",
       /* §7/§8/§10 — Active / Inactive, reachable from the row at last. */
       activateTable: "Activate",
       deactivateTable: "Deactivate",
@@ -1255,8 +1254,7 @@ export const translations = {
       /* Phase 93 — natural spoken Arabic rather than a literal rendering. */
       regenerateQrHint: "يستبدل رمز هذه الطاولة. لا تحتاجه إلا إذا تم نسخ الرمز المطبوع أو إساءة استخدامه.",
       regenerateKeepsOrders: "الطلبات المفتوحة وتتبّعها والسجل السابق لن تتغيّر.",
-      regenerateRescanNeeded: "الضيوف الذين يطلبون حالياً على هذه الطاولة سيحتاجون لمسح الرمز الجديد للمتابعة.",
-      regenerateBetweenServices: "يُفضّل تنفيذها بين الفترات، عندما لا يكون أحد جالساً على هذه الطاولة.",
+      regenerateKeepsSessions: "الضيوف الذين بدأوا الطلب على هذه الطاولة يمكنهم المتابعة كالمعتاد.",
       activateTable: "تفعيل",
       deactivateTable: "إيقاف",
       deactivateTableTitle: "إغلاق هذه الطاولة؟",

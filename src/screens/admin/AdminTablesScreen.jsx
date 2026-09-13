@@ -660,24 +660,18 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               ("will invalidate the previous customer link") described what
               happens to a URL; what actually matters to the person clicking
               is that the printed card on the table stops working. */}
-          {/* Phase 93 §21 — the old copy said only what BREAKS. §21 asks the
-              dialog to also say what SURVIVES, so a manager can judge the
-              real cost of pressing it.
+          {/* Phase 93 §21 — the dialog says what SURVIVES, not only what
+              breaks, so a manager can judge the real cost of pressing it.
 
-              MEASURED, not assumed. §22 states the approved rule as "active
-              sessions survive regeneration", and this dialog originally said
-              so — until the end-to-end test showed the current build does not
-              behave that way: every Customer screen gates on the token in the
-              URL (session.qrToken === qrToken, five screens), so a guest
-              already ordering lands on Invalid QR the moment the token
-              changes. Closing that gap means making the Customer session
-              table-bound rather than token-bound, which is Customer session
-              architecture and is explicitly out of scope here (§61/§62).
-
-              So the dialog states what is true of THIS build: the order
-              records are untouched, and guests have to re-scan. Promising
-              uninterrupted service would be the one failure mode that
-              actually costs a restaurant money mid-shift. */}
+              Phase 93 had to word this the other way round: the end-to-end
+              test showed that regenerating DID cut off guests mid-meal,
+              because every Customer screen re-derived access from the token
+              in the URL. Phase 93.1 fixed that at the source — an established
+              session is now recognised by tableId, which survives rotation —
+              so the reassuring version of this copy is finally the true one.
+              Both claims below are covered by the Phase 93.1 end-to-end
+              tests; if either ever stops holding, this copy is wrong and
+              must change with it. */}
           <p className="ad-cancel-modal__msg">
             {t(
               "admin.regenerateQrWarning",
@@ -685,9 +679,8 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
             )}
           </p>
           <ul className="tb-regen-effects">
+            <li>{t("admin.regenerateKeepsSessions", "Guests who are already ordering at this table can carry on as normal.")}</li>
             <li>{t("admin.regenerateKeepsOrders", "Open orders, tracking and past history are not changed.")}</li>
-            <li>{t("admin.regenerateRescanNeeded", "Guests currently ordering at this table will need to scan the new code to continue.")}</li>
-            <li>{t("admin.regenerateBetweenServices", "Best done between services, when no one is seated at this table.")}</li>
           </ul>
         </Modal>
       )}

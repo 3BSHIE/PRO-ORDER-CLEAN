@@ -4,7 +4,7 @@ import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
-import { resolveTableAccess } from "../../lib/tableData.js";
+import { resolveCustomerAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { prefersReducedMotion } from "../../lib/motion.js";
@@ -46,15 +46,36 @@ export default function CustomerOrderConfirmationScreen({
   onBackToAccess,
   onViewTracking,
 }) {
-  const result  = resolveTableAccess(restaurantSlug, qrToken);
+  /* Phase 93.1 — the session is read FIRST and handed to the resolver, so an
+     already-established guest is recognised before the URL's token is judged.
+     resolveCustomerAccess falls back to resolveTableAccess for everyone
+     else, so first entry, a bad token and an inactive table all behave
+     exactly as before. */
   const session = getCustomerSession();
+  const result  = resolveCustomerAccess(restaurantSlug, qrToken, session);
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurantSlug);
+
+  /* Phase 93.1 — identity by tableId, not by token.
+     The old comparison (session.qrToken === qrToken) made the entry
+     credential the permanent key to the journey: regenerate the QR and the
+     guest at the table stopped matching their own session. tableId is stable
+     across regeneration and is exactly as strict — a session for one table
+     still cannot satisfy another table's URL, because `result.table` is
+     whichever table the URL actually resolved to.
+
+     Sessions created before this phase may predate tableId; those fall back
+     to the original token comparison rather than being locked out (§13). */
+  const sessionMatchesTable = session
+    ? session.tableId
+      ? session.tableId === result.table?.id
+      : session.qrToken === qrToken
+    : false;
 
   const hasValidSession =
     result.ok &&
     session &&
-    session.qrToken        === qrToken &&
+    sessionMatchesTable &&
     session.restaurantSlug === restaurantSlug &&
     !!session.customerName;
 
@@ -75,7 +96,7 @@ export default function CustomerOrderConfirmationScreen({
           <InvalidAccessView
             reason={result.reason}
             onHome={onHome}
-            /* Phase 90 §3 — resolveTableAccess carries the restaurant on the
+            /* Phase 90 §3 — resolveCustomerAccess carries the restaurant on the
                token and inactive failures, so the recovery screen can name the
                venue instead of being anonymous. Five screens were dropping it
                on the floor. */

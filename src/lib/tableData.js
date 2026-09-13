@@ -277,6 +277,72 @@ export function resolveTableAccess(restaurantSlug, qrToken) {
   return { ok: true, restaurant, table };
 }
 
+/**
+ * Phase 93.1 — resolve a customer's access to a table, honouring an ALREADY
+ * ESTABLISHED session.
+ *
+ * ── The bug this exists to fix ────────────────────────────────────────────
+ * The QR token is an entry credential, not the owner of the journey. Every
+ * customer screen resolved access from the token in the URL on every render,
+ * so the moment an Admin regenerated a table's QR, a guest already seated and
+ * ordering — whose browser still held the old URL — was thrown onto the
+ * Invalid QR screen mid-meal. Phase 93 measured exactly that.
+ *
+ * ── What this rescues, and nothing more ──────────────────────────────────
+ * ONLY the "token no longer recognised" failure, and only for a guest who
+ * can prove the URL in their hands is the one they legitimately entered
+ * with. Every one of these must hold:
+ *
+ *   · the direct resolution failed specifically on the TOKEN — a missing
+ *     restaurant is never rescued (§4), and neither is an inactive table,
+ *     which is re-checked below and still refused (§7/§18);
+ *   · the session belongs to THIS restaurant (§4/§17);
+ *   · the session names a guest, i.e. entry actually completed;
+ *   · the session's own stored token equals the token in the URL. This is
+ *     the load-bearing condition: it means the URL is the credential this
+ *     guest entered with and which has since been rotated out from under
+ *     them. A guest holding a session cannot walk up to an arbitrary or
+ *     guessed URL and have it honoured (§23);
+ *   · the session carries a tableId, and that table still exists here.
+ *     Without it identity cannot be proven, so access is refused rather
+ *     than guessed (§13).
+ *
+ * A session for Table 4 therefore never authorises Table 8: a valid Table 8
+ * token resolves directly to Table 8, and the screens then compare the
+ * session's tableId against the resolved table (§16).
+ *
+ * @param {string} restaurantSlug
+ * @param {string} qrToken — the token from the URL
+ * @param {object|null} session — getCustomerSession(), passed in rather than
+ *   imported so this module keeps no dependency on customer storage.
+ * @returns same shape as resolveTableAccess, plus `viaSession:true` when the
+ *   established-session path was used.
+ */
+export function resolveCustomerAccess(restaurantSlug, qrToken, session) {
+  const direct = resolveTableAccess(restaurantSlug, qrToken);
+  if (direct.ok) return direct;
+  if (direct.reason !== "token") return direct;
+
+  if (!session) return direct;
+  if (session.restaurantSlug !== restaurantSlug) return direct;
+  if (!session.customerName) return direct;
+  if (session.qrToken !== qrToken) return direct;
+  if (!session.tableId) return direct;
+
+  const table = getTableById(restaurantSlug, session.tableId);
+  if (!table) return direct;
+
+  /* An established session is continued access, never a bypass: a table the
+     restaurant has deliberately closed still refuses, and still reports
+     "inactive" so the guest gets the Inactive Table state rather than
+     Invalid QR (§7). */
+  if (!table.isActive) {
+    return { ok: false, reason: "inactive", restaurant: direct.restaurant };
+  }
+
+  return { ok: true, restaurant: direct.restaurant, table, viaSession: true };
+}
+
 /* Translation keys (+ English fallback) for each access-failure reason,
    used by every customer screen's InvalidView. "inactive" gets Phase 22's
    new polished message; the other two reuse the foundation-phase wording. */
