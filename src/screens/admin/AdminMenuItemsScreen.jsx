@@ -12,11 +12,13 @@ import {
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  setMenuItemAvailable,
   genChoiceGroupId,
   genChoiceOptionId,
   genAddOnId,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 /* Phase 66 — the price rules moved to src/lib/menuPricing.js so the storage
    boundary can enforce the identical rules. Behaviour here is unchanged. */
 import { parseProductPrice, parseChoiceOptionPrice, parseAddOnPrice } from "../../lib/menuPricing.js";
@@ -241,12 +243,39 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
       });
   }, [items, categories, searchQuery, categoryFilter]);
 
-  /* Phase 21 architecture review — redundant, defense-in-depth guard.
-     App.jsx's AdminRoute already refuses to render this component at all
-     for a Cashier session; this second check protects against any future
-     code path that might reach it another way. All hooks above still run
-     unconditionally (React's rules of hooks), only the returned UI differs. */
-  if (session.role !== "admin") {
+  /* Phase 95.1 — what THIS session may do on this screen, resolved once.
+     Read as a sentence: a manager may edit, create and delete; a cashier may
+     only change what is being served right now. */
+  const canCreateProducts = can(session, PERMISSIONS.PRODUCTS_CREATE);
+  const canManageProducts = can(session, PERMISSIONS.PRODUCTS_EDIT);
+  const canDeleteProducts = can(session, PERMISSIONS.PRODUCTS_DELETE);
+  const canToggleProducts = can(session, PERMISSIONS.PRODUCTS_TOGGLE_AVAILABILITY);
+
+  /* The availability-only write. Deliberately setMenuItemAvailable() and not
+     updateMenuItem({isAvailable}): the narrow helper cannot carry any other
+     field, so this path is incapable of changing a price even if a future
+     caller passed one. */
+  function handleToggleAvailability(item) {
+    const next = !(item.isAvailable !== false);
+    setMenuItemAvailable(restaurant.slug, item.id, next);
+    setToastMessage(
+      next
+        ? t("admin.itemMarkedAvailable", "Item marked available")
+        : t("admin.itemMarkedUnavailable", "Item marked unavailable")
+    );
+    setToastVisible(true);
+  }
+
+  /* Layer 3 — redundant, defense-in-depth guard. App.jsx's AdminRoute
+     already refuses to render this component without menu.view; this second
+     check protects any future code path that reaches it another way. All
+     hooks above still run unconditionally (React's rules of hooks), only the
+     returned UI differs.
+
+     Phase 95.1 — the question is menu.view, not "is this an Admin". Cashier
+     now holds menu.view and reaches this screen; what differs between the
+     roles is the per-action permissions read below, not access to the page. */
+  if (!can(session, PERMISSIONS.MENU_VIEW)) {
     return (
       <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="menu" onNavigate={onNavigate}>
         <div className="ad-empty anim-rise">
@@ -312,8 +341,13 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
     >
       <header className="ad-header anim-rise">
         <h1 className="ad-header__title">{t("customer.menu", "Menu")}</h1>
+        {/* The subtitle states the job this session can actually do here.
+            Promising "add, edit and manage" to someone who may only switch
+            items on and off would describe a screen they are not looking at. */}
         <p className="ad-header__subtitle">
-          {t("admin.manageMenuSubtitle", "Add, edit, and manage your menu items.")}
+          {canManageProducts
+            ? t("admin.manageMenuSubtitle", "Add, edit, and manage your menu items.")
+            : t("admin.availabilityMenuSubtitle", "Mark items available or unavailable for today's service.")}
         </p>
       </header>
 
@@ -337,13 +371,15 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
             <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
           ))}
         </select>
-        <Button
-          icon={Plus}
-          disabled={categories.length === 0}
-          onClick={() => setEditingItem({ categoryId: categories[0]?.id })}
-        >
-          {t("admin.addProduct", "Add Item")}
-        </Button>
+        {canCreateProducts && (
+          <Button
+            icon={Plus}
+            disabled={categories.length === 0}
+            onClick={() => setEditingItem({ categoryId: categories[0]?.id })}
+          >
+            {t("admin.addProduct", "Add Item")}
+          </Button>
+        )}
       </div>
 
       {filteredItems.length === 0 ? (
@@ -367,18 +403,24 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
           </h3>
           <p className="ad-empty__sub">
             {items.length === 0
-              ? t("admin.noProductsSub", "Add your first item to start building the menu.")
+              ? canCreateProducts
+                ? t("admin.noProductsSub", "Add your first item to start building the menu.")
+                : /* Offering "add your first item" to someone who cannot add
+                     one would name an action they have no button for. */
+                  t("admin.noProductsSubReadOnly", "Items will appear here once an Admin adds them.")
               : t("admin.noProductsMatchSub", "Try a different search term or category.")}
           </p>
           <div className="ad-empty__actions">
             {items.length === 0 ? (
-              <Button
-                icon={Plus}
-                disabled={categories.length === 0}
-                onClick={() => setEditingItem({ categoryId: categories[0]?.id })}
-              >
-                {t("admin.addProduct", "Add Item")}
-              </Button>
+              canCreateProducts && (
+                <Button
+                  icon={Plus}
+                  disabled={categories.length === 0}
+                  onClick={() => setEditingItem({ categoryId: categories[0]?.id })}
+                >
+                  {t("admin.addProduct", "Add Item")}
+                </Button>
+              )
             ) : (
               <Button
                 variant="outline"
@@ -392,7 +434,13 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
       ) : (
         <div className="mm-item-list anim-rise">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="mm-item-row">
+            <Card
+              key={item.id}
+              /* §10 — an unavailable item stays fully listed and fully
+                 legible; it simply recedes, so a long menu reads as "these
+                 are off today" at a glance without anything disappearing. */
+              className={`mm-item-row ${item.isAvailable === false ? "mm-item-row--off" : ""}`}
+            >
               <div className="mm-item-row__thumb">
                 {item.imageUrl ? (
                   <img src={item.imageUrl} alt={item.name} loading="lazy" />
@@ -440,23 +488,45 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
                   longer be mistaken for an equal peer. Both were bare icons of
                   identical weight before, which put a destructive action level
                   with the primary one. */}
+              {/* Phase 95.1 — the actions a session may actually perform.
+                  A manager gets Edit and Delete exactly as before. Someone
+                  with availability-only rights gets ONE control, and it is
+                  the operational one: a real toggle, not a disabled copy of
+                  the management UI. Nothing is rendered greyed — a control
+                  that cannot be used is not shown. */}
               <div className="mm-item-row__actions">
-                <button
-                  type="button"
-                  className="mm-edit-btn"
-                  onClick={() => setEditingItem(item)}
-                >
-                  <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
-                  <span>{t("common.edit", "Edit")}</span>
-                </button>
-                <button
-                  type="button"
-                  className="mm-icon-btn mm-icon-btn--danger"
-                  onClick={() => setPendingDelete(item)}
-                  aria-label={t("admin.deleteProduct", "Delete Item")}
-                >
-                  <Trash2 size={15} strokeWidth={2.2} />
-                </button>
+                {canToggleProducts && !canManageProducts && (
+                  <button
+                    type="button"
+                    className={`mm-avail-toggle ${item.isAvailable ? "mm-avail-toggle--on" : "mm-avail-toggle--off"}`}
+                    aria-pressed={item.isAvailable !== false}
+                    onClick={() => handleToggleAvailability(item)}
+                  >
+                    {item.isAvailable
+                      ? t("admin.markUnavailable", "Mark unavailable")
+                      : t("admin.markAvailable", "Mark available")}
+                  </button>
+                )}
+                {canManageProducts && (
+                  <button
+                    type="button"
+                    className="mm-edit-btn"
+                    onClick={() => setEditingItem(item)}
+                  >
+                    <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
+                    <span>{t("common.edit", "Edit")}</span>
+                  </button>
+                )}
+                {canDeleteProducts && (
+                  <button
+                    type="button"
+                    className="mm-icon-btn mm-icon-btn--danger"
+                    onClick={() => setPendingDelete(item)}
+                    aria-label={t("admin.deleteProduct", "Delete Item")}
+                  >
+                    <Trash2 size={15} strokeWidth={2.2} />
+                  </button>
+                )}
               </div>
             </Card>
           ))}

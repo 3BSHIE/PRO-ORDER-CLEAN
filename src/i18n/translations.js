@@ -215,6 +215,33 @@ export const translations = {
     },
     admin: {
       adminAccess: "Admin access",
+      /* Phase 95.1 — the login is shared by Admin and Cashier, so its
+         wording is role-neutral. "Admin access" told a cashier they were
+         on the wrong screen. */
+      staffAccess: "Staff Access",
+      usernamePlaceholder: "name@restaurant.com",
+      /* Live Orders operational views opened by the Overview KPI cards. */
+      filterToday: "Today",
+      filterActive: "Active",
+      filterUnpaid: "Unpaid",
+      noOrdersToday: "No orders today.",
+      noActiveOrders: "No active orders.",
+      noUnpaidOrders: "No unpaid orders.",
+      viewTodaysOrders: "View today's orders",
+      viewActiveOrders: "View active orders",
+      viewUnpaidOrders: "View orders with payment pending",
+      viewStaffCalls: "View staff calls",
+      countedOrders: "Counted orders",
+      /* Availability-only Menu/Categories (Cashier). */
+      availabilityMenuSubtitle: "Mark items available or unavailable for today's service.",
+      availabilityCategoriesSubtitle: "Mark categories available or unavailable for today's service.",
+      markAvailable: "Mark available",
+      markUnavailable: "Mark unavailable",
+      itemMarkedAvailable: "Item marked available",
+      itemMarkedUnavailable: "Item marked unavailable",
+      categoryMarkedAvailable: "Category marked available",
+      categoryMarkedUnavailable: "Category marked unavailable",
+      noProductsSubReadOnly: "Items will appear here once an Admin adds them.",
       signIn: "Sign in",
       signInMsg: "Sign in to manage restaurant operations.",
       username: "Username",
@@ -1124,6 +1151,32 @@ export const translations = {
     },
     admin: {
       adminAccess: "دخول الإدارة",
+      /* Phase 95.1 §52 — "دخول الموظفين" covers both roles. The old string
+         named the Admin department specifically. */
+      staffAccess: "دخول الموظفين",
+      /* An email address stays LTR in an RTL layout; the field itself sets
+         direction, so the placeholder is deliberately untranslated. */
+      usernamePlaceholder: "name@restaurant.com",
+      filterToday: "اليوم",
+      filterActive: "نشطة",
+      filterUnpaid: "غير مدفوع",
+      noOrdersToday: "لا توجد طلبات اليوم.",
+      noActiveOrders: "لا توجد طلبات نشطة.",
+      noUnpaidOrders: "لا توجد طلبات غير مدفوعة.",
+      viewTodaysOrders: "عرض طلبات اليوم",
+      viewActiveOrders: "عرض الطلبات النشطة",
+      viewUnpaidOrders: "عرض الطلبات غير المدفوعة",
+      viewStaffCalls: "عرض نداءات الخدمة",
+      countedOrders: "الطلبات المحتسبة",
+      availabilityMenuSubtitle: "حدِّد الأصناف المتاحة وغير المتاحة لخدمة اليوم.",
+      availabilityCategoriesSubtitle: "حدِّد الفئات المتاحة وغير المتاحة لخدمة اليوم.",
+      markAvailable: "جعله متاحاً",
+      markUnavailable: "جعله غير متاح",
+      itemMarkedAvailable: "تم جعل الصنف متاحاً",
+      itemMarkedUnavailable: "تم جعل الصنف غير متاح",
+      categoryMarkedAvailable: "تم جعل الفئة متاحة",
+      categoryMarkedUnavailable: "تم جعل الفئة غير متاحة",
+      noProductsSubReadOnly: "ستظهر الأصناف هنا بعد أن يضيفها المدير.",
       signIn: "تسجيل الدخول",
       signInMsg: "سجّل الدخول لإدارة عمليات المطعم.",
       username: "اسم المستخدم",

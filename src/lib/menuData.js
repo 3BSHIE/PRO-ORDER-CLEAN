@@ -251,6 +251,35 @@ export function setCategoryVisible(restaurantSlug, categoryId, isVisible) {
 }
 
 /**
+ * Phase 95.1 — flip ONLY a product's availability.
+ *
+ * The product-side twin of setCategoryVisible above, and for the same
+ * reasons. This is the one menu-item write a Cashier is allowed to make, so
+ * it must be structurally incapable of touching name, price, description,
+ * image, flags, customization groups or add-ons: a Cashier who can 86 the
+ * salmon must not be able to reprice it, and no UI mistake can widen that.
+ *
+ * Being surgical also settles concurrency the way Busy Mode did in Phase 26:
+ * a Cashier marking an item unavailable mid-service cannot clobber an Admin
+ * who is editing that same item in the product editor, and the Admin's save
+ * cannot silently resurrect the item the Cashier just pulled.
+ *
+ * @param {string} restaurantSlug
+ * @param {string} itemId
+ * @param {boolean} isAvailable
+ * @returns {object|null} the updated item, or null if not found
+ */
+export function setMenuItemAvailable(restaurantSlug, itemId, isAvailable) {
+  const items = getMenuItems(restaurantSlug);
+  const idx = items.findIndex((i) => i.id === itemId);
+  if (idx === -1) return null;
+
+  const updated = { ...items[idx], isAvailable: isAvailable !== false };
+  saveMenuItems(restaurantSlug, items.map((i, n) => (n === idx ? updated : i)));
+  return updated;
+}
+
+/**
  * Deletes a category — but only if no menu item still references it, to
  * avoid silently orphaning products (they'd stop appearing in the grouped
  * customer menu with no obvious explanation). The caller (Admin UI) is

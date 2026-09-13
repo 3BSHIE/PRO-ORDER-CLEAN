@@ -17,6 +17,7 @@ import Button  from "../../components/ui/Button.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { canViewPage } from "../../lib/permissions.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
@@ -63,7 +64,15 @@ export const ADMIN_NAV_ITEMS = [
    Phase 25 note: "staffCalls" is deliberately NOT in this list. A waiter
    bell is front-of-house work and Cashier is front-of-house staff, so both
    roles get it — unlike the menu/table/settings editors. */
-export const ADMIN_ONLY_NAV_KEYS = ["menu", "categories", "tables", "settings", "feedback"];
+/* Phase 95.1 — this list is gone. Authorization moved to src/lib/permissions.js,
+   where each page names the CAPABILITY it needs (PAGE_PERMISSION) instead of
+   naming the roles it excludes. The nav filter below, App.jsx's route guard
+   and adminPageState's restore check all read that one map, so they still
+   cannot disagree — which was the whole point of the old constant.
+
+   The behavioural change this phase makes: Menu and Categories are no longer
+   Admin-only. Cashier reaches both with availability-only permissions, which
+   a deny-list of page keys could not express. */
 /* Translation keys for each nav item's visible label, keyed by item.key.
    "menu" reuses customer.menu since it's the identical word "Menu" already
    translated for the customer-facing back button. */
@@ -197,17 +206,15 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
   }, [activeKey]);
 
 
-  /* Admin-only nav items (Menu, Categories) are simply not rendered for a
-     Cashier session — but this is a UX nicety, not the actual access
-     control. The real guard lives in App.jsx's AdminRoute, which refuses to
-     render AdminMenuItemsScreen/AdminCategoriesScreen at all for a Cashier
-     session regardless of how adminPage got set. */
-  const visibleNavItems = ADMIN_NAV_ITEMS.filter(
-    (item) => session.role === "admin" || !ADMIN_ONLY_NAV_KEYS.includes(item.key)
-  );
+  /* Layer 1 of three (see permissions.js). A page the session cannot open is
+     not rendered at all — never as a disabled item, which would advertise a
+     door that does not open. This is a UX nicety, not the actual access
+     control: the real guard lives in App.jsx's AdminRoute, which refuses to
+     render the screen regardless of how adminPage got set. */
+  const visibleNavItems = ADMIN_NAV_ITEMS.filter((item) => canViewPage(session, item.key));
 
   function handleNavClick(item) {
-    if (ADMIN_ONLY_NAV_KEYS.includes(item.key) && session.role !== "admin") return; // defense in depth
+    if (!canViewPage(session, item.key)) return; // defense in depth
     if (item.active) {
       onNavigate(item.key);
       return;

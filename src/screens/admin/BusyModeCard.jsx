@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Zap, Lock } from "lucide-react";
+import { Clock, Zap } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Input  from "../../components/ui/Input.jsx";
@@ -12,6 +12,7 @@ import {
   MAX_PREP_MINUTES,
 } from "../../lib/prepTimeData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /**
  * BusyModeCard — Phase 26 operational control, shown on the Admin Overview.
@@ -20,17 +21,15 @@ import { useLanguage } from "../../i18n/useLanguage.js";
  * (route-guarded), and the phase requires Cashier to be able to flip Busy
  * Mode. Overview is reachable by both roles, so the control lives there.
  *
- * Role split, using the app's existing pattern of checking session.role:
- *   Admin   — toggle Busy Mode AND edit basePrepMinutes / busyExtraMinutes
- *   Cashier — toggle Busy Mode only; the two numbers render as read-only
- *             values with a short explanation of why
+ * Phase 95.1 — THE ROLE SPLIT IS GONE. Admin and Cashier are operationally
+ * identical on Overview, so both get the toggle AND the two prep-time fields.
+ * Authorization is now a capability (busyMode.change) rather than a role
+ * comparison, so the card does not know or care which role is in front of it.
  *
- * The numeric editor is simply not rendered for a Cashier, and
- * updatePrepTimeConfig() is never reachable from their UI — the same
- * "hide it and also never wire it up" approach the Admin-only screens use.
- * Note the toggle itself is a surgical single-field write (setBusyMode), so
- * a Cashier flipping it can never disturb the Admin's numbers, and an Admin
- * saving numbers can never disturb the Cashier's toggle.
+ * The toggle remains a surgical single-field write (setBusyMode) separate
+ * from the config save (updatePrepTimeConfig), which is still worth keeping:
+ * two people on Overview at once cannot clobber each other's change, and
+ * flipping Busy Mode never rewrites the numbers.
  *
  * Props:
  *   restaurant — { slug, ... }
@@ -41,7 +40,13 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 export default function BusyModeCard({ restaurant, session, onNotify }) {
   const { t } = useLanguage();
   const { settings } = usePrepTime(restaurant.slug);
-  const isAdmin = session.role === "admin";
+  /* Phase 95.1 — this was a role comparison against "admin", which gave
+     Cashier a read-only copy of the prep-time fields with a padlock under
+     them. Overview is now operationally identical for both roles, so the
+     config block is shown to anyone holding the capability — and both roles
+     hold it. Still a real check: layer 3 must refuse a future role that
+     lacks busyMode.change. */
+  const canChange = can(session, PERMISSIONS.BUSY_MODE_CHANGE);
 
   const [baseDraft, setBaseDraft] = useState(String(settings.basePrepMinutes));
   const [extraDraft, setExtraDraft] = useState(String(settings.busyExtraMinutes));
@@ -136,7 +141,7 @@ export default function BusyModeCard({ restaurant, session, onNotify }) {
 
       <div className="busy-card__divider" />
 
-      {isAdmin ? (
+      {canChange && (
         <div className="busy-card__config">
           <div className="busy-card__fields">
             <Input
@@ -170,23 +175,6 @@ export default function BusyModeCard({ restaurant, session, onNotify }) {
           <Button size="sm" onClick={handleSaveConfig} disabled={!isDirty}>
             {t("common.save", "Save")}
           </Button>
-        </div>
-      ) : (
-        /* Cashier — same numbers, read-only, with the reason stated plainly
-           rather than showing disabled inputs that look broken. */
-        <div className="busy-card__readonly">
-          <div className="busy-card__readonly-row">
-            <span>{t("prep.basePrepMinutes", "Base preparation time (minutes)")}</span>
-            <strong>{settings.basePrepMinutes}</strong>
-          </div>
-          <div className="busy-card__readonly-row">
-            <span>{t("prep.busyExtraMinutes", "Extra time when busy (minutes)")}</span>
-            <strong>{settings.busyExtraMinutes}</strong>
-          </div>
-          <p className="busy-card__lock">
-            <Lock size={12} strokeWidth={2.2} />
-            {t("prep.configAdminOnly", "Only Admin accounts can change these values.")}
-          </p>
         </div>
       )}
     </Card>

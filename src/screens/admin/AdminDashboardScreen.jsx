@@ -6,7 +6,6 @@ import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import AcceptingOrdersCard from "./AcceptingOrdersCard.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
-import CategoryVisibilityCard from "./CategoryVisibilityCard.jsx";
 import DashboardDrillDown from "./DashboardDrillDown.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
@@ -101,11 +100,6 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
     [allOrders, restaurant.slug]
   );
 
-  /* Phase 75 §33/§35 — Cashier is a deliberately lighter operational role,
-     not "Admin minus pages". The snapshot below is chosen for the job rather
-     than mirrored from Admin. Nothing about permissions changes here: this
-     only decides which four existing numbers are shown. */
-  const isCashier = session.role === "cashier";
 
   /* The same live call list the nav badge already reads — one source, so the
      KPI and the badge can never disagree. */
@@ -154,7 +148,11 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
                       the list of those orders, which Live Orders already
                       provides with per-status filter tabs; duplicating it
                       here would be a second orders screen, not a drill-down. */
-  const INTERACTIVE_CARDS = ["revenueToday", "ordersToday"];
+  /* Phase 95.1 — the modal is now Revenue Today's alone. Orders Today used to
+     open a breakdown here; it navigates to Live Orders scoped to today
+     instead, because every KPI card in the grid must share one interaction
+     language, and three of the four are destinations. */
+  const INTERACTIVE_CARDS = [];
 
   /* Phase 53 — status cards that are shortcuts into Live Orders.
      The values are the EXISTING filter keys from AdminLiveOrdersScreen's
@@ -168,6 +166,12 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
 
      activeOrders is deliberately absent - see below. */
   const CARD_TO_ORDER_FILTER = {
+    /* Phase 95.1 — the three KPI cards that are order queues. The filter keys
+       are AdminLiveOrdersScreen's own, so no filtering logic is duplicated
+       here; this only names a destination. */
+    ordersToday:     "today",
+    activeOrders:    "active",
+    pendingPayments: "unpaid",
     waitingPrep:  "received",
     preparing:    "preparing",
     readyToServe: "ready",
@@ -179,6 +183,9 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      a noun ("4", "Preparing"), which tells a screen reader nothing about what
      activating it does. */
   const FILTER_CARD_ARIA = {
+    ordersToday:     ["admin.viewTodaysOrders",   "View today's orders"],
+    activeOrders:    ["admin.viewActiveOrders",   "View active orders"],
+    pendingPayments: ["admin.viewUnpaidOrders",   "View orders with payment pending"],
     waitingPrep:  ["admin.viewReceivedOrders",  "View received orders"],
     preparing:    ["admin.viewPreparingOrders", "View preparing orders"],
     readyToServe: ["admin.viewReadyOrders",     "View ready orders"],
@@ -199,19 +206,22 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      summarizeRevenue (the same calculation the Revenue drill-down uses) and
      the open-call count is the same list the nav badge already reads. No new
      metric is invented and no new business logic is introduced. */
-  const KPI_CARDS = isCashier
-    ? [
-        { key: "activeOrders",     label: "Active Orders",     value: allTimeStatuses.active,   tone: "gold" },
-        { key: "pendingPayments",  label: "Pending Payments",  value: todayRevenue.pendingCount, tone: "preparing" },
-        { key: "staffCalls",       label: "Staff Calls",       value: openCallCount,            tone: "preparing" },
-        { key: "ordersToday",      label: "Orders Today",      value: todayStatuses.total,      tone: "gold" },
-      ]
-    : [
-        { key: "ordersToday",  label: "Orders Today",  value: todayStatuses.total,          tone: "gold" },
-        { key: "revenueToday", label: "Revenue Today", value: fmtPrice(todayRevenue.total), tone: "gold" },
-        { key: "activeOrders", label: "Active Orders", value: allTimeStatuses.active,       tone: "gold" },
-        { key: "staffCalls",   label: "Staff Calls",   value: openCallCount,                tone: "preparing" },
-      ];
+  /* Phase 95.1 — ONE snapshot, identical for Admin and Cashier.
+     Overview is a shared operational dashboard now, so there is no role
+     branch here at all: the same four numbers, in the same order, with the
+     same destinations. Revenue Today left this grid entirely — it is money
+     rather than workload, and as a fifth card it either broke the 2x2 mobile
+     layout or pushed a real operational number out. It now has its own
+     treatment below.
+
+     Four cards exactly, so the grid is 4-up on desktop and a clean 2x2 on a
+     phone with no orphan row. */
+  const KPI_CARDS = [
+    { key: "ordersToday",     label: "Orders Today",     value: todayStatuses.total,       tone: "gold" },
+    { key: "activeOrders",    label: "Active Orders",    value: allTimeStatuses.active,    tone: "gold" },
+    { key: "pendingPayments", label: "Pending Payments", value: todayRevenue.pendingCount, tone: "preparing" },
+    { key: "staffCalls",      label: "Staff Calls",      value: openCallCount,             tone: "preparing" },
+  ];
 
   /* The per-status counts. These stay on the page — they are genuinely
      different numbers from the snapshot above, not duplicates — but they drop
@@ -274,6 +284,26 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
        and Enter/Space for free, with no mouse-only handler. No
        aria-haspopup here - this navigates rather than opening a
        dialog. */
+    /* Phase 95.1 — Staff Calls is a destination too, just not an order
+       filter. Same button treatment as the other three so the four cards
+       behave identically under mouse, keyboard and screen reader. */
+    if (stat.key === "staffCalls") {
+      return (
+        <button
+          key={stat.key}
+          type="button"
+          className={`card ad-stat ad-stat--interactive ${extraClass}`}
+          onClick={() => onNavigate("staffCalls")}
+          aria-label={t("admin.viewStaffCalls", "View staff calls")}
+        >
+          <span className={`ad-stat__dot ad-stat__dot--${stat.tone}`} />
+          <span className="ad-stat__value">{stat.value}</span>
+          <span className="ad-stat__label">{label}</span>
+          <ChevronRight className="ad-stat__chevron" size={14} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      );
+    }
+
     const orderFilter = CARD_TO_ORDER_FILTER[stat.key];
     if (orderFilter) {
       const [ariaKey, ariaFallback] = FILTER_CARD_ARIA[stat.key];
@@ -336,18 +366,60 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         {KPI_CARDS.map((stat) => renderStatCard(stat, "ad-kpi"))}
       </div>
 
+      {/* ── Revenue Today (Phase 95.1 §6) ─────────────────────────────────
+          Deliberately NOT a fifth KPI card. Five cards cannot make a clean
+          2×2 on a phone, and the one that would have been pushed out is an
+          operational queue somebody is waiting in — money is the wrong thing
+          to win that trade. It is also a different KIND of number: the four
+          above are counts of work, this is a currency total.
+
+          So it gets its own full-width strip directly beneath the grid:
+          quieter than a KPI card, visibly part of the same system (same card
+          surface, same chevron affordance, same interactive treatment), and
+          it states the split — collected vs still at the table — which is
+          the one thing the bare total cannot say. Identical for both roles. */}
+      <button
+        type="button"
+        className="card ad-revenue anim-rise"
+        onClick={() => setOpenDetail("revenueToday")}
+        aria-haspopup="dialog"
+      >
+        <span className="ad-revenue__main">
+          <span className="ad-revenue__label">{t("admin.revenueToday", "Revenue Today")}</span>
+          <span className="ad-revenue__value">{fmtPrice(todayRevenue.total)}</span>
+        </span>
+        <span className="ad-revenue__split">
+          <span className="ad-revenue__part">
+            <span className="ad-revenue__part-dot ad-revenue__part-dot--collected" />
+            {t("admin.collected", "Collected")}
+            <strong>{fmtPrice(todayRevenue.collected)}</strong>
+          </span>
+          <span className="ad-revenue__part">
+            <span className="ad-revenue__part-dot ad-revenue__part-dot--pending" />
+            {t("payment.pendingAtTable", "Pending at table")}
+            <strong>{fmtPrice(todayRevenue.pending)}</strong>
+          </span>
+        </span>
+        <ChevronRight className="ad-revenue__chevron" size={16} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+
       {/* ── Operations (Phase 75 §5) ──────────────────────────────────────
           The things a manager ACTS on, grouped under one heading so they read
-          as controls rather than as more statistics. Each card still decides
-          internally which controls a given role gets.
+          as controls rather than as more statistics.
 
-          Phase 79 §7 — Accepting Orders leads the section. Of the three it is
-          the only one that decides whether ordering happens at all: Busy Mode
-          adjusts how long it takes, Category Availability adjusts what is on
-          offer, and both are meaningless while the restaurant is closed. It
-          renders for Admin only (§30); Busy Mode and Category Availability
-          keep the Cashier access they already had, so a Cashier still sees a
-          populated Operations section, just without this card. */}
+          Phase 79 §7 — Accepting Orders leads: it is the only one that decides
+          whether ordering happens at all, and Busy Mode is meaningless while
+          the restaurant is closed.
+
+          Phase 95.1 — two changes here. Both cards are now identical for
+          Admin and Cashier (Accepting Orders was Admin-only; Busy Mode showed
+          Cashier read-only numbers), so the comment about "each card decides
+          which controls a role gets" no longer applies — neither does.
+
+          And Category Availability has LEFT this section. Cashier now has a
+          real Categories page with the same toggle on it, so a dashboard copy
+          would be a second place to do the same job, drifting from the first.
+          Availability lives in Menu and Categories now. */}
       <div className="ad-section-bar anim-rise">
         <h2 className="ad-section-title">{t("admin.operations", "Operations")}</h2>
       </div>
@@ -368,7 +440,6 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
             setToastVisible(true);
           }}
         />
-        <CategoryVisibilityCard restaurant={restaurant} />
       </div>
 
       {/* ── Order status (Phase 75 §10) ───────────────────────────────────
@@ -387,7 +458,6 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       <DashboardDrillDown
         detailKey={openDetail}
         revenue={todayRevenue}
-        statuses={todayStatuses}
         onClose={() => setOpenDetail(null)}
         onNavigate={onNavigate}
       />

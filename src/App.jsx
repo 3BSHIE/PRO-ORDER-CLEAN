@@ -19,7 +19,7 @@ import AdminMenuItemsScreen               from "./screens/admin/AdminMenuItemsSc
 import AdminTablesScreen                  from "./screens/admin/AdminTablesScreen.jsx";
 import AdminSettingsScreen                from "./screens/admin/AdminSettingsScreen.jsx";
 import AdminFeedbackScreen                from "./screens/admin/AdminFeedbackScreen.jsx";
-import { ADMIN_ONLY_NAV_KEYS }            from "./screens/admin/AdminLayout.jsx";
+import { canViewPage }                    from "./lib/permissions.js";
 import { readAdminPage, writeAdminPage, clearAdminPage } from "./lib/adminPageState.js";
 import { requestNavigation } from "./lib/navigationGuard.js";
 import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
@@ -312,25 +312,20 @@ function AdminRoute() {
     });
   };
 
-  /* Phase 21 architecture review — Menu Management and Categories
-     Management are Admin-only. This is the real access-control guard (not
-     just a hidden nav button): a Cashier session can never reach
-     AdminMenuItemsScreen/AdminCategoriesScreen through this route,
-     regardless of how adminPage got set (stale state, direct navigation,
-     etc.) — it silently falls back to the Dashboard, which Cashier is
-     allowed to see. AdminLayout also hides the Menu/Categories nav buttons
-     for Cashier, and each screen has its own redundant role check too, but
-     this is the one that actually decides what renders.
+  /* Layer 2 of three — THE guard. This is the one that actually decides what
+     renders: a session can never reach a screen it lacks the permission for,
+     regardless of how adminPage got set (stale state, a hand-edited
+     sessionStorage value, a future code path). It silently falls back to
+     Overview, which every admin-shell role can see.
 
-     Phase 29 note: this now derives from AdminLayout's exported
-     ADMIN_ONLY_NAV_KEYS rather than repeating the list inline. The two used
-     to be maintained separately, which meant every new Admin-only page had
-     to be added in two places or the guard would silently disagree with the
-     nav. One source of truth removes that whole class of mistake. */
-  const isAdminOnlyPage = ADMIN_ONLY_NAV_KEYS.includes(adminPage);
-  const isAuthorizedForPage = !isAdminOnlyPage || session.role === "admin";
+     Phase 95.1 — the question changed from "is this page Admin-only?" to
+     "does this session hold the page's permission?", so Cashier can now be
+     granted Menu and Categories without the guard needing to know why. The
+     permission map is shared with the nav filter and with adminPageState, so
+     all three still move together. */
+  const isAuthorizedForPage = canViewPage(session, adminPage);
 
-  if (adminPage === "liveOrders") {
+  if (adminPage === "liveOrders" && isAuthorizedForPage) {
     return (
       <AdminLiveOrdersScreen
         restaurant={restaurant}
@@ -346,7 +341,7 @@ function AdminRoute() {
      of isAdminOnlyPage above: both Admin and Cashier answer the waiter bell,
      the same way both already handle Delivered/Cancel/Mark as Paid. Kitchen
      can never reach it — this whole route requires an admin/cashier session. */
-  if (adminPage === "staffCalls") {
+  if (adminPage === "staffCalls" && isAuthorizedForPage) {
     return (
       <AdminStaffCallsScreen
         restaurant={restaurant}

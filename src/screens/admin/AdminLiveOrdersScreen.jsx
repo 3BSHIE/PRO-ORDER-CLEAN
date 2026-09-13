@@ -9,6 +9,7 @@ import AdminLayout from "./AdminLayout.jsx";
 import { getCustomerOrders, updateCustomerOrderStatus, updateCustomerOrderPaymentStatus } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
+import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
 
 const STATUS_LABEL = {
   received: "Received", preparing: "Preparing", ready: "Ready",
@@ -19,20 +20,49 @@ const STATUS_BADGE_TONE = {
   delivered: "gold", canceled: "canceled",
 };
 
-/* Filter tabs — "All" plus one tab per real status, in board order. */
+/* Filter tabs — "All", the three operational views the Overview KPI cards
+   open (Phase 95.1), then one tab per real status in board order.
+
+   Each tab is one MUTUALLY EXCLUSIVE view of the order list, not a set of
+   combinable facets: picking "Today" then "Ready" replaces the view rather
+   than intersecting, which is what the tab metaphor already promised. That
+   keeps the smallest mechanism §5 asks for — a predicate per key — instead of
+   a second filtering system layered on top of this one. */
 const FILTER_TABS = [
   { key: "all",       label: "All" },
+  { key: "today",     label: "Today" },
+  { key: "active",    label: "Active" },
+  { key: "unpaid",    label: "Unpaid" },
   { key: "received",  label: "Received" },
   { key: "preparing", label: "Preparing" },
   { key: "ready",     label: "Ready" },
   { key: "delivered", label: "Delivered" },
   { key: "canceled",  label: "Canceled" },
 ];
+
+/* The one place a filter key becomes a question about an order. "all" is
+   absent on purpose — it is the no-op default in the selector below. */
+const FILTER_PREDICATE = {
+  today:  (o) => isSameDay(o.createdAt),
+  active: (o) => ACTIVE_STATUSES.includes(o.status),
+  /* Money still owed. Canceled orders are excluded for the same reason
+     summarizeRevenue excludes them: nobody is going to collect on them, so
+     listing them under "Unpaid" would put dead orders in a work queue. */
+  unpaid: (o) => o.paymentStatus !== "paid" && o.status !== "canceled",
+  received:  (o) => o.status === "received",
+  preparing: (o) => o.status === "preparing",
+  ready:     (o) => o.status === "ready",
+  delivered: (o) => o.status === "delivered",
+  canceled:  (o) => o.status === "canceled",
+};
 /* Translation keys for each filter tab's visible label, keyed by tab.key.
    Everything except "all" reuses the existing status.* keys since the
    English text is identical. */
 const FILTER_TAB_KEY = {
   all: "common.all",
+  today: "admin.filterToday",
+  active: "admin.filterActive",
+  unpaid: "admin.filterUnpaid",
   received: "status.received",
   preparing: "status.preparing",
   ready: "status.ready",
@@ -41,6 +71,9 @@ const FILTER_TAB_KEY = {
 };
 /* Translation keys for the per-status empty-state message ("No X orders."). */
 const EMPTY_STATUS_KEY = {
+  today: "admin.noOrdersToday",
+  active: "admin.noActiveOrders",
+  unpaid: "admin.noUnpaidOrders",
   received: "admin.noReceivedOrders",
   preparing: "admin.noPreparingOrders",
   ready: "admin.noReadyOrders",
@@ -178,7 +211,10 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
   const filteredOrders = useMemo(
     () =>
       restaurantOrders
-        .filter((o) => activeFilter === "all" || o.status === activeFilter)
+        .filter((o) => {
+          const predicate = FILTER_PREDICATE[activeFilter];
+          return predicate ? predicate(o) : true; // "all" and any unknown key
+        })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), // newest first
     [restaurantOrders, activeFilter]
   );

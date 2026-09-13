@@ -7,6 +7,7 @@ import AdminLayout from "./AdminLayout.jsx";
 import { useFeedback } from "../../lib/useFeedback.js";
 import { summarizeFeedback } from "../../lib/feedbackData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminFeedbackScreen — Phase 29
@@ -38,7 +39,7 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
 
   /* Layer 3 — redundant, defense-in-depth guard. Hooks above still run
      unconditionally (rules of hooks); only the returned UI differs. */
-  if (session.role !== "admin") {
+  if (!can(session, PERMISSIONS.FEEDBACK_VIEW)) {
     return (
       <AdminLayout
         restaurant={restaurant}

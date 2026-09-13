@@ -13,8 +13,10 @@ import {
   updateCategory,
   deleteCategory,
   moveCategory,
+  setCategoryVisible,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { getCategoryVisibilityState, formatSchedule } from "../../lib/categoryVisibility.js";
 
@@ -77,12 +79,34 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  /* Phase 21 architecture review — redundant, defense-in-depth guard.
-     App.jsx's AdminRoute already refuses to render this component at all
-     for a Cashier session; this second check protects against any future
-     code path that might reach it another way. All hooks above still run
-     unconditionally (React's rules of hooks), only the returned UI differs. */
-  if (session.role !== "admin") {
+  /* Phase 95.1 — what THIS session may do here. Cashier holds
+     categories.view and categories.toggleAvailability and nothing else, so it
+     sees the list and the manual switch, never the editor, the reorder arrows
+     or the schedule. */
+  const canManageCategories = can(session, PERMISSIONS.CATEGORIES_EDIT);
+  const canCreateCategories = can(session, PERMISSIONS.CATEGORIES_CREATE);
+  const canDeleteCategories = can(session, PERMISSIONS.CATEGORIES_DELETE);
+  const canReorderCategories = can(session, PERMISSIONS.CATEGORIES_REORDER);
+  const canToggleCategories = can(session, PERMISSIONS.CATEGORIES_TOGGLE_AVAILABILITY);
+
+  /* The availability-only write — setCategoryVisible, which by construction
+     cannot touch the name, emoji, sort order, isActive or the schedule. */
+  function handleToggleVisible(cat) {
+    const next = !(cat.isVisible !== false);
+    setCategoryVisible(restaurant.slug, cat.id, next);
+    setToastMessage(
+      next
+        ? t("admin.categoryMarkedAvailable", "Category marked available")
+        : t("admin.categoryMarkedUnavailable", "Category marked unavailable")
+    );
+    setToastVisible(true);
+  }
+
+  /* Layer 3 — redundant, defense-in-depth guard. App.jsx's AdminRoute already
+     refuses to render this component without categories.view; this protects
+     any future code path that reaches it another way. All hooks above still
+     run unconditionally (React's rules of hooks). */
+  if (!can(session, PERMISSIONS.CATEGORIES_VIEW)) {
     return (
       <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="categories" onNavigate={onNavigate}>
         <div className="ad-empty anim-rise">
@@ -141,15 +165,19 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
       <header className="ad-header anim-rise">
         <h1 className="ad-header__title">{t("admin.categories", "Categories")}</h1>
         <p className="ad-header__subtitle">
-          {t("admin.manageCategoriesSubtitle", "Add, edit, reorder, and manage your menu categories.")}
+          {canManageCategories
+            ? t("admin.manageCategoriesSubtitle", "Add, edit, reorder, and manage your menu categories.")
+            : t("admin.availabilityCategoriesSubtitle", "Mark categories available or unavailable for today's service.")}
         </p>
       </header>
 
-      <div className="mm-toolbar anim-rise">
-        <Button icon={Plus} onClick={() => setEditingCategory({})}>
-          {t("admin.addCategory", "Add Category")}
-        </Button>
-      </div>
+      {canCreateCategories && (
+        <div className="mm-toolbar anim-rise">
+          <Button icon={Plus} onClick={() => setEditingCategory({})}>
+            {t("admin.addCategory", "Add Category")}
+          </Button>
+        </div>
+      )}
 
       {categories.length === 0 ? (
         <div className="ad-empty anim-rise">
@@ -173,26 +201,28 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
         <div className="mm-cat-list anim-rise">
           {categories.map((cat, idx) => (
             <Card key={cat.id} className="mm-cat-row">
-              <div className="mm-cat-row__reorder">
-                <button
-                  type="button"
-                  className="mm-reorder-btn"
-                  disabled={idx === 0}
-                  onClick={() => moveCategory(restaurant.slug, cat.id, -1)}
-                  aria-label={t("admin.moveUp", "Move up")}
-                >
-                  <ChevronUp size={15} strokeWidth={2.4} />
-                </button>
-                <button
-                  type="button"
-                  className="mm-reorder-btn"
-                  disabled={idx === categories.length - 1}
-                  onClick={() => moveCategory(restaurant.slug, cat.id, 1)}
-                  aria-label={t("admin.moveDown", "Move down")}
-                >
-                  <ChevronDown size={15} strokeWidth={2.4} />
-                </button>
-              </div>
+              {canReorderCategories && (
+                <div className="mm-cat-row__reorder">
+                  <button
+                    type="button"
+                    className="mm-reorder-btn"
+                    disabled={idx === 0}
+                    onClick={() => moveCategory(restaurant.slug, cat.id, -1)}
+                    aria-label={t("admin.moveUp", "Move up")}
+                  >
+                    <ChevronUp size={15} strokeWidth={2.4} />
+                  </button>
+                  <button
+                    type="button"
+                    className="mm-reorder-btn"
+                    disabled={idx === categories.length - 1}
+                    onClick={() => moveCategory(restaurant.slug, cat.id, 1)}
+                    aria-label={t("admin.moveDown", "Move down")}
+                  >
+                    <ChevronDown size={15} strokeWidth={2.4} />
+                  </button>
+                </div>
+              )}
 
               <span className="mm-cat-row__emoji">{cat.emoji}</span>
 
@@ -215,23 +245,46 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
                   category regardless of visibility. */}
               <CategoryStateBadge category={cat} timeZone={settings.timeZone} />
 
+              {/* §11 — the toggle writes MANUAL availability only, and the
+                  badge above reports the EFFECTIVE outcome. Keeping them as
+                  two separate statements is the point: a category whose
+                  manual switch reads "Available" can still show "Outside
+                  hours", which tells a cashier the schedule is what is
+                  holding it back and that flipping the switch will not help.
+                  Flattening them into one control would hide that. */}
               <div className="mm-cat-row__actions">
-                <button
-                  type="button"
-                  className="mm-icon-btn"
-                  onClick={() => setEditingCategory(cat)}
-                  aria-label={t("admin.editCategory", "Edit Category")}
-                >
-                  <Pencil size={15} strokeWidth={2.2} />
-                </button>
-                <button
-                  type="button"
-                  className="mm-icon-btn mm-icon-btn--danger"
-                  onClick={() => setPendingDelete(cat)}
-                  aria-label={t("admin.deleteCategory", "Delete Category")}
-                >
-                  <Trash2 size={15} strokeWidth={2.2} />
-                </button>
+                {canToggleCategories && !canManageCategories && (
+                  <button
+                    type="button"
+                    className={`mm-avail-toggle ${cat.isVisible !== false ? "mm-avail-toggle--on" : "mm-avail-toggle--off"}`}
+                    aria-pressed={cat.isVisible !== false}
+                    onClick={() => handleToggleVisible(cat)}
+                  >
+                    {cat.isVisible !== false
+                      ? t("admin.markUnavailable", "Mark unavailable")
+                      : t("admin.markAvailable", "Mark available")}
+                  </button>
+                )}
+                {canManageCategories && (
+                  <button
+                    type="button"
+                    className="mm-icon-btn"
+                    onClick={() => setEditingCategory(cat)}
+                    aria-label={t("admin.editCategory", "Edit Category")}
+                  >
+                    <Pencil size={15} strokeWidth={2.2} />
+                  </button>
+                )}
+                {canDeleteCategories && (
+                  <button
+                    type="button"
+                    className="mm-icon-btn mm-icon-btn--danger"
+                    onClick={() => setPendingDelete(cat)}
+                    aria-label={t("admin.deleteCategory", "Delete Category")}
+                  >
+                    <Trash2 size={15} strokeWidth={2.2} />
+                  </button>
+                )}
               </div>
             </Card>
           ))}

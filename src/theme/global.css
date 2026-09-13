@@ -7477,3 +7477,105 @@ button{font-family:var(--font-body)}
   --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.15);
   --text-1:#f4f0e6;--text-2:#a89f8a;--text-3:#968d76;
   background:var(--surface-1);color:var(--text-1)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 95.1 — UNIT 13
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Three additions, all built from tokens already in the system so Cashier
+   gets no stylesheet of its own (§12): the Revenue Today strip, the
+   availability toggle shared by Menu and Categories, and the recessive
+   treatment for an item that is switched off.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Revenue Today (§6) ──────────────────────────────────────────────────
+   Sits directly under the KPI grid and reads as its financial footer: same
+   card surface and same chevron affordance, but one full-width row instead
+   of a fifth tile, so the 2x2 phone grid above it stays intact. */
+.ad-revenue{
+  display:flex;align-items:center;gap:18px;width:100%;
+  padding:14px 16px;margin:-14px 0 26px;
+  text-align:start;cursor:pointer;
+  border:1px solid var(--border);
+  transition:border-color .16s var(--ease),transform .16s var(--ease)}
+.ad-revenue:hover{border-color:var(--gold-line)}
+.ad-revenue:active{transform:translateY(1px)}
+.ad-revenue:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.ad-revenue__main{display:flex;flex-direction:column;gap:2px;flex:none}
+.ad-revenue__label{
+  font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--text-3)}
+.ad-revenue__value{
+  font-family:var(--font-display);font-size:clamp(20px,4.4vw,26px);
+  font-weight:700;color:var(--text-1);line-height:1.1}
+
+/* The split is the reason this is not just a number: it says how much of
+   today is actually in the till. */
+.ad-revenue__split{
+  display:flex;flex-wrap:wrap;gap:6px 18px;flex:1 1 auto;min-width:0;
+  padding-inline-start:18px;border-inline-start:1px solid var(--border)}
+.ad-revenue__part{
+  display:flex;align-items:center;gap:7px;min-width:0;
+  font-size:12px;color:var(--text-2)}
+.ad-revenue__part strong{color:var(--text-1);font-weight:600;white-space:nowrap}
+.ad-revenue__part-dot{
+  flex:none;width:7px;height:7px;border-radius:50%}
+.ad-revenue__part-dot--collected{background:var(--ready)}
+.ad-revenue__part-dot--pending{background:var(--preparing)}
+.ad-revenue__chevron{flex:none;color:var(--text-3)}
+
+/* Phones: the divider becomes a horizontal rule and the strip stacks, which
+   keeps "JOD 242.000" off a second line at 320px. */
+@media(max-width:620px){
+  .ad-revenue{flex-wrap:wrap;gap:10px;position:relative}
+  .ad-revenue__main{flex:1 1 auto}
+  .ad-revenue__split{
+    flex:1 1 100%;padding-inline-start:0;border-inline-start:0;
+    padding-top:10px;border-top:1px solid var(--border)}
+  .ad-revenue__chevron{position:absolute;inset-inline-end:16px;top:18px}
+}
+
+/* ── Availability toggle (§10/§11) ───────────────────────────────────────
+   ONE control, shared by the Menu and Categories rows. It is the primary
+   operational action for a session that may only change availability, so it
+   is a labelled button rather than an icon: the label states what pressing
+   it will DO, and aria-pressed carries the current state.
+
+   Sized past 44px so it stays a comfortable touch target on a phone held in
+   one hand over a service counter. */
+.mm-avail-toggle{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;padding:0 14px;white-space:nowrap;
+  border-radius:var(--r-md);cursor:pointer;
+  font-size:12.5px;font-weight:600;font-family:inherit;
+  border:1px solid var(--border-strong);background:var(--surface-2);
+  color:var(--text-2);
+  transition:border-color .16s var(--ease),color .16s var(--ease),background .16s var(--ease)}
+.mm-avail-toggle:hover{color:var(--text-1);border-color:var(--gold-line)}
+.mm-avail-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Currently ON, so the button offers to turn it off — amber, because taking
+   a dish off the menu mid-service is a real consequence, but never red: it
+   is an ordinary thing a cashier does several times a shift. */
+.mm-avail-toggle--on{
+  border-color:color-mix(in srgb,var(--preparing) 40%,transparent);
+  color:var(--preparing)}
+/* Currently OFF, so the button offers to bring it back — green. */
+.mm-avail-toggle--off{
+  border-color:color-mix(in srgb,var(--ready) 42%,transparent);
+  color:var(--ready)}
+
+/* An unavailable product recedes but stays fully readable — never hidden,
+   never so faint it cannot be scanned (it is exactly the row a cashier is
+   looking for when turning something back on). */
+.mm-item-row--off{opacity:.72}
+.mm-item-row--off .mm-item-row__thumb{filter:saturate(.45)}
+
+/* ── Revenue detail: the one row that is also a destination (§7) ───────── */
+.dd-row--action{
+  width:100%;font:inherit;text-align:start;cursor:pointer;
+  background:none;border:0;padding-inline:0;
+  border-radius:var(--r-sm)}
+.dd-row--action:hover .dd-row__value{color:var(--gold-ink)}
+.dd-row--action:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.dd-row__chevron{flex:none;margin-inline-start:8px;color:var(--text-3)}

@@ -18,6 +18,7 @@ import { resolveAppearance, APPEARANCE_DARK, APPEARANCE_LIGHT } from "../../lib/
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { resolveEnabledLanguages, coerceDefaultLanguage } from "../../i18n/language.js";
 import { SUPPORTED_CURRENCY } from "../../lib/format.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -348,7 +349,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      App root's route guard already refuses to render this component at all
      for a Cashier session; this second check protects against any future
      code path that might reach it another way. */
-  if (session.role !== "admin") {
+  if (!can(session, PERMISSIONS.SETTINGS_MANAGE)) {
     return (
       <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="settings" onNavigate={onNavigate}>
         <div className="ad-empty anim-rise">

@@ -102,7 +102,7 @@ export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn })
           <Logo variant="full" size="md" style={{ marginBottom: 22 }} />
 
           <p className="admin-login__rest">{restaurant?.name}</p>
-          <h1 className="admin-login__heading">{t("admin.adminAccess", "Admin access")}</h1>
+          <h1 className="admin-login__heading">{t("admin.staffAccess", "Staff Access")}</h1>
           <p className="admin-login__msg">{t("admin.signInMsg", "Sign in to manage restaurant operations.")}</p>
 
           <div className="admin-login__card">
@@ -110,7 +110,7 @@ export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn })
               label={t("admin.username", "Username")}
               type="text"
               autoComplete="username"
-              placeholder="e.g. admin@pro-order.com"
+              placeholder={t("admin.usernamePlaceholder", "name@restaurant.com")}
               value={username}
               onChange={(e) => {
                 setUsername(e.target.value);

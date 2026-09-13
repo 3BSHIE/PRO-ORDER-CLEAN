@@ -1,4 +1,5 @@
-import { ADMIN_NAV_ITEMS, ADMIN_ONLY_NAV_KEYS } from "../screens/admin/AdminLayout.jsx";
+import { ADMIN_NAV_ITEMS } from "../screens/admin/AdminLayout.jsx";
+import { canViewPage } from "./permissions.js";
 
 /**
  * adminPageState — Phase 62. Remembers which Admin sub-page was open so a
@@ -45,14 +46,17 @@ function storageKey(restaurantSlug, role) {
  * Is this page one the given role may actually open?
  *
  * The same two questions the app already asks elsewhere: does the page
- * exist, and is it Admin-only. Applied on read AND on write, so a tampered
- * or stale value is refused at the point of use even if it somehow reached
- * storage.
+ * exist, and does this role hold its permission. Applied on read AND on
+ * write, so a tampered or stale value is refused at the point of use even if
+ * it somehow reached storage.
+ *
+ * Phase 95.1 — the role comparison became a permission lookup against the
+ * same PAGE_PERMISSION map the nav and the route guard use, so a role whose
+ * permissions change can never resume a page it has just lost.
  */
 function isRestorablePage(page, role) {
   if (typeof page !== "string" || !VALID_PAGES.includes(page)) return false;
-  if (ADMIN_ONLY_NAV_KEYS.includes(page) && role !== "admin") return false;
-  return true;
+  return canViewPage({ role }, page);
 }
 
 /**

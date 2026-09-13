@@ -4,6 +4,7 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { setAcceptingOrdersMode } from "../../lib/acceptingOrdersData.js";
 import { ACCEPTING_ORDERS_MODES } from "../../lib/acceptingOrders.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /**
  * AcceptingOrdersCard — Phase 79. The Operations control for whether the
@@ -18,15 +19,14 @@ import { ACCEPTING_ORDERS_MODES } from "../../lib/acceptingOrders.js";
  *   this card should never have to check the clock to know whether guests can
  *   order.
  *
- * PERMISSIONS (§30)
- *   Admin only, for now. The Operations section is shared with Cashier and
- *   its two existing cards deliberately stay that way — this one renders
- *   nothing for a Cashier rather than rendering a disabled control, matching
- *   how every other Admin-only capability in this app is handled (absent, not
- *   greyed). `acceptingOrders.update` has not been owner-approved for Cashier,
- *   and quietly handing it over inside an unrelated phase is exactly the kind
- *   of silent scope creep the RBAC work later has to unpick. Busy Mode and
- *   Category Availability keep their existing Cashier access untouched.
+ * PERMISSIONS (Phase 95.1)
+ *   Admin AND Cashier. Phase 79 deliberately withheld this from Cashier
+ *   because the capability had not been approved for them; Unit 13 approves
+ *   it explicitly — Overview is one shared operational dashboard, and a
+ *   control that only one role can see would reintroduce exactly the hidden
+ *   difference this phase removes. The gate is now the capability
+ *   acceptingOrders.view, held by both roles, so the card still renders
+ *   nothing (never a greyed control) for any future role without it.
  *
  * NOT DESTRUCTIVE (§38)
  *   Closed is amber, not red. It stops revenue, so it is not neutral either —
@@ -56,9 +56,13 @@ export default function AcceptingOrdersCard({ restaurant, session, onNotify }) {
   const { t } = useLanguage();
   const { mode, accepting, reason, workingHours, refresh } = useAcceptingOrders(restaurant.slug);
 
-  /* Third layer of the same pattern the Admin-only SCREENS use. This card is
-     mounted inside a section Cashier can reach, so the check lives here. */
-  if (session.role !== "admin") return null;
+  /* Phase 95.1 — this card used to return null for a Cashier, which is why a
+     Cashier's Operations section was a short version of the Admin's. Overview
+     is now operationally identical for both roles, so the check asks for the
+     capability instead of the role, and both roles hold it. Kept as a real
+     check rather than deleted: it is layer 3, and a future role without
+     acceptingOrders.view must still be refused here. */
+  if (!can(session, PERMISSIONS.ACCEPTING_ORDERS_VIEW)) return null;
 
   const MODE_LABEL = {
     auto: t("accepting.modeAuto", "Auto"),

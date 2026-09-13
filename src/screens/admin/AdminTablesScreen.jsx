@@ -20,6 +20,7 @@ import {
 } from "../../lib/tableData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatTableCount } from "../../i18n/counts.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminTablesScreen — Phase 22
@@ -139,7 +140,7 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
      App root's route guard already refuses to render this component at all
      for a Cashier session; this second check protects against any future
      code path that might reach it another way. */
-  if (session.role !== "admin") {
+  if (!can(session, PERMISSIONS.TABLES_ACCESS_MANAGE)) {
     return (
       <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="tables" onNavigate={onNavigate}>
         <div className="ad-empty anim-rise">
