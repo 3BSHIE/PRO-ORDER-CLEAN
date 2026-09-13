@@ -242,6 +242,10 @@ export const translations = {
       qrAccess: "QR Access",
       qrLinkReady: "QR code ready",
       copyQrLink: "Copy QR Link",
+      accessLink: "Access link",
+      openLink: "Open",
+      testAccess: "Test Access",
+      nfcTokenLabel: "NFC Token",
       /* §21/§22 — every string here describes the CREDENTIAL, never the
          physical tag, because the app cannot see the tag. */
       nfcAccess: "NFC Access",
@@ -1118,6 +1122,10 @@ export const translations = {
       qrAccess: "الدخول عبر QR",
       qrLinkReady: "رمز QR جاهز",
       copyQrLink: "نسخ رابط QR",
+      accessLink: "رابط الدخول",
+      openLink: "فتح",
+      testAccess: "اختبار الدخول",
+      nfcTokenLabel: "رمز NFC",
       nfcAccess: "الدخول عبر NFC",
       nfcLinkReady: "رابط NFC جاهز",
       copyNfcLink: "نسخ رابط NFC",

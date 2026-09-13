@@ -453,35 +453,14 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 </span>
               </div>
 
-              {/* Phase 76 §22 — the token, the full customer URL and both
-                  timestamps used to sit in the row at full strength, which
-                  made every table read like a developer panel: four lines of
-                  machine data above the actual controls, with the table
-                  number itself the smallest thing present.
-
-                  They move into a native <details>. Nothing is removed — the
-                  data is one click away, still selectable and still
-                  copyable (§51) — and <details>/<summary> is keyboard
-                  operable and announced without any ARIA of our own. */}
-              <details className="tb-row__tech">
-                <summary className="tb-row__tech-summary">
-                  {t("admin.technicalDetails", "Technical details")}
-                </summary>
-                <div className="tb-row__tech-body">
-                  <div className="tb-row__meta">
-                    <span className="tb-row__meta-label">{t("admin.qrTokenLabel", "QR Token")}:</span>
-                    <span className="tb-row__token">{table.qrToken}</span>
-                  </div>
-                  <div className="tb-row__meta">
-                    <span className="tb-row__meta-label">{t("admin.customerUrl", "Customer URL")}:</span>
-                    <span className="tb-row__url">{customerUrl(restaurant.slug, table.qrToken)}</span>
-                  </div>
-                  <div className="tb-row__timestamps">
-                    <span>{t("admin.created", "Created")}: {formatTimestamp(table.createdAt)}</span>
-                    <span>{t("admin.updatedLabel", "Updated")}: {formatTimestamp(table.updatedAt)}</span>
-                  </div>
-                </div>
-              </details>
+              {/* Phase 93.3 §3/§21 — the row's "Technical details" disclosure
+                  is gone from here and lives at the foot of Manage Access
+                  instead. Phase 76 was right to collapse it; what changed is
+                  that the table now has TWO credentials, so a per-row
+                  disclosure would have to carry both tokens and both URLs —
+                  four lines of machine data on a surface whose job is "which
+                  table am I looking at, and is it open". Nothing is removed:
+                  the same values, plus the NFC ones, are one click deeper. */}
 
               {/* Phase 93 §3/§14/§20 — the row carried SIX equally-weighted
                   controls: View QR, Copy URL, Open customer page, Edit,
@@ -552,21 +531,22 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
           open
           onClose={() => setPreviewTable(null)}
           title={t("admin.tableAccessTitle", "Table Access")}
-          /* Phase 76 §27 — the hierarchy here was upside down: Close was the
-             gold primary while Print Table Stand — the reason the modal is
-             opened — was an outline, and Copy Link was the faintest of the
-             three. Print is primary now, Copy is the secondary, and Close
-             steps back to ghost. No action was added or removed, and Print
-             still runs the unchanged Phase 69 bilingual stand (§28). */
+          className="modal--access"
+          /* Phase 93.3 §11 — Print moves OUT of the footer and into the QR
+             section. Phase 76 made it the modal's primary when the modal was
+             the QR modal, which was right then and wrong now: this dialog is
+             about two access methods, and a footer primary that prints one of
+             them tells the manager the other is secondary. Print is still the
+             strongest action — but inside the section it belongs to.
+
+             That leaves Close alone in the footer, deliberately quiet (§31).
+             The header X stays too: both were already here, both are
+             keyboard-reachable, and removing one to look tidier would cost a
+             real close affordance. */
           footer={
-            <>
-              <Button variant="ghost" onClick={() => setPreviewTable(null)}>
-                {t("common.close", "Close")}
-              </Button>
-              <Button icon={Printer} onClick={handlePrintStand}>
-                {t("admin.printTableStand", "Print Table Stand")}
-              </Button>
-            </>
+            <Button variant="ghost" onClick={() => setPreviewTable(null)}>
+              {t("common.close", "Close")}
+            </Button>
           }
         >
           {/* §19 — table identity once, at the top, for BOTH methods. */}
@@ -609,56 +589,58 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               />
             </div>
             <p className="tb-qr-preview__scan">{t("admin.scanToOrder", "Scan to order")}</p>
-            {/* The same URL the code encodes, shown as text so the modal is
-                usable without a second phone — and readable to a screen
-                reader, which cannot scan anything. */}
-            {/* §19/§44 — the link the code encodes, shown as text so the
-                modal works without a second phone and so a screen reader has
-                something to read. LTR-isolated in CSS: a URL inside an Arabic
-                page must not be reordered by the bidi algorithm. */}
-            <p className="tb-qr-preview__url">{previewUrl}</p>
 
-            {/* §14 — the secondary pair. Copy and Preview live here now
-                rather than as two more icons in the row: both are about THIS
-                table's link, and here the QR they belong to is on screen.
-                Ghost weight, so Print in the footer stays the primary. */}
-            {/* §25 — the same pair the NFC section offers, in the same order
-                and the same weights, so the two methods read as peers rather
-                than as a feature and an afterthought. */}
-            <div className="tb-qr-actions">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={copiedLink ? Check : Copy}
-                onClick={() => handleCopyLink(previewLive)}
-              >
-                {copiedLink
-                  ? t("admin.copied", "Copied")
-                  : t("admin.copyQrLink", "Copy QR Link")}
+            {/* Phase 93.3 §20 — the link was a full-width line of body text
+                directly under the QR, which made the longest and least useful
+                thing on screen one of the most prominent. A manager copies or
+                opens this link; they almost never read it. It is a labelled,
+                muted, single-line value now, ellipsed at its own width — the
+                complete URL stays in the DOM, selectable and readable to a
+                screen reader, and Copy/Open still carry the whole thing.
+                Nothing about the credential itself changed. */}
+            <p className="tb-access-link">
+              <span className="tb-access-link__label">{t("admin.accessLink", "Access link")}</span>
+              <span className="tb-access-link__value" title={previewUrl}>{previewUrl}</span>
+            </p>
+
+            {/* §9/§11 — Print is the strongest action IN THIS SECTION, which
+                is where it belongs now that the modal covers two methods. */}
+            <div className="tb-section-actions">
+              <Button full icon={Printer} onClick={handlePrintStand}>
+                {t("admin.printTableStand", "Print Table Stand")}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ExternalLink}
-                onClick={() => handleOpenUrl(previewLive)}
-              >
-                {t("admin.openCustomerPage", "Open customer page")}
-              </Button>
+              {/* §12 — the routine pair, deliberately lighter than Print. */}
+              <div className="tb-section-actions__row">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={copiedLink ? Check : Copy}
+                  onClick={() => handleCopyLink(previewLive)}
+                >
+                  {copiedLink
+                    ? t("admin.copied", "Copied")
+                    : t("admin.copyLink", "Copy Link")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={ExternalLink}
+                  onClick={() => handleOpenUrl(previewLive)}
+                >
+                  {t("admin.openLink", "Open")}
+                </Button>
+              </div>
             </div>
 
-            {/* §20 — Regenerate is sensitive and rare, so it sits below the
-                actions a manager actually came here for, in its own quiet
-                framed area rather than as a peer of Print. Amber, not red:
-                §52 — this is consequential but recoverable, and Delete keeps
-                the filled red. */}
-            <div className="tb-qr-sensitive">
-              <p className="tb-qr-sensitive__title">{t("admin.regenerateQr", "Regenerate QR")}</p>
-              <p className="tb-qr-sensitive__text">
-                {t(
-                  "admin.regenerateQrHint",
-                  "Replaces this table's code. Only needed if the printed QR was copied or misused."
-                )}
-              </p>
+            {/* Phase 93.3 §13/§48 — measured before changing: the old amber
+                block was 129px tall and full width, against a 35px Copy
+                button — so the rarest action in the section was also its
+                largest object, and the eye landed on it before Print. It is
+                a hairline rule and one small amber button now: still
+                obviously available, no longer shouting. The explanation moved
+                into the confirmation, which is where the decision is actually
+                made (§19). */}
+            <div className="tb-sensitive">
               <Button
                 variant="warn"
                 size="sm"
@@ -697,18 +679,22 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
 
             {nfcUrl ? (
               <>
-                <p className="tb-nfc__url">{nfcUrl}</p>
-                {/* §23 — the manager writes this link to the tag with an
-                    external NFC tool. No fake "Program tag" button: the
-                    browser did not touch any hardware and must not imply it
-                    did. */}
+                {/* §17 — one line, not a tutorial. The browser wrote nothing
+                    to any hardware and must not imply otherwise. */}
                 <p className="tb-nfc__hint">
                   {t("admin.nfcWriteHint", "Write this link to the table's NFC tag using any NFC writing app.")}
                 </p>
-                <div className="tb-nfc__actions">
+                {/* §20 — same compact treatment as the QR link. */}
+                <p className="tb-access-link">
+                  <span className="tb-access-link__label">{t("admin.accessLink", "Access link")}</span>
+                  <span className="tb-access-link__value" title={nfcUrl}>{nfcUrl}</span>
+                </p>
+                {/* §18 — Copy is the routine action here, so it is the
+                    strongest thing in the section; Test is secondary. NFC has
+                    no printable artefact, so nothing outranks Copy. */}
+                <div className="tb-section-actions__row">
                   <Button
                     variant="outline"
-                    size="sm"
                     icon={copiedNfcLink ? Check : Copy}
                     onClick={() => handleCopyNfcLink(previewLive)}
                   >
@@ -725,20 +711,14 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                     icon={ExternalLink}
                     onClick={() => { try { window.open(nfcUrl, "_blank", "noopener"); } catch { /* popup blocked */ } }}
                   >
-                    {t("admin.openNfcAccess", "Open NFC access")}
+                    {t("admin.testAccess", "Test Access")}
                   </Button>
                 </div>
 
-                {/* §47 — amber like QR regeneration, never red: Delete keeps
-                    the destructive colour. */}
-                <div className="tb-qr-sensitive tb-nfc__sensitive">
-                  <p className="tb-qr-sensitive__title">{t("admin.regenerateNfc", "Regenerate NFC Access")}</p>
-                  <p className="tb-qr-sensitive__text">
-                    {t(
-                      "admin.regenerateNfcHint",
-                      "Replaces this table's NFC link. The tag must be written again afterwards."
-                    )}
-                  </p>
+                {/* §19/§25 — identical treatment to QR's regenerate, because
+                    the two methods must read as one system. Amber, never red:
+                    Delete Table keeps the destructive colour (§44). */}
+                <div className="tb-sensitive">
                   <Button
                     variant="warn"
                     size="sm"
@@ -767,6 +747,41 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               </p>
             )}
           </div>
+
+          {/* Phase 93.3 §21 — the technical values, collapsed, at the very
+              bottom. They left the table row (where two credentials would have
+              meant four lines of machine data per table) and landed here,
+              behind one quiet summary line. Nothing was deleted: both tokens
+              and both timestamps are still selectable and still copyable, they
+              just no longer compete with the QR, the links or the actions.
+
+              <details>/<summary> is keyboard operable and announced natively,
+              so this needs no ARIA of its own (§47). */}
+          <details className="tb-tech">
+            <summary className="tb-tech__summary">
+              {t("admin.technicalDetails", "Technical details")}
+            </summary>
+            <div className="tb-tech__body">
+              <div className="tb-tech__row">
+                <span className="tb-tech__label">{t("admin.qrTokenLabel", "QR Token")}</span>
+                <span className="tb-tech__value">{previewLive.qrToken}</span>
+              </div>
+              {previewLive.nfcToken && (
+                <div className="tb-tech__row">
+                  <span className="tb-tech__label">{t("admin.nfcTokenLabel", "NFC Token")}</span>
+                  <span className="tb-tech__value">{previewLive.nfcToken}</span>
+                </div>
+              )}
+              <div className="tb-tech__row">
+                <span className="tb-tech__label">{t("admin.created", "Created")}</span>
+                <span className="tb-tech__value">{formatTimestamp(previewLive.createdAt)}</span>
+              </div>
+              <div className="tb-tech__row">
+                <span className="tb-tech__label">{t("admin.updatedLabel", "Updated")}</span>
+                <span className="tb-tech__value">{formatTimestamp(previewLive.updatedAt)}</span>
+              </div>
+            </div>
+          </details>
 
           {/* Phase 69 — the two printable faces. Off-screen normally, shown
               only by print media. Both are fed the SAME previewUrl, so the

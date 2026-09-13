@@ -3225,7 +3225,12 @@ button{font-family:var(--font-body)}
      not part of the printed artefact. Without these the NFC link and its
      Regenerate button would land on the printed stand. */
   .tb-access-head,
-  .tb-nfc{display:none !important}
+  .tb-nfc,
+  /* Phase 93.3 §39 — the technical disclosure moved into the modal body this
+     phase, which put it OUTSIDE the sections the print block already hid.
+     Caught by checking containment rather than assuming: without this line
+     both raw tokens and both timestamps print onto the table stand. */
+  .tb-tech{display:none !important}
 
   /* An explicit width, not auto: the un-styled modal ancestors resolve to
      zero width here, and relying on the cards overflowing a zero-width
@@ -7072,3 +7077,132 @@ button{font-family:var(--font-body)}
    is ~600px wide, so two columns would leave each card under 290px and shrink
    the QR for no benefit. §49 allows side-by-side only where it genuinely
    improves hierarchy — here it does not, and the modal scrolls comfortably. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 93.3 — TABLES & ACCESS HIERARCHY POLISH
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §27 — a modest width increase, measured not guessed ─────────────────
+   The access modal rendered at 480px with a 429px content box. That was
+   sized for a dialog showing one QR; it now carries two credential sections,
+   each with its own heading, link row and action set, and at 429px the
+   action rows were wrapping that did not need to. 560px gives the QR plate
+   and both action rows room without approaching a full-screen drawer, and
+   only from 640px up — the phone layout is untouched. */
+@media (min-width:640px){
+  .modal--access{max-width:560px}
+}
+
+/* ── §13/§19/§48 — the sensitive action, made quiet ──────────────────────
+   Measured before changing: the old `.tb-qr-sensitive` block was 129px tall
+   and full width, carrying a filled amber background, a border, a title and
+   a paragraph — against a 35px Copy button. The rarest action in each
+   section was its single largest object, so the eye reached Regenerate
+   before Print. §48 names that as the hierarchy being wrong.
+
+   It is now a hairline rule and one small amber button. Still unmistakably
+   available and still amber (§44 — never red, Delete keeps that), just no
+   longer the loudest thing in its own section. The explanation it used to
+   carry lives in the confirmation dialog, which is where the decision is
+   actually taken (§19). */
+.tb-sensitive{
+  margin-top:14px;padding-top:12px;
+  border-top:1px solid var(--border);
+  display:flex;justify-content:center}
+
+/* ── §20 — the access link, demoted to a labelled value ──────────────────
+   A single muted line: a small label, then the URL ellipsed at whatever
+   width is available. The complete value stays in the DOM — selectable,
+   announced, and carried in full by Copy and Open — it simply stops being
+   one of the most prominent objects in the section.
+
+   direction:ltr + isolate so an Arabic page cannot reorder it, and min-width:0
+   so the ellipsis can actually engage inside a flex line rather than pushing
+   the modal wider (§46/§49). */
+.tb-access-link{
+  display:flex;align-items:baseline;gap:8px;min-width:0;
+  margin:10px 0 0;font-size:11.5px;line-height:1.5}
+.tb-access-link__label{
+  flex:none;color:var(--text-3);font-weight:600;letter-spacing:.02em}
+.tb-access-link__value{
+  flex:1 1 auto;min-width:0;
+  color:var(--text-3);opacity:.85;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  direction:ltr;unicode-bidi:isolate;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── §9/§11/§12/§29 — the section's own action stack ─────────────────────
+   Print leads at full width, the routine pair sits under it at small size.
+   Full-width primary rather than a centred pill because at 320px a
+   near-full-width primary is the clearest possible target, and at desktop it
+   still reads as the section's lead without competing with the QR above it. */
+.tb-section-actions{
+  display:flex;flex-direction:column;align-items:stretch;gap:10px;
+  margin-top:14px}
+/* Print uses Button's own `full` prop (btn--full) rather than a class of
+   ours: passing className to Button REPLACES its variant classes outright,
+   which silently stripped btn--primary and rendered a raw 26px grey button.
+   Caught by measurement, not by eye. */
+/* The routine pair. Wraps rather than compressing, so neither control is ever
+   squeezed below a comfortable target (§29/§30). */
+.tb-section-actions__row{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
+  margin-top:10px}
+.tb-section-actions .tb-section-actions__row{margin-top:0}
+
+/* ── §21 — technical values, one disclosure, at the very bottom ──────────
+   Moved off the table row (where it would now have to carry two tokens and
+   two URLs) into the foot of Manage Access. Collapsed by default, so it
+   costs one quiet line until someone actually needs it — which is the whole
+   point of demoting it rather than deleting it. */
+.tb-tech{margin-top:18px;border-top:1px solid var(--border);padding-top:12px}
+.tb-tech__summary{
+  cursor:pointer;list-style:none;
+  font-size:11.5px;font-weight:600;color:var(--text-3);letter-spacing:.02em}
+.tb-tech__summary::-webkit-details-marker{display:none}
+.tb-tech__summary:hover{color:var(--text-2)}
+.tb-tech__body{margin-top:10px;display:flex;flex-direction:column;gap:7px}
+.tb-tech__row{
+  display:flex;align-items:baseline;gap:8px;min-width:0;font-size:11px}
+.tb-tech__label{flex:none;color:var(--text-3);min-width:74px}
+.tb-tech__value{
+  flex:1 1 auto;min-width:0;color:var(--text-2);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  direction:ltr;unicode-bidi:isolate;overflow-wrap:anywhere}
+
+/* ── §14/§15 — NFC stays deliberately compact ────────────────────────────
+   The old NFC card reserved 311px, 129px of which was its regenerate block.
+   With that block reduced the card is roughly half the height, which is the
+   honest proportion: NFC has no scannable artefact to display, and padding
+   it out to match the QR card's height would be empty space pretending to be
+   content (§15). */
+.tb-nfc__hint{margin-top:6px}
+
+/* ── §28/§29 — phone layout ──────────────────────────────────────────────
+   The routine pair goes full-width below 400px rather than sitting as two
+   half-width pills, so every control keeps a comfortable target (§30). */
+@media (max-width:400px){
+  .tb-section-actions__row{flex-direction:column;align-items:stretch}
+  .tb-section-actions__row .btn{width:100%}
+  .tb-access-link{flex-direction:column;gap:2px}
+  .tb-tech__row{flex-direction:column;gap:2px}
+  .tb-tech__label{min-width:0}
+}
+
+/* ── §30/§34 — real touch targets inside the access modal ────────────────
+   Measured: Copy Link, Open, Test Access and both Regenerate buttons came
+   out at 35px, and Print at 42.5px. The existing 44px floor only covers
+   `.modal__foot .btn`, so everything in a modal BODY fell back to its size
+   variant — fine when a dialog body was a paragraph, not fine now that the
+   body carries every routine action on this surface.
+
+   Height only. The visual hierarchy is carried by fill, border and text
+   size, all untouched: Print stays the filled primary, Copy stays outline,
+   Open/Test stay ghost, Regenerate stays small amber behind its divider.
+   A comfortable target does not make a control loud. */
+.modal--access .btn{min-height:44px}
+
+/* The disclosure line measured 18.4px — a text link too small to tap
+   reliably (§30). Padding only; it stays visually a quiet summary line. */
+.tb-tech__summary{padding-block:11px}
+.tb-tech{padding-top:4px}

@@ -3,7 +3,10 @@ import { X } from "lucide-react";
 
 /* Modal shell — bottom sheet on mobile, centered dialog ≥640px.
    Real flows (item customization, payment choice…) will reuse this. */
-export default function Modal({ open, onClose, title, children, footer }) {
+/* Phase 93.3 — `className` lands on the dialog box so one modal can opt
+   into its own width without moving every other Admin dialog. Optional and
+   additive: omitted, the shell renders exactly as before. */
+export default function Modal({ open, onClose, title, children, footer, className = "" }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -17,7 +20,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
       className="modal__overlay"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={("modal " + className).trim()} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__handle" />
         <div className="modal__head">
           <h3 className="modal__title">{title}</h3>
