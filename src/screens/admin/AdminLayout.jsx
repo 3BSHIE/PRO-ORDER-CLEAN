@@ -49,7 +49,7 @@ export const ADMIN_NAV_ITEMS = [
      setup surfaces a manager visits rarely and together, while Feedback is
      something they read alongside the operational pages above it. */
   { key: "feedback",   label: "Feedback",    icon: MessageSquareHeart, active: true },
-  { key: "tables",     label: "Tables & QR", icon: QrCode,          active: true },
+  { key: "tables",     label: "Tables & Access", icon: QrCode,      active: true },
   { key: "settings",   label: "Settings",    icon: Settings,        active: true },
 ];
 /* Phase 21 architecture review — Menu & Categories management are
@@ -73,7 +73,7 @@ const NAV_ITEM_KEY = {
   staffCalls: "staff.staffCalls",
   menu: "customer.menu",
   categories: "admin.categories",
-  tables: "admin.tablesAndQr",
+  tables: "admin.tablesAndAccess",
   feedback: "feedback.feedback",
   settings: "admin.restaurantSettings",
 };

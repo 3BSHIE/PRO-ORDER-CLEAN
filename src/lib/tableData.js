@@ -43,10 +43,10 @@ function tablesKey(restaurantSlug) {
    seed time (see seedIfEmpty), not baked in here, since this template is
    restaurant-agnostic. */
 const SEED_TABLES_TEMPLATE = [
-  { id: "tbl_1", tableNumber: 1, displayName: "Table 1", qrToken: "table-1-token", isActive: true,  sortOrder: 1 },
-  { id: "tbl_2", tableNumber: 2, displayName: "Table 2", qrToken: "table-2-token", isActive: true,  sortOrder: 2 },
-  { id: "tbl_3", tableNumber: 3, displayName: "Table 3", qrToken: "table-3-token", isActive: true,  sortOrder: 3 },
-  { id: "tbl_4", tableNumber: 4, displayName: "Table 4", qrToken: "table-4-token", isActive: false, sortOrder: 4 },
+  { id: "tbl_1", tableNumber: 1, displayName: "Table 1", qrToken: "table-1-token", nfcToken: "table-1-nfc", isActive: true,  sortOrder: 1 },
+  { id: "tbl_2", tableNumber: 2, displayName: "Table 2", qrToken: "table-2-token", nfcToken: "table-2-nfc", isActive: true,  sortOrder: 2 },
+  { id: "tbl_3", tableNumber: 3, displayName: "Table 3", qrToken: "table-3-token", nfcToken: "table-3-nfc", isActive: true,  sortOrder: 3 },
+  { id: "tbl_4", tableNumber: 4, displayName: "Table 4", qrToken: "table-4-token", nfcToken: "table-4-nfc", isActive: false, sortOrder: 4 },
 ];
 
 function genId() {
@@ -60,6 +60,42 @@ function genQrTokenCandidate() {
   return `tbl-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/* Phase 93.2 — the NFC credential.
+   A DIFFERENT prefix from qrToken on purpose: the two credentials live in
+   the same URL slot, so a distinct shape makes them impossible to confuse in
+   storage, in a log, or in the Admin UI — and it means a resolver can report
+   which method a guest arrived by without a second lookup. */
+function genNfcTokenCandidate() {
+  return `nfc-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/* Phase 93.2 §6 — backfill NFC credentials onto tables that predate them.
+   Operates on an already-parsed list rather than calling getTables(), which
+   would recurse straight back into the seed/migrate path.
+
+   Idempotent by construction: a table that already has an nfcToken is
+   returned untouched, so this cannot mint a new credential on every read and
+   cannot invalidate a tag that is already programmed. Uniqueness is checked
+   against BOTH token namespaces, so a backfilled NFC credential can never
+   collide with an existing QR one. */
+function ensureNfcTokens(list) {
+  const used = new Set();
+  list.forEach((t) => {
+    if (t && t.qrToken) used.add(t.qrToken);
+    if (t && t.nfcToken) used.add(t.nfcToken);
+  });
+  let changed = false;
+  const next = list.map((t) => {
+    if (!t || t.nfcToken) return t;
+    let candidate = genNfcTokenCandidate();
+    while (used.has(candidate)) candidate = genNfcTokenCandidate();
+    used.add(candidate);
+    changed = true;
+    return { ...t, nfcToken: candidate };
+  });
+  return { list: next, changed };
+}
+
 function notifyChange(restaurantSlug) {
   try {
     window.dispatchEvent(new CustomEvent(TABLE_CHANGE_EVENT, { detail: { restaurantSlug } }));
@@ -70,7 +106,8 @@ function notifyChange(restaurantSlug) {
 
 function seedIfEmpty(restaurantSlug) {
   try {
-    if (localStorage.getItem(tablesKey(restaurantSlug)) === null) {
+    const raw = localStorage.getItem(tablesKey(restaurantSlug));
+    if (raw === null) {
       const now = new Date().toISOString();
       const seeded = SEED_TABLES_TEMPLATE.map((t) => ({
         ...t,
@@ -79,7 +116,19 @@ function seedIfEmpty(restaurantSlug) {
         updatedAt: now,
       }));
       localStorage.setItem(tablesKey(restaurantSlug), JSON.stringify(seeded));
+      return;
     }
+
+    /* Phase 93.2 §6 — tables stored before NFC existed gain a credential
+       here, once, in place. Everything else about the record is preserved:
+       id, qrToken, isActive, names, timestamps, sortOrder. Deliberately a
+       silent write with no change event — this runs inside a read, and
+       notifying here would re-enter rendering components mid-read. It only
+       ever fires on the first read after upgrading. */
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    const { list, changed } = ensureNfcTokens(parsed);
+    if (changed) localStorage.setItem(tablesKey(restaurantSlug), JSON.stringify(list));
   } catch {
     // localStorage unavailable — getTables falls back to seed data directly
   }
@@ -104,6 +153,29 @@ export function getTableById(restaurantSlug, tableId) {
   return getTables(restaurantSlug).find((t) => t.id === tableId) || null;
 }
 
+/**
+ * Phase 93.2 — resolve ANY table credential to its table, and say which
+ * method it was.
+ *
+ * QR and NFC are two entry credentials for ONE table record (§5): there is
+ * no "NFC table". A token matches at most one table and at most one method,
+ * because the two namespaces are generated with different prefixes and
+ * uniqueness is enforced across both.
+ *
+ * @returns {{table:object, method:"qr"|"nfc"}|null}
+ */
+export function getTableByAnyToken(restaurantSlug, token) {
+  if (!token) return null;
+  const tables = getTables(restaurantSlug);
+  const qr = tables.find((t) => t.qrToken === token);
+  if (qr) return { table: qr, method: "qr" };
+  const nfc = tables.find((t) => t.nfcToken === token);
+  if (nfc) return { table: nfc, method: "nfc" };
+  return null;
+}
+
+/** QR-credential lookup. Kept for callers that specifically mean the QR
+    credential; access resolution goes through getTableByAnyToken. */
 export function getTableByToken(restaurantSlug, qrToken) {
   return getTables(restaurantSlug).find((t) => t.qrToken === qrToken) || null;
 }
@@ -119,10 +191,30 @@ function saveTables(restaurantSlug, tables) {
 
 /* Generates a qrToken guaranteed unique within this restaurant's table list
    (retries on the astronomically unlikely collision). */
+/* Uniqueness is checked across BOTH credential namespaces, not just the one
+   being minted: the two share a single URL slot, so a QR token that happened
+   to equal an NFC token would make one table's credential resolve as the
+   other's method. */
+function usedTokens(restaurantSlug) {
+  const set = new Set();
+  getTables(restaurantSlug).forEach((t) => {
+    if (t.qrToken) set.add(t.qrToken);
+    if (t.nfcToken) set.add(t.nfcToken);
+  });
+  return set;
+}
+
 function genUniqueQrToken(restaurantSlug) {
-  const existing = new Set(getTables(restaurantSlug).map((t) => t.qrToken));
+  const existing = usedTokens(restaurantSlug);
   let candidate = genQrTokenCandidate();
   while (existing.has(candidate)) candidate = genQrTokenCandidate();
+  return candidate;
+}
+
+function genUniqueNfcToken(restaurantSlug) {
+  const existing = usedTokens(restaurantSlug);
+  let candidate = genNfcTokenCandidate();
+  while (existing.has(candidate)) candidate = genNfcTokenCandidate();
   return candidate;
 }
 
@@ -160,6 +252,9 @@ export function createTable(restaurantSlug, { tableNumber, displayName, isActive
     tableNumber: Number(tableNumber),
     displayName: (displayName || "").trim() || `Table ${tableNumber}`,
     qrToken: genUniqueQrToken(restaurantSlug),
+    /* §7 — a new table is NFC-ready at the data level the moment it exists,
+       so a manager can program its tag without a second setup step. */
+    nfcToken: genUniqueNfcToken(restaurantSlug),
     isActive: !!isActive,
     sortOrder: sortOrder != null ? Number(sortOrder) : maxSort + 1,
     createdAt: now,
@@ -199,8 +294,12 @@ export function updateTable(restaurantSlug, tableId, patch) {
     sortOrder: patch.sortOrder !== undefined ? Number(patch.sortOrder) : tables[idx].sortOrder,
     updatedAt: new Date().toISOString(),
   };
-  // qrToken is never touched here regardless of what patch contains
+  /* Neither credential is ever touched here, regardless of what the patch
+     contains. Rotating one during a rename would invalidate a printed QR or
+     a programmed NFC tag with none of the warning those actions deserve
+     (§8) — each has its own explicit, confirmed action. */
   updated.qrToken = tables[idx].qrToken;
+  updated.nfcToken = tables[idx].nfcToken;
 
   const next = tables.map((t, i) => (i === idx ? updated : t));
   saveTables(restaurantSlug, next);
@@ -224,6 +323,10 @@ export function regenerateQrToken(restaurantSlug, tableId) {
   const updated = {
     ...tables[idx],
     qrToken: genUniqueQrToken(restaurantSlug),
+    /* §14 — explicit, not merely inherited from the spread: regenerating the
+       QR must never disturb a physical NFC tag that is already programmed
+       and stuck to the table. The two credentials rotate independently. */
+    nfcToken: tables[idx].nfcToken,
     updatedAt: new Date().toISOString(),
   };
   const next = tables.map((t, i) => (i === idx ? updated : t));
@@ -248,7 +351,38 @@ export function deleteTable(restaurantSlug, tableId) {
   return { ok: true };
 }
 
-/* ═══════════════════════════════ Customer QR access validation ═══════════ */
+/**
+ * Phase 93.2 §15 — rotate the NFC credential, and only that.
+ *
+ * The mirror of regenerateQrToken, deliberately a separate function rather
+ * than a flag on one shared "regenerate": the two credentials exist to be
+ * independently rotatable (§4), and a single entry point would make it far
+ * too easy for a future caller to rotate both by accident.
+ *
+ * The printed QR is untouched, so a restaurant re-programming a tag does not
+ * also have to reprint every stand. The table's id, name, active state and
+ * order history are untouched for the same reasons regenerateQrToken leaves
+ * them alone.
+ *
+ * @returns {{ok:true, table:object} | {ok:false, reason:"not_found"}}
+ */
+export function regenerateNfcToken(restaurantSlug, tableId) {
+  const tables = getTables(restaurantSlug);
+  const idx = tables.findIndex((t) => t.id === tableId);
+  if (idx === -1) return { ok: false, reason: "not_found" };
+
+  const updated = {
+    ...tables[idx],
+    nfcToken: genUniqueNfcToken(restaurantSlug),
+    qrToken: tables[idx].qrToken,
+    updatedAt: new Date().toISOString(),
+  };
+  const next = tables.map((t, i) => (i === idx ? updated : t));
+  saveTables(restaurantSlug, next);
+  return { ok: true, table: updated };
+}
+
+/* ═══════════════════════════════ Customer table access validation ════════ */
 
 /**
  * Resolve a scanned QR into a table session — reads the current
@@ -270,11 +404,18 @@ export function resolveTableAccess(restaurantSlug, qrToken) {
      costs nothing and adds no lookup. The "restaurant" failure above
      deliberately does not, because there genuinely is no venue to name.
      Existing callers read only .ok and .reason and are unaffected. */
-  const table = getTableByToken(restaurantSlug, qrToken);
-  if (!table) return { ok: false, reason: "token", restaurant };
-  if (!table.isActive) return { ok: false, reason: "inactive", restaurant };
+  /* Phase 93.2 §10 — either credential opens the door, and both land on the
+     same table record. accessMethod is reported for diagnostics and for the
+     Admin side; no Customer screen branches on it, because after entry the
+     journey is identical whichever way the guest arrived (§34). */
+  const match = getTableByAnyToken(restaurantSlug, qrToken);
+  if (!match) return { ok: false, reason: "token", restaurant };
+  if (!match.table.isActive) {
+    /* §39 — NFC does not get to bypass table status any more than QR does. */
+    return { ok: false, reason: "inactive", restaurant, accessMethod: match.method };
+  }
 
-  return { ok: true, restaurant, table };
+  return { ok: true, restaurant, table: match.table, accessMethod: match.method };
 }
 
 /**
@@ -340,7 +481,15 @@ export function resolveCustomerAccess(restaurantSlug, qrToken, session) {
     return { ok: false, reason: "inactive", restaurant: direct.restaurant };
   }
 
-  return { ok: true, restaurant: direct.restaurant, table, viaSession: true };
+  /* accessMethod is reported as "session", not "qr"/"nfc".
+
+     This path is only reached when the URL token no longer matches EITHER
+     current credential — it is the one that was rotated away. Comparing it
+     against the live tokens therefore cannot say which method it originally
+     was, and an earlier draft of this line quietly reported "qr" for a guest
+     who had tapped an NFC tag. Measured and corrected: naming the path
+     honestly is better than guessing a method for a diagnostic field. */
+  return { ok: true, restaurant: direct.restaurant, table, viaSession: true, accessMethod: "session" };
 }
 
 /* Translation keys (+ English fallback) for each access-failure reason,

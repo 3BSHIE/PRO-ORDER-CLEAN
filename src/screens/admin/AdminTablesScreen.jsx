@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Pencil, Trash2, Plus, QrCode, Copy, Check, ExternalLink, RefreshCw, Search, X, Printer, Power } from "lucide-react";
+import { Pencil, Trash2, Plus, QrCode, Copy, Check, ExternalLink, RefreshCw, Search, X, Printer, Power, Nfc } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -16,6 +16,7 @@ import {
   updateTable,
   deleteTable,
   regenerateQrToken,
+  regenerateNfcToken,
 } from "../../lib/tableData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatTableCount } from "../../i18n/counts.js";
@@ -107,6 +108,10 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   const [editingTable, setEditingTable] = useState(null); // table object, or {} for "new"
   const [previewTable, setPreviewTable] = useState(null);
   const [pendingRegenerate, setPendingRegenerate] = useState(null);
+  /* §15 — kept separate from pendingRegenerate so the two confirmations can
+     never be confused for one another: they warn about different physical
+     objects (a printed stand vs a programmed tag). */
+  const [pendingRegenerateNfc, setPendingRegenerateNfc] = useState(null);
   /* Phase 93 §8/§10 — the table whose deactivation is awaiting confirmation.
      Only deactivation asks: turning a table back ON is not a decision anyone
      needs protecting from (§9), so Activate applies immediately. */
@@ -200,6 +205,15 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
     setTableActive(table, false);
   }
 
+  function handleConfirmRegenerateNfc() {
+    const table = pendingRegenerateNfc;
+    setPendingRegenerateNfc(null);
+    if (!table) return;
+    regenerateNfcToken(restaurant.slug, table.id);
+    setToastMessage(t("admin.nfcRegenerated", "NFC access regenerated"));
+    setToastVisible(true);
+  }
+
   function handleConfirmRegenerate() {
     const table = pendingRegenerate;
     setPendingRegenerate(null);
@@ -257,6 +271,8 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
      there is no button label there to change. Reuses the same copyText call;
      only the feedback surface differs. */
   const [copiedLink, setCopiedLink] = useState(false);
+  /* Its own flag, so copying one link never flashes "Copied" on the other. */
+  const [copiedNfcLink, setCopiedNfcLink] = useState(false);
 
   useEffect(() => {
     if (!copiedLink) return;
@@ -271,6 +287,21 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
       return;
     }
     /* Failure still needs to say so, and the button cannot carry that. */
+    setToastMessage(t("admin.urlCopyFailed", "Couldn't copy — select the URL above to copy it manually."));
+    setToastVisible(true);
+  }
+
+  /* §25 — the same interaction as Copy QR Link: inline "Copied" state, no
+     toast on success. A failure still speaks, because a silent no-op would
+     leave the manager thinking they had the link. */
+  async function handleCopyNfcLink(table) {
+    if (!table || !table.nfcToken) return;
+    const ok = await copyText(customerUrl(restaurant.slug, table.nfcToken));
+    if (ok) {
+      setCopiedNfcLink(true);
+      setTimeout(() => setCopiedNfcLink(false), 1600);
+      return;
+    }
     setToastMessage(t("admin.urlCopyFailed", "Couldn't copy — select the URL above to copy it manually."));
     setToastVisible(true);
   }
@@ -297,6 +328,14 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
      QR, printed beneath it, and written to the clipboard — they cannot drift
      apart because there is only one of them. */
   const previewUrl = previewLive ? customerUrl(restaurant.slug, previewLive.qrToken) : "";
+  /* §9 — the SAME customer route, carrying the NFC credential instead of the
+     QR one. No second customer app, no ?method= flag: the credential in the
+     path is what identifies the table, and the resolver decides which method
+     it was. Read from previewLive, so regenerating NFC updates this
+     immediately for exactly the reason the QR url does. */
+  const nfcUrl = previewLive && previewLive.nfcToken
+    ? customerUrl(restaurant.slug, previewLive.nfcToken)
+    : "";
 
   /* Phase 69 — the cards are already in the DOM and print CSS decides what
      reaches paper, so this only has to open the dialog. Nothing is written,
@@ -313,7 +352,7 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   return (
     <AdminLayout restaurant={restaurant} session={session} onSignOut={onSignOut} activeKey="tables" onNavigate={onNavigate}>
       <header className="ad-header anim-rise">
-        <h1 className="ad-header__title">{t("admin.tablesAndQr", "Tables & QR")}</h1>
+        <h1 className="ad-header__title">{t("admin.tablesAndAccess", "Tables & Access")}</h1>
         <p className="ad-header__subtitle">
           {t("admin.manageTablesSubtitle", "Add, edit, and manage your restaurant's tables and QR codes.")}
         </p>
@@ -405,6 +444,13 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 <Badge tone={table.isActive ? "gold" : "neutral"}>
                   {table.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
                 </Badge>
+                {/* §44 — which credentials this table has, as a quiet summary
+                    and nothing more. The links themselves stay inside Manage
+                    Access; a row is for scanning a floor plan, not for
+                    reading two URLs per table. */}
+                <span className="tb-row__methods">
+                  {table.nfcToken ? "QR + NFC" : "QR"}
+                </span>
               </div>
 
               {/* Phase 76 §22 — the token, the full customer URL and both
@@ -453,7 +499,10 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 {/* §3 — the QR is what this screen exists for. */}
                 <button type="button" className="mm-edit-btn" onClick={() => setPreviewTable(table)}>
                   <QrCode size={14} strokeWidth={2.2} aria-hidden="true" />
-                  <span>{t("admin.viewQr", "View QR")}</span>
+                  {/* §18 — the table now has two entry credentials, so the
+                      action that opens them is named for the job rather than
+                      for one of the methods. */}
+                  <span>{t("admin.manageAccess", "Manage Access")}</span>
                 </button>
                 {/* §7/§50 — labelled, not a bare icon: "which way does this
                     power symbol point right now" is exactly the question a
@@ -502,7 +551,7 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
         <Modal
           open
           onClose={() => setPreviewTable(null)}
-          title={t("admin.qrPreviewTitle", "Table QR Code")}
+          title={t("admin.tableAccessTitle", "Table Access")}
           /* Phase 76 §27 — the hierarchy here was upside down: Close was the
              gold primary while Print Table Stand — the reason the modal is
              opened — was an outline, and Copy Link was the faintest of the
@@ -514,24 +563,33 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               <Button variant="ghost" onClick={() => setPreviewTable(null)}>
                 {t("common.close", "Close")}
               </Button>
-              <Button
-                variant="outline"
-                icon={copiedLink ? Check : Copy}
-                onClick={() => handleCopyLink(previewLive)}
-              >
-                {copiedLink
-                  ? t("admin.copied", "Copied")
-                  : t("admin.copyLink", "Copy Link")}
-              </Button>
               <Button icon={Printer} onClick={handlePrintStand}>
                 {t("admin.printTableStand", "Print Table Stand")}
               </Button>
             </>
           }
         >
+          {/* §19 — table identity once, at the top, for BOTH methods. */}
+          <div className="tb-access-head">
+            <p className="tb-access-head__restaurant">{restaurant.name}</p>
+            <p className="tb-access-head__table">
+              {previewLive.displayName} (#{previewLive.tableNumber})
+            </p>
+            <span className={`tb-access-head__state ${previewLive.isActive ? "" : "tb-access-head__state--off"}`}>
+              {previewLive.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
+            </span>
+          </div>
+
           <div className="tb-qr-preview">
-            <p className="tb-qr-preview__restaurant">{restaurant.name}</p>
-            <p className="tb-qr-preview__table">{previewLive.displayName} (#{previewLive.tableNumber})</p>
+            <div className="tb-nfc__head">
+              <span className="tb-nfc__icon" aria-hidden="true">
+                <QrCode size={18} strokeWidth={2} />
+              </span>
+              <div className="tb-nfc__headings">
+                <h4 className="tb-nfc__title">{t("admin.qrAccess", "QR Access")}</h4>
+                <p className="tb-nfc__status">{t("admin.qrLinkReady", "QR code ready")}</p>
+              </div>
+            </div>
             {/* The white plate is the quiet zone's carrier: the QR is always
                 black on white regardless of the Admin theme, because a scanner
                 reads reflectance, not our design tokens. marginSize={4} bakes
@@ -564,7 +622,20 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 rather than as two more icons in the row: both are about THIS
                 table's link, and here the QR they belong to is on screen.
                 Ghost weight, so Print in the footer stays the primary. */}
+            {/* §25 — the same pair the NFC section offers, in the same order
+                and the same weights, so the two methods read as peers rather
+                than as a feature and an afterthought. */}
             <div className="tb-qr-actions">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={copiedLink ? Check : Copy}
+                onClick={() => handleCopyLink(previewLive)}
+              >
+                {copiedLink
+                  ? t("admin.copied", "Copied")
+                  : t("admin.copyQrLink", "Copy QR Link")}
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -597,6 +668,95 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                 {t("admin.regenerateQr", "Regenerate QR")}
               </Button>
             </div>
+            {/* §20 — the QR section keeps everything it had. */}
+          </div>
+
+          {/* ── Phase 93.2 §19/§21 — NFC Access ────────────────────────────
+              The second entry credential for the SAME table, presented as a
+              peer of the QR card rather than a separate object. It gets no
+              giant decorative graphic (§27): QR needs a large visual because
+              the code IS the artefact, whereas NFC's artefact is a physical
+              tag this application cannot see. An icon, a status, the link and
+              its actions are the honest extent of it. */}
+          <div className="tb-nfc">
+            <div className="tb-nfc__head">
+              {/* Not mirrored in RTL — a wave symbol reads the same either
+                  way, and flipping it would just make it unfamiliar (§48). */}
+              <span className="tb-nfc__icon" aria-hidden="true">
+                <Nfc size={18} strokeWidth={2} />
+              </span>
+              <div className="tb-nfc__headings">
+                <h4 className="tb-nfc__title">{t("admin.nfcAccess", "NFC Access")}</h4>
+                {/* §22 — the status describes OUR credential, not the
+                    hardware. PRO-ORDER cannot see whether a tag exists, is
+                    stuck to the table, or has ever been written, so it does
+                    not claim to. "Link ready" is the entire truth available. */}
+                <p className="tb-nfc__status">{t("admin.nfcLinkReady", "NFC link ready")}</p>
+              </div>
+            </div>
+
+            {nfcUrl ? (
+              <>
+                <p className="tb-nfc__url">{nfcUrl}</p>
+                {/* §23 — the manager writes this link to the tag with an
+                    external NFC tool. No fake "Program tag" button: the
+                    browser did not touch any hardware and must not imply it
+                    did. */}
+                <p className="tb-nfc__hint">
+                  {t("admin.nfcWriteHint", "Write this link to the table's NFC tag using any NFC writing app.")}
+                </p>
+                <div className="tb-nfc__actions">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={copiedNfcLink ? Check : Copy}
+                    onClick={() => handleCopyNfcLink(previewLive)}
+                  >
+                    {copiedNfcLink
+                      ? t("admin.copied", "Copied")
+                      : t("admin.copyNfcLink", "Copy NFC Link")}
+                  </Button>
+                  {/* §26 — opens the real generated URL. There is no mock NFC
+                      preview screen; the point is to confirm the credential
+                      genuinely resolves. */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={ExternalLink}
+                    onClick={() => { try { window.open(nfcUrl, "_blank", "noopener"); } catch { /* popup blocked */ } }}
+                  >
+                    {t("admin.openNfcAccess", "Open NFC access")}
+                  </Button>
+                </div>
+
+                {/* §47 — amber like QR regeneration, never red: Delete keeps
+                    the destructive colour. */}
+                <div className="tb-qr-sensitive tb-nfc__sensitive">
+                  <p className="tb-qr-sensitive__title">{t("admin.regenerateNfc", "Regenerate NFC Access")}</p>
+                  <p className="tb-qr-sensitive__text">
+                    {t(
+                      "admin.regenerateNfcHint",
+                      "Replaces this table's NFC link. The tag must be written again afterwards."
+                    )}
+                  </p>
+                  <Button
+                    variant="warn"
+                    size="sm"
+                    icon={RefreshCw}
+                    onClick={() => { setPreviewTable(null); setPendingRegenerateNfc(previewLive); }}
+                  >
+                    {t("admin.regenerateNfc", "Regenerate NFC Access")}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              /* §67-style calm failure: a table with no NFC credential is a
+                 data state we can describe, not a broken screen. */
+              <p className="tb-nfc__hint">{t("admin.nfcUnavailable", "NFC access is not available for this table.")}</p>
+            )}
+          </div>
+
+          <div className="tb-qr-preview tb-qr-preview--tail">
             {/* Phase 69 — an inactive table can still be printed; the stand
                 is a physical object and the restaurant may be preparing a
                 table before opening it. This warns the Admin on screen only
@@ -628,6 +788,42 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               language="ar"
             />
           </div>
+        </Modal>
+      )}
+
+      {/* Phase 93.2 §16 — deliberately NOT the same warning as QR.
+          Regenerating a QR means reprinting a piece of paper; regenerating
+          NFC means someone has to physically find the tag and write it
+          again with an NFC tool. That is the consequence a manager needs in
+          front of them, so it leads. The reassurances mirror QR's, because
+          the continuity guarantee is the same one Phase 93.1 built. */}
+      {pendingRegenerateNfc && (
+        <Modal
+          open
+          onClose={() => setPendingRegenerateNfc(null)}
+          title={t("admin.regenerateNfcConfirmTitle", "Generate a new NFC link?")}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setPendingRegenerateNfc(null)}>
+                {t("admin.keepCurrentNfc", "Keep Current Link")}
+              </Button>
+              <Button variant="warn" onClick={handleConfirmRegenerateNfc}>
+                {t("admin.regenerateNfc", "Regenerate NFC Access")}
+              </Button>
+            </>
+          }
+        >
+          <p className="ad-cancel-modal__msg">
+            {t(
+              "admin.regenerateNfcWarning",
+              "This table's NFC tag will stop working for new taps until it is written again with the new link."
+            )}
+          </p>
+          <ul className="tb-regen-effects">
+            <li>{t("admin.regenerateNfcKeepsQr", "The printed QR code for this table is not affected.")}</li>
+            <li>{t("admin.regenerateKeepsSessions", "Guests who are already ordering at this table can carry on as normal.")}</li>
+            <li>{t("admin.regenerateKeepsOrders", "Open orders, tracking and past history are not changed.")}</li>
+          </ul>
         </Modal>
       )}
 
@@ -679,6 +875,9 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
             )}
           </p>
           <ul className="tb-regen-effects">
+            {/* §14 — the QR and NFC credentials rotate independently, and a
+                manager should not have to guess that. */}
+            <li>{t("admin.regenerateQrKeepsNfc", "The table's NFC link is not affected.")}</li>
             <li>{t("admin.regenerateKeepsSessions", "Guests who are already ordering at this table can carry on as normal.")}</li>
             <li>{t("admin.regenerateKeepsOrders", "Open orders, tracking and past history are not changed.")}</li>
           </ul>

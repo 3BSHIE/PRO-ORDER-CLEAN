@@ -487,7 +487,20 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
       order = createCustomerOrder({
         restaurant: { ...restaurant, serviceChargePercent },
         table,
-        qrToken,
+        /* Phase 93.2 §38 — attribute the order to the credential this SESSION
+           was established with, not to whatever token happens to be in the
+           URL right now.
+
+           A table has two entry credentials once NFC exists, so a guest who
+           entered by NFC can legitimately end up on the same table's QR URL.
+           Ownership is decided by orderBelongsToSession, which compares
+           order.qrToken against session.qrToken — so taking the token from the
+           URL would stamp the order with the OTHER credential and make it
+           invisible in that guest's own My Orders. Measured before fixing.
+
+           Falls back to the URL token only if a session somehow carries none,
+           which the access gate above already makes unreachable. */
+        qrToken: session.qrToken || qrToken,
         customerName: session.customerName,
         cartItems: cart,
         subtotal,

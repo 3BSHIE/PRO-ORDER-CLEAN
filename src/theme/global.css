@@ -3220,7 +3220,12 @@ button{font-family:var(--font-body)}
   .modal__head,
   .modal__foot,
   .modal__x,
-  .tb-qr-preview{display:none !important}
+  .tb-qr-preview,
+  /* Phase 93.2 §54 — the new access header and NFC card are Admin controls,
+     not part of the printed artefact. Without these the NFC link and its
+     Regenerate button would land on the printed stand. */
+  .tb-access-head,
+  .tb-nfc{display:none !important}
 
   /* An explicit width, not auto: the un-styled modal ancestors resolve to
      zero width here, and relying on the cards overflowing a zero-width
@@ -6982,3 +6987,88 @@ button{font-family:var(--font-body)}
   .tb-row__actions-sep{display:none}
   .tb-qr-actions .btn{flex:1 1 auto;min-width:0}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 93.2 — NFC TABLE ACCESS (alongside QR)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §19 — one identity header for BOTH access methods ───────────────────
+   The table is named once at the top of the modal rather than inside the QR
+   card, because QR and NFC are two doors into the same room — repeating the
+   table name above each would suggest two different tables. */
+.tb-access-head{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:6px 10px;margin-bottom:14px;text-align:center}
+.tb-access-head__restaurant{
+  margin:0;width:100%;font-size:11.5px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-3)}
+.tb-access-head__table{
+  margin:0;font-family:var(--font-display);font-size:19px;font-weight:700;
+  color:var(--text-1)}
+.tb-access-head__state{
+  flex:none;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:700;letter-spacing:.04em;
+  background:var(--ready-soft);color:var(--ready);
+  border:1px solid rgba(63,214,143,.32)}
+/* Inactive is amber, never red: a closed table is an operational state, not
+   a failure (§47). */
+.tb-access-head__state--off{
+  background:var(--preparing-soft);color:var(--preparing);
+  border-color:rgba(245,158,75,.35)}
+
+/* ── §19/§21 — the NFC card, a visual peer of the QR card ────────────────
+   Same frame, same padding, same heading shape. NFC deliberately gets no
+   large decorative graphic (§27): the QR card carries a big code because the
+   code IS the artefact, whereas NFC's artefact is a physical tag this app
+   cannot see. Giving NFC an equally large illustration would be decoration
+   competing with function. */
+.tb-nfc{
+  margin-top:16px;padding:14px;
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface-2);text-align:start}
+.tb-nfc__head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+/* Theme-neutral surface treatment, NOT an NFC-brand blue (§46): NFC is an
+   access technology, not a semantic status, so it inherits the Admin theme
+   language like everything else. */
+.tb-nfc__icon{
+  flex:none;width:32px;height:32px;display:grid;place-items:center;
+  border-radius:var(--r-sm);
+  background:var(--surface-3);border:1px solid var(--border);
+  color:var(--text-2)}
+.tb-nfc__headings{min-width:0}
+.tb-nfc__title{
+  margin:0;font-size:13.5px;font-weight:700;color:var(--text-1);
+  letter-spacing:.01em}
+/* §22 — describes OUR credential, never the hardware, so it is styled as
+   quiet metadata rather than as a device-status indicator. */
+.tb-nfc__status{margin:1px 0 0;font-size:11.5px;color:var(--text-3)}
+.tb-nfc__hint{
+  margin:8px 0 0;font-size:11.5px;line-height:1.55;color:var(--text-3)}
+.tb-nfc__actions{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tb-nfc__sensitive{margin-top:14px}
+
+/* ── §30/§48 — the NFC link is a bare Latin token ────────────────────────
+   Same isolation the QR URL already uses: under RTL the bidi algorithm would
+   otherwise reorder a URL into something that is not the URL. anywhere-wrap
+   so a long credential wraps inside its own box instead of widening the
+   modal (the Phase 91.3 rule). */
+.tb-nfc__url{
+  margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;line-height:1.5;color:var(--text-3);
+  direction:ltr;unicode-bidi:isolate;
+  overflow-wrap:anywhere;min-width:0}
+
+/* ── §44 — the row's quiet access summary ────────────────────────────────
+   Which credentials exist, and nothing more. The links live in Manage
+   Access; a row is for scanning a floor plan. */
+.tb-row__methods{
+  flex:none;font-size:11px;font-weight:700;letter-spacing:.06em;
+  color:var(--text-3);
+  direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+
+/* ── §49/§50 — the two cards stack at every width ────────────────────────
+   Considered side-by-side on desktop and rejected by measurement: the modal
+   is ~600px wide, so two columns would leave each card under 290px and shrink
+   the QR for no benefit. §49 allows side-by-side only where it genuinely
+   improves hierarchy — here it does not, and the modal scrolls comfortably. */
