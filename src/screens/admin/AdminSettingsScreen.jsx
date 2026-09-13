@@ -13,6 +13,8 @@ import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
+import { applyAppearance } from "../../lib/appearance.js";
+import { resolveAppearance, APPEARANCE_DARK, APPEARANCE_LIGHT } from "../../lib/theme.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { resolveEnabledLanguages, coerceDefaultLanguage } from "../../i18n/language.js";
 import { SUPPORTED_CURRENCY } from "../../lib/format.js";
@@ -86,13 +88,43 @@ function normalizeHex(value) {
   return `#${hex}`;
 }
 
+/* ── §10 — partial-HEX preview ────────────────────────────────────────────
+   Maps whatever the manager has typed so far onto a real colour so the swatch
+   can respond to every keystroke (§8), WITHOUT ever touching their text.
+
+   The rule is deliberately simple and predictable:
+     3 or 6 digits  the standard reading, so "F24" previews as #FF2244 —
+                    exactly the colour it will become at Save (§9)
+     1,2,4,5 digits the digits repeated to fill six, so the preview grows
+                    smoothly instead of jumping between unrelated hues
+     anything else  null, meaning "no safe preview" — the caller falls back to
+                    a neutral swatch and the saved theme is left alone (§11)
+
+   Returns null rather than a guess for non-hex input, which is what stops an
+   invalid value ever reaching a CSS custom property. */
+function previewHex(value) {
+  const raw = String(value ?? "").trim().replace(/^#/, "");
+  if (raw === "" || !/^[0-9a-fA-F]+$/.test(raw) || raw.length > 6) return null;
+  if (raw.length === 3) return `#${raw.split("").map((c) => c + c).join("")}`;
+  if (raw.length === 6) return `#${raw}`;
+  let filled = raw;
+  while (filled.length < 6) filled += raw;
+  return `#${filled.slice(0, 6)}`;
+}
+
 const hexFieldId = (field) => `st-hex-${field}`;
 const LANGUAGES_FIELD_ID = "st-default-language";
 
-/* One colour control: swatch, HEX field, and its own error line. Declared
-   here rather than inline so the two colours cannot drift apart (§25). */
-function ColorField({ field, label, value, draftText, error, onChange }) {
+/* One colour control: a real picker, a free-text HEX field, and its own error
+   line. Declared here rather than inline so the two colours cannot drift
+   apart (§17), and each instance keeps its own draft (§18).
+
+   §5/§46 — the swatch is a live <input type="color">, not a preview box: it
+   still opens the platform picker. Its `value` is the PREVIEW colour, so it
+   tracks partial typing (§8), while the text input shows the raw draft. */
+function ColorField({ field, label, pickerLabel, text, swatch, error, onText, onPick }) {
   const id = hexFieldId(field);
+  const errorId = `${id}-error`;
   return (
     <div className="field mm-field">
       <span className="field__label">{label}</span>
@@ -100,22 +132,27 @@ function ColorField({ field, label, value, draftText, error, onChange }) {
         <input
           type="color"
           className="th-color__swatch"
-          value={value}
-          aria-label={label}
-          onChange={(e) => onChange(e.target.value)}
+          /* §11 — with no previewable text the picker falls back to a neutral
+             mid grey rather than an invalid value, which a colour input would
+             silently reject and replace with #000000. */
+          value={swatch || "#888888"}
+          aria-label={pickerLabel}
+          onChange={(e) => onPick(e.target.value)}
         />
         <input
           id={id}
           type="text"
           className={`input th-color__hex ${error ? "input--error" : ""}`}
-          value={draftText !== null && draftText !== undefined ? draftText : value}
+          value={text}
           spellCheck="false"
+          autoComplete="off"
           aria-label={`${label} HEX`}
           aria-invalid={error ? "true" : undefined}
-          onChange={(e) => onChange(e.target.value)}
+          aria-describedby={error ? errorId : undefined}
+          onChange={(e) => onText(e.target.value)}
         />
       </div>
-      {error && <p className="th-color__error">{error}</p>}
+      {error && <p className="th-color__error" id={errorId}>{error}</p>}
     </div>
   );
 }
@@ -172,25 +209,59 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      that parses reaches the draft; anything else is remembered as text and
      flagged, which is what lets Save refuse it. */
   const [hexDraft, setHexDraft] = useState({ primaryColor: null, accentColor: null });
+  /* §14/§56 — judged on the DRAFT TEXT, so a partial or malformed entry is
+     flagged and blocks Save while still counting as an edit. */
   const hexErrors = {
     primaryColor: hexDraft.primaryColor !== null && !isValidHex(hexDraft.primaryColor),
     accentColor: hexDraft.accentColor !== null && !isValidHex(hexDraft.accentColor),
   };
 
+  /* ── Phase 94.1 §2/§9 — typed text belongs to the user ─────────────────
+     THE BUG THIS REPLACES: the previous version cleared the draft whenever
+     the typed text happened to be valid, and the input fell back to the
+     normalised draft value. Typing "F24" — a legitimate 3-digit hex — wrote
+     "#ff2244" into the field under the manager's cursor, so they could never
+     continue on to a 6-digit value. Reproduced before fixing: F → "F",
+     F2 → "F2", F24 → "#ff2244".
+
+     The text is now authoritative for the whole editing session. A value that
+     can be previewed still repaints the swatch and the live theme — that is
+     §8 — but the preview NEVER writes back into the text (§9). Normalisation
+     happens once, at Save (§15). */
   function setHexField(field, next) {
     setHexDraft((prev) => ({ ...prev, [field]: next }));
-    if (isValidHex(next)) {
-      setField(field, normalizeHex(next));
-      /* a good value clears its own draft so the field follows the picker
-         again rather than freezing on the typed text */
-      setHexDraft((prev) => ({ ...prev, [field]: null }));
-    }
+
+    /* §12 — preview only. draft[field] is the live theme value; storage is
+       untouched until Save. */
+    const previewed = previewHex(next);
+    if (previewed) setField(field, previewed);
   }
+
+  /* §7 — the picker produced a complete colour, so it legitimately owns the
+     text: the field shows exactly what was picked. */
+  function setPickerField(field, next) {
+    setHexDraft((prev) => ({ ...prev, [field]: next }));
+    setField(field, next);
+  }
+
+  /* The text a field should display: the manager's draft while they are
+     editing, otherwise the saved/committed value. */
+  const hexText = (field) =>
+    hexDraft[field] !== null && hexDraft[field] !== undefined ? hexDraft[field] : draft[field];
 
   /* §64 — one save per press. The write is synchronous, so two clicks in the
      same tick both reached updateSettings; the ref is the guard because state
      updates are batched and a second click would still read the old flag.
      await + finally so it still behaves when this becomes a request. */
+  /* Phase 94.1 §24/§44/§61 — the draft appearance is previewed on the whole
+     application immediately, and is released the moment this screen unmounts.
+     applyAppearance is reference-counted, so this claim sits ON TOP of the one
+     RestaurantTheme holds for the SAVED value: releasing it restores the saved
+     appearance exactly, which is what makes "Leave Without Saving" revert with
+     no stale light variables left behind. */
+  const draftAppearance = resolveAppearance(draft.appearance);
+  useEffect(() => applyAppearance(draftAppearance), [draftAppearance]);
+
   const savingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const mountedRef = useRef(true);
@@ -383,7 +454,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     savingRef.current = true;
     setIsSaving(true);
     try {
-      const saved = await updateSettings(restaurant.slug, draft);
+      /* §15/§57 — normalisation happens HERE and only here. "F24" becomes
+         "#ff2244" at the moment the edit is finalised, never under a live
+         cursor. */
+      const finalized = {
+        ...draft,
+        primaryColor: normalizeHex(hexText("primaryColor")),
+        accentColor: normalizeHex(hexText("accentColor")),
+      };
+      const saved = await updateSettings(restaurant.slug, finalized);
       setDraft(saved);
       /* §67 — the committed record becomes the draft, so the live preview
          becomes the saved theme and the dirty check goes quiet. */
@@ -677,7 +756,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
 
           {/* Live preview — PRO·ORDER always appears together with the
               restaurant's own branding, never replaced by it. */}
-          <div className="ad-brand-preview" style={{ "--preview-primary": draft.primaryColor, "--preview-accent": draft.accentColor }}>
+          <div className="ad-brand-preview" data-preview-appearance={draftAppearance} style={{ "--preview-primary": draft.primaryColor, "--preview-accent": draft.accentColor }}>
             <Logo variant="icon" size="sm" />
             <div className="ad-brand-preview__divider" />
             <div className="ad-brand-preview__restaurant">
@@ -700,22 +779,60 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               also why it could never be typed, pasted from a brand guide, or
               read aloud. The HEX input makes the value first-class — and
               introduces the invalid case §59 asks us to catch. */}
+          {/* Phase 94.1 §20/§21 — a real radio group, not a switch: two named
+              choices a screen reader can announce as "Appearance, Dark
+              selected" (§77). Nothing here consults the clock, the device or
+              prefers-color-scheme — the restaurant's saved choice is the only
+              input. */}
+          <fieldset className="field mm-field ap-fieldset">
+            <legend className="field__label">{t("admin.appearance", "Appearance")}</legend>
+            <div className="ap-choice">
+              {[
+                { value: APPEARANCE_DARK, label: t("admin.appearanceDark", "Dark") },
+                { value: APPEARANCE_LIGHT, label: t("admin.appearanceLight", "Light") },
+              ].map((opt) => (
+                <div className="ap-choice__option" key={opt.value}>
+                  <input
+                    className="ap-choice__input"
+                    type="radio"
+                    name="appearance"
+                    id={`st-appearance-${opt.value}`}
+                    value={opt.value}
+                    checked={draftAppearance === opt.value}
+                    onChange={() => setField("appearance", opt.value)}
+                  />
+                  <label className="ap-choice__label" htmlFor={`st-appearance-${opt.value}`}>
+                    <span className={`ap-choice__swatch ap-choice__swatch--${opt.value}`} aria-hidden="true" />
+                    {opt.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <p className="ad-settings__hint">
+              {t("admin.appearanceHint", "Applies to your guest and staff screens. It does not follow the time of day.")}
+            </p>
+          </fieldset>
+
           <div className="th-row">
             <ColorField
               field="primaryColor"
               label={t("admin.primaryColor", "Primary Color")}
-              value={draft.primaryColor}
-              draftText={hexDraft.primaryColor}
+              pickerLabel={t("admin.choosePrimaryColor", "Choose Primary Color")}
+              text={hexText("primaryColor")}
+              swatch={previewHex(hexText("primaryColor"))}
               error={hexErrors.primaryColor ? t("admin.invalidHex", "Enter a valid colour, e.g. #C8A96A.") : null}
-              onChange={(next) => setHexField("primaryColor", next)}
+              onText={(next) => setHexField("primaryColor", next)}
+              onPick={(next) => setPickerField("primaryColor", next)}
             />
             <ColorField
               field="accentColor"
               label={t("admin.secondaryColor", "Secondary Color")}
-              value={draft.accentColor}
-              draftText={hexDraft.accentColor}
+              pickerLabel={t("admin.chooseSecondaryColor", "Choose Secondary Color")}
+              text={hexText("accentColor")}
+              swatch={previewHex(hexText("accentColor"))}
               error={hexErrors.accentColor ? t("admin.invalidHex", "Enter a valid colour, e.g. #C8A96A.") : null}
-              onChange={(next) => setHexField("accentColor", next)}
+              onText={(next) => setHexField("accentColor", next)}
+              onPick={(next) => setPickerField("accentColor", next)}
             />
           </div>
 

@@ -29,6 +29,22 @@
 /* Shipped defaults. These MUST match settingsData.js and global.css :root. */
 export const DEFAULT_PRIMARY_COLOR = "#d4a94e";
 export const DEFAULT_ACCENT_COLOR = "#0d0d0d";
+
+/* ── Phase 94.1 §19/§22 — restaurant Appearance ───────────────────────────
+   A deliberate branding choice, NOT a day/night mode: nothing here reads the
+   clock, the device setting or prefers-color-scheme (§21). The restaurant
+   picks one and every surface obeys it.
+
+   "dark" is the default and the fallback for anything unrecognised, which is
+   what keeps every existing restaurant looking exactly as it does today —
+   settings saved before this phase have no appearance field at all (§62). */
+export const APPEARANCE_DARK = "dark";
+export const APPEARANCE_LIGHT = "light";
+export const DEFAULT_APPEARANCE = APPEARANCE_DARK;
+
+export function resolveAppearance(value) {
+  return value === APPEARANCE_LIGHT ? APPEARANCE_LIGHT : APPEARANCE_DARK;
+}
 export const DEFAULT_HEADING_FONT = "playfair";
 export const DEFAULT_BODY_FONT = "dmSans";
 

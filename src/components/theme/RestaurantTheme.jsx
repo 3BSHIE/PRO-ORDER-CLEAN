@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useSettingsData } from "../../lib/useSettingsData.js";
-import { buildRestaurantThemeVars } from "../../lib/theme.js";
+import { buildRestaurantThemeVars, resolveAppearance } from "../../lib/theme.js";
+import { applyAppearance } from "../../lib/appearance.js";
 
 /**
  * RestaurantTheme — Phase 83.1, Finding #4.
@@ -43,6 +45,16 @@ import { buildRestaurantThemeVars } from "../../lib/theme.js";
 export default function RestaurantTheme({ restaurantSlug, scope = "admin", children }) {
   const { settings } = useSettingsData(restaurantSlug);
   const themeVars = buildRestaurantThemeVars(settings);
+
+  /* Phase 94.1 §27/§33 — Appearance is applied to the ROOT element, not here.
+     This wrapper is display:contents and the surface tokens it would carry
+     (--bg above all) are read by <body>, which sits outside it — so setting
+     them on this element would repaint the cards and leave the page behind
+     them dark. One data attribute on <html> flips the whole token set in CSS
+     instead, which is why no component in the product needs an
+     appearance === "light" branch. */
+  const appearance = resolveAppearance(settings?.appearance);
+  useEffect(() => applyAppearance(appearance), [appearance]);
 
   return (
     <div className={`restaurant-theme restaurant-theme--${scope}`} style={themeVars}>

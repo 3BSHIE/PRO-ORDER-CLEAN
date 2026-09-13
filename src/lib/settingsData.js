@@ -24,6 +24,7 @@
 import { defaultWorkingHours, normalizeWorkingHours } from "./acceptingOrders.js";
 import { coerceDefaultLanguage } from "../i18n/language.js";
 import { normalizeCurrency } from "./format.js";
+import { resolveAppearance, DEFAULT_APPEARANCE } from "./theme.js";
 
 const SETTINGS_KEY_PREFIX = "pro_order_settings";
 
@@ -50,6 +51,9 @@ function defaultSettings(restaurantSlug) {
        carries Arabic-capable fallbacks). */
     headingFont: "playfair",
     bodyFont: "dmSans",
+    /* Phase 94.1 §22/§23 — one field, two values. Dark is the default so
+       nothing that exists today changes appearance on upgrade. */
+    appearance: DEFAULT_APPEARANCE,
     serviceChargePercent: null, // null = fall back to RESTAURANT.serviceChargePercent
     /* Phase 82.1 — v1 prices in JOD only; normalizeCurrency() below is the
        boundary that keeps this true no matter what is in storage. */
@@ -137,6 +141,13 @@ export function getSettings(restaurantSlug) {
          entry, CustomerTheme — is handed the same already-valid value rather
          than each having to remember to re-check it. */
       currency: normalizeCurrency(),
+      /* Phase 94.1 §62 — coerced on READ, exactly like currency and
+         defaultLanguage above. A settings record written before this phase has
+         no appearance key, and an unrecognised value could arrive from a hand-
+         edited store; both resolve to dark here, so every consumer is handed a
+         valid value rather than each having to remember to check. No rewrite
+         of the stored object is needed to make that true. */
+      appearance: resolveAppearance(stored.appearance),
       defaultLanguage: coerceDefaultLanguage(stored.defaultLanguage ?? defaults.defaultLanguage, languagesEnabled),
       /* Phase 79.1 — normalized, NOT shallow-merged.
 
@@ -186,6 +197,9 @@ export function updateSettings(restaurantSlug, patch) {
        that disables Arabic in the same save that leaves defaultLanguage on
        "ar" is judged against the new state, not the old one. */
     currency: normalizeCurrency(),
+    /* Normalised on the way out too, so a patch cannot put an unrecognised
+       appearance into storage. */
+    appearance: resolveAppearance(patch.appearance ?? current.appearance),
     defaultLanguage: coerceDefaultLanguage(
       patch.defaultLanguage ?? current.defaultLanguage,
       languagesEnabled

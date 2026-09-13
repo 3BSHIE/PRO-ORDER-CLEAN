@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSettingsData } from "../../lib/useSettingsData.js";
-import { buildCustomerThemeVars } from "../../lib/theme.js";
+import { buildCustomerThemeVars, resolveAppearance } from "../../lib/theme.js";
+import { applyAppearance } from "../../lib/appearance.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import {
   resolveCustomerLanguage,
@@ -37,6 +38,14 @@ import ErrorBoundary from "../system/ErrorBoundary.jsx";
 export default function CustomerTheme({ restaurantSlug, children }) {
   const { settings } = useSettingsData(restaurantSlug);
   const themeVars = buildCustomerThemeVars(settings);
+
+  /* Phase 94.1 §33 — Appearance reaches the guest surface too.
+     CustomerTheme builds its own token set and does NOT mount
+     RestaurantTheme, so applying appearance only there left every customer
+     route dark while the restaurant had chosen light. Caught by measuring
+     the rendered menu, not by reading the component tree. */
+  const appearance = resolveAppearance(settings?.appearance);
+  useEffect(() => applyAppearance(appearance), [appearance]);
 
   /* ── Phase 81/82.1 — the restaurant's languages, enforced in one place ──
      This wrapper already sits around every customer route and nothing else,

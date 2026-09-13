@@ -508,6 +508,12 @@ export const translations = {
          branding vocabulary calls it. Renaming the data field would be a
          storage migration for a label. */
       secondaryColor: "Secondary Color",
+      choosePrimaryColor: "Choose Primary Color",
+      chooseSecondaryColor: "Choose Secondary Color",
+      appearance: "Appearance",
+      appearanceDark: "Dark",
+      appearanceLight: "Light",
+      appearanceHint: "Applies to your guest and staff screens. It does not follow the time of day.",
       invalidHex: "Enter a valid colour, e.g. #C8A96A.",
       invalidHexBlocksSave: "Fix the colour value before saving.",
       saveSettings: "Save Settings",
@@ -1371,6 +1377,15 @@ export const translations = {
       primaryColor: "اللون الأساسي",
       accentColor: "اللون الثانوي",
       secondaryColor: "اللون الثانوي",
+      choosePrimaryColor: "اختيار اللون الأساسي",
+      chooseSecondaryColor: "اختيار اللون الثانوي",
+      /* Phase 94.1 §52 — "المظهر" is the product word for a chosen visual
+         style. Deliberately NOT "الوضع الليلي/النهاري", which would promise
+         automatic switching by time of day — exactly what §21 rules out. */
+      appearance: "المظهر",
+      appearanceDark: "داكن",
+      appearanceLight: "فاتح",
+      appearanceHint: "يُطبَّق على شاشات الضيوف والموظفين، ولا يتغيّر حسب وقت اليوم.",
       invalidHex: "أدخل لوناً صالحاً، مثل ‎#C8A96A.",
       invalidHexBlocksSave: "صحّح قيمة اللون قبل الحفظ.",
       saveSettings: "حفظ الإعدادات",
