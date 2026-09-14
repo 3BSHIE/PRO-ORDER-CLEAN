@@ -1,8 +1,6 @@
 import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
-import { updateStaffCallAlertSettings } from "../../lib/staffCallAlertData.js";
 import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
@@ -18,47 +16,42 @@ const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
 /**
  * StaffCallAlertsCard — Phase 59, Admin-only configuration of the sound
  * played when a guest rings for a waiter. Deliberately the twin of
- * KitchenAlertsCard: same controls, same apply-on-change behaviour, same
- * 0–100 slider over a 0..1 stored volume — but a separate storage key, so
- * Kitchen at Chime/30% and Staff Calls at Bell/80% coexist without either
- * touching the other.
+ * KitchenAlertsCard: same controls, same 0–100 slider over a 0..1 stored
+ * volume — but a separate storage key, so Kitchen at Chime/30% and Staff
+ * Calls at Bell/80% coexist without either touching the other.
  *
- * Rendered inside AdminSettingsScreen, which is already route-guarded to
+ * Rendered inside AdminSettingsScreen, which is already permission-guarded to
  * Admin, so a Cashier can never reach these controls — while still hearing
  * whatever the Admin chose.
  *
- * Apply-on-change, deliberately (same reasoning as Phase 27): a sound is
- * only meaningfully judged by hearing it, so Test Sound must reflect the
- * selection immediately; and this card writes to a different key than the
- * page's main Save button, so sharing that button would imply a transaction
- * that does not exist.
+ * ── Phase 96.2 — FULLY CONTROLLED, NOTHING SAVES ITSELF ───────────────────
+ * This card used to write to storage on every control change (Phase 59),
+ * matching Kitchen Alerts at the time. Phase 96.1 moved Kitchen Alerts onto
+ * the page's explicit Save and left this one behind, so two identical-looking
+ * cards side by side committed differently — the worse of the two outcomes.
+ *
+ * It now owns no state: the parent holds the draft, this renders it and
+ * reports changes upward, and values reach storage only through the page's
+ * Save. Preview is the one thing that still acts immediately, and
+ * deliberately: a sound can only be judged by hearing it. It plays the DRAFT
+ * value and persists nothing.
  *
  * Props:
- *   restaurant — { slug, ... }
- *   onNotify   — (message: string) => void; parent owns the Toast
+ *   value    — the staff-call alert draft { soundEnabled, soundType, volume }
+ *   onChange — (patch) => void
  */
-export default function StaffCallAlertsCard({ restaurant, onNotify }) {
+export default function StaffCallAlertsCard({ value, onChange }) {
   const { t } = useLanguage();
-  const { settings } = useStaffCallAlertSettings(restaurant.slug);
 
-  function apply(patch, message) {
-    updateStaffCallAlertSettings(restaurant.slug, patch);
-    if (message) onNotify?.(message);
-  }
-
-  /* Preview uses the values exactly as stored right now, so what the Admin
-     hears here is what the floor will hear. Playing a sound touches no staff
-     call data whatsoever — it cannot create, resolve or modify a call. */
+  /* Plays what is currently selected in the DRAFT, which is what the floor
+     will hear once this is saved — not what is on disk right now. Playing a
+     sound touches no staff call data whatsoever: it cannot create, resolve or
+     modify a call, and it persists nothing. */
   function handleTest() {
-    const played = playAlertSound(settings.soundType, settings.volume);
-    onNotify?.(
-      played
-        ? t("kitchen.testingSound", "Playing test sound…")
-        : t("kitchen.soundUnavailable", "Audio is unavailable in this browser.")
-    );
+    playAlertSound(value.soundType, value.volume);
   }
 
-  const volumePercent = Math.round(settings.volume * 100);
+  const volumePercent = Math.round(value.volume * 100);
 
   return (
     <Card className="ad-settings__section">
@@ -66,7 +59,7 @@ export default function StaffCallAlertsCard({ restaurant, onNotify }) {
       <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
         {t(
           "staff.staffCallAlertsHint",
-          "Played for Admin and Cashier when a guest requests assistance. Separate from Kitchen Alerts. Changes apply immediately."
+          "Played for Admin and Cashier when a guest requests assistance. Separate from Kitchen Alerts."
         )}
       </p>
 
@@ -76,15 +69,8 @@ export default function StaffCallAlertsCard({ restaurant, onNotify }) {
         <label className="mm-toggle-row">
           <input
             type="checkbox"
-            checked={settings.soundEnabled}
-            onChange={(e) =>
-              apply(
-                { soundEnabled: e.target.checked },
-                e.target.checked
-                  ? t("staff.alertsEnabledToast", "Staff call sound turned on")
-                  : t("staff.alertsDisabledToast", "Staff call sound turned off")
-              )
-            }
+            checked={value.soundEnabled}
+            onChange={(e) => onChange({ soundEnabled: e.target.checked })}
           />
           <span>{t("staff.alertSoundEnabled", "Play a sound for new staff calls")}</span>
         </label>
@@ -96,13 +82,14 @@ export default function StaffCallAlertsCard({ restaurant, onNotify }) {
         <select
           className="mm-select mm-select--full"
           aria-label={t("kitchen.sound", "Sound")}
-          value={settings.soundType}
-          disabled={!settings.soundEnabled}
+          value={value.soundType}
+          disabled={!value.soundEnabled}
           onChange={(e) => {
-            apply({ soundType: e.target.value });
+            onChange({ soundType: e.target.value });
             /* Play the newly chosen voice straight away — picking a sound
-               without hearing it is guesswork. */
-            playAlertSound(e.target.value, settings.volume);
+               without hearing it is guesswork. Preview only; the choice
+               reaches storage through the page's Save. */
+            playAlertSound(e.target.value, value.volume);
           }}
         >
           {SOUND_TYPES.map((type) => (
@@ -130,8 +117,8 @@ export default function StaffCallAlertsCard({ restaurant, onNotify }) {
             step="5"
             aria-label={t("kitchen.volume", "Volume")}
             value={volumePercent}
-            disabled={!settings.soundEnabled}
-            onChange={(e) => apply({ volume: Number(e.target.value) / 100 })}
+            disabled={!value.soundEnabled}
+            onChange={(e) => onChange({ volume: Number(e.target.value) / 100 })}
           />
         </div>
       </label>
@@ -141,7 +128,7 @@ export default function StaffCallAlertsCard({ restaurant, onNotify }) {
         size="sm"
         icon={Play}
         onClick={handleTest}
-        disabled={!settings.soundEnabled}
+        disabled={!value.soundEnabled}
         style={{ marginTop: 14, alignSelf: "flex-start" }}
       >
         {t("kitchen.testSound", "Test Sound")}

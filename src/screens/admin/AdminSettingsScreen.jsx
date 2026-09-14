@@ -14,6 +14,8 @@ import { updateSettings } from "../../lib/settingsData.js";
 import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
+import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
+import { updateStaffCallAlertSettings } from "../../lib/staffCallAlertData.js";
 import {
   updateKitchenAlertSettings,
   findDuplicateSoundPurpose,
@@ -224,6 +226,25 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      against the control the manager just used rather than against whichever
      of the pair happens to sort last. */
   const [lastSoundField, setLastSoundField] = useState(null);
+
+  /* ── Phase 96.2 — Staff Call alerts join the same lifecycle ─────────────
+     Phase 96.1 moved Kitchen Alerts onto the page's draft/Save, which left
+     its twin next to it still writing on every keystroke. Two adjacent cards
+     that look identical and commit differently is worse than either rule
+     applied consistently: an Admin who learns that one waits for Save has no
+     reason to expect the other not to.
+
+     Same shape as the Kitchen draft: its own storage key (Kitchen at
+     Chime/30% and Staff Calls at Bell/80% must still coexist), but this
+     page's dirty state, guard, Discard and Save.
+
+     Deliberately NOT joined to the Kitchen duplicate-sound rule: that rule
+     exists so a cook can tell "an order arrived" from "stop cooking that" on
+     one device. Staff Calls ring for Admin and Cashier on a different device
+     and have never been part of that constraint, so inventing a cross-purpose
+     rule here would be new product behaviour this phase was not asked for. */
+  const { settings: staffAlertSettings } = useStaffCallAlertSettings(restaurant.slug);
+  const [staffAlertDraft, setStaffAlertDraft] = useState(staffAlertSettings);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [error, setError] = useState(null);
@@ -330,10 +351,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     alertDraft.soundEnabled !== alertSettings.soundEnabled ||
     alertDraft.volume !== alertSettings.volume;
 
+  const staffAlertsDirty =
+    staffAlertDraft.soundEnabled !== staffAlertSettings.soundEnabled ||
+    staffAlertDraft.soundType !== staffAlertSettings.soundType ||
+    staffAlertDraft.volume !== staffAlertSettings.volume;
+
   /* One dirty flag for the whole page, so the guard, the Save button and the
      status line cannot disagree about whether there is work to lose. */
   const isDirty =
-    settingsFingerprint(draft) !== settingsFingerprint(settings) || alertsDirty;
+    settingsFingerprint(draft) !== settingsFingerprint(settings) || alertsDirty || staffAlertsDirty;
 
   /* Phase 82.1 — derived, never stored. The Default Language control renders
      from these so it can only ever offer (and show) a language the draft
@@ -389,6 +415,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        rejected draft sitting in state would quietly resurrect it. */
     setDraft(settings);
     setAlertDraft(alertSettings);
+    setStaffAlertDraft(staffAlertSettings);
     setLastSoundField(null);
     setError(null);
     if (pending) pending();
@@ -529,6 +556,13 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           soundEnabled: alertDraft.soundEnabled,
           volume: alertDraft.volume,
           ...Object.fromEntries(SOUND_PURPOSES.map((p) => [p.key, alertDraft[p.key]])),
+        });
+      }
+      if (staffAlertsDirty) {
+        updateStaffCallAlertSettings(restaurant.slug, {
+          soundEnabled: staffAlertDraft.soundEnabled,
+          soundType: staffAlertDraft.soundType,
+          volume: staffAlertDraft.volume,
         });
       }
       setLastSoundField(null);
@@ -804,16 +838,12 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             control. Front-of-house and kitchen are tuned separately on
             purpose — different rooms, different noise.
 
-            NOTE (Phase 96.1): this card is still apply-on-change, while
-            Kitchen Alerts above now saves with the page. §16 scopes this
-            phase to the Kitchen sound settings, so it was left alone
-            deliberately rather than overlooked. */}
+            Phase 96.2 — both cards now commit through this page's Save, so
+            the inconsistency Phase 96.1 introduced (and flagged here) is
+            closed. They still write to separate storage keys. */}
         <StaffCallAlertsCard
-          restaurant={restaurant}
-          onNotify={(message) => {
-            setToastMessage(message);
-            setToastVisible(true);
-          }}
+          value={staffAlertDraft}
+          onChange={(patch) => setStaffAlertDraft((prev) => ({ ...prev, ...patch }))}
         />
           </div>
         </section>
