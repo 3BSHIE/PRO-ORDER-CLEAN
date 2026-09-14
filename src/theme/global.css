@@ -7579,3 +7579,217 @@ button{font-family:var(--font-body)}
 .dd-row--action:hover .dd-row__value{color:var(--gold-ink)}
 .dd-row--action:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .dd-row__chevron{flex:none;margin-inline-start:8px;color:var(--text-3)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 96 — UNIT 14: KITCHEN
+   ═══════════════════════════════════════════════════════════════════════════
+   Everything here is built from existing tokens. Kitchen gets no palette of
+   its own: the semantic order states keep their own colours (§42) and the
+   restaurant Primary drives the brand mark only.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell (§29) ────────────────────────────────────────────────────────
+   A board is a working surface, so it uses the window rather than sitting in
+   a narrow centred measure with dead space either side. The inset matches the
+   polished Admin shell. */
+.container--kb{max-width:1680px;padding-inline:20px}
+.topbar--kitchen .topbar__inner{max-width:1680px;padding-inline:20px}
+
+.kb-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.kb-identity__divider{
+  width:1px;height:18px;background:var(--border-strong);flex:none}
+.kb-topbar-title{
+  font-family:var(--font-display);font-size:14px;font-weight:600;
+  color:var(--text-2);white-space:nowrap}
+.kb-topbar-right{display:flex;align-items:center;gap:10px}
+.kb-lang-switcher{flex:none}
+
+.kb-header{padding:20px 0 16px;align-items:center}
+.kb-header__counts{display:flex;align-items:center;gap:10px;min-width:0}
+.kb-header__active{
+  font-size:13px;font-weight:600;color:var(--text-2)}
+
+/* §19 — history is quiet. No red, no badge: these are settled records, and a
+   standing alarm over them would teach staff to ignore the colour that
+   matters. */
+.kb-history-btn{
+  display:inline-flex;align-items:center;gap:7px;min-height:44px;
+  padding:0 14px;border-radius:var(--r-md);cursor:pointer;font:inherit;
+  font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--text-2);
+  border:1px solid var(--border-strong);
+  transition:color .16s var(--ease),border-color .16s var(--ease)}
+.kb-history-btn:hover{color:var(--text-1);border-color:var(--gold-line)}
+.kb-history-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* ── Board (§21) ────────────────────────────────────────────────────────
+   Three equal columns, always. minmax(0,1fr) is what lets a long item name
+   shrink its column instead of pushing the board wider than the window, so
+   there is no page-level horizontal scroll to fix with overflow tricks.
+
+   The columns deliberately do NOT scroll independently: the page scrolls, so
+   staff are never stranded in three different scroll positions (§21). */
+.kb-columns{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;align-items:start;
+  overflow:visible;scroll-snap-type:none;padding-bottom:32px}
+.kb-column{min-width:0;max-width:none;flex:initial}
+.kb-column__body{min-width:0}
+
+/* ── Portrait tabs (§24) ────────────────────────────────────────────────
+   Order follows the document direction, so Arabic reads right-to-left with no
+   reversed array and no logic change (§25). */
+.kb-tabs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+  margin-bottom:16px}
+.kb-tab{
+  display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;
+  min-height:48px;padding:8px 10px;border-radius:var(--r-md);cursor:pointer;
+  font:inherit;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--text-2);
+  border:1px solid var(--border-strong);
+  transition:color .16s var(--ease),border-color .16s var(--ease),background .16s var(--ease)}
+.kb-tab__label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.kb-tab__count{
+  font-size:11.5px;font-weight:700;color:var(--text-3);
+  background:var(--surface-3);border-radius:999px;padding:1px 7px;flex:none}
+.kb-tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Active state carries weight, border AND background — never colour alone. */
+.kb-tab--active{
+  background:var(--surface-1);color:var(--text-1);border-color:var(--gold)}
+.kb-tab--active .kb-tab__count{color:var(--text-1)}
+
+/* ── Ticket ─────────────────────────────────────────────────────────────
+   §7 — no max-height, no internal scroll, no clamping. A long ticket grows
+   and the page carries it; a cook must be able to read the whole order. */
+.kb-card{max-height:none;overflow:visible}
+.kb-card__ident{display:flex;flex-direction:column;gap:1px;min-width:0}
+/* §3 — the table is the strongest thing on the ticket, read from the pass. */
+.kb-card__table{
+  font-family:var(--font-display);font-size:20px;font-weight:700;
+  color:var(--text-1);line-height:1.15;margin:0;letter-spacing:-.01em}
+/* Order # stays a clear secondary reference — present for reconciliation,
+   never competing with the table. */
+.kb-card__id{
+  font-size:11.5px;font-weight:600;color:var(--text-3);
+  letter-spacing:.04em;margin:0}
+
+.kb-timer--ready{color:var(--ready)}
+
+/* ── Removals (§5) ──────────────────────────────────────────────────────
+   An instruction NOT to do something must not read like an add-on. The word
+   is spelled out, the icon reinforces it, and the value is struck through —
+   three carriers, none of them colour on its own (§37). */
+.kb-removal{
+  display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;
+  margin:2px 0;padding:3px 8px;border-radius:var(--r-sm);
+  background:color-mix(in srgb,var(--canceled) 10%,transparent);
+  border-inline-start:2px solid var(--canceled)}
+.kb-removal__label{
+  display:inline-flex;align-items:center;gap:4px;flex:none;
+  font-size:10.5px;font-weight:800;letter-spacing:.08em;
+  color:var(--canceled)}
+.kb-removal__value{
+  font-size:12.5px;font-weight:600;color:var(--text-1);
+  text-decoration:line-through;text-decoration-thickness:1.5px;
+  text-decoration-color:color-mix(in srgb,var(--canceled) 70%,transparent)}
+
+/* ── Notes (§6) ─────────────────────────────────────────────────────────
+   Preparation-critical, so never clamped, collapsed or hidden. Its own
+   surface and a label lift it out of ordinary modifier text without letting
+   it shout over the item name. */
+.kb-note{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  margin:4px 0 0;padding:6px 9px;border-radius:var(--r-sm);
+  background:var(--gold-soft);border-inline-start:2px solid var(--gold);
+  overflow-wrap:anywhere}
+.kb-note__label{
+  flex:none;font-size:10.5px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--gold-ink)}
+.kb-note__text{
+  font-size:12.5px;line-height:1.5;color:var(--text-1);font-weight:500}
+
+/* ── Cancellation alerts (§17) ──────────────────────────────────────────
+   Impossible to mistake, but calm: no flashing, no looping pulse. It sits
+   ABOVE the board and never over it, so service continues while it stands. */
+.kb-cancels{
+  margin:0 0 18px;padding:14px;border-radius:var(--r-lg);
+  background:color-mix(in srgb,var(--canceled) 9%,var(--surface-1));
+  border:1px solid color-mix(in srgb,var(--canceled) 45%,transparent)}
+.kb-cancels__head{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  color:var(--canceled)}
+.kb-cancels__count{font-size:13px;font-weight:700;letter-spacing:.01em}
+.kb-cancels__list{display:flex;flex-direction:column;gap:10px}
+
+.kb-cancel{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  flex-wrap:wrap;padding:12px;border-radius:var(--r-md);
+  background:var(--surface-1);border:1px solid var(--border)}
+.kb-cancel__main{min-width:0;flex:1 1 260px}
+.kb-cancel__title{
+  display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin:0 0 3px}
+/* The WORD carries the meaning; the colour only reinforces it. */
+.kb-cancel__flag{
+  font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--canceled)}
+.kb-cancel__table{
+  font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--text-1)}
+.kb-cancel__meta{font-size:11.5px;color:var(--text-3);margin:0 0 6px}
+.kb-cancel__state{
+  font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 6px}
+/* Already on the heat is the fact that changes what the cook does next. */
+.kb-cancel__state--preparing{color:var(--preparing)}
+.kb-cancel__items{
+  margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.kb-cancel__items li{font-size:12.5px;color:var(--text-1);line-height:1.45}
+.kb-cancel__qty{font-weight:700;color:var(--text-2)}
+
+/* ── Recently Canceled history (§19) ────────────────────────────────────── */
+.kb-history{display:flex;flex-direction:column;gap:12px}
+.kb-history__row{
+  padding:10px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border)}
+.kb-history__head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.kb-history__table{font-size:14px;font-weight:700;color:var(--text-1)}
+.kb-history__time{font-size:11.5px;color:var(--text-3);flex:none}
+.kb-history__meta{font-size:11.5px;color:var(--text-3);margin:2px 0 0}
+.kb-history__items{font-size:12.5px;color:var(--text-2);margin:5px 0 0;line-height:1.45}
+
+/* ── Whole-board empty state (§34) ──────────────────────────────────────── */
+.kb-empty-all{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:72px 20px;text-align:center}
+.kb-empty-all__icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:60px;height:60px;border-radius:50%;
+  background:var(--surface-2);color:var(--text-3);
+  border:1px solid var(--border)}
+.kb-empty-all__title{font-size:15px;font-weight:600;color:var(--text-2);margin:0}
+
+/* ── Auth screens (§30/§33) ─────────────────────────────────────────────── */
+.auth-mark{margin-bottom:20px}
+
+/* §37 — Kitchen actions are pressed with a thumb, often in a hurry and
+   sometimes through a glove. The shared md button is 42px, which is fine for
+   a mouse; these are raised to a full 44px touch target WITHOUT changing the
+   global button, so Admin and Customer keep their approved sizing. */
+.kb-card__action .btn,
+.kb-cancel .btn{min-height:44px}
+.kitchen-login__rest{display:flex;justify-content:center;margin-bottom:6px}
+
+/* ── Landscape on a handheld (§23) ──────────────────────────────────────
+   Same three columns, same information, same actions — only the scale comes
+   down. Nothing is hidden to make it fit. */
+@media (orientation:landscape) and (max-height:560px){
+  .container--kb{padding-inline:14px}
+  .kb-columns{gap:10px;padding-bottom:20px}
+  .kb-header{padding:12px 0 10px}
+  .kb-card{padding:11px}
+  .kb-card__table{font-size:17px}
+  .kb-card__items{gap:8px;margin-bottom:10px}
+  .kb-column__header{padding:2px 2px 8px}
+  .kb-column__title{font-size:14px}
+  .kb-cancels{padding:11px;margin-bottom:12px}
+}

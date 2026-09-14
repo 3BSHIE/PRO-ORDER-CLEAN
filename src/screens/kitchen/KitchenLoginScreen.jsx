@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
-import Logo    from "../../components/brand/Logo.jsx";
+import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Input   from "../../components/ui/Input.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
+import RestaurantIdentity from "../customer/components/RestaurantIdentity.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { findRestaurantBySlug } from "../../data/mockRestaurant.js";
 import { verifyStaffPin } from "../../data/mockStaff.js";
 import { saveKitchenSession } from "../../lib/kitchenSession.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
 
 /**
  * validatePinFormat — the PIN must be present, numeric only, and either
@@ -56,6 +58,7 @@ export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn 
   const { t } = useLanguage();
 
   const restaurant = findRestaurantBySlug(restaurantSlug);
+  const { settings } = useSettingsData(restaurantSlug);
 
   function handlePinChange(e) {
     // Numeric-only input: strip anything that isn't a digit, cap at 6
@@ -93,14 +96,23 @@ export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn 
             {t("common.home", "Home")}
           </Button>
         }
-        right={<Logo variant="icon" size="nav" />}
+        right={<BrandMarkStatic size={20} />}
       />
       <main className="container">
         <div className="kitchen-login anim-rise">
-          <LanguageSwitcher className="kitchen-login__lang-switcher" />
-          <Logo variant="full" size="md" style={{ marginBottom: 22 }} />
+          <LanguageSwitcher variant="compact" className="kitchen-login__lang-switcher" />
+          <BrandMarkStatic size={34} className="auth-mark" />
 
-          <p className="kitchen-login__rest">{restaurant?.name}</p>
+          {/* §27 — the shared identity component, so logo+name, logo-only,
+              name-only and a broken logo URL all render sensibly rather than
+              producing a broken-image glyph on a kitchen screen. */}
+          <div className="kitchen-login__rest">
+            <RestaurantIdentity
+              name={settings.name?.trim() || restaurant?.name}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
           <h1 className="kitchen-login__heading">{t("kitchen.kitchenAccess", "Kitchen access")}</h1>
           <p className="kitchen-login__msg">{t("kitchen.enterPinMsg", "Enter your kitchen PIN to continue.")}</p>
 

@@ -11,9 +11,16 @@
  * separate write path, no interaction between the two.
  *
  * Stored per restaurant (`pro_order_kitchen_alerts:<slug>`):
- *   soundEnabled — master on/off for new-order alerts   (default true)
- *   soundType    — "bell" | "chime" | "beep"            (default "bell")
- *   volume       — 0..1                                 (default 0.8)
+ *   soundEnabled      — master on/off for kitchen alerts  (default true)
+ *   soundType         — NEW ORDER sound                   (default "bell")
+ *   canceledSoundType — CANCELED ORDER sound (Phase 96)   (default "beep")
+ *   volume            — 0..1                              (default 0.8)
+ *
+ * Phase 96 §38/§39 — two alert PURPOSES now share this record, and the same
+ * sound may not serve both at once: a cook must be able to tell "an order
+ * arrived" from "stop cooking that" without looking up. The constraint is
+ * enforced in one place, assertSoundPurposesDistinct(), and derived from the
+ * settings actually stored rather than from any hardcoded pairing.
  *
  * Who reads/writes what:
  *   Admin   — the only role with a UI that writes here (Restaurant Settings)
@@ -22,6 +29,18 @@
  */
 
 import { SOUND_TYPES, DEFAULT_SOUND_TYPE } from "./alertSound.js";
+
+/* The cancellation alert's default. Any value other than DEFAULT_SOUND_TYPE
+   satisfies §39 out of the box; "beep" is the sharpest of the three, which
+   suits "stop" better than "a ticket arrived". */
+export const DEFAULT_CANCELED_SOUND_TYPE = "beep";
+
+/* The alert purposes that must each own a distinct sound. Adding a future
+   purpose means adding it here and nowhere else. */
+export const SOUND_PURPOSES = [
+  { key: "soundType", labelKey: "kitchen.newOrderSound", fallback: "New Order Sound" },
+  { key: "canceledSoundType", labelKey: "kitchen.canceledOrderSound", fallback: "Canceled Order Sound" },
+];
 
 const KITCHEN_ALERTS_KEY_PREFIX = "pro_order_kitchen_alerts";
 
@@ -36,6 +55,10 @@ function defaultAlertSettings(restaurantSlug) {
     restaurantSlug,
     soundEnabled: true,
     soundType: DEFAULT_SOUND_TYPE,
+    /* Deliberately NOT the default new-order sound: shipping a record that
+       already violates the uniqueness rule would make the first Save fail on
+       a conflict the Admin never created. */
+    canceledSoundType: DEFAULT_CANCELED_SOUND_TYPE,
     volume: 0.8,
     updatedAt: null,
   };
@@ -92,11 +115,42 @@ export function getKitchenAlertSettings(restaurantSlug) {
       ...stored,
       soundEnabled: stored.soundEnabled !== false,
       soundType: coerceSoundType(stored.soundType, defaults.soundType),
+      canceledSoundType: coerceSoundType(stored.canceledSoundType, defaults.canceledSoundType),
       volume: coerceVolume(stored.volume, defaults.volume),
     };
   } catch {
     return defaults;
   }
+}
+
+/**
+ * Phase 96 §39 — may this patch be applied, or would it give two alert
+ * purposes the same sound?
+ *
+ * Judged against the settings as they WOULD BE after the patch, not against a
+ * fixed table: changing New Order from bell to chime frees bell for the
+ * cancellation alert in the same breath, and a rule reading current state
+ * gets that right for free.
+ *
+ * Returns the conflict rather than throwing, so the caller can put the
+ * message beside the field the Admin just touched.
+ *
+ * @param {object} current — settings before the change
+ * @param {object} patch
+ * @returns {{key:string, conflictsWith:string}|null} null when the patch is fine
+ */
+export function findSoundPurposeConflict(current, patch) {
+  const next = { ...current, ...patch };
+  const changedKeys = SOUND_PURPOSES.map((p) => p.key).filter((k) => patch[k] !== undefined);
+
+  for (const key of changedKeys) {
+    const clash = SOUND_PURPOSES.find((p) => p.key !== key && next[p.key] === next[key]);
+    /* Named from the OTHER purpose's side ("already used for New Orders"),
+       which is the half the Admin cannot see from the control they are
+       currently using. */
+    if (clash) return { key, conflictsWith: clash.key };
+  }
+  return null;
 }
 
 /**
@@ -110,6 +164,14 @@ export function getKitchenAlertSettings(restaurantSlug) {
  */
 export function updateKitchenAlertSettings(restaurantSlug, patch) {
   const current = getKitchenAlertSettings(restaurantSlug);
+
+  /* §39 — the constraint is enforced at the storage boundary, not only in the
+     UI, so no future caller can write a record where two purposes share one
+     sound. The card checks first and shows the inline message; this is the
+     guarantee behind it. */
+  const conflict = findSoundPurposeConflict(current, patch);
+  if (conflict) return { ok: false, conflict, settings: current };
+
   const next = {
     ...current,
     ...patch,
@@ -119,6 +181,10 @@ export function updateKitchenAlertSettings(restaurantSlug, patch) {
       patch.soundType !== undefined
         ? coerceSoundType(patch.soundType, current.soundType)
         : current.soundType,
+    canceledSoundType:
+      patch.canceledSoundType !== undefined
+        ? coerceSoundType(patch.canceledSoundType, current.canceledSoundType)
+        : current.canceledSoundType,
     volume:
       patch.volume !== undefined ? coerceVolume(patch.volume, current.volume) : current.volume,
     updatedAt: new Date().toISOString(),
@@ -130,7 +196,7 @@ export function updateKitchenAlertSettings(restaurantSlug, patch) {
     // localStorage unavailable — fail silently, matches every other data module
   }
   notifyChange(restaurantSlug);
-  return next;
+  return { ok: true, settings: next };
 }
 
 /**

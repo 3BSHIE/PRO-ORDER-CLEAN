@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
-import Logo    from "../../components/brand/Logo.jsx";
+import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Input   from "../../components/ui/Input.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
@@ -94,12 +94,12 @@ export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn })
             {t("common.home", "Home")}
           </Button>
         }
-        right={<Logo variant="icon" size="nav" />}
+        right={<BrandMarkStatic size={20} />}
       />
       <main className="container">
         <div className="admin-login anim-rise">
-          <LanguageSwitcher className="admin-login__lang-switcher" />
-          <Logo variant="full" size="md" style={{ marginBottom: 22 }} />
+          <LanguageSwitcher variant="compact" className="admin-login__lang-switcher" />
+          <BrandMarkStatic size={34} className="auth-mark" />
 
           <p className="admin-login__rest">{restaurant?.name}</p>
           <h1 className="admin-login__heading">{t("admin.staffAccess", "Staff Access")}</h1>
