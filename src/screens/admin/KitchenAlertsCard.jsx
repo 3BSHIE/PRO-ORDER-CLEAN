@@ -1,7 +1,12 @@
 import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { SOUND_PURPOSES, soundFieldId } from "../../lib/kitchenAlertData.js";
+import { SOUND_PURPOSES } from "../../lib/kitchenAlertData.js";
+import {
+  ALERT_PURPOSE_IDS,
+  alertSoundFieldId,
+  alertPurposeLabel,
+} from "../../lib/alertPurposes.js";
 import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
@@ -34,16 +39,22 @@ const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
  *
  * Props:
  *   value     — the alert draft { soundEnabled, soundType, canceledSoundType, volume }
- *   conflict  — {key, conflictsWith} | null, from the parent's draft validation
+ *   conflict  — {id, conflictsWith} | null, from the page's GLOBAL alert-sound
+ *               validation (Phase 96.3) — the clashing purpose may be Staff
+ *               Calls, which is why it is identified by purpose id rather than
+ *               by a field name on this card
  *   onChange  — (patch, touchedKey?) => void
  */
 export default function KitchenAlertsCard({ value, conflict, onChange }) {
   const { t } = useLanguage();
 
-  function purposeLabel(key) {
-    const purpose = SOUND_PURPOSES.find((p) => p.key === key);
-    return purpose ? t(purpose.labelKey, purpose.fallback) : key;
-  }
+  /* Phase 96.3 — the conflicting purpose may now live in the OTHER card, so
+     the name is resolved from the global catalogue rather than from this
+     card's own two entries. */
+  const PURPOSE_ID_FOR_FIELD = {
+    soundType: ALERT_PURPOSE_IDS.NEW_ORDER,
+    canceledSoundType: ALERT_PURPOSE_IDS.CANCELED_ORDER,
+  };
 
   /* Plays what is currently selected in the DRAFT, which is what the kitchen
      will hear once this is saved — not what is on disk right now. */
@@ -56,9 +67,10 @@ export default function KitchenAlertsCard({ value, conflict, onChange }) {
   /* One selector + its own Test button per purpose, so the two cannot drift
      apart in behaviour or layout. */
   function renderSoundField(purpose) {
-    const id = soundFieldId(purpose.key);
+    const purposeId = PURPOSE_ID_FOR_FIELD[purpose.key];
+    const id = alertSoundFieldId(purposeId);
     const errorId = `${id}-error`;
-    const hasError = conflict?.key === purpose.key;
+    const hasError = conflict?.id === purposeId;
 
     return (
       <div className="field mm-field" key={purpose.key} style={{ marginTop: 12 }}>
@@ -73,7 +85,7 @@ export default function KitchenAlertsCard({ value, conflict, onChange }) {
             disabled={!value.soundEnabled}
             aria-invalid={hasError ? "true" : undefined}
             aria-describedby={hasError ? errorId : undefined}
-            onChange={(e) => onChange({ [purpose.key]: e.target.value }, purpose.key)}
+            onChange={(e) => onChange({ [purpose.key]: e.target.value }, purposeId)}
           >
             {SOUND_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -96,7 +108,7 @@ export default function KitchenAlertsCard({ value, conflict, onChange }) {
             {t(
               "kitchen.soundAlreadyUsed",
               "This sound is already used for {purpose}. Choose a different sound."
-            ).replace("{purpose}", purposeLabel(conflict.conflictsWith))}
+            ).replace("{purpose}", alertPurposeLabel(conflict.conflictsWith, t))}
           </p>
         )}
       </div>

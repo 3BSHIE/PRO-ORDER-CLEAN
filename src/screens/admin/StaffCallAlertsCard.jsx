@@ -2,6 +2,11 @@ import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
+import {
+  ALERT_PURPOSE_IDS,
+  alertSoundFieldId,
+  alertPurposeLabel,
+} from "../../lib/alertPurposes.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
 /* Translation keys for the three built-in voices, keyed by their stable id.
@@ -38,10 +43,18 @@ const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
  *
  * Props:
  *   value    — the staff-call alert draft { soundEnabled, soundType, volume }
- *   onChange — (patch) => void
+ *   conflict — {id, conflictsWith} | null, from the page's global alert-sound
+ *              validation (Phase 96.3). The clashing purpose may be either of
+ *              the Kitchen alerts, which is exactly why the rule is no longer
+ *              scoped to one storage key.
+ *   onChange — (patch, touchedPurposeId?) => void
  */
-export default function StaffCallAlertsCard({ value, onChange }) {
+export default function StaffCallAlertsCard({ value, conflict, onChange }) {
   const { t } = useLanguage();
+  const purposeId = ALERT_PURPOSE_IDS.STAFF_CALL;
+  const fieldId = alertSoundFieldId(purposeId);
+  const errorId = `${fieldId}-error`;
+  const hasError = conflict?.id === purposeId;
 
   /* Plays what is currently selected in the DRAFT, which is what the floor
      will hear once this is saved — not what is on disk right now. Playing a
@@ -77,15 +90,17 @@ export default function StaffCallAlertsCard({ value, onChange }) {
       </div>
 
       {/* Sound type */}
-      <label className="field mm-field" style={{ marginTop: 12 }}>
-        <span className="field__label">{t("kitchen.sound", "Sound")}</span>
+      <div className="field mm-field" style={{ marginTop: 12 }}>
+        <label className="field__label" htmlFor={fieldId}>{t("kitchen.sound", "Sound")}</label>
         <select
-          className="mm-select mm-select--full"
-          aria-label={t("kitchen.sound", "Sound")}
+          id={fieldId}
+          className={`mm-select mm-select--full ${hasError ? "input--error" : ""}`}
           value={value.soundType}
           disabled={!value.soundEnabled}
+          aria-invalid={hasError ? "true" : undefined}
+          aria-describedby={hasError ? errorId : undefined}
           onChange={(e) => {
-            onChange({ soundType: e.target.value });
+            onChange({ soundType: e.target.value }, purposeId);
             /* Play the newly chosen voice straight away — picking a sound
                without hearing it is guesswork. Preview only; the choice
                reaches storage through the page's Save. */
@@ -98,7 +113,15 @@ export default function StaffCallAlertsCard({ value, onChange }) {
             </option>
           ))}
         </select>
-      </label>
+        {hasError && (
+          <p className="th-color__error" id={errorId} role="alert">
+            {t(
+              "kitchen.soundAlreadyUsed",
+              "This sound is already used for {purpose}. Choose a different sound."
+            ).replace("{purpose}", alertPurposeLabel(conflict.conflictsWith, t))}
+          </p>
+        )}
+      </div>
 
       {/* Volume — 0 is allowed and is genuinely silent, matching Phase 27.
           The toggle above is the intended way to turn alerts off; a 0 here

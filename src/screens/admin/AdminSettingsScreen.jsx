@@ -16,12 +16,8 @@ import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
 import { updateStaffCallAlertSettings } from "../../lib/staffCallAlertData.js";
-import {
-  updateKitchenAlertSettings,
-  findDuplicateSoundPurpose,
-  soundFieldId,
-  SOUND_PURPOSES,
-} from "../../lib/kitchenAlertData.js";
+import { updateKitchenAlertSettings, SOUND_PURPOSES } from "../../lib/kitchenAlertData.js";
+import { findAlertSoundConflict, alertSoundFieldId } from "../../lib/alertPurposes.js";
 import { applyAppearance } from "../../lib/appearance.js";
 import { resolveAppearance, APPEARANCE_DARK, APPEARANCE_LIGHT } from "../../lib/theme.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -222,10 +218,11 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      its Save. Preview still plays the DRAFT value without persisting it. */
   const { settings: alertSettings } = useKitchenAlertSettings(restaurant.slug);
   const [alertDraft, setAlertDraft] = useState(alertSettings);
-  /* Which sound field was touched most recently, so a conflict is reported
+  /* Which alert purpose was touched most recently, so a conflict is reported
      against the control the manager just used rather than against whichever
-     of the pair happens to sort last. */
-  const [lastSoundField, setLastSoundField] = useState(null);
+     purpose happens to come first in the catalogue. Holds an ALERT_PURPOSE id
+     now, since the purposes span two drafts (Phase 96.3). */
+  const [lastSoundPurpose, setLastSoundPurpose] = useState(null);
 
   /* ── Phase 96.2 — Staff Call alerts join the same lifecycle ─────────────
      Phase 96.1 moved Kitchen Alerts onto the page's draft/Save, which left
@@ -333,18 +330,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      with it and the page is clean again with no extra bookkeeping.
 
      Both hooks sit ABOVE the role check below, which returns early. */
-  /* §5 — validated against the DRAFT, so freeing a sound in one selector
-     clears the conflict in the other immediately, with no save in between. */
-  const soundConflict = (() => {
-    const duplicate = findDuplicateSoundPurpose(alertDraft);
-    if (!duplicate) return null;
-    /* Report it on the field the manager just moved; fall back to the
-       second of the pair when the conflict arrived some other way. */
-    const touched = SOUND_PURPOSES.some((purpose) => purpose.key === lastSoundField);
-    if (!touched) return duplicate;
-    const other = SOUND_PURPOSES.find((purpose) => purpose.key !== lastSoundField);
-    return { key: lastSoundField, conflictsWith: other.key };
-  })();
+  /* Phase 96.3 — ONE validation pass over every configurable alert sound in
+     the product, not just the two in the kitchen record. It reads the DRAFTS,
+     so freeing a sound in one card clears the conflict in another card
+     immediately, with no save in between — and it spans both storage keys,
+     which is what stops Staff Call from duplicating a kitchen sound. */
+  const soundConflict = findAlertSoundConflict(
+    { kitchen: alertDraft, staffCall: staffAlertDraft },
+    lastSoundPurpose
+  );
 
   const alertsDirty =
     SOUND_PURPOSES.some((purpose) => alertDraft[purpose.key] !== alertSettings[purpose.key]) ||
@@ -416,7 +410,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     setDraft(settings);
     setAlertDraft(alertSettings);
     setStaffAlertDraft(staffAlertSettings);
-    setLastSoundField(null);
+    setLastSoundPurpose(null);
     setError(null);
     if (pending) pending();
   }
@@ -519,7 +513,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        says which purpose already owns it; this is the gate. */
     if (soundConflict) {
       setError(t("kitchen.soundConflictBlocksSave", "Give each alert its own sound before saving."));
-      document.getElementById(soundFieldId(soundConflict.key))?.focus();
+      document.getElementById(alertSoundFieldId(soundConflict.id))?.focus();
       return;
     }
 
@@ -565,7 +559,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           volume: staffAlertDraft.volume,
         });
       }
-      setLastSoundField(null);
+      setLastSoundPurpose(null);
       /* §67 — the committed record becomes the draft, so the live preview
          becomes the saved theme and the dirty check goes quiet. */
       setHexDraft({ primaryColor: null, accentColor: null });
@@ -828,9 +822,9 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
         <KitchenAlertsCard
           value={alertDraft}
           conflict={soundConflict}
-          onChange={(patch, touchedKey) => {
+          onChange={(patch, touchedPurposeId) => {
             setAlertDraft((prev) => ({ ...prev, ...patch }));
-            if (touchedKey) setLastSoundField(touchedKey);
+            if (touchedPurposeId) setLastSoundPurpose(touchedPurposeId);
           }}
         />
         {/* ── Staff Call Alerts (Phase 59) ─────────────────────────────────
@@ -843,7 +837,11 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             closed. They still write to separate storage keys. */}
         <StaffCallAlertsCard
           value={staffAlertDraft}
-          onChange={(patch) => setStaffAlertDraft((prev) => ({ ...prev, ...patch }))}
+          conflict={soundConflict}
+          onChange={(patch, touchedPurposeId) => {
+            setStaffAlertDraft((prev) => ({ ...prev, ...patch }));
+            if (touchedPurposeId) setLastSoundPurpose(touchedPurposeId);
+          }}
         />
           </div>
         </section>

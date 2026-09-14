@@ -2,13 +2,14 @@
  * kitchenAlertData — localStorage-backed kitchen alert-sound settings
  * (Phase 27). Restaurant-scoped, same pattern as every other data module.
  *
- * Kept independent of settingsData.js for the same reason prepTimeData.js is
- * (Phase 26): AdminSettingsScreen edits the whole general-settings object as
- * one draft and saves it in one go. Alert settings are applied immediately
- * as the Admin changes them — so that they can be heard via Test Sound
- * before committing to them — and mixing an apply-on-change group into a
- * draft-then-save object is how stale-draft overwrites happen. Separate key,
- * separate write path, no interaction between the two.
+ * Kept on its own storage key rather than inside settingsData.js so that
+ * Kitchen at Chime/80% and Staff Calls at Bell/70% never overwrite each
+ * other.
+ *
+ * Phase 96.1 — these settings are NO LONGER applied on change. The Settings
+ * screen holds them as a draft and writes them through its explicit Save,
+ * alongside everything else on the page; only the Test Sound preview still
+ * acts immediately, and it persists nothing.
  *
  * Stored per restaurant (`pro_order_kitchen_alerts:<slug>`):
  *   soundEnabled      — master on/off for kitchen alerts  (default true)
@@ -16,11 +17,13 @@
  *   canceledSoundType — CANCELED ORDER sound (Phase 96)   (default "beep")
  *   volume            — 0..1                              (default 0.8)
  *
- * Phase 96 §38/§39 — two alert PURPOSES now share this record, and the same
- * sound may not serve both at once: a cook must be able to tell "an order
- * arrived" from "stop cooking that" without looking up. The constraint is
- * enforced in one place, assertSoundPurposesDistinct(), and derived from the
- * settings actually stored rather than from any hardcoded pairing.
+ * Two alert PURPOSES share this record, and the same sound may not serve both
+ * at once: a cook must be able to tell "an order arrived" from "stop cooking
+ * that" without looking up.
+ *
+ * Phase 96.3 — that rule is now GLOBAL and lives in src/lib/alertPurposes.js,
+ * because Staff Calls are a third purpose stored elsewhere and must differ
+ * too. What remains here is the kitchen record's own storage-boundary guard.
  *
  * Who reads/writes what:
  *   Admin   — the only role with a UI that writes here (Restaurant Settings)
@@ -123,9 +126,15 @@ export function getKitchenAlertSettings(restaurantSlug) {
   }
 }
 
+/* Phase 96.3 — soundFieldId() and findDuplicateSoundPurpose() were removed.
+   The uniqueness rule is global now and lives in src/lib/alertPurposes.js,
+   which can see Staff Calls as well; leaving a second, kitchen-only duplicate
+   detector here would be an invitation for a future caller to validate half
+   the product and believe it had validated all of it. */
+
 /**
- * Phase 96 §39 — may this patch be applied, or would it give two alert
- * purposes the same sound?
+ * May this patch be applied, or would it give the two KITCHEN alert purposes
+ * the same sound?
  *
  * Judged against the settings as they WOULD BE after the patch, not against a
  * fixed table: changing New Order from bell to chime frees bell for the
@@ -139,36 +148,6 @@ export function getKitchenAlertSettings(restaurantSlug) {
  * @param {object} patch
  * @returns {{key:string, conflictsWith:string}|null} null when the patch is fine
  */
-/** The DOM id of a sound selector, shared by the card that renders it and the
-    Save handler that focuses it when it blocks a write. */
-export function soundFieldId(purposeKey) {
-  return `ka-sound-${purposeKey}`;
-}
-
-/**
- * Phase 96.1 §5 — does this settings object (typically an unsaved DRAFT)
- * already give two alert purposes the same sound?
- *
- * Judged on the object handed in rather than on storage, which is what lets a
- * conflict clear the moment the manager frees the sound in the other selector
- * — no intermediate save required.
- *
- * @param {object} settings — saved record or draft
- * @returns {{key:string, conflictsWith:string}|null}
- */
-export function findDuplicateSoundPurpose(settings) {
-  for (let i = 0; i < SOUND_PURPOSES.length; i += 1) {
-    for (let j = i + 1; j < SOUND_PURPOSES.length; j += 1) {
-      const a = SOUND_PURPOSES[i];
-      const b = SOUND_PURPOSES[j];
-      if (settings?.[a.key] && settings[a.key] === settings[b.key]) {
-        return { key: b.key, conflictsWith: a.key };
-      }
-    }
-  }
-  return null;
-}
-
 export function findSoundPurposeConflict(current, patch) {
   const next = { ...current, ...patch };
   const changedKeys = SOUND_PURPOSES.map((p) => p.key).filter((k) => patch[k] !== undefined);
@@ -195,10 +174,15 @@ export function findSoundPurposeConflict(current, patch) {
 export function updateKitchenAlertSettings(restaurantSlug, patch) {
   const current = getKitchenAlertSettings(restaurantSlug);
 
-  /* §39 — the constraint is enforced at the storage boundary, not only in the
-     UI, so no future caller can write a record where two purposes share one
-     sound. The card checks first and shows the inline message; this is the
-     guarantee behind it. */
+  /* The constraint is enforced at the storage boundary too, so no future
+     caller can write a KITCHEN record whose own two purposes share a sound.
+
+     Phase 96.3 — deliberately still kitchen-internal rather than global. The
+     global rule (which includes Staff Calls) is validated in the Settings
+     screen before anything is written, and it has to be: Save writes the
+     kitchen record and the staff-call record in sequence, so a cross-store
+     guard down here would reject the first write whenever the two are being
+     swapped — a legitimate edit the UI has already approved. */
   const conflict = findSoundPurposeConflict(current, patch);
   if (conflict) return { ok: false, conflict, settings: current };
 
