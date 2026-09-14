@@ -13,6 +13,13 @@ import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
+import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
+import {
+  updateKitchenAlertSettings,
+  findDuplicateSoundPurpose,
+  soundFieldId,
+  SOUND_PURPOSES,
+} from "../../lib/kitchenAlertData.js";
 import { applyAppearance } from "../../lib/appearance.js";
 import { resolveAppearance, APPEARANCE_DARK, APPEARANCE_LIGHT } from "../../lib/theme.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -198,6 +205,25 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   const { t } = useLanguage();
 
   const [draft, setDraft] = useState(settings);
+
+  /* ── Phase 96.1 §4 — Kitchen alert sounds join the Settings lifecycle ───
+     Phase 96 left these apply-on-change, writing to storage the instant a
+     selector moved. That was a deliberate Phase 27 decision (a sound is only
+     judged by hearing it) but it is not what this page promises: everything
+     else here is a draft until Save, and a control that commits instantly
+     inside a form with a Save button is a trap.
+
+     The sounds now live in a parallel draft. They keep their own storage key
+     — they are not part of the settings object and merging them would be a
+     data migration this phase does not need — but they share this screen's
+     dirty state, its validation, its unsaved-changes guard, its Discard and
+     its Save. Preview still plays the DRAFT value without persisting it. */
+  const { settings: alertSettings } = useKitchenAlertSettings(restaurant.slug);
+  const [alertDraft, setAlertDraft] = useState(alertSettings);
+  /* Which sound field was touched most recently, so a conflict is reported
+     against the control the manager just used rather than against whichever
+     of the pair happens to sort last. */
+  const [lastSoundField, setLastSoundField] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [error, setError] = useState(null);
@@ -286,7 +312,28 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      with it and the page is clean again with no extra bookkeeping.
 
      Both hooks sit ABOVE the role check below, which returns early. */
-  const isDirty = settingsFingerprint(draft) !== settingsFingerprint(settings);
+  /* §5 — validated against the DRAFT, so freeing a sound in one selector
+     clears the conflict in the other immediately, with no save in between. */
+  const soundConflict = (() => {
+    const duplicate = findDuplicateSoundPurpose(alertDraft);
+    if (!duplicate) return null;
+    /* Report it on the field the manager just moved; fall back to the
+       second of the pair when the conflict arrived some other way. */
+    const touched = SOUND_PURPOSES.some((purpose) => purpose.key === lastSoundField);
+    if (!touched) return duplicate;
+    const other = SOUND_PURPOSES.find((purpose) => purpose.key !== lastSoundField);
+    return { key: lastSoundField, conflictsWith: other.key };
+  })();
+
+  const alertsDirty =
+    SOUND_PURPOSES.some((purpose) => alertDraft[purpose.key] !== alertSettings[purpose.key]) ||
+    alertDraft.soundEnabled !== alertSettings.soundEnabled ||
+    alertDraft.volume !== alertSettings.volume;
+
+  /* One dirty flag for the whole page, so the guard, the Save button and the
+     status line cannot disagree about whether there is work to lose. */
+  const isDirty =
+    settingsFingerprint(draft) !== settingsFingerprint(settings) || alertsDirty;
 
   /* Phase 82.1 — derived, never stored. The Default Language control renders
      from these so it can only ever offer (and show) a language the draft
@@ -341,6 +388,8 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        anyway, but not when the destination is Settings itself, and leaving a
        rejected draft sitting in state would quietly resurrect it. */
     setDraft(settings);
+    setAlertDraft(alertSettings);
+    setLastSoundField(null);
     setError(null);
     if (pending) pending();
   }
@@ -438,6 +487,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       return;
     }
 
+    /* §5 — two alert purposes sharing one sound blocks the write outright,
+       exactly like a malformed colour does. The inline message on the field
+       says which purpose already owns it; this is the gate. */
+    if (soundConflict) {
+      setError(t("kitchen.soundConflictBlocksSave", "Give each alert its own sound before saving."));
+      document.getElementById(soundFieldId(soundConflict.key))?.focus();
+      return;
+    }
+
     setError(null);
     /* Phase 79.2 — adopt what was actually persisted as the new draft.
        updateSettings normalises on write (working hours above all), so the
@@ -465,6 +523,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       };
       const saved = await updateSettings(restaurant.slug, finalized);
       setDraft(saved);
+      /* The sounds commit in the same action. Separate key, same Save. */
+      if (alertsDirty) {
+        updateKitchenAlertSettings(restaurant.slug, {
+          soundEnabled: alertDraft.soundEnabled,
+          volume: alertDraft.volume,
+          ...Object.fromEntries(SOUND_PURPOSES.map((p) => [p.key, alertDraft[p.key]])),
+        });
+      }
+      setLastSoundField(null);
       /* §67 — the committed record becomes the draft, so the live preview
          becomes the saved theme and the dirty check goes quiet. */
       setHexDraft({ primaryColor: null, accentColor: null });
@@ -725,17 +792,22 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             control changes, so it is intentionally NOT wired to the Save
             button below (which commits the general-settings draft only). */}
         <KitchenAlertsCard
-          restaurant={restaurant}
-          onNotify={(message) => {
-            setToastMessage(message);
-            setToastVisible(true);
+          value={alertDraft}
+          conflict={soundConflict}
+          onChange={(patch, touchedKey) => {
+            setAlertDraft((prev) => ({ ...prev, ...patch }));
+            if (touchedKey) setLastSoundField(touchedKey);
           }}
         />
         {/* ── Staff Call Alerts (Phase 59) ─────────────────────────────────
             Sits beside Kitchen Alerts because they are the same kind of
-            control, but writes to its own key and is likewise not wired to
-            the Save button. Front-of-house and kitchen are tuned separately
-            on purpose — different rooms, different noise. */}
+            control. Front-of-house and kitchen are tuned separately on
+            purpose — different rooms, different noise.
+
+            NOTE (Phase 96.1): this card is still apply-on-change, while
+            Kitchen Alerts above now saves with the page. §16 scopes this
+            phase to the Kitchen sound settings, so it was left alone
+            deliberately rather than overlooked. */}
         <StaffCallAlertsCard
           restaurant={restaurant}
           onNotify={(message) => {

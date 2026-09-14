@@ -139,6 +139,36 @@ export function getKitchenAlertSettings(restaurantSlug) {
  * @param {object} patch
  * @returns {{key:string, conflictsWith:string}|null} null when the patch is fine
  */
+/** The DOM id of a sound selector, shared by the card that renders it and the
+    Save handler that focuses it when it blocks a write. */
+export function soundFieldId(purposeKey) {
+  return `ka-sound-${purposeKey}`;
+}
+
+/**
+ * Phase 96.1 §5 — does this settings object (typically an unsaved DRAFT)
+ * already give two alert purposes the same sound?
+ *
+ * Judged on the object handed in rather than on storage, which is what lets a
+ * conflict clear the moment the manager frees the sound in the other selector
+ * — no intermediate save required.
+ *
+ * @param {object} settings — saved record or draft
+ * @returns {{key:string, conflictsWith:string}|null}
+ */
+export function findDuplicateSoundPurpose(settings) {
+  for (let i = 0; i < SOUND_PURPOSES.length; i += 1) {
+    for (let j = i + 1; j < SOUND_PURPOSES.length; j += 1) {
+      const a = SOUND_PURPOSES[i];
+      const b = SOUND_PURPOSES[j];
+      if (settings?.[a.key] && settings[a.key] === settings[b.key]) {
+        return { key: b.key, conflictsWith: a.key };
+      }
+    }
+  }
+  return null;
+}
+
 export function findSoundPurposeConflict(current, patch) {
   const next = { ...current, ...patch };
   const changedKeys = SOUND_PURPOSES.map((p) => p.key).filter((k) => patch[k] !== undefined);

@@ -1,13 +1,7 @@
-import { useState } from "react";
 import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
-import {
-  updateKitchenAlertSettings,
-  findSoundPurposeConflict,
-  SOUND_PURPOSES,
-} from "../../lib/kitchenAlertData.js";
+import { SOUND_PURPOSES, soundFieldId } from "../../lib/kitchenAlertData.js";
 import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
@@ -20,88 +14,66 @@ const SOUND_LABEL_KEY = {
 const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
 
 /**
- * KitchenAlertsCard — Phase 27, Admin-only configuration of the kitchen's
- * new-order alert sound. Rendered inside AdminSettingsScreen, which is
- * already route-guarded to Admin, so Cashier can never reach it and Kitchen
- * only ever consumes the result.
+ * KitchenAlertsCard — Admin-only configuration of the Kitchen alert sounds.
+ * Rendered inside AdminSettingsScreen, which is already permission-guarded, so
+ * Cashier can never reach it and Kitchen only ever consumes the result.
  *
- * Apply-on-change, deliberately:
- *   Every control writes immediately instead of feeding the page's main
- *   "Save" button. Two reasons — a sound setting is only meaningfully
- *   evaluated by *hearing* it, so Test Sound must reflect what you just
- *   picked; and this card writes to a different storage key than the rest of
- *   the settings page, so sharing one Save button would imply a transaction
- *   that doesn't exist. Each write is a surgical field patch.
+ * ── Phase 96.1 §4 — FULLY CONTROLLED, NOTHING SAVES ITSELF ────────────────
+ * This card used to write to storage on every change (Phase 27), so a sound
+ * picked here was committed before the manager pressed anything. It now owns
+ * no state at all: the parent holds the draft, this renders it and reports
+ * changes upward, and the values reach storage only through the page's Save.
+ *
+ * That means the sounds now take part in the page's dirty state, its
+ * unsaved-changes guard, its Discard and its validation — the same lifecycle
+ * as every other setting on the page.
+ *
+ * Preview is the one thing that still acts immediately, and deliberately: a
+ * sound can only be judged by hearing it. Preview plays the DRAFT value and
+ * persists nothing.
  *
  * Props:
- *   restaurant — { slug, ... }
- *   onNotify   — (message: string) => void; parent owns the Toast
+ *   value     — the alert draft { soundEnabled, soundType, canceledSoundType, volume }
+ *   conflict  — {key, conflictsWith} | null, from the parent's draft validation
+ *   onChange  — (patch, touchedKey?) => void
  */
-export default function KitchenAlertsCard({ restaurant, onNotify }) {
+export default function KitchenAlertsCard({ value, conflict, onChange }) {
   const { t } = useLanguage();
-  const { settings } = useKitchenAlertSettings(restaurant.slug);
-  /* Phase 96 §39 — the rejected assignment, keyed by the field it was made
-     on, so the message sits against the control the Admin just used. */
-  const [conflictKey, setConflictKey] = useState(null);
 
-  function apply(patch, message) {
-    const result = updateKitchenAlertSettings(restaurant.slug, patch);
-    if (message && result.ok) onNotify?.(message);
-    return result;
-  }
-
-  /* Human name of the purpose a sound is already committed to, for the
-     message. Resolved from SOUND_PURPOSES so a future purpose needs no new
-     copy here. */
   function purposeLabel(key) {
     const purpose = SOUND_PURPOSES.find((p) => p.key === key);
     return purpose ? t(purpose.labelKey, purpose.fallback) : key;
   }
 
-  /* One handler for every sound selector. A conflicting choice is refused
-     outright rather than saved-and-warned: the two purposes must never both
-     be answerable by the same noise, not even briefly. Nothing is played
-     either — hearing the sound would suggest the choice took. */
-  function handleSoundChange(key, value) {
-    const conflict = findSoundPurposeConflict(settings, { [key]: value });
-    if (conflict) {
-      setConflictKey(conflict);
-      return;
-    }
-    setConflictKey(null);
-    const result = apply({ [key]: value });
-    if (result.ok) playAlertSound(value, settings.volume);
-  }
-
-  /* Preview always uses the values as they stand right now, so what the
-     admin hears is exactly what the kitchen will hear. */
+  /* Plays what is currently selected in the DRAFT, which is what the kitchen
+     will hear once this is saved — not what is on disk right now. */
   function handleTest(soundType) {
-    const played = playAlertSound(soundType, settings.volume);
-    onNotify?.(
-      played
-        ? t("kitchen.testingSound", "Playing test sound…")
-        : t("kitchen.soundUnavailable", "Audio is unavailable in this browser.")
-    );
+    playAlertSound(soundType, value.volume);
   }
 
-  const volumePercent = Math.round(settings.volume * 100);
+  const volumePercent = Math.round(value.volume * 100);
 
-  /* One selector + its own Test button, rendered per purpose so the two
-     cannot drift apart in behaviour or layout. */
+  /* One selector + its own Test button per purpose, so the two cannot drift
+     apart in behaviour or layout. */
   function renderSoundField(purpose) {
-    const errorId = `ka-conflict-${purpose.key}`;
-    const hasError = conflictKey?.key === purpose.key;
+    const id = soundFieldId(purpose.key);
+    const errorId = `${id}-error`;
+    const hasError = conflict?.key === purpose.key;
+
     return (
       <div className="field mm-field" key={purpose.key} style={{ marginTop: 12 }}>
-        <span className="field__label">{t(purpose.labelKey, purpose.fallback)}</span>
+        <label className="field__label" htmlFor={id}>
+          {t(purpose.labelKey, purpose.fallback)}
+        </label>
         <div className="ka-sound-row">
           <select
+            id={id}
             className={`mm-select mm-select--full ${hasError ? "input--error" : ""}`}
-            value={settings[purpose.key]}
-            disabled={!settings.soundEnabled}
+            value={value[purpose.key]}
+            disabled={!value.soundEnabled}
             aria-invalid={hasError ? "true" : undefined}
             aria-describedby={hasError ? errorId : undefined}
-            onChange={(e) => handleSoundChange(purpose.key, e.target.value)}
+            onChange={(e) => onChange({ [purpose.key]: e.target.value }, purpose.key)}
           >
             {SOUND_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -113,8 +85,8 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
             variant="outline"
             size="sm"
             icon={Play}
-            onClick={() => handleTest(settings[purpose.key])}
-            disabled={!settings.soundEnabled}
+            onClick={() => handleTest(value[purpose.key])}
+            disabled={!value.soundEnabled}
           >
             {t("kitchen.testSound", "Test Sound")}
           </Button>
@@ -124,7 +96,7 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
             {t(
               "kitchen.soundAlreadyUsed",
               "This sound is already used for {purpose}. Choose a different sound."
-            ).replace("{purpose}", purposeLabel(conflictKey.conflictsWith))}
+            ).replace("{purpose}", purposeLabel(conflict.conflictsWith))}
           </p>
         )}
       </div>
@@ -137,35 +109,26 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
       <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
         {t(
           "kitchen.kitchenAlertsHint",
-          "Played on the Kitchen board. Each alert needs its own sound. Changes apply immediately."
+          "Played on the Kitchen board. Each alert needs its own sound."
         )}
       </p>
 
-      {/* On/off */}
       <div className="mm-toggles">
         <label className="mm-toggle-row">
           <input
             type="checkbox"
-            checked={settings.soundEnabled}
-            onChange={(e) =>
-              apply(
-                { soundEnabled: e.target.checked },
-                e.target.checked
-                  ? t("kitchen.alertsEnabledToast", "Kitchen alert sound turned on")
-                  : t("kitchen.alertsDisabledToast", "Kitchen alert sound turned off")
-              )
-            }
+            checked={value.soundEnabled}
+            onChange={(e) => onChange({ soundEnabled: e.target.checked })}
           />
           <span>{t("kitchen.alertSoundEnabled", "Play kitchen alert sounds")}</span>
         </label>
       </div>
 
-      {/* Phase 96 §38 — one selector per alert purpose. Each must own a
-          distinct sound, so a cook can tell "an order arrived" from "stop
-          cooking that" without looking up from the pass. */}
+      {/* One selector per alert purpose. Each must own a distinct sound, so a
+          cook can tell "an order arrived" from "stop cooking that" without
+          looking up from the pass. */}
       {SOUND_PURPOSES.map(renderSoundField)}
 
-      {/* Volume */}
       <label className="field mm-field" style={{ marginTop: 12 }}>
         <span className="field__label">
           {t("kitchen.volume", "Volume")} <span className="ka-volume__value">{volumePercent}%</span>
@@ -179,8 +142,8 @@ export default function KitchenAlertsCard({ restaurant, onNotify }) {
             max="100"
             step="5"
             value={volumePercent}
-            disabled={!settings.soundEnabled}
-            onChange={(e) => apply({ volume: Number(e.target.value) / 100 })}
+            disabled={!value.soundEnabled}
+            onChange={(e) => onChange({ volume: Number(e.target.value) / 100 })}
           />
         </div>
       </label>

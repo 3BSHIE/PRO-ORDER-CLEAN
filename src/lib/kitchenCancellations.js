@@ -31,7 +31,20 @@
  * `pro_order_kitchen_cancellations:<slug>` holds one array of records:
  *
  *   { orderId, tableNumber, priorStatus, canceledAt, businessDay,
- *     items: [{ name, quantity }], acknowledgedAt|null }
+ *     items: [{ name, quantity }], acknowledgedAt|null, soundNotifiedAt|null }
+ *
+ * priorStatus is null when the order carries no usable history — the alert is
+ * still raised (Phase 96.1 §2). A cancellation is operationally important even
+ * when its metadata is incomplete, and guessing "Preparing" would be worse
+ * than saying plainly that the prior state is unknown.
+ *
+ * soundNotifiedAt is what makes the cancellation chime idempotent PER EVENT
+ * rather than per session (Phase 96.1 §1). Phase 96 suppressed the sound on
+ * the first pass after mount so a refresh could not replay a backlog — but
+ * that also silenced every cancellation that arrived while the kitchen screen
+ * was locked, which is exactly the case the alert exists for. Now the record
+ * remembers whether its own sound has ever been emitted, so it can be played
+ * late (on the next open) and still never twice.
  *
  * Unacknowledged records drive the alert panel; acknowledged ones become the
  * read-only "Recently Canceled" list. Both are filtered to the CURRENT
@@ -112,7 +125,8 @@ export function getKitchenCancellations(restaurantSlug, timeZone) {
  *
  * @param {string} restaurantSlug
  * @param {object} order — the cancelled order, read not mutated
- * @param {string} priorStatus — the Kitchen state it was in before cancelling
+ * @param {string|null} priorStatus — the Kitchen state it was in before being
+ *        cancelled, or null when the order carries no usable history (§2)
  * @param {string} timeZone
  * @returns {object|null} the new record, or null if already recorded
  */
@@ -140,6 +154,9 @@ export function recordKitchenCancellation(restaurantSlug, order, priorStatus, ti
       quantity: line.quantity,
     })),
     acknowledgedAt: null,
+    /* Never heard yet. The board claims this the first time it actually
+       plays the sound for this record. */
+    soundNotifiedAt: null,
   };
 
   writeAll(restaurantSlug, [...existing, record]);
@@ -164,6 +181,34 @@ export function acknowledgeKitchenCancellation(restaurantSlug, orderId) {
   next[idx] = { ...all[idx], acknowledgedAt: new Date().toISOString() };
   writeAll(restaurantSlug, next);
   return true;
+}
+
+/**
+ * Mark these cancellations as having had their sound emitted.
+ *
+ * Written as one batch after a single playback, so a burst of cancellations
+ * that accumulated while the kitchen was closed produces ONE notification and
+ * all of them are marked heard — never a queue of chimes, never a record left
+ * unmarked to fire again on the next mount (§1).
+ *
+ * @param {string} restaurantSlug
+ * @param {string[]} orderIds
+ * @returns {boolean} whether anything changed
+ */
+export function markKitchenCancellationsNotified(restaurantSlug, orderIds) {
+  if (!orderIds?.length) return false;
+  const ids = new Set(orderIds);
+  const all = readAll(restaurantSlug);
+  let changed = false;
+
+  const next = all.map((record) => {
+    if (!ids.has(record.orderId) || record.soundNotifiedAt) return record;
+    changed = true;
+    return { ...record, soundNotifiedAt: new Date().toISOString() };
+  });
+
+  if (changed) writeAll(restaurantSlug, next);
+  return changed;
 }
 
 /** Demo-only: clear this restaurant's Kitchen cancellation record. */

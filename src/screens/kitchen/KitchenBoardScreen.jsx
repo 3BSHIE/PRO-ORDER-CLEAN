@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Lock, Clock, Timer, AlertTriangle, Ban, ChefHat, History, Check } from "lucide-react";
+import { Lock, Clock, Timer, AlertTriangle, Ban, History, Check } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import RestaurantIdentity from "../customer/components/RestaurantIdentity.jsx";
@@ -13,10 +13,12 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { playAlertSound } from "../../lib/alertSound.js";
+import { getRestaurantClockParts } from "../../lib/categoryVisibility.js";
 import {
   getKitchenCancellations,
   recordKitchenCancellation,
   acknowledgeKitchenCancellation,
+  markKitchenCancellationsNotified,
   KITCHEN_RELEVANT_STATUSES,
   KITCHEN_CANCELLATION_CHANGE_EVENT,
 } from "../../lib/kitchenCancellations.js";
@@ -283,28 +285,55 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
      the new-order alert seeds silently: a refresh must not replay a backlog
      (§16). The alert itself is still created, so nothing is lost — it is the
      noise that is skipped, never the information. */
-  const cancelSeededRef = useRef(false);
-
   useEffect(() => {
     const canceled = restaurantOrders.filter((o) => o.status === "canceled");
     let created = 0;
 
     for (const order of canceled) {
       const priorStatus = priorKitchenStatus(order);
-      /* Only a ticket the kitchen still had work on. One cancelled after it
-         was already Ready, or never cooked, raises nothing. */
-      if (!KITCHEN_RELEVANT_STATUSES.includes(priorStatus)) continue;
+      /* Phase 96.1 §2 — skip ONLY when the prior state is known AND was past
+         kitchen work (already Ready, or delivered). A null prior status means
+         the order carries no usable history, and Phase 96 dropped those
+         silently. That was wrong: a cancellation matters operationally even
+         when its metadata is incomplete, so it is recorded with priorStatus
+         null and the alert says plainly that the prior state is unknown
+         rather than guessing one. */
+      if (priorStatus && !KITCHEN_RELEVANT_STATUSES.includes(priorStatus)) continue;
       if (recordKitchenCancellation(restaurant.slug, order, priorStatus, timeZone)) created += 1;
     }
 
     if (created > 0) reloadCancellations();
-
-    if (!cancelSeededRef.current) {
-      cancelSeededRef.current = true;
-      return;
-    }
-    if (created > 0) playPurpose("canceledSoundType");
   }, [restaurantOrders, restaurant.slug, timeZone, reloadCancellations]);
+
+  /* ── The cancellation chime (§1) ───────────────────────────────────────
+     Phase 96 suppressed this on the first pass after mount so a refresh could
+     not replay a backlog. That also silenced every cancellation that arrived
+     while the kitchen screen was LOCKED — which is precisely the situation
+     the alert exists for. A cook returning to the pass found a red panel that
+     had never made a sound.
+
+     Idempotency now lives on the record instead of on the session: each
+     cancellation remembers whether its own sound has been emitted, so it can
+     be played late (on the next open) and still never twice. A refresh,
+     re-render, language switch or theme change finds every record already
+     marked and stays silent.
+
+     Several unheard cancellations produce ONE notification, not a queue of
+     chimes — the panel above already carries the count, and an alarm that
+     fires five times is an alarm people learn to ignore. */
+  useEffect(() => {
+    const unheard = cancellations.filter((c) => !c.acknowledgedAt && !c.soundNotifiedAt);
+    if (unheard.length === 0) return;
+
+    /* Persisted BEFORE playing, so a throw mid-playback can never leave a
+       record unmarked and replaying on the next mount. */
+    markKitchenCancellationsNotified(
+      restaurant.slug,
+      unheard.map((c) => c.orderId)
+    );
+    reloadCancellations();
+    playPurpose("canceledSoundType");
+  }, [cancellations, restaurant.slug, reloadCancellations]);
 
   /* ── One-shot entrance bookkeeping (§13/§43) ───────────────────────────
      Mirrors the audio seeding rule and for the same reason: a board that
@@ -434,18 +463,18 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
         {pendingCancellations.length > 0 && (
           <CancellationAlerts
             records={pendingCancellations}
+            timeZone={timeZone}
             onAcknowledge={handleAcknowledge}
           />
         )}
 
-        {activeCount === 0 ? (
-          <div className="kb-empty-all anim-rise">
-            <span className="kb-empty-all__icon">
-              <ChefHat size={30} strokeWidth={1.7} />
-            </span>
-            <p className="kb-empty-all__title">{t("kitchen.noActiveOrders", "No active orders")}</p>
-          </div>
-        ) : isCompactPortrait ? (
+        {/* Phase 96.1 §6 — the board is NEVER replaced by a centred empty
+            state. An empty kitchen still shows Received | Preparing | Ready
+            (or the status tabs), so the room keeps its spatial familiarity,
+            the layout does not transform the moment the last ticket clears,
+            and a new order has a stable place to appear in. Each column
+            carries its own light hint instead. */}
+        {isCompactPortrait ? (
           <PortraitBoard
             ordersByStatus={ordersByStatus}
             activeTab={activeTab}
@@ -475,6 +504,7 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
       {historyOpen && (
         <RecentlyCanceledModal
           records={acknowledgedCancellations}
+          timeZone={timeZone}
           onClose={() => setHistoryOpen(false)}
         />
       )}
@@ -569,9 +599,26 @@ function BoardColumn({ column, orders, now, updatingOrderId, enterKinds, onAdvan
   );
 }
 
-/* ── Persistent cancellation alerts (§17/§18) ────────────────────────────── */
-function CancellationAlerts({ records, onAcknowledge }) {
+/* The prior-state sentence, resolved in one place so the alert panel and the
+   history list can never word it differently.
+
+   Phase 96.1 §2 — a null prior status is reported as unavailable rather than
+   guessed. "Had not been started" would be a specific operational claim, and
+   making it up about an order whose history is missing could send a cook to
+   check a pan that was never on. */
+function usePriorStatusLabel() {
   const { t } = useLanguage();
+  return (priorStatus) => {
+    if (priorStatus === "preparing") return t("kitchen.wasAlreadyPreparing", "Was already being prepared");
+    if (priorStatus === "received") return t("kitchen.wasWaitingToStart", "Had not been started");
+    return t("kitchen.priorStatusUnavailable", "Previous status unavailable");
+  };
+}
+
+/* ── Persistent cancellation alerts (§17/§18) ────────────────────────────── */
+function CancellationAlerts({ records, timeZone, onAcknowledge }) {
+  const { t } = useLanguage();
+  const priorLabel = usePriorStatusLabel();
   return (
     <section className="kb-cancels anim-rise" role="alert" aria-live="polite">
       <div className="kb-cancels__head">
@@ -599,7 +646,7 @@ function CancellationAlerts({ records, onAcknowledge }) {
                 </span>
               </p>
               <p className="kb-cancel__meta">
-                {record.orderId} · {formatClock(record.canceledAt)}
+                {record.orderId} · {formatClock(record.canceledAt, timeZone)}
               </p>
 
               {/* §17 — being told it was ALREADY COOKING is the difference
@@ -607,11 +654,9 @@ function CancellationAlerts({ records, onAcknowledge }) {
               <p
                 className={`kb-cancel__state ${
                   record.priorStatus === "preparing" ? "kb-cancel__state--preparing" : ""
-                }`}
+                } ${!record.priorStatus ? "kb-cancel__state--unknown" : ""}`}
               >
-                {record.priorStatus === "preparing"
-                  ? t("kitchen.wasAlreadyPreparing", "Was already being prepared")
-                  : t("kitchen.wasWaitingToStart", "Had not been started")}
+                {priorLabel(record.priorStatus)}
               </p>
 
               {record.items?.length > 0 && (
@@ -641,8 +686,9 @@ function CancellationAlerts({ records, onAcknowledge }) {
 }
 
 /* ── Recently Canceled — read-only history for this business day (§19) ───── */
-function RecentlyCanceledModal({ records, onClose }) {
+function RecentlyCanceledModal({ records, timeZone, onClose }) {
   const { t } = useLanguage();
+  const priorLabel = usePriorStatusLabel();
   return (
     <Modal
       open
@@ -662,13 +708,10 @@ function RecentlyCanceledModal({ records, onClose }) {
               <span className="kb-history__table">
                 {t("customer.yourTable", "Table")} {record.tableNumber}
               </span>
-              <span className="kb-history__time">{formatClock(record.canceledAt)}</span>
+              <span className="kb-history__time">{formatClock(record.canceledAt, timeZone)}</span>
             </div>
             <p className="kb-history__meta">
-              {record.orderId} ·{" "}
-              {record.priorStatus === "preparing"
-                ? t("kitchen.wasAlreadyPreparing", "Was already being prepared")
-                : t("kitchen.wasWaitingToStart", "Had not been started")}
+              {record.orderId} · {priorLabel(record.priorStatus)}
             </p>
             {record.items?.length > 0 && (
               <p className="kb-history__items">
@@ -791,7 +834,15 @@ function KitchenLineItem({ line }) {
   }
 
   return (
-    <div className="kb-item">
+    /* §8 — each menu item is its own GROUP, not a paragraph in a run of text.
+       Phase 96 separated items by spacing alone, and a first item carrying
+       several choices, a removal and a long note ran straight into the second
+       product: the note looked like it belonged to whatever followed it.
+
+       The group now carries its own surface and a rule above it, and every
+       detail line is indented INSIDE that surface, so a modifier or note is
+       visibly attached to its own item. */
+    <div className="kb-item kb-item--group">
       <p className="kb-item__head">
         <span className="kb-item__qty">{line.quantity}×</span>
         <span className="kb-item__name">{line.name}</span>
@@ -941,11 +992,29 @@ function formatTimer(ms) {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
 
-/* Wall-clock time of a cancellation. Deliberately the device's locale-free
-   24h rendering: a kitchen reads a clock, not a date. */
-function formatClock(iso) {
+/* Wall-clock time of a cancellation, in the RESTAURANT's timezone (§3).
+
+   Phase 96 used the device clock, which meant a tablet left on another
+   timezone — or a manager checking in from abroad — read a cancellation time
+   that never happened in that kitchen. The fallback chain is the shared
+   helper's: configured zone → Asia/Amman.
+
+   24h and locale-free on purpose: a kitchen reads a clock, not a date. */
+function formatClock(iso, timeZone) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+  const parts = getRestaurantClockParts(timeZone, date, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  if (!parts) return "";
+
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  const hour = Number(get("hour"));
+  const minute = get("minute");
+  if (!Number.isFinite(hour) || minute === undefined) return "";
+  /* Some engines render midnight as "24" under hour12:false. */
+  return `${String(hour % 24).padStart(2, "0")}:${minute}`;
 }

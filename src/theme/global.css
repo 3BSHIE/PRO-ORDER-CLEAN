@@ -7689,10 +7689,13 @@ button{font-family:var(--font-body)}
   display:inline-flex;align-items:center;gap:4px;flex:none;
   font-size:10.5px;font-weight:800;letter-spacing:.08em;
   color:var(--canceled)}
+/* Phase 96.1 §7 — the strikethrough is GONE. Striking the ingredient made the
+   one word a cook must read at a glance the hardest word on the ticket, which
+   is the opposite of the intent. The meaning is still carried three ways
+   without touching the text itself: the word NO, the icon, and the tinted
+   container with its leading rule. */
 .kb-removal__value{
-  font-size:12.5px;font-weight:600;color:var(--text-1);
-  text-decoration:line-through;text-decoration-thickness:1.5px;
-  text-decoration-color:color-mix(in srgb,var(--canceled) 70%,transparent)}
+  font-size:12.5px;font-weight:600;color:var(--text-1)}
 
 /* ── Notes (§6) ─────────────────────────────────────────────────────────
    Preparation-critical, so never clamped, collapsed or hidden. Its own
@@ -7740,6 +7743,9 @@ button{font-family:var(--font-body)}
   font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 6px}
 /* Already on the heat is the fact that changes what the cook does next. */
 .kb-cancel__state--preparing{color:var(--preparing)}
+/* §2 — an unknown prior state is quieter than a known one and italic, so it
+   reads as missing information rather than as a third status. */
+.kb-cancel__state--unknown{color:var(--text-3);font-style:italic;font-weight:500}
 .kb-cancel__items{
   margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
 .kb-cancel__items li{font-size:12.5px;color:var(--text-1);line-height:1.45}
@@ -7778,6 +7784,37 @@ button{font-family:var(--font-body)}
 .kb-card__action .btn,
 .kb-cancel .btn{min-height:44px}
 .kitchen-login__rest{display:flex;justify-content:center;margin-bottom:6px}
+
+/* ── Item groups inside one ticket (§8) ─────────────────────────────────
+   A ticket with several products used to separate them by spacing alone. With
+   a first item carrying two choices, a removal and a three-line note, the
+   second product read as a continuation of the first — and worse, item one's
+   note looked like it introduced item two.
+
+   Each item is now a group on its own surface with a rule above it, and every
+   detail line sits INSIDE that surface. The attachment is structural, not
+   just visual: a note cannot appear to belong to the next item because it is
+   inside the previous item's box.
+
+   Deliberately restrained — a tinted panel and a divider, not a nested card
+   with its own shadow, which on a five-item ticket would be visual noise. */
+.kb-card__items{gap:0}
+.kb-item--group{
+  padding:10px 10px 10px 11px;border-radius:var(--r-sm);
+  background:color-mix(in srgb,var(--text-1) 3.5%,transparent);
+  border-inline-start:2px solid var(--border-strong)}
+/* The rule between products. Not on the first, so the group under the table
+   heading does not get a stray line above it. */
+.kb-item--group + .kb-item--group{
+  margin-top:10px;
+  border-top:1px solid var(--border);
+  border-start-start-radius:0;border-start-end-radius:0}
+/* The item name restarts the hierarchy each time. */
+.kb-item--group .kb-item__head{margin-bottom:2px}
+.kb-item--group .kb-item__qty{font-size:15px}
+.kb-item--group .kb-item__name{font-size:15px}
+/* Details indent under their own item so ownership is unambiguous. */
+.kb-item--group .kb-item__custom{margin-inline-start:14px;margin-top:4px}
 
 /* ── Landscape on a handheld (§23) ──────────────────────────────────────
    Same three columns, same information, same actions — only the scale comes
