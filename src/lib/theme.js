@@ -94,10 +94,65 @@ export function relativeLuminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/* Above this, a colour is "light" and needs dark text on top of it. Below,
-   light text. 0.45 sits comfortably either side of the default gold (~0.45
-   is near the perceptual midpoint for this palette). */
-const LIGHT_TEXT_THRESHOLD = 0.45;
+/* ── Readable foreground on a themed fill (Phase 97.1) ────────────────────
+   THE BUG THIS REPLACES: a single luminance threshold at 0.45 decided between
+   dark and light text. A threshold is not a contrast measurement, and this one
+   sat far from where the two candidates actually cross over (~0.196), so every
+   colour in between was given light text when dark text read better. Measured
+   on a mid green #2E9E6B: the threshold chose light at 3.19:1 where dark gives
+   5.52:1 — a colour a restaurant could plausibly pick, rendered barely legible.
+
+   So the choice is now made by COMPARING both candidates and keeping whichever
+   actually reads better, per WCAG relative luminance. One helper, used for
+   Primary, Secondary and the restaurant accent alike, so the three can never
+   disagree about what "readable on this colour" means.
+
+   The two candidates are warm rather than pure black/white: they belong to the
+   product's palette, and pure #fff on a brand colour reads as a different
+   design system. */
+const ON_COLOR_DARK = "#181203";
+const ON_COLOR_LIGHT = "#fff8e8";
+
+/**
+ * WCAG contrast ratio between two opaque colours. 1 = identical, 21 = max.
+ *
+ * @param {string} hexA
+ * @param {string} hexB
+ * @returns {number}
+ */
+export function contrastRatio(hexA, hexB) {
+  const a = relativeLuminance(hexA);
+  const b = relativeLuminance(hexB);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+/**
+ * The better-reading of the two foreground candidates for one or more
+ * backgrounds.
+ *
+ * Several backgrounds may be passed because a filled control is not always one
+ * flat colour: the primary button is a GRADIENT, and a foreground that is
+ * comfortable against its darker stop can be weak against its lighter one. The
+ * winner is therefore the candidate with the best WORST-CASE contrast across
+ * every surface it has to sit on, which is the only reading that guarantees
+ * the label stays legible along the whole fill.
+ *
+ * @param {...string} backgrounds — hex colours the text will sit on
+ * @returns {string} ON_COLOR_DARK or ON_COLOR_LIGHT
+ */
+export function readableForegroundOn(...backgrounds) {
+  const usable = backgrounds.filter(isValidHexColor);
+  if (usable.length === 0) return ON_COLOR_DARK;
+  const worstCase = (fg) => Math.min(...usable.map((bg) => contrastRatio(fg, bg)));
+  return worstCase(ON_COLOR_LIGHT) > worstCase(ON_COLOR_DARK) ? ON_COLOR_LIGHT : ON_COLOR_DARK;
+}
+
+/* The primary button's gradient stops, as ONE definition. The same numbers
+   build the CSS color-mix() strings below and the hex values the contrast
+   decision is made against, so the colour the label is judged against is
+   always the colour it is actually painted on. */
+const BTN_PRIMARY_LIGHTEN = 0.18; /* color-mix 82% primary, 18% white */
+const BTN_PRIMARY_DARKEN = 0.12;  /* color-mix 88% primary, 12% black */
 
 /* ── Customer brand-mark colour (Phase 83) ─────────────────────────────────
    The animated PRO·ORDER loading mark needs a colour of its own: the same
@@ -340,10 +395,14 @@ export function buildRestaurantThemeVars(settings) {
     vars["--btn-primary-from"] = `color-mix(in srgb, ${primary} 82%, #ffffff)`;
     vars["--btn-primary-to"] = `color-mix(in srgb, ${primary} 88%, #000000)`;
 
-    /* Text sitting ON the primary colour flips with its lightness, so a dark
-       brand colour does not end up with near-black label text. */
-    vars["--on-primary"] =
-      relativeLuminance(primary) > LIGHT_TEXT_THRESHOLD ? "#181203" : "#fff8e8";
+    /* Judged against the gradient's ACTUAL stops, not the raw primary — the
+       label has to stay readable across the whole button, and the lightest
+       stop is where light text fails first. */
+    vars["--on-primary"] = readableForegroundOn(
+      mixHex(primary, "#ffffff", BTN_PRIMARY_LIGHTEN),
+      mixHex(primary, "#000000", BTN_PRIMARY_DARKEN),
+      primary
+    );
 
     /* Phase 83 — the animated loading mark follows the restaurant's family
        too, so a venue on green does not get a gold PRO·ORDER mark. Emitted
@@ -392,8 +451,7 @@ export function buildRestaurantThemeVars(settings) {
        Restaurant Info sheet and the new secondary roles below are visibly the
        same colour rather than two different readings of one field. */
     vars["--restaurant-accent"] = secondary;
-    vars["--restaurant-accent-foreground"] =
-      relativeLuminance(secondary) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
+    vars["--restaurant-accent-foreground"] = readableForegroundOn(secondary);
     vars["--restaurant-accent-soft"] = `color-mix(in srgb, ${secondary} 18%, transparent)`;
     vars["--restaurant-accent-line"] = `color-mix(in srgb, ${secondary} 40%, transparent)`;
 
@@ -416,8 +474,10 @@ export function buildRestaurantThemeVars(settings) {
     vars["--secondary"] = secondary;
     vars["--secondary-soft"] = `color-mix(in srgb, ${secondary} 13%, transparent)`;
     vars["--secondary-line"] = `color-mix(in srgb, ${secondary} 38%, transparent)`;
-    vars["--on-secondary"] =
-      relativeLuminance(secondary) > LIGHT_TEXT_THRESHOLD ? "#141414" : "#f6f1e6";
+    /* Same helper as Primary. Secondary previously had its own near-duplicate
+       pair of candidates and its own copy of the threshold — two readings of
+       one question, which is exactly how the two colours drift apart. */
+    vars["--on-secondary"] = readableForegroundOn(secondary);
 
     vars["--border"] = `color-mix(in srgb, ${secondary} 15%, transparent)`;
     vars["--border-strong"] = `color-mix(in srgb, ${secondary} 32%, transparent)`;
