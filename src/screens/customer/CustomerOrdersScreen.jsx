@@ -43,19 +43,16 @@ const STATUS_SHORT_MESSAGE = {
   canceled:  "This order was canceled.",
 };
 
-/* Filter tabs: which order.status values count toward each tab */
-const FILTER_TABS = [
-  { key: "active",    label: "Active",    statuses: ["received", "preparing", "ready"] },
-  { key: "completed",  label: "Completed", statuses: ["delivered"] },
-  { key: "canceled",  label: "Canceled",  statuses: ["canceled"] },
-  { key: "all",       label: "All",       statuses: null }, // null = no filter
-];
-const FILTER_TAB_KEY = {
-  active: "orders.active",
-  completed: "orders.completed",
-  canceled: "status.canceled",
-  all: "common.all",
-};
+/* Phase 97.3 §10 — the Active / Completed / Canceled / All tab bar is gone,
+   and with it FILTER_TABS and FILTER_TAB_KEY.
+
+   A guest at one table places a handful of orders in one sitting, so the bar
+   was almost always four controls above one or two cards — and it defaulted
+   to "All", meaning its usual effect was to make the guest press a tab to
+   get back to what they were already looking at. Status still reaches them:
+   every card carries its own badge (§12).
+
+   Deliberately NOT replaced by a dropdown or any other filtering UI (§10). */
 const SHORT_MSG_KEY = {
   received: "orders.shortMsgReceived",
   preparing: "orders.shortMsgPreparing",
@@ -171,7 +168,6 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
   /* Phase 45 — for the restaurant's logo in the compact topbar identity. */
   const { settings } = useSettingsData(restaurant.slug);
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
-  const [activeTab, setActiveTab] = useState("all");
   const { t } = useLanguage();
 
   const refresh = useCallback(() => {
@@ -218,13 +214,15 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
     [allOrders, sSlug, sToken, sTable, sKey]
   );
 
-  const activeTabDef = FILTER_TABS.find((tab) => tab.key === activeTab);
+  /* Phase 97.3 §11 — one list, newest first. The status filter is gone; the
+     SORT and the ownership rules above are untouched, so which orders a guest
+     can see is decided by exactly the same code as before (§11).
+
+     myOrders is already this guest's orders, so there is nothing left between
+     it and the list but the ordering. */
   const visibleOrders = useMemo(
-    () =>
-      myOrders
-        .filter((o) => !activeTabDef.statuses || activeTabDef.statuses.includes(o.status))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), // newest first
-    [myOrders, activeTabDef]
+    () => [...myOrders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [myOrders]
   );
 
   return (
@@ -257,33 +255,20 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
           <h2 className="orders-header__title">{t("customer.myOrders", "My Orders")}</h2>
         </header>
 
+        {/* Phase 97.3 §10/§11 — the tab bar and the "no orders in this
+            category" line went together: with no categories left, a guest who
+            has orders always has a list to look at, so the only empty case is
+            the real one below. The list keeps its own delay; the 60ms step
+            the tabs occupied simply closes up, leaving no gap where they
+            were (§19). */}
         {myOrders.length === 0 ? (
           <EmptyOrdersView onBackToMenu={onBackToMenu} />
         ) : (
-          <>
-            <div className="orders-tabs anim-rise" style={{ animationDelay: "60ms" }}>
-              {FILTER_TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={`orders-tab ${activeTab === tab.key ? "orders-tab--active" : ""}`}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  {t(FILTER_TAB_KEY[tab.key], tab.label)}
-                </button>
-              ))}
-            </div>
-
-            {visibleOrders.length === 0 ? (
-              <p className="orders-tab-empty">{t("orders.noOrdersInCategory", "No orders in this category yet.")}</p>
-            ) : (
-              <div className="orders-list anim-rise" style={{ animationDelay: "100ms" }}>
-                {visibleOrders.map((order) => (
-                  <OrderCard key={order.orderId} order={order} onTrackOrder={onTrackOrder} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="orders-list anim-rise" style={{ animationDelay: "60ms" }}>
+            {visibleOrders.map((order) => (
+              <OrderCard key={order.orderId} order={order} onTrackOrder={onTrackOrder} />
+            ))}
+          </div>
         )}
 
         <CustomerFooter />
@@ -462,9 +447,10 @@ function EmptyOrdersView({ onBackToMenu }) {
       <span className="orders-empty__icon">
         <ClipboardList size={30} strokeWidth={1.7} />
       </span>
-      <h2 className="orders-empty__title">{t("orders.noOrdersYet", "You don't have any orders yet.")}</h2>
+      {/* Phase 97.3 §15 — approved empty-state copy. */}
+      <h2 className="orders-empty__title">{t("orders.noOrdersYet", "No orders yet")}</h2>
       <p className="orders-empty__sub">
-        {t("orders.trackHereMsg", "Once you place an order, you'll be able to track it here.")}
+        {t("orders.trackHereMsg", "Your orders will appear here.")}
       </p>
       <Button size="lg" icon={ArrowLeft} onClick={onBackToMenu}>
         {t("common.backToMenu", "Back to menu")}

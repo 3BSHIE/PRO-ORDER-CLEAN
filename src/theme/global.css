@@ -917,7 +917,13 @@ button{font-family:var(--font-body)}
 .cart-header__meta{font-size:13.5px;color:var(--text-2);margin:0}
 
 /* extra bottom padding so the sticky bottom bar never covers content */
-.container--with-cart-bar{padding-bottom:120px}
+/* Phase 97.3 — the sticky cart bar is position:fixed and its height now
+   varies (one action row or two, with or without a blocking notice), so the
+   space reserved for it is measured rather than assumed. The fallback is the
+   old constant, which is what applies for the frame before the measurement
+   lands and on any engine without ResizeObserver. The +24px is breathing room
+   between the last content and the bar, not part of the bar. */
+.container--with-cart-bar{padding-bottom:calc(var(--cart-bar-h, 120px) + 24px)}
 
 /* line item list */
 .cart-lines{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
@@ -949,7 +955,12 @@ button{font-family:var(--font-body)}
   display:flex;align-items:baseline;justify-content:space-between;
   margin-top:10px;gap:8px}
 .cart-line__unit-price{font-size:11.5px;color:var(--text-3)}
+/* Phase 97.3 §7 — the unit price is now conditional, and space-between with
+   a single child would have parked the total at the START of the row. The
+   auto margin keeps the total on the row's end in both cases, and being a
+   LOGICAL margin it is the left edge under dir="rtl" without a second rule. */
 .cart-line__line-total{
+  margin-inline-start:auto;
   font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--gold-ink)}
 
 .cart-line__bottom{
@@ -1000,6 +1011,27 @@ button{font-family:var(--font-body)}
 .cart-bottom-bar__total-value{
   font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--gold-ink)}
 .cart-bottom-bar__inner .btn{flex:1;width:auto}
+
+/* ── Phase 97.3 §5/§6 — the cart's two exits ─────────────────────────────
+   Add More Items and Continue to Checkout share one action area inside the
+   sticky bar, beside the total. (The blocking notice still takes its own
+   full-width line above them — that rule is further down and unchanged.)
+
+   They are sized by their own content rather than switched by a breakpoint:
+   each asks for a basis wide enough for its label, so when the row cannot
+   seat the pair the row wraps and each takes a full line. On a 320px phone
+   that is a stack; from roughly a large phone upward they sit side by side.
+
+   The primary asks for more of the free space than the secondary, so side by
+   side it stays visibly the larger of the two (§5 — the secondary must not
+   compete). It is also LAST, which puts it on the lower line when they stack
+   — the end of the reading order and nearest the thumb. */
+.cart-bottom-bar__actions{
+  flex:1 1 auto;min-width:0;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.cart-bottom-bar__actions .btn{min-width:0}
+.cart-bottom-bar__actions .btn--outline{flex:1 1 150px}
+.cart-bottom-bar__actions .btn--primary{flex:1.6 1 180px}
 @media(max-width:480px){
   .cart-bottom-bar__total-label{display:none}
 }
@@ -1212,23 +1244,12 @@ button{font-family:var(--font-body)}
   font-family:var(--font-display);font-size:clamp(24px,5vw,30px);
   font-weight:700;color:var(--text-1);margin:0}
 
-/* status filter tabs */
-.orders-tabs{
-  display:flex;gap:8px;overflow-x:auto;margin-bottom:20px;
-  padding-bottom:2px;scrollbar-width:none}
-.orders-tabs::-webkit-scrollbar{display:none}
-.orders-tab{
-  padding:8px 16px;border-radius:999px;border:1px solid var(--border);
-  background:transparent;color:var(--text-2);cursor:pointer;
-  font-family:var(--font-body);font-size:13px;font-weight:500;
-  white-space:nowrap;transition:border-color .18s,color .18s,background .18s}
-.orders-tab:hover{border-color:var(--border-strong);color:var(--text-1)}
-.orders-tab--active{
-  background:var(--gold-soft);border-color:var(--gold-line);
-  color:var(--gold-ink);font-weight:600}
-.orders-tab-empty{
-  text-align:center;color:var(--text-3);font-size:13.5px;
-  padding:40px 20px}
+/* Phase 97.3 §10/§19 — the status filter tabs are gone, and so is every rule
+   that sized, spaced or coloured them (.orders-tabs, .orders-tab,
+   .orders-tab--active, .orders-tab-empty, plus their RTL, touch-target and
+   tablet-width rules further down). Leaving them behind is what would have
+   left "empty space where the tabs were": .orders-tabs carried a 20px bottom
+   margin of its own. */
 
 /* order list + card */
 .orders-list{display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
@@ -1808,8 +1829,7 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .btn,
 [dir="rtl"] .chip,
 [dir="rtl"] .ad-nav__item,
-[dir="rtl"] .kb-column__header,
-[dir="rtl"] .orders-tab{
+[dir="rtl"] .kb-column__header{
   flex-direction:row} /* icon+label pairs stay in reading order via gap, not margin */
 
 /* Things that should ALWAYS stay LTR even inside an Arabic/RTL page:
@@ -3047,10 +3067,10 @@ button{font-family:var(--font-body)}
 .customer-theme .btn--sm,
 .customer-theme .btn--md{min-height:44px}
 
-/* These four are plain <button>s with no display of their own; giving them
-   inline-flex centring means the added height grows around the label
-   instead of letting it drift off-centre. */
-.customer-theme .orders-tab,
+/* A plain <button> with no display of its own; inline-flex centring means the
+   added height grows around the label instead of letting it drift
+   off-centre. (Phase 97.3 — .orders-tab was the other member of this rule
+   until the My Orders filter bar was removed.) */
 .customer-theme .lang-switcher__option{
   min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 
@@ -6326,9 +6346,11 @@ button{font-family:var(--font-body)}
 /* ── §1/§21 — the column ─────────────────────────────────────────────────
    .orders-list is already capped at 620px and centred. The tabs above it were
    not, so on a tablet the filter row ran the full container width while the
-   cards under it stopped short — the list looked mis-hung. Same cap, same
-   centring, so the two edges line up. */
-.orders-tabs{max-width:620px;margin-inline:auto}
+   cards under it stopped short — the list looked mis-hung.
+
+   Phase 97.3 — the tab row was removed, so the rule that re-hung it went too;
+   the list keeps its own cap and centring, which is all that is left to
+   align. */
 
 /* ── §4 — lifecycle weight ───────────────────────────────────────────────
    Three tiers, and the difference is deliberately carried by the SURFACE

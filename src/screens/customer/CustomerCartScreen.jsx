@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, ShoppingCart, AlertTriangle, Pencil, StickyNote } from "lucide-react";
+import { ArrowLeft, ShoppingCart, AlertTriangle, Pencil, StickyNote, Plus } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -11,6 +11,7 @@ import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import CallStaffButton    from "./components/CallStaffButton.jsx";
 import LanguageSwitcher   from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
+import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { resolveCustomerAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
@@ -73,6 +74,12 @@ export default function CustomerCartScreen({
   const session = getCustomerSession();
   const result  = resolveCustomerAccess(restaurantSlug, qrToken, session);
   const { t } = useLanguage();
+
+  /* Phase 97.3 §1/§2 — arriving at the cart shows the cart, not its total.
+     Called here rather than inside CartShell so it covers every entry to
+     this route, including the gated ones below, and so it is the SCREEN
+     that owns the policy. See the hook for the measured cause. */
+  useScrollToTopOnEnter();
 
   /* Phase 93.1 — identity by tableId, not by token.
      The old comparison (session.qrToken === qrToken) made the entry
@@ -204,6 +211,43 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     : null;
 
   const isEmpty = cart.length === 0;
+
+  /* Phase 97.3 — reserve exactly as much room as the sticky bar takes.
+
+     The bar is position:fixed, so it occupies no layout space and the page
+     has to reserve it by hand; .container--with-cart-bar did that with a
+     flat 120px, tuned when the bar was one row of total + button.
+
+     It is not one row any more. The two actions sit side by side on a
+     390px phone (bar 120px) and stack on a 320px one (measured: 179.5px),
+     and the bar grows again whenever a blocking notice appears above them.
+     At 320px the flat reservation left the attribution footer behind the
+     bar. No constant is right for all of those, and a generous one would
+     leave dead space below the footer on every wider screen.
+
+     So the real element is measured and publishes its height. This also
+     covers the cases a breakpoint would miss: an Arabic label that wraps
+     at a different width, and a notice appearing while the guest is on the
+     screen. Cleared on unmount so no other screen inherits the value. */
+  const bottomBarRef = useRef(null);
+  useEffect(() => {
+    const el = bottomBarRef.current;
+    const root = document.documentElement;
+    if (!el) {
+      root.style.removeProperty("--cart-bar-h");
+      return undefined;
+    }
+    const apply = () => root.style.setProperty("--cart-bar-h", el.offsetHeight + "px");
+    apply();
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    if (observer) observer.observe(el);
+    return () => {
+      if (observer) observer.disconnect();
+      root.style.removeProperty("--cart-bar-h");
+    };
+  }, [isEmpty]);
+
   const subtotal = getCartTotal(cart);
   /* Phase 23 — a restaurant can override its service charge % in Settings;
      null/unset means "use the platform default" (restaurant.serviceChargePercent). */
@@ -675,7 +719,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
 
       {/* ── Sticky bottom payment bar ─────────────────────────────────── */}
       {!isEmpty && (
-        <div className="cart-bottom-bar">
+        <div className="cart-bottom-bar" ref={bottomBarRef}>
           <div className="cart-bottom-bar__inner">
             {/* Phase 79 §19/§20 — the cart is kept intact and only checkout
                 is stopped, so the bar states why rather than presenting a
@@ -707,17 +751,38 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
               <span className="cart-bottom-bar__total-label">{t("common.total", "Total")}</span>
               <span className="cart-bottom-bar__total-value">{fmtPrice(total)}</span>
             </div>
-            <Button
-              size="lg"
-              full
-              onClick={handlePayClick}
-              disabled={!validation.canCheckout || !acceptingOrders}
-            >
-              {/* §28/§30 — "Continue to Checkout", not Place Order. This
-                   button only opens the existing Payment Method flow; Unit 5
-                   still owns payment selection and order submission. */}
-              {t("cart.continueToCheckout", "Continue to checkout")}
-            </Button>
+            {/* Phase 97.3 §4/§5/§6 — the two cart exits, in one action area.
+
+                Add More Items is the SECONDARY of the pair and is drawn as
+                one: outline against the primary's filled gradient, and a
+                smaller flex share when the two sit side by side. It is a
+                real button with a full label and the same 48px target, not
+                a text link (§5).
+
+                It reuses onBackToMenu — the identical navigation the topbar
+                back control already performs — so nothing is written, reset
+                or recreated on the way out: the cart lives in sessionStorage
+                and is simply left where it is, with its quantities, notes and
+                customizations intact (§4).
+
+                Secondary first so the primary ends the row, which is also
+                what puts the primary on the lower line when the row wraps on
+                a narrow phone — nearest the thumb. */}
+            <div className="cart-bottom-bar__actions">
+              <Button variant="outline" size="lg" icon={Plus} onClick={onBackToMenu}>
+                {t("cart.addMoreItems", "Add More Items")}
+              </Button>
+              <Button
+                size="lg"
+                onClick={handlePayClick}
+                disabled={!validation.canCheckout || !acceptingOrders}
+              >
+                {/* §28/§30 — "Continue to Checkout", not Place Order. This
+                     button only opens the existing Payment Method flow; Unit 5
+                     still owns payment selection and order submission. */}
+                {t("cart.continueToCheckout", "Continue to checkout")}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -932,8 +997,16 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
             </div>
           )}
 
+          {/* Phase 97.3 §7 — the unit price earns its place only when it
+              differs from the line total. At quantity 1 "JOD 8.500 each"
+              sat beside "JOD 8.500" and restated it in weaker type; above
+              1 it is the arithmetic behind the total and worth printing.
+              The hierarchy itself is untouched (§9): same two slots, same
+              sizes, same colours — one of them is now conditional. */}
           <div className="cart-line__price-row">
-            <span className="cart-line__unit-price">{fmtPrice(line.unitPrice)} {t("common.each", "each")}</span>
+            {line.quantity > 1 && (
+              <span className="cart-line__unit-price">{fmtPrice(line.unitPrice)} {t("common.each", "each")}</span>
+            )}
             <span className="cart-line__line-total">{fmtPrice(line.lineTotal)}</span>
           </div>
         </div>

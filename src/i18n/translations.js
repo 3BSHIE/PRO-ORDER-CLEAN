@@ -703,11 +703,11 @@ export const translations = {
       canceledContactStaff: "Please contact staff if you need assistance.",
       viewOrderTracking: "View order tracking",
       orderTracking: "Order tracking",
-      noOrdersYet: "You don't have any orders yet.",
-      active: "Active",
-      completed: "Completed",
-      noOrdersInCategory: "No orders in this category yet.",
-      trackHereMsg: "Once you place an order, you'll be able to track it here.",
+      /* Phase 97.3 §15 — approved empty-state copy. orders.active,
+         orders.completed and orders.noOrdersInCategory were removed with the
+         filter tab bar; they had no other call site. */
+      noOrdersYet: "No orders yet",
+      trackHereMsg: "Your orders will appear here.",
       orderNotFound: "Order not found",
       orderNotFoundMsg: "We couldn't find this order. It may have been cleared, or the link may be incorrect.",
       orderDetails: "Order details",
@@ -941,6 +941,9 @@ export const translations = {
          quantity controls' product-scoped accessible names. */
       yourCart: "Your cart",
       continueToCheckout: "Continue to checkout",
+      /* Phase 97.3 §4 — the cart's secondary exit, back to the menu with the
+         cart left exactly as it is. */
+      addMoreItems: "Add More Items",
       removeFromCart: "Remove {name} from cart",
       decreaseFor: "Decrease quantity for {name}",
       increaseFor: "Increase quantity for {name}",
@@ -1028,7 +1031,7 @@ export const translations = {
       notes: "ملاحظات",
       extrasLabel: "إضافات",
       noteLabel: "ملاحظة",
-      each: "للقطعة",
+      each: "لكل صنف",
       search: "بحث",
       clearCart: "تفريغ السلة (للتجربة فقط)",
       clearSession: "إنهاء الجلسة (للتجربة فقط)",
@@ -1596,11 +1599,8 @@ export const translations = {
       canceledContactStaff: "يرجى التواصل مع الموظف إذا احتجت إلى مساعدة.",
       viewOrderTracking: "عرض تتبع الطلب",
       orderTracking: "تتبع الطلب",
-      noOrdersYet: "لا توجد طلبات بعد.",
-      active: "نشطة",
-      completed: "مكتملة",
-      noOrdersInCategory: "لا توجد طلبات في هذه الفئة بعد.",
-      trackHereMsg: "بمجرد أن تضع طلباً، ستتمكن من تتبعه هنا.",
+      noOrdersYet: "ما عندك طلبات لسا",
+      trackHereMsg: "طلباتك رح تظهر هون.",
       orderNotFound: "الطلب غير موجود",
       orderNotFoundMsg: "لم نتمكن من العثور على هذا الطلب. ربما تم مسحه، أو أن الرابط غير صحيح.",
       orderDetails: "تفاصيل الطلب",
@@ -1808,6 +1808,7 @@ export const translations = {
     cart: {
       yourCart: "سلتك",
       continueToCheckout: "المتابعة إلى الدفع",
+      addMoreItems: "أضف أصناف ثانية",
       removeFromCart: "إزالة {name} من السلة",
       decreaseFor: "إنقاص كمية {name}",
       increaseFor: "زيادة كمية {name}",
