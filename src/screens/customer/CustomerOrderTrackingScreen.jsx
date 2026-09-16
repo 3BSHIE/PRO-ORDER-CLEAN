@@ -19,6 +19,8 @@ import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import LanguageSwitcher   from "../../components/i18n/LanguageSwitcher.jsx";
+import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -185,6 +187,8 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
      order's own frozen restaurantName stays the fallback, so an order placed
      before a rename still resolves to something sensible. */
   const { settings } = useSettingsData(restaurantSlug);
+  /* Phase 97.2 §3 — same source as the menu and the cart. */
+  const enabledLanguages = resolveEnabledLanguages(settings.languagesEnabled);
   const [order, setOrder] = useState(() => getOrderById(orderId));
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -254,17 +258,27 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
   return (
     <>
       <Topbar
+        className="topbar--customer-deep"
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
             <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
           </button>
         }
+        /* Phase 97.2 §3 — Language only. Tracking is the screen a guest sits
+           on longest, and it is where a shared phone is most likely to change
+           hands, so the switch has to be reachable without abandoning the
+           order. Call Staff is deliberately NOT duplicated here: this screen
+           already renders one inside TrackingView, and a second trigger for
+           the same call in the same viewport would read as two requests. */
         right={
-          <RestaurantIdentity
-            name={resolveRestaurantDisplayName(settings, order, restaurantSlug)}
-            logoUrl={settings.logoUrl}
-            variant="compact"
-          />
+          <div className="cust-topbar-right">
+            <LanguageSwitcher variant="compact" enabled={enabledLanguages} />
+            <RestaurantIdentity
+              name={resolveRestaurantDisplayName(settings, order, restaurantSlug)}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
         }
       />
       <main className="container">

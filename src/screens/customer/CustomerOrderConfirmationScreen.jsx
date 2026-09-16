@@ -143,7 +143,12 @@ export default function CustomerOrderConfirmationScreen({
             variant="compact"
           />
         }
-        right={<Badge tone="gold">{t("orders.orderBadge", "Order")}</Badge>}
+        /* Phase 97.2 §7 — the "Order" badge is gone. It named the screen the
+           guest was already on, in a bar that sits above a page whose own
+           heading says the same thing more usefully, and it burned the one
+           high-contrast Primary chip on a label carrying no information.
+           Nothing replaces it: the identity keeps the bar on its own. The
+           orders.orderBadge key stays — Admin Live Orders still uses it. */
       />
       <main className="container">
         {visibleOrder ? (

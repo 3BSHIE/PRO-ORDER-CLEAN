@@ -8,6 +8,9 @@ import Toast   from "../../components/ui/Toast.jsx";
 import QuantityStepper from "../../components/ui/QuantityStepper.jsx";
 import PaymentMethodModal from "./components/PaymentMethodModal.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
+import CallStaffButton    from "./components/CallStaffButton.jsx";
+import LanguageSwitcher   from "../../components/i18n/LanguageSwitcher.jsx";
+import { resolveEnabledLanguages } from "../../i18n/language.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { resolveCustomerAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
@@ -150,6 +153,10 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
   const [editingLineId, setEditingLineId] = useState(null);
   const { t } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
+  /* Phase 97.2 §2 — the same source the menu reads, so a language the
+     restaurant has switched off is absent here too. LanguageSwitcher
+     renders nothing at all when fewer than two remain. */
+  const enabledLanguages = resolveEnabledLanguages(settings.languagesEnabled);
 
   /* Phase 34 — synchronous lock around order creation. Held for the life of
      this screen instance once an order succeeds, so taps landing during the
@@ -550,17 +557,38 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
           topbar, and printing it twice on one viewport was the exact
           repetition this phase set out to remove. */}
       <Topbar
+        className="topbar--customer-deep"
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
             <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
           </button>
         }
+        /* Phase 97.2 §2 — Language and Call Staff join the identity on this
+           side. Until now both were reachable only from the menu: a guest
+           who arrived at the cart in the wrong language had to leave the
+           screen to change it, and one who needed a waiter while reviewing
+           the order had the same problem, on the screen where hesitation is
+           most likely. Call Staff is the SAME component the menu uses and
+           reads the same live staff-call list, so this adds a PLACE to press
+           it, not a second mechanism — an open call raised on the menu shows
+           as already-called here. The identity stays last so the venue keeps
+           the corner it has always held. */
         right={
-          <RestaurantIdentity
-            name={settings.name.trim() || restaurant.name}
-            logoUrl={settings.logoUrl}
-            variant="compact"
-          />
+          <div className="cust-topbar-right">
+            <CallStaffButton
+              restaurantSlug={restaurant.slug}
+              tableId={table.id}
+              tableNumber={table.tableNumber}
+              customerName={session.customerName}
+              variant="compact"
+            />
+            <LanguageSwitcher variant="compact" enabled={enabledLanguages} />
+            <RestaurantIdentity
+              name={settings.name.trim() || restaurant.name}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
         }
       />
 

@@ -295,8 +295,35 @@ button{font-family:var(--font-body)}
 
 /* ══ Phase 3 — Customer Menu Shell ════════════════════════════════════════ */
 
-/* topbar right cluster */
-.menu-topbar-right{display:flex;align-items:center;gap:10px}
+/* topbar right cluster.
+
+   Phase 97.2 §2/§3 — Cart and Tracking grew the same kind of cluster (both
+   gained Language, Cart also Call Staff, beside the restaurant identity), so
+   they share this rule and the responsive tightening further down rather
+   than each inventing a private one that would drift. */
+.menu-topbar-right,
+.cust-topbar-right{display:flex;align-items:center;gap:10px}
+/* Only the new cluster is shrinkable. The menu bar keeps exactly the flex
+   behaviour Phase 73 tuned for it — this phase does not touch it (§19). */
+.cust-topbar-right{min-width:0}
+/* The identity is the only item here that can be long, so it is the one that
+   gives way: it shrinks and ellipses while the controls keep their hit area. */
+.cust-topbar-right .rest-identity--compact{min-width:0;flex:0 1 auto}
+
+/* ── Cart / Tracking: the header row must not wrap ────────────────────────
+   Those two headers now carry the back control, a control cluster AND the
+   identity on one line. Under 640px .topbar__inner is allowed to wrap — a
+   Phase-91.2 safety valve written for the Admin bar, but that selector is
+   global — and here wrapping is the wrong outcome: measured at 320px with a
+   long restaurant name, the sticky bar went from 61px to 113px, a permanent
+   14% of the viewport on the screen where the guest reads their own order.
+
+   So this row does not wrap. The back control and the two controls hold
+   their size; the identity is the only variable-width item, so it absorbs
+   the shrinkage and ellipses, which it was already built to do. */
+.topbar--customer-deep .topbar__inner{flex-wrap:nowrap}
+.topbar--customer-deep .cart-back-btn{flex:none}
+.topbar--customer-deep .cust-topbar-right{flex:0 1 auto}
 .menu-table-pill{font-size:11.5px;font-weight:700;letter-spacing:.06em;
   color:var(--text-2);white-space:nowrap;
   background:var(--surface-2);border:1px solid var(--border);
@@ -309,8 +336,16 @@ button{font-family:var(--font-body)}
    greeting folded into the meta, so the guest reaches food sooner without the
    header feeling crowded. */
 .menu-header{padding:18px 0 14px}
-.menu-header__meta{font-size:13.5px;color:var(--text-2);margin:8px 0 0}
-.menu-header__meta i{font-style:normal;font-weight:600;color:var(--text-1)}
+/* Phase 97.2 §1 — the guest's own name is the personal half of this line;
+   "Hi," is only grammar. So the prefix steps BACK and the name steps
+   FORWARD, and it does that on size and weight in NEUTRAL ink — never on
+   the Primary colour. The restaurant identity already owns Primary in the
+   sticky bar directly above, and a second Primary line underneath competes
+   for the same rank instead of sitting below it. No badge, no card, no
+   headline sizing: one notch up, not a hero. */
+.menu-header__meta{font-size:12.5px;color:var(--text-3);margin:8px 0 0}
+.menu-header__meta i{font-style:normal;font-size:17px;font-weight:700;
+  color:var(--text-1);letter-spacing:-.01em}
 
 /* search bar */
 .menu-search{position:relative;margin-bottom:20px}
@@ -1160,10 +1195,19 @@ button{font-family:var(--font-body)}
 .orders-header__rest{font-size:11px;font-weight:700;letter-spacing:.24em;
   text-transform:uppercase;color:var(--gold-ink);margin:0 0 8px}
 .orders-header__table{font-size:12px;color:var(--text-3);margin:0 0 14px}
+/* Phase 97.2 §1 — the same rank change as the menu greeting, and here it
+   also removes a real conflict: the name was painted in --gold-ink, i.e.
+   the restaurant Primary, two lines under .orders-header__rest which is
+   ALSO Primary. The name now carries neutral --text-1 and keeps the display
+   italic, which is what makes it read as personal rather than as a label;
+   the prefix drops to a quiet supporting size, so the name gains prominence
+   WITHOUT growing — its clamp is unchanged from before this phase. */
 .orders-header__greeting{
-  font-family:var(--font-display);font-size:clamp(20px,4.5vw,26px);
-  font-weight:700;color:var(--text-1);margin:0 0 4px}
-.orders-header__greeting i{font-style:italic;color:var(--gold-ink)}
+  font-family:var(--font-display);font-size:clamp(14px,3.2vw,16px);
+  font-weight:600;color:var(--text-3);margin:0 0 4px}
+.orders-header__greeting i{
+  font-style:italic;font-size:clamp(20px,4.5vw,26px);
+  font-weight:700;color:var(--text-1)}
 .orders-header__title{
   font-family:var(--font-display);font-size:clamp(24px,5vw,30px);
   font-weight:700;color:var(--text-1);margin:0}
@@ -1815,6 +1859,30 @@ button{font-family:var(--font-body)}
    box grew to 44px around a 34px face. */
 [dir="rtl"] .pm-modal__x{right:auto;left:9px}
 [dir="rtl"] .ad-stat__dot{right:auto;left:16px}
+
+/* ══ Phase 97.2 §8/§9 — DIRECTIONAL ICONS MIRROR IN RTL ══════════════════
+   Flexbox already moved the back control to the opposite side under
+   dir="rtl", but the GLYPH kept pointing left: in Arabic the button sat on
+   the right of the bar and still aimed away from the content it returns to.
+   Position was never the bug — orientation was.
+
+   One rule fixes it everywhere, keyed on the class lucide-react stamps onto
+   every icon it renders (lucide-arrow-left, lucide-chevron-right, ...).
+   That is what makes it central rather than scattered: it reaches icons this
+   app cannot otherwise address — Button renders <Icon> with no className of
+   its own — and the next directional icon anyone adds is correct on arrival
+   instead of needing a transform of its own.
+
+   Scope is deliberately the four HORIZONTAL arrows. Those encode reading
+   direction and nothing else, so mirroring them is always right. Icons that
+   must NOT mirror are left alone: ArrowUpRight on the Home nav cards is an
+   "opens this" affordance rather than a back/forward move (and it carries
+   its own hover translate, which a transform here would silently fight),
+   and Check / BellRing / Play have no direction to reverse. */
+[dir="rtl"] .lucide-arrow-left,
+[dir="rtl"] .lucide-arrow-right,
+[dir="rtl"] .lucide-chevron-left,
+[dir="rtl"] .lucide-chevron-right{transform:scaleX(-1)}
 
 /* ══ Phase 21 — Admin Menu Management (Categories & Products) ═══════════════ */
 
@@ -3389,8 +3457,14 @@ button{font-family:var(--font-body)}
    aria-label in that state, so nothing is lost to assistive tech — only the
    redundant visible text, which the icons already carry. */
 @media(max-width:480px){
-  .menu-topbar-right{gap:6px}
-  .menu-topbar-right .btn--sm{padding-inline:10px}
+  .menu-topbar-right,
+  .cust-topbar-right{gap:6px}
+  .menu-topbar-right .btn--sm,
+  .cust-topbar-right .btn--sm{padding-inline:10px}
+  /* Cart and Tracking put the identity in the SAME row as the controls, so
+     on a phone it yields more width than on the screens where it sits alone.
+     It already truncates with an ellipsis, so this costs no layout. */
+  .cust-topbar-right .rest-identity--compact{max-width:34vw}
   .menu-orders-label{display:none}
   .call-staff--compact{padding:7px;gap:0}
   .call-staff--compact .call-staff__label{display:none}
