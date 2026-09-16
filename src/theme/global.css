@@ -4623,17 +4623,25 @@ button{font-family:var(--font-body)}
      --border-strong are themed from the same colour in theme.js, which is
      what carries Secondary across cards, inputs, outline buttons and
      dividers in all four products without recolouring a single component. */
-  --secondary:#a89f8a;
-  /* Phase 97.1 — Secondary used as TEXT. Identical to --secondary here, so
-     dark renders exactly as before; only the light block darkens it. Same
-     shape as --gold-ink, and for the same reason. */
-  --secondary-ink:var(--secondary);
+  /* Phase 97.1.1 — --secondary is now the RAW restaurant choice; the
+     legibility-adjusted form lives in --secondary-accent, and every derived
+     role below builds from THAT. These defaults mirror the shipped accent
+     (#0d0d0d) and its derived form, so an unthemed restaurant is unchanged. */
+  --secondary:#0d0d0d;
+  --secondary-accent:#a89f8a;
+  /* Secondary used as TEXT. Derived from the legible accent, never from the
+     raw colour — the shipped raw accent is near-black and would vanish on a
+     dark card. Identical to --secondary-accent here, so dark is unchanged;
+     only the light block darkens it. */
+  --secondary-ink:var(--secondary-accent);
   --secondary-soft:rgba(255,255,255,.06);
   --secondary-line:rgba(255,255,255,.15);
   /* Phase 97.1 — was #141414. The shared readableForegroundOn() helper picks
      #181203 for the default secondary, and a default that disagrees with the
      derived value is exactly the drift the helper exists to remove. */
-  --on-secondary:#181203}
+  /* Computed against the RAW secondary (#0d0d0d), which is what a filled
+     Secondary surface would paint — near-black, so light text. */
+  --on-secondary:#fff8e8}
 
 /* ── The animated mark — the ORIGINAL artwork (Phase 83.1, Finding #3) ─────
 
@@ -7409,7 +7417,7 @@ button{font-family:var(--font-body)}
    first and rejected: it left a pale primary at 2.81:1. Gold itself ends at
    7.9:1 — a deep bronze rather than a bright gold, which is the deliberate
    cost of keeping every possible brand colour legible. */
-.restaurant-theme{--gold-ink:var(--gold)}
+.restaurant-theme{--gold-ink:var(--gold);--secondary-ink:var(--secondary-accent)}
 :root[data-appearance="light"],
 :root[data-appearance="light"] .restaurant-theme{
   --gold-ink:color-mix(in srgb,var(--gold) 36%,#241a02);
@@ -7421,7 +7429,7 @@ button{font-family:var(--font-body)}
   /* The fallback matters: --secondary is declared on .restaurant-theme, not
      on :root, so outside a themed subtree var(--secondary) would be invalid
      and take the whole color-mix (and the text colour) with it. */
-  --secondary-ink:color-mix(in srgb,var(--secondary,#a89f8a) 36%,#241a02)}
+  --secondary-ink:color-mix(in srgb,var(--secondary-accent,#a89f8a) 36%,#241a02)}
 
 /* ── The app's ambient glow ──────────────────────────────────────────────
    `.app` paints two large radial gold washes sized for a near-black page. On

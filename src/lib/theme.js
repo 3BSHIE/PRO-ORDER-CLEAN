@@ -113,6 +113,18 @@ export function relativeLuminance(hex) {
 const ON_COLOR_DARK = "#181203";
 const ON_COLOR_LIGHT = "#fff8e8";
 
+/* Phase 97.1.1 — the escape hatch. The warm pair belongs to the palette, but
+   it is warm precisely because it is not maximal, and on a saturated mid-tone
+   that costs contrast the label cannot afford. Measured on #2E9E6B: the warm
+   dark reaches 4.39:1, pure black 4.94:1. Readability outranks a warm tint on
+   a filled control, so these are used whenever the preferred pair falls short
+   of the target. */
+const ON_COLOR_DARK_MAX = "#000000";
+const ON_COLOR_LIGHT_MAX = "#ffffff";
+
+/* WCAG AA for normal text. */
+const CONTRAST_TARGET = 4.5;
+
 /**
  * WCAG contrast ratio between two opaque colours. 1 = identical, 21 = max.
  *
@@ -137,14 +149,35 @@ export function contrastRatio(hexA, hexB) {
  * every surface it has to sit on, which is the only reading that guarantees
  * the label stays legible along the whole fill.
  *
+ * Phase 97.1.1 — candidates are tried in two tiers. The warm pair is
+ * PREFERRED and wins whenever it clears the target, so the ordinary case keeps
+ * the palette's warmth. Only when neither warm candidate reaches 4.5:1 does
+ * this fall back to pure black/white, and only if that actually improves the
+ * result. A 3.x:1 label is never kept when black or white can solve it.
+ *
+ * Some gradients genuinely cannot reach the target with ANY flat foreground —
+ * a saturated mid-blue lightened 18% toward white sits in a band where black
+ * and white are both mediocre. In that case the mathematically strongest
+ * candidate is returned rather than a worse-but-warmer one.
+ *
  * @param {...string} backgrounds — hex colours the text will sit on
- * @returns {string} ON_COLOR_DARK or ON_COLOR_LIGHT
+ * @returns {string} the best available foreground
  */
 export function readableForegroundOn(...backgrounds) {
   const usable = backgrounds.filter(isValidHexColor);
   if (usable.length === 0) return ON_COLOR_DARK;
+
   const worstCase = (fg) => Math.min(...usable.map((bg) => contrastRatio(fg, bg)));
-  return worstCase(ON_COLOR_LIGHT) > worstCase(ON_COLOR_DARK) ? ON_COLOR_LIGHT : ON_COLOR_DARK;
+  const best = (candidates) =>
+    candidates
+      .map((fg) => ({ fg, contrast: worstCase(fg) }))
+      .reduce((a, b) => (b.contrast > a.contrast ? b : a));
+
+  const preferred = best([ON_COLOR_DARK, ON_COLOR_LIGHT]);
+  if (preferred.contrast >= CONTRAST_TARGET) return preferred.fg;
+
+  const fallback = best([ON_COLOR_DARK_MAX, ON_COLOR_LIGHT_MAX]);
+  return fallback.contrast > preferred.contrast ? fallback.fg : preferred.fg;
 }
 
 /* The primary button's gradient stops, as ONE definition. The same numbers
@@ -438,9 +471,25 @@ export function buildRestaurantThemeVars(settings) {
     /* Deliberately small proportions. Enough to be seen against the default
        charcoal, nowhere near enough to move the surfaces out of the dark band
        the whole customer palette assumes. */
-    vars["--surface-1"] = `color-mix(in srgb, ${accent} 16%, #101012)`;
-    vars["--surface-2"] = `color-mix(in srgb, ${accent} 14%, #17171a)`;
-    vars["--surface-3"] = `color-mix(in srgb, ${accent} 12%, #1f1f23)`;
+    /* ── Phase 97.1.1 — the surface tint is a DARK-palette treatment ──────
+       These three mix the accent into a hardcoded near-black base, and they
+       are emitted onto the theme wrapper — a descendant of :root — so they
+       beat the light appearance block on specificity. The result, for any
+       restaurant with a custom Secondary in Light mode, was a cream PAGE with
+       near-black CARDS. Measured before the fix with accent #8b6565:
+       --surface-1 resolved to color-mix(#8b6565 16%, #101012).
+
+       The tint has no light-palette equivalent — mixing a dark accent into a
+       cream base at these ratios would simply dirty the surfaces — so it is
+       now emitted only for the appearance it was designed for. In Light the
+       accent keeps every one of its other visible roles (borders, hairlines,
+       soft tints, the neutral badge's ink); it just stops repainting the
+       page. */
+    if (resolveAppearance(settings.appearance) === APPEARANCE_DARK) {
+      vars["--surface-1"] = `color-mix(in srgb, ${accent} 16%, #101012)`;
+      vars["--surface-2"] = `color-mix(in srgb, ${accent} 14%, #17171a)`;
+      vars["--surface-3"] = `color-mix(in srgb, ${accent} 12%, #1f1f23)`;
+    }
 
     /* Three variables for restaurant-accented DETAIL — used by the Restaurant
        Info surface, and available to anything else that wants a branded
@@ -454,6 +503,29 @@ export function buildRestaurantThemeVars(settings) {
     vars["--restaurant-accent-foreground"] = readableForegroundOn(secondary);
     vars["--restaurant-accent-soft"] = `color-mix(in srgb, ${secondary} 18%, transparent)`;
     vars["--restaurant-accent-line"] = `color-mix(in srgb, ${secondary} 40%, transparent)`;
+
+    /* ── Phase 97.1.1 §5/§6 — raw Secondary is the source of truth ────────
+       THE BEHAVIOUR THIS REPLACES: --secondary held the DERIVED value, so a
+       manager who chose #0d1b3a navy got #4280e6 — a different colour, two
+       thirds lighter. deriveSecondaryColor exists for good reason (a near
+       black hairline on a near black card is invisible), but lifting the
+       colour for that role should not redefine what the restaurant chose.
+
+       So the two concepts are now separate tokens:
+
+         --secondary          EXACTLY what the manager saved. The canonical
+                              value, and what a direct filled Secondary
+                              surface must paint.
+         --secondary-accent   the legibility-adjusted form, which is what the
+                              derived roles below are built from — soft tints,
+                              hairlines, card and input borders, the neutral
+                              badge's ink.
+
+       Nothing consumed --secondary directly before this change, so promoting
+       it to the raw value cannot alter any existing surface; it makes the
+       token honest and gives a future filled-Secondary control something
+       truthful to paint. */
+    vars["--secondary-accent"] = secondary;
 
     /* ── The secondary family (Phase 83.1, Finding #2) ──────────────────
        Deliberately mapped onto roles that are ACHROMATIC today — hairlines,
@@ -471,13 +543,15 @@ export function buildRestaurantThemeVars(settings) {
        The effect is broad but quiet: every input edge, card hairline, divider
        and neutral chip across Customer, Admin, Cashier and Kitchen picks up
        the restaurant's second colour. */
-    vars["--secondary"] = secondary;
+    /* The manager's exact choice, untouched. */
+    vars["--secondary"] = accent;
+    /* Derived, soft roles keep building from the legible form. */
     vars["--secondary-soft"] = `color-mix(in srgb, ${secondary} 13%, transparent)`;
     vars["--secondary-line"] = `color-mix(in srgb, ${secondary} 38%, transparent)`;
-    /* Same helper as Primary. Secondary previously had its own near-duplicate
-       pair of candidates and its own copy of the threshold — two readings of
-       one question, which is exactly how the two colours drift apart. */
-    vars["--on-secondary"] = readableForegroundOn(secondary);
+    /* §9 — computed against the TRUE secondary, because that is the colour a
+       filled Secondary surface actually paints. Judging it against the lifted
+       accent would answer a question about a colour nobody sees. */
+    vars["--on-secondary"] = readableForegroundOn(accent);
 
     vars["--border"] = `color-mix(in srgb, ${secondary} 15%, transparent)`;
     vars["--border-strong"] = `color-mix(in srgb, ${secondary} 32%, transparent)`;
