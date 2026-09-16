@@ -180,12 +180,100 @@ export function readableForegroundOn(...backgrounds) {
   return fallback.contrast > preferred.contrast ? fallback.fg : preferred.fg;
 }
 
-/* The primary button's gradient stops, as ONE definition. The same numbers
-   build the CSS color-mix() strings below and the hex values the contrast
-   decision is made against, so the colour the label is judged against is
-   always the colour it is actually painted on. */
-const BTN_PRIMARY_LIGHTEN = 0.18; /* color-mix 82% primary, 18% white */
-const BTN_PRIMARY_DARKEN = 0.12;  /* color-mix 88% primary, 12% black */
+/* The primary button's gradient, at full span. */
+const BTN_PRIMARY_LIGHTEN = 0.18;
+const BTN_PRIMARY_DARKEN = 0.12;
+
+/* Phase 97.1.2 — how far the span may be pulled in when contrast demands it.
+   1 is the approved gradient; 0 is a flat fill of the raw primary. Tried in
+   order, so a colour gives up only as much decoration as it must. */
+const GRADIENT_SPAN_STEPS = [1, 0.75, 0.5, 0.25, 0];
+
+/**
+ * The primary button's gradient AND the foreground that sits on it.
+ *
+ * ── WHY THE GRADIENT ADAPTS (Phase 97.1.2) ───────────────────────────────
+ * Phase 97.1.1 could pick the best of four foregrounds but still could not
+ * save two colours: #2F6FED reached 3.76:1 and #7C3AED 4.13:1. Both read
+ * fine against the RAW primary (4.62 and 5.70) — it was the GRADIENT that
+ * beat them. A span that lightens 18% and darkens 12% covers enough
+ * luminance that one flat foreground cannot serve both ends, and the failing
+ * end is whichever the chosen foreground is closest to.
+ *
+ * So the span is now a variable, not a constant. The approved gradient is
+ * tried first and kept whenever it works — which is the common case, so safe
+ * colours render exactly as before. Only a colour that would otherwise ship
+ * unreadable text gives up span, and only as much as it needs: a quarter, a
+ * half, or in the worst case a flat fill of the colour the restaurant chose.
+ *
+ * The primary itself is never altered. Narrowing moves the STOPS toward the
+ * selected colour, so the button stays centred on it and stays in its hue —
+ * a narrower blue, never a pale blue or a navy.
+ *
+ * Returns the stops as hex, and those exact strings are what the stylesheet
+ * paints — the contrast decision and the rendered pixels come from one value
+ * rather than from parallel color-mix() arithmetic that could drift.
+ *
+ * @param {string} primary — a validated hex
+ * @returns {{from:string, to:string, foreground:string, contrast:number, span:number}}
+ */
+export function buildPrimaryGradient(primary) {
+  let best = null;
+
+  for (const span of GRADIENT_SPAN_STEPS) {
+    const from = mixHex(primary, "#ffffff", BTN_PRIMARY_LIGHTEN * span);
+    const to = mixHex(primary, "#000000", BTN_PRIMARY_DARKEN * span);
+    const foreground = readableForegroundOn(from, to, primary);
+    const contrast = Math.min(
+      contrastRatio(foreground, from),
+      contrastRatio(foreground, to),
+      contrastRatio(foreground, primary)
+    );
+
+    if (!best || contrast > best.contrast) best = { from, to, foreground, contrast, span };
+    if (contrast >= CONTRAST_TARGET) return { from, to, foreground, contrast, span };
+  }
+
+  /* Nothing reached the target — a fully saturated mid-tone can be beyond any
+     flat foreground even as a flat fill. Hand back the strongest attempt
+     rather than a prettier but less readable one. */
+  return best;
+}
+
+/**
+ * A version of `color` that is readable against `surface`, moved as little as
+ * possible.
+ *
+ * Used for a theme colour rendered as TEXT on a neutral surface, where the
+ * colour itself is the thing being read rather than a fill behind something
+ * else. It walks toward white on a dark surface (or black on a light one) and
+ * stops the moment the target is met, so the hue survives and the accent
+ * still looks like the restaurant's colour.
+ *
+ * @param {string} color
+ * @param {string} surface
+ * @param {number} [target]
+ * @returns {string} hex
+ */
+export function readableInkOn(color, surface, target = CONTRAST_TARGET) {
+  if (!isValidHexColor(color) || !isValidHexColor(surface)) return color;
+  if (contrastRatio(color, surface) >= target) return color;
+
+  const anchor = relativeLuminance(surface) < 0.5 ? "#ffffff" : "#000000";
+  let best = color;
+  let bestContrast = contrastRatio(color, surface);
+
+  for (let amount = 0.05; amount <= 1.0001; amount += 0.05) {
+    const candidate = mixHex(color, anchor, amount);
+    const contrast = contrastRatio(candidate, surface);
+    if (contrast > bestContrast) {
+      best = candidate;
+      bestContrast = contrast;
+    }
+    if (contrast >= target) return candidate;
+  }
+  return best;
+}
 
 /* ── Customer brand-mark colour (Phase 83) ─────────────────────────────────
    The animated PRO·ORDER loading mark needs a colour of its own: the same
@@ -425,17 +513,13 @@ export function buildRestaurantThemeVars(settings) {
     vars["--gold-soft"] = `color-mix(in srgb, ${primary} 13%, transparent)`;
     vars["--gold-line"] = `color-mix(in srgb, ${primary} 35%, transparent)`;
 
-    vars["--btn-primary-from"] = `color-mix(in srgb, ${primary} 82%, #ffffff)`;
-    vars["--btn-primary-to"] = `color-mix(in srgb, ${primary} 88%, #000000)`;
-
-    /* Judged against the gradient's ACTUAL stops, not the raw primary — the
-       label has to stay readable across the whole button, and the lightest
-       stop is where light text fails first. */
-    vars["--on-primary"] = readableForegroundOn(
-      mixHex(primary, "#ffffff", BTN_PRIMARY_LIGHTEN),
-      mixHex(primary, "#000000", BTN_PRIMARY_DARKEN),
-      primary
-    );
+    /* One call decides the stops and the label colour together, because the
+       two cannot be chosen independently — narrowing the span changes which
+       foreground wins. These hex values are what the stylesheet paints. */
+    const gradient = buildPrimaryGradient(primary);
+    vars["--btn-primary-from"] = gradient.from;
+    vars["--btn-primary-to"] = gradient.to;
+    vars["--on-primary"] = gradient.foreground;
 
     /* Phase 83 — the animated loading mark follows the restaurant's family
        too, so a venue on green does not get a gold PRO·ORDER mark. Emitted
@@ -486,9 +570,26 @@ export function buildRestaurantThemeVars(settings) {
        soft tints, the neutral badge's ink); it just stops repainting the
        page. */
     if (resolveAppearance(settings.appearance) === APPEARANCE_DARK) {
-      vars["--surface-1"] = `color-mix(in srgb, ${accent} 16%, #101012)`;
-      vars["--surface-2"] = `color-mix(in srgb, ${accent} 14%, #17171a)`;
-      vars["--surface-3"] = `color-mix(in srgb, ${accent} 12%, #1f1f23)`;
+      /* Computed rather than emitted as color-mix() so the tinted surface is
+         a value this module can also MEASURE against — see the ink below. */
+      const surface1 = mixHex(accent, "#101012", 0.84);
+      const surface2 = mixHex(accent, "#17171a", 0.86);
+      const surface3 = mixHex(accent, "#1f1f23", 0.88);
+      vars["--surface-1"] = surface1;
+      vars["--surface-2"] = surface2;
+      vars["--surface-3"] = surface3;
+
+      /* ── Phase 97.1.2 §10/§11 — the neutral badge ─────────────────────
+         Secondary is rendered as TEXT on surface-2 by .badge--neutral. The
+         legible accent is tuned against the STANDARD dark surfaces, but a
+         themed surface-2 carries the accent's own hue, which pushes the two
+         closer together: with accent #8b6565 the pair measured 4.05:1.
+
+         So the ink is nudged against the surface it will actually sit on,
+         and only as far as the target requires. --secondary-accent is left
+         alone, so borders, hairlines and every soft treatment keep the exact
+         colour they had (§12) — this moves the text derivative only. */
+      vars["--secondary-ink"] = readableInkOn(secondary, surface2);
     }
 
     /* Three variables for restaurant-accented DETAIL — used by the Restaurant
