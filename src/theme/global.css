@@ -1217,7 +1217,13 @@ button{font-family:var(--font-body)}
 .track-item__total{font-family:var(--font-display);font-size:13.5px;
   font-weight:600;color:var(--gold-ink);white-space:nowrap}
 .track-item__custom{margin:2px 0 0 21px;display:flex;flex-direction:column;gap:1px}
-.track-item__custom-row{font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0}
+/* Phase 97.5 §7 — the same construction as the Live Orders row above (flex
+   column, <p> per row, no break opportunity) showing the guest their own note
+   back inside Order details. Found by the scoped sweep, same one-line fix. No
+   Tracking visual, station, timer or copy is touched. */
+.track-item__custom-row{
+  font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0;
+  overflow-wrap:anywhere}
 .track-item__custom-label{color:var(--text-3);font-weight:600}
 .track-item__custom-row--note{color:var(--gold-ink);font-style:italic}
 
@@ -1741,7 +1747,21 @@ button{font-family:var(--font-body)}
   font-family:var(--font-display);font-size:13px;font-weight:700;
   color:var(--gold-ink);white-space:nowrap}
 .ad-live-item__custom{margin:2px 0 0 19px;display:flex;flex-direction:column;gap:1px}
-.ad-live-item__custom-row{font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0}
+/* Phase 97.5 §3/§4 — kitchen-facing free text from the guest. Measured before
+   the fix at 390px: an unbroken 102-character note laid out 625px wide inside
+   a 297px row, and the 328px of overflow propagated up through .ad-live-item
+   and .ad-live-card__details to .ad-live-card, whose overflow:hidden then
+   silently ATE the end of the note. The page looked fine and the operator
+   simply never saw the rest of the instruction.
+
+   Fixed on the shared row class, so Admin and Cashier get it from the same
+   declaration — Live Orders is one implementation and this phase does not
+   create a role-specific rule (§3). The card keeps its overflow:hidden, which
+   is there to clip the rounded corners, not to hide text; with a break
+   opportunity available there is nothing left for it to clip. */
+.ad-live-item__custom-row{
+  font-size:11.5px;color:var(--text-2);line-height:1.5;margin:0;
+  overflow-wrap:anywhere}
 .ad-live-item__custom-label{color:var(--text-3);font-weight:600}
 .ad-live-item__custom-row--note{color:var(--gold-ink);font-style:italic}
 
@@ -2862,10 +2882,25 @@ button{font-family:var(--font-body)}
 .fb-readonly__row{
   display:flex;align-items:center;justify-content:space-between;gap:14px}
 .fb-readonly__label{font-size:13px;color:var(--text-2)}
+/* Phase 97.5 §2 — the guest reads their own submitted words back here, so
+   nothing may be clipped or pushed out of the box.
+
+   Measured before the fix at 390px with a 425-character comment containing a
+   long token: the content laid out 564px wide inside a 262px box, and because
+   this card does NOT clip, the 302px of overflow escaped and gave the PAGE
+   238px of horizontal scroll. Prose with spaces was always fine — the break
+   opportunity is what was missing, not the wrapping.
+
+   overflow-wrap:anywhere rather than word-break:break-all: break-all would
+   chop ordinary Arabic and English words mid-letter at every line end, while
+   anywhere only breaks a run that would otherwise overflow. It also feeds the
+   min-content calculation, so a long token can no longer widen an ancestor
+   either — which is what makes this a containment fix and not a patch. */
 .fb-readonly__comment{
   margin:2px 0 0;padding:11px 13px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border);
-  font-size:13.5px;color:var(--text-2);line-height:1.6;font-style:italic}
+  font-size:13.5px;color:var(--text-2);line-height:1.6;font-style:italic;
+  overflow-wrap:anywhere}
 
 /* ── My Orders card strip ─────────────────────────────────────────────────── */
 .order-card__rating{
@@ -2886,10 +2921,21 @@ button{font-family:var(--font-body)}
 .fb-row__ratings{display:flex;flex-wrap:wrap;gap:10px 28px}
 .fb-row__rating{display:flex;align-items:center;gap:10px}
 .fb-row__rating-label{font-size:12px;color:var(--text-2);min-width:78px}
+/* Phase 97.5 §5 — the review a manager is trying to read.
+
+   The vertical clamp and its Show more toggle were never the problem and are
+   left alone (§5 permits them once the full comment is readable when opened).
+   The problem was horizontal: measured at 390px, the comment laid out 555px
+   inside a 314px box. Collapsed, overflow:hidden clipped those 241px; expanded,
+   overflow:visible released them and gave the page 191px of horizontal scroll.
+   Either way the end of the review was unreadable, which is the complaint.
+   With a break opportunity the clamp counts real wrapped lines and Show more
+   reveals the whole comment. */
 .fb-row__comment{
   margin:0;padding:10px 12px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border);
-  font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic}
+  font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;
+  overflow-wrap:anywhere}
 
 /* Order ids and table numbers stay LTR-readable inside an Arabic page,
    matching the convention used for prices, timers, and schedules. */
