@@ -20,15 +20,15 @@ export const translations = {
       english: "English",
       arabic: "Arabic",
       backHome: "Back to home",
-      backToMenu: "Back to menu",
+      backToMenu: "Back to Menu",
       edit: "Edit",
       showMore: "Show more",
       showLess: "Show less",
       /* Phase 74 §41–§43 — recovery-state copy. Deliberately free of
          "token", "slug" or "invalid access": these describe what the guest
          should do, not what the system failed to parse. */
-      tableUnavailableTitle: "This table isn’t available right now",
-      qrNotOpenedTitle: "This QR code couldn't be opened",
+      tableUnavailableTitle: "This table isn’t available right now.",
+      qrNotOpenedTitle: "This access link is no longer valid.",
       /* Phase 90 §12 — a venue that cannot be resolved is NOT a bad QR code,
          and telling the guest to re-scan a code that was never the problem
          sends them in circles. Its own sentence now. */
@@ -39,7 +39,7 @@ export const translations = {
       signOut: "Sign out",
       comingSoon: "Coming soon",
       /* Phase 65 — Error Boundary recovery state. */
-      somethingWentWrong: "Something went wrong",
+      somethingWentWrong: "Something went wrong.",
       couldNotDisplaySection: "We couldn't display this section.",
       tryAgain: "Try Again",
       reload: "Reload",
@@ -74,7 +74,7 @@ export const translations = {
       remove: "Remove",
       required: "Required",
       optional: "Optional",
-      outOfStock: "Out of Stock",
+      outOfStock: "Currently unavailable",
       popular: "Popular",
       featured: "Featured",
       qrAccess: "QR access",
@@ -95,26 +95,34 @@ export const translations = {
       enterYourName: "What should we call you?",
       yourName: "Your name",
       identifyOrderMsg: "We'll use your name to identify your order at Table",
-      continueToMenu: "Continue to menu",
-      /* Phase 83 — the single entry CTA. "Continue to menu" belonged to a
-         two-step flow that no longer exists; this names the thing the guest
-         is actually about to do. */
-      startOrdering: "Start Ordering",
+
+      /* Phase 97.6 §3 — the entry screen greets the guest and asks one
+         question. welcomeHelper doubles as the name field label, so the
+         question is the label rather than a second line saying the same.
+
+         The CTA is "Continue to Menu" again. Phase 83 had replaced that
+         wording with "Start Ordering" because it belonged to a two-step flow
+         that no longer existed; the approved copy system names the
+         destination instead, so the old customer.continueToMenu key (which
+         had been left behind unused) is gone and startOrdering carries it. */
+      welcomeTitle: "Welcome",
+      welcomeHelper: "What should we call you?",
+      startOrdering: "Continue to Menu",
       /* Phase 84 — the Menu greeting's helper line. The strip's shortcut
          reuses the existing common.backToMenu rather than adding a second
          key for the same sentence. */
-      orderPrompt: "What would you like to order today?",
+      orderPrompt: "What would you like to order?",
       loadingExperience: "Loading",
 
       /* ── Phase 43 — copy that was hardcoded in JSX until now ─────────── */
       greeting: "Hi,",
       whatAreYouHaving: "What are you having today?",
       almostReadyToOrder: "You're almost ready to order.",
-      namePlaceholder: "e.g. Mohammad",
+      namePlaceholder: "Your name",
       nameRequired: "Please enter your name.",
       nameTooShort: "Name must be at least 2 characters.",
       nameTooLong: "Name must be 30 characters or fewer.",
-      browseMenuMsg: "Browse the menu and add a few things you'd like to order.",
+      browseMenuMsg: "Add something you like from the menu.",
       clearSearch: "Clear search",
       /* Phase 44 — the product card's "+" accessible name. Was a hardcoded
          template literal, so Phase 43's quoted-string sweep never saw it. */
@@ -135,8 +143,9 @@ export const translations = {
       popular: "Popular",
       featured: "Featured",
       menu: "Menu",
+      menuWord: "Menu",
       myOrders: "My Orders",
-      addToCart: "Add to cart",
+      addToCart: "Add to Cart",
       updateItem: "Update item",
       restaurantInfo: "Restaurant info",
       contact: "Contact",
@@ -145,13 +154,17 @@ export const translations = {
       address: "Address",
       viewCart: "View Cart",
       continueToPayment: "Continue to payment",
-      yourCartEmpty: "Your cart is empty.",
+      yourCartEmpty: "Your cart is empty",
       noItemsFound: "No items found",
-      searchMenuPlaceholder: "Search menu…",
+      /* Phase 97.6 §4 — the same empty component serves two different
+         situations. A query that matched nothing is not the same fact as a
+         category that is simply empty right now, so each says its own. */
+      noItemsInCategory: "No items available in this category right now",
+      searchMenuPlaceholder: "Search the menu",
       /* Phase 74 §44 — rare zero-products safety net. */
       menuUnavailableTitle: "Menu temporarily unavailable",
       menuUnavailableSub: "There are no items available to order right now. Please ask a staff member for assistance.",
-      specialNotes: "Special notes",
+      specialNotes: "Special instructions",
       notesPlaceholder: "Anything we should know?",
       addANote: "Add a note",
       viewMyOrders: "View my orders",
@@ -159,7 +172,7 @@ export const translations = {
       removeIngredientsHint: "Tell the kitchen what to leave out.",
       noPrefix: "No",
       chooseUpTo: "Choose up to",
-      addExtras: "Add extras",
+      addExtras: "Add-ons",
       selectOptionRequired: "Please select an option for",
       basePrice: "Base price",
       extrasPerItem: "Extras (per item)",
@@ -686,7 +699,7 @@ export const translations = {
       orderSummary: "Order summary",
       orderReceived: "Order received",
       orderReceivedMsg: "Your order has been sent to the restaurant.",
-      trackOrder: "Track order",
+      trackOrder: "Track Order",
       /* Phase 88 §1 — the confirmation headline. "Order received" moved to
          being the Received STATUS everywhere else, so reusing it as the
          success message made the two mean different things in the same
@@ -775,6 +788,10 @@ export const translations = {
     payment: {
       paymentTitle: "Payment",
       paymentMethod: "Payment method",
+      /* Phase 97.6 §8/§20 — the customer sheet's TITLE. Deliberately not the
+         same key as paymentMethod above, which Admin Live Orders renders as a
+         field label three times and where Title Case would read wrong. */
+      paymentMethodTitle: "Payment Method",
       paymentStatus: "Payment status",
       markAsPaid: "Mark as Paid",
       paymentMarkedPaidToast: "Payment marked as paid",
@@ -797,11 +814,11 @@ export const translations = {
       onlinePaymentDesc: "Apple Pay, PayPal, credit/debit cards — coming soon.",
       onlinePaymentSoonHint: "Online payment will be available soon.",
       orderTotal: "Order total",
-      choosePaymentMethod: "Choose payment method",
+      choosePaymentMethod: "Choose how you’d like to pay.",
       selectHowToPay: "Select how you'd like to pay for this order.",
-      placeOrder: "Place order",
+      placeOrder: "Place Order",
       /* Phase 34 — checkout submit states */
-      placingOrder: "Placing order…",
+      placingOrder: "Placing Order…",
       orderFailed: "Something went wrong. Please try again.",
       /* Phase 36 — canceled-order payment clarity. Deliberately never says
          "Refunded": the app records no refunds, so claiming one would be a
@@ -816,7 +833,7 @@ export const translations = {
          stopped offering that option, so it names the next action (§21). */
       methodNoLongerAvailable:
         "That payment method is no longer available. Please choose another one.",
-      noMethodsTitle: "No payment methods are currently available.",
+      noMethodsTitle: "Payment methods are currently unavailable.",
       /* Says the cart survives, because that is the guest's real worry when
          a checkout tells them it cannot proceed (§27). */
       noMethodsText: "Please contact the staff to complete your order. Your cart is saved.",
@@ -832,12 +849,12 @@ export const translations = {
     /* Phase 25 — Digital Waiter Bell (customer action + admin/cashier panel) */
     staff: {
       callStaff: "Call Staff",
-      callWaiterForHelp: "Call Waiter for Help",
+      callWaiterForHelp: "Call Staff for Help",
       staffCalledShort: "Staff called",
       /* Phase 73 §33 — the confirmed Call Staff state. */
       staffNotified: "Staff notified",
-      staffCalledMsg: "Staff has been called. Someone will assist you shortly.",
-      staffAlreadyCalledMsg: "Staff has already been called.",
+      staffCalledMsg: "Staff has been notified.",
+      staffAlreadyCalledMsg: "Staff is already on the way.",
       staffCalls: "Staff Calls",
       /* Phase 59 — staff call alerts + sound settings. */
       staffRequested: "Staff requested",
@@ -893,8 +910,8 @@ export const translations = {
       errorAtLeast: "Choose at least {n} options",
       errorAtMost: "Choose no more than {n} options",
       chooseUpToN: "Choose up to {n}",
-      chooseExactlyN: "Choose exactly {n}",
-      chooseRange: "Choose {min}–{max}",
+      chooseExactlyN: "Choose {n}",
+      chooseRange: "Choose {min} to {max}",
       soldOut: "Sold out",
       needMore: "Please complete your selection for {group}.",
       tooMany: "Please remove a selection from {group}.",
@@ -937,9 +954,11 @@ export const translations = {
         "Used by Accepting Orders on the Overview page when its mode is set to Auto. A closing time earlier than the opening time means the restaurant stays open past midnight.",
       customerClosedTitle: "We're not accepting orders right now",
       /* Phase 90 §8 — a genuine physical closure per Working Hours. */
-      customerClosedNowTitle: "We're closed right now",
-      customerClosedNowSub:
-        "You can still view your existing orders. Please check again during opening hours.",
+      customerClosedNowTitle: "We're closed right now.",
+      /* Phase 97.6 §14 — this had no entry at all, so the notice fell back to
+         its inline English on BOTH languages. Stated without inventing a
+         reopening time, which the notice has no way to know. */
+      customerClosedNowSub: "Please check back during opening hours.",
       /* Phase 90 §9 — the venue may well be open; only online ordering is
          paused, so this must not claim the restaurant is closed. */
       orderingUnavailableTitle: "Online ordering is temporarily unavailable",
@@ -955,8 +974,8 @@ export const translations = {
     cart: {
       /* Phase 86 §4/§28/§52 — the cart's heading, its closing action, and the
          quantity controls' product-scoped accessible names. */
-      yourCart: "Your cart",
-      continueToCheckout: "Continue to checkout",
+      yourCart: "Your Cart",
+      continueToCheckout: "Continue to Checkout",
       /* Phase 97.3 §4 — the cart's secondary exit, back to the menu with the
          cart left exactly as it is. */
       addMoreItems: "Add More Items",
@@ -981,16 +1000,16 @@ export const translations = {
     /* Phase 29 — Post-delivery feedback & ratings */
     feedback: {
       feedback: "Feedback",
-      howWasIt: "How was your order?",
+      howWasIt: "How was your experience?",
       foodQuality: "Food Quality",
       service: "Service",
-      optionalComment: "Optional Comment",
+      optionalComment: "Tell us more",
       commentPlaceholder: "Anything you'd like us to know?",
       submitFeedback: "Submit Feedback",
       /* Phase 89 §11/§5 */
       submitting: "Submitting…",
       rated: "Rated",
-      thankYou: "Thank you for your feedback.",
+      thankYou: "Thanks for your feedback.",
       alreadySubmitted: "Already submitted",
       bothRatingsRequired: "Please rate both food quality and service.",
       submitFailed: "Sorry, that didn't go through. Please try again.",
@@ -1017,12 +1036,12 @@ export const translations = {
       english: "الإنجليزية",
       arabic: "العربية",
       backHome: "العودة للرئيسية",
-      backToMenu: "العودة للقائمة",
+      backToMenu: "العودة للمنيو",
       edit: "تعديل",
       showMore: "عرض المزيد",
       showLess: "عرض أقل",
-      tableUnavailableTitle: "هذه الطاولة غير متاحة حاليًا",
-      qrNotOpenedTitle: "تعذر فتح رمز QR",
+      tableUnavailableTitle: "هاي الطاولة غير متاحة حاليًا.",
+      qrNotOpenedTitle: "رابط الدخول هذا لم يعد صالحًا.",
       /* Phase 90 §12 — natural, not literal: this is how you would say it out
          loud, rather than a formal "لم يتم العثور على المطعم". */
       restaurantNotFoundTitle: "لم نتمكن من العثور على هذا المطعم",
@@ -1031,9 +1050,9 @@ export const translations = {
       back: "رجوع",
       signOut: "تسجيل الخروج",
       comingSoon: "قريباً",
-      somethingWentWrong: "حدث خطأ ما",
+      somethingWentWrong: "صار خطأ غير متوقع.",
       couldNotDisplaySection: "تعذر عرض هذا القسم.",
-      tryAgain: "حاول مرة أخرى",
+      tryAgain: "حاول مرة ثانية",
       reload: "إعادة التحميل",
       total: "الإجمالي",
       subtotal: "المجموع الفرعي",
@@ -1061,7 +1080,7 @@ export const translations = {
       remove: "إزالة",
       required: "مطلوب",
       optional: "اختياري",
-      outOfStock: "غير متوفر",
+      outOfStock: "غير متاح حاليًا",
       popular: "الأكثر طلباً",
       featured: "مميز",
       qrAccess: "دخول عبر QR",
@@ -1082,20 +1101,22 @@ export const translations = {
       enterYourName: "ما الاسم الذي نناديك به؟",
       yourName: "اسمك",
       identifyOrderMsg: "سنستخدم اسمك لتمييز طلبك في الطاولة",
-      continueToMenu: "المتابعة إلى القائمة",
-      startOrdering: "ابدأ الطلب",
-      orderPrompt: "ماذا تحب أن تطلب اليوم؟",
+
+      welcomeTitle: "أهلًا وسهلًا",
+      welcomeHelper: "شو بتحب نناديك؟",
+      startOrdering: "متابعة للمنيو",
+      orderPrompt: "شو حاب تطلب اليوم؟",
       loadingExperience: "جارٍ التحميل",
 
       /* ── Phase 43 ─────────────────────────────────────────────────────── */
       greeting: "مرحبًا،",
       whatAreYouHaving: "ماذا ترغب اليوم؟",
       almostReadyToOrder: "أنت على وشك البدء بطلبك.",
-      namePlaceholder: "مثال: محمد",
+      namePlaceholder: "اسمك",
       nameRequired: "يرجى إدخال اسمك.",
       nameTooShort: "يجب ألا يقل الاسم عن حرفين.",
       nameTooLong: "يجب ألا يزيد الاسم عن 30 حرفًا.",
-      browseMenuMsg: "تصفّح القائمة وأضف ما ترغب بطلبه.",
+      browseMenuMsg: "أضف الأصناف اللي بتحبها من المنيو.",
       clearSearch: "مسح البحث",
       openItem: "افتح {name}",
       nothingMatched: "لم يطابق البحث",
@@ -1109,6 +1130,12 @@ export const translations = {
       popular: "الأكثر طلباً",
       featured: "مميز",
       menu: "القائمة",
+      /* Phase 97.6 §19/§20 — the guest-facing word for the menu. The approved
+         copy says المنيو everywhere it appears (متابعة للمنيو, العودة للمنيو,
+         ابحث في المنيو), so the back control saying القائمة was the last place
+         the journey disagreed with itself. customer.menu above is left alone:
+         Admin uses it for a nav item and a screen title. */
+      menuWord: "المنيو",
       myOrders: "طلباتي",
       addToCart: "أضف إلى السلة",
       updateItem: "تحديث الصنف",
@@ -1119,13 +1146,14 @@ export const translations = {
       address: "العنوان",
       viewCart: "عرض السلة",
       continueToPayment: "المتابعة إلى الدفع",
-      yourCartEmpty: "سلتك فارغة.",
-      noItemsFound: "لا توجد عناصر",
-      searchMenuPlaceholder: "ابحث في القائمة…",
-      menuUnavailableTitle: "القائمة غير متاحة مؤقتًا",
+      yourCartEmpty: "سلتك فاضية",
+      noItemsFound: "ما لقينا أصناف مطابقة",
+      noItemsInCategory: "ما في أصناف متاحة بهذا التصنيف حاليًا",
+      searchMenuPlaceholder: "ابحث في المنيو",
+      menuUnavailableTitle: "المنيو غير متاح مؤقتًا",
       menuUnavailableSub: "لا توجد أصناف متاحة للطلب حاليًا. يرجى طلب المساعدة من أحد الموظفين.",
       specialNotes: "ملاحظات خاصة",
-      notesPlaceholder: "هل من شيء نحتاج معرفته؟",
+      notesPlaceholder: "في أي ملاحظة حاب تضيفها؟",
       addANote: "أضف ملاحظة",
       viewMyOrders: "عرض طلباتي",
       removeIngredients: "إزالة مكونات",
@@ -1664,6 +1692,7 @@ export const translations = {
     payment: {
       paymentTitle: "الدفع",
       paymentMethod: "طريقة الدفع",
+      paymentMethodTitle: "طريقة الدفع",
       paymentStatus: "حالة الدفع",
       /* Phase 49 — was "تأكيد الدفع" ("confirm payment"), which is what the
          new confirmation button in the dialog now says. Two different actions
@@ -1687,11 +1716,11 @@ export const translations = {
       onlinePaymentDesc: "Apple Pay وPayPal والبطاقات الائتمانية — قريباً.",
       onlinePaymentSoonHint: "الدفع الإلكتروني سيكون متاحاً قريباً.",
       orderTotal: "إجمالي الطلب",
-      choosePaymentMethod: "اختر طريقة الدفع",
+      choosePaymentMethod: "اختر طريقة الدفع المناسبة إلك.",
       selectHowToPay: "اختر طريقة الدفع لهذا الطلب.",
       placeOrder: "تأكيد الطلب",
       /* Phase 34 — checkout submit states */
-      placingOrder: "جارٍ إرسال الطلب…",
+      placingOrder: "جارٍ تأكيد الطلب…",
       orderFailed: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
       /* Phase 36 — canceled-order payment clarity */
       noPaymentDue: "لا يوجد مبلغ مستحق",
@@ -1700,7 +1729,7 @@ export const translations = {
       contactStaffAboutPayment: "يرجى التواصل مع الموظف بخصوص عملية الدفع.",
       /* Phase 87 (Unit 5) */
       methodNoLongerAvailable: "طريقة الدفع هذه لم تعد متاحة. يرجى اختيار طريقة أخرى.",
-      noMethodsTitle: "لا تتوفر أي طريقة دفع حالياً.",
+      noMethodsTitle: "طرق الدفع غير متاحة حاليًا.",
       noMethodsText: "يرجى التواصل مع الموظفين لإتمام طلبك. سلة مشترياتك محفوظة.",
       backToCart: "العودة إلى السلة",
     },
@@ -1713,12 +1742,12 @@ export const translations = {
     },
     /* Phase 25 — Digital Waiter Bell (customer action + admin/cashier panel) */
     staff: {
-      callStaff: "طلب موظف",
-      callWaiterForHelp: "اطلب موظفًا للمساعدة",
+      callStaff: "اطلب الموظف",
+      callWaiterForHelp: "اطلب مساعدة الموظف",
       staffCalledShort: "تم طلب الموظف",
       staffNotified: "تم إبلاغ طاقم الخدمة",
-      staffCalledMsg: "تم طلب أحد الموظفين. سيتم مساعدتك قريبًا.",
-      staffAlreadyCalledMsg: "تم طلب الموظف بالفعل.",
+      staffCalledMsg: "تم تنبيه الموظف.",
+      staffAlreadyCalledMsg: "تم تنبيه الموظف بالفعل.",
       staffCalls: "طلبات الموظفين",
       staffRequested: "طلب موظف",
       tableRequestingAssistance: "الطاولة {n} تطلب المساعدة.",
@@ -1771,7 +1800,7 @@ export const translations = {
       errorAtLeast: "اختر {n} خيارات على الأقل",
       errorAtMost: "اختر {n} خيارات كحد أقصى",
       chooseUpToN: "اختر حتى {n}",
-      chooseExactlyN: "اختر {n} بالضبط",
+      chooseExactlyN: "اختر {n}",
       chooseRange: "اختر من {min} إلى {max}",
       soldOut: "نفد",
       needMore: "يرجى إكمال اختيارك في {group}.",
@@ -1814,9 +1843,8 @@ export const translations = {
       /* Phase 90 §8/§9 — "نحن مغلقون الآن" is the plain spoken form; the
          ordering one avoids saying the restaurant is shut, because it may not
          be. */
-      customerClosedNowTitle: "نحن مغلقون الآن",
-      customerClosedNowSub:
-        "لا يزال بإمكانك عرض طلباتك السابقة. يرجى المحاولة خلال ساعات العمل.",
+      customerClosedNowTitle: "المطعم مغلق حاليًا.",
+      customerClosedNowSub: "ارجع خلال أوقات الدوام.",
       orderingUnavailableTitle: "الطلب عبر الإنترنت غير متاح حالياً",
       orderingUnavailableSub:
         "لا يمكن إرسال طلبات جديدة في الوقت الحالي. لا يزال بإمكانك عرض طلباتك السابقة، أو طلب المساعدة من أحد الموظفين.",
@@ -1827,8 +1855,8 @@ export const translations = {
     },
     /* Phase 37 — cart revalidation against the live menu */
     cart: {
-      yourCart: "سلتك",
-      continueToCheckout: "المتابعة إلى الدفع",
+      yourCart: "سلة طلبك",
+      continueToCheckout: "متابعة للدفع",
       addMoreItems: "أضف أصناف ثانية",
       removeFromCart: "إزالة {name} من السلة",
       decreaseFor: "إنقاص كمية {name}",
@@ -1851,17 +1879,17 @@ export const translations = {
     /* Phase 29 — Post-delivery feedback & ratings */
     feedback: {
       feedback: "التقييم",
-      howWasIt: "كيف كان طلبك؟",
+      howWasIt: "كيف كانت تجربتك؟",
       foodQuality: "جودة الطعام",
       service: "الخدمة",
-      optionalComment: "تعليق اختياري",
-      commentPlaceholder: "هل هناك ما تودّ إخبارنا به؟",
+      optionalComment: "احكيلنا أكثر",
+      commentPlaceholder: "في شي حاب تحكيلنا عنه؟",
       submitFeedback: "إرسال التقييم",
       /* Phase 89 — natural, not literal: "تم التقييم" is how a guest would say
          the rating is done, rather than a formal noun phrase. */
       submitting: "جارٍ الإرسال…",
       rated: "تم التقييم",
-      thankYou: "شكرًا لتقييمك.",
+      thankYou: "شكرًا على تقييمك.",
       alreadySubmitted: "تم إرسال التقييم",
       bothRatingsRequired: "يرجى تقييم جودة الطعام والخدمة معًا.",
       submitFailed: "عذرًا، لم يتم الإرسال. يرجى المحاولة مرة أخرى.",

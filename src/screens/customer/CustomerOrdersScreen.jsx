@@ -233,7 +233,7 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
       <Topbar
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
-            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
+            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menuWord", "Menu")}
           </button>
         }
         right={

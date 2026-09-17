@@ -285,12 +285,16 @@ export function formatGroupRule(group, t) {
     case "single":
       return t("choice.chooseOne", "Choose 1");
     case "upTo":
-      return `${t("common.optional", "Optional")} · ${t("choice.chooseUpToN", "Choose up to {n}").replace("{n}", max)}`;
+      /* Phase 97.6 §6 — the "Optional · " prefix is gone. The section head
+         already carries an Optional badge beside the group name, so this
+         hint was repeating that word before stating the rule. §6 specifies
+         the rule alone. */
+      return t("choice.chooseUpToN", "Choose up to {n}").replace("{n}", max);
     case "exactly":
-      return t("choice.chooseExactlyN", "Choose exactly {n}").replace("{n}", min);
+      return t("choice.chooseExactlyN", "Choose {n}").replace("{n}", min);
     case "range":
     default:
-      return t("choice.chooseRange", "Choose {min}–{max}")
+      return t("choice.chooseRange", "Choose {min} to {max}")
         .replace("{min}", min)
         .replace("{max}", max);
   }

@@ -1077,6 +1077,11 @@ button{font-family:var(--font-body)}
 .pm-modal__x:disabled .pm-modal__x-face{opacity:.4}
 
 .pm-modal__body{padding:30px 24px 24px}
+/* Phase 97.6 §8 — one quiet line under the sheet title. Same relationship as
+   the tracking status/helper pair: the title names the sheet, the line says
+   what to do in it. Uses the existing muted ink, no new token. */
+.pm-modal__sub{
+  margin:4px 0 0;font-size:13px;line-height:1.5;color:var(--text-3)}
 .pm-modal__title{
   font-family:var(--font-display);font-size:clamp(21px,4.5vw,25px);
   font-weight:700;color:var(--text-1);margin:0 0 8px}
@@ -4996,6 +5001,15 @@ button{font-family:var(--font-body)}
   width:100%;max-width:400px;
   display:flex;flex-direction:column;gap:16px;
   animation:cx-enter .26s var(--ease) both;animation-delay:80ms}
+/* Phase 97.6 §3 — the greeting sits with the field rather than with the
+   restaurant identity, so it reads as the start of the ASK ("Welcome - what
+   should we call you?") rather than as a second headline competing with the
+   venue name above. Aligned to the same edge as the field under it. */
+.cx-landing__welcome{
+  font-family:var(--font-display);font-size:clamp(20px,5vw,24px);
+  font-weight:700;line-height:1.2;color:var(--text-1);
+  margin:0;text-align:start}
+
 /* The field belongs to the page, so it is left-aligned within its own column
    while the composition around it stays centred. */
 .cx-landing__start .field{text-align:start}

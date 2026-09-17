@@ -304,7 +304,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     ? formatResultCount(t, filteredItems.length, searchQuery.trim())
     : activeCat
     ? `${activeCat.emoji} ${activeCat.name}`
-    : t("customer.menu", "Menu");
+    : t("customer.menuWord", "Menu");
   const sectionCount = isSearching
     ? null
     : formatItemCount(t, filteredItems.length);
@@ -905,6 +905,7 @@ function MenuUnavailable() {
 /* ── Search empty state ─────────────────────────────────────────────────── */
 function SearchEmpty({ query }) {
   const { t } = useLanguage();
+  const hasQuery = !!query.trim();
   return (
     /* Phase 73 §14 — this state is specifically "the menu HAS products, this
        query matched none", which is why it keeps its own component and copy
@@ -914,14 +915,25 @@ function SearchEmpty({ query }) {
       <span className="menu-search-empty__icon">
         <SearchX size={26} strokeWidth={1.8} />
       </span>
-      <h3 className="menu-search-empty__title">{t("customer.noItemsFound", "No items found")}</h3>
+      {/* Phase 97.6 §4 — one component, two different facts. With a query
+          this is "nothing matched what you typed"; with none it is a chosen
+          category that happens to be empty right now, and saying "No items
+          found" there reads like a search failure the guest never caused.
+          The behaviour, the icon and the layout are unchanged. */}
+      <h3 className="menu-search-empty__title">
+        {hasQuery
+          ? t("customer.noItemsFound", "No items found")
+          : t("customer.noItemsInCategory", "No items available in this category right now")}
+      </h3>
       {/* Phase 43 — the query keeps its own <strong> so it stays visually
           distinct in both languages, and is never translated. */}
-      <p className="menu-search-empty__sub">
-        {t("customer.nothingMatched", "Nothing matched")}{" "}
-        <strong>"{query.trim()}"</strong>.<br />
-        {t("customer.tryDifferentWord", "Try a different word or browse by category.")}
-      </p>
+      {hasQuery && (
+        <p className="menu-search-empty__sub">
+          {t("customer.nothingMatched", "Nothing matched")}{" "}
+          <strong>"{query.trim()}"</strong>.<br />
+          {t("customer.tryDifferentWord", "Try a different word or browse by category.")}
+        </p>
+      )}
     </div>
   );
 }

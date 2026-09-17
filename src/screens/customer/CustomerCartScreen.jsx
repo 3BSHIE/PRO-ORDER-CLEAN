@@ -604,7 +604,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
         className="topbar--customer-deep"
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
-            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
+            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menuWord", "Menu")}
           </button>
         }
         /* Phase 97.2 §2 — Language and Call Staff join the identity on this

@@ -312,10 +312,21 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
           targeted through a wrapper rather than a prop — the same trap the
           Menu topbar documents. */}
       <section className="cx-landing__start">
+        {/* Phase 97.6 §3 — the greeting the entry screen never had. The
+            restaurant identity and the table badge above already say WHERE
+            the guest is, so this says nothing about either (§3 rules out
+            repeating table identity here) and only greets them and asks the
+            one question the screen exists to ask.
+
+            The question IS the field label rather than a separate line: a
+            heading, a helper sentence and a "Your name" label would be three
+            rows saying one thing, and putting it on the <label> keeps the
+            input natively named for assistive tech. */}
+        <h2 className="cx-landing__welcome">{t("customer.welcomeTitle", "Welcome")}</h2>
         <div className="cx-landing__field">
           <Input
-            label={t("customer.yourName", "Your name")}
-            placeholder={t("customer.namePlaceholder", "e.g. Mohammad")}
+            label={t("customer.welcomeHelper", "What should we call you?")}
+            placeholder={t("customer.namePlaceholder", "Your name")}
             value={name}
             error={touched ? error : null}
             autoComplete="given-name"

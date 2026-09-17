@@ -311,7 +311,12 @@ export default function PaymentMethodModal({
        navigation frame cannot re-enter. */
   }
 
-  const title = t("payment.choosePaymentMethod", "Choose payment method");
+  /* Phase 97.6 §8 — the sheet is titled by WHAT it is and subtitled by what
+     to do. paymentMethodTitle is a customer-scoped key: the shared
+     payment.paymentMethod is a field label on Admin Live Orders, where
+     Title Case would be wrong (§20). */
+  const title = t("payment.paymentMethodTitle", "Payment Method");
+  const subtitle = t("payment.choosePaymentMethod", "Choose how you’d like to pay.");
 
   return (
     <div
@@ -344,6 +349,10 @@ export default function PaymentMethodModal({
 
         <div className="pm-modal__body">
           <h2 className="pm-modal__title">{title}</h2>
+          {/* Phase 97.6 §8 — suppressed when there is nothing to choose:
+              "Choose how you would like to pay" directly above "Payment
+              methods are currently unavailable" contradicts itself. */}
+          {hasMethods && <p className="pm-modal__sub">{subtitle}</p>}
 
           {!hasMethods ? (
             /* ── §27/§28 — zero selectable methods ──────────────────────
@@ -359,12 +368,10 @@ export default function PaymentMethodModal({
               <p className="pm-empty__title" role="status">
                 {t("payment.noMethodsTitle", "No payment methods are currently available.")}
               </p>
-              <p className="pm-empty__text">
-                {t(
-                  "payment.noMethodsText",
-                  "Please contact the staff to complete your order. Your cart is saved."
-                )}
-              </p>
+              {/* Phase 97.6 §8 — the sentence that used to sit here told the
+                  guest to contact staff, directly above a button that calls
+                  staff. §8 asks for only the functional CTA in this state, so
+                  the sentence is gone and the control speaks for itself. */}
               <div className="pm-empty__actions">
                 {/* §29 — the existing Digital Waiter Bell, not a second
                     staff-call implementation. It carries its own duplicate

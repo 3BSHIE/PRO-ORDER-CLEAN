@@ -279,7 +279,7 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
         className="topbar--customer-deep"
         left={
           <button type="button" className="cart-back-btn" onClick={onBackToMenu}>
-            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menu", "Menu")}
+            <ArrowLeft size={16} strokeWidth={2.2} /> {t("customer.menuWord", "Menu")}
           </button>
         }
         /* Phase 97.2 §3 — Language only. Tracking is the screen a guest sits
