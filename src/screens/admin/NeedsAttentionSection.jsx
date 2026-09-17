@@ -11,6 +11,28 @@ import { ATTENTION_KIND } from "../../lib/operationalAttention.js";
    exists to be read at a glance into something you have to operate. */
 const MAX_ROWS = 5;
 
+/* Phase 97.8.1 — the destinations an attention item can point at, in the order
+   their overflow actions appear. A fixed list rather than the order the hidden
+   items happen to arrive in, so the footer does not reshuffle itself as the
+   queue changes underneath it. These are the existing admin pages; no route is
+   added and no combined destination is invented. */
+const DESTINATION_ORDER = ["liveOrders", "staffCalls"];
+
+/* Each action names the page it opens, so an operator reads where they are
+   about to go before they press it. The count is part of the label rather than
+   a badge — the footer is two small buttons and a separate pill on each one
+   would out-decorate the rows above it. */
+const MORE_LABEL = {
+  liveOrders: {
+    key: "admin.viewMoreInLiveOrders",
+    fallback: "View more in Live Orders ({n})",
+  },
+  staffCalls: {
+    key: "admin.viewMoreStaffCalls",
+    fallback: "View more Staff Calls ({n})",
+  },
+};
+
 /* Per-condition presentation. The tone names map onto the semantic classes
    the dashboard already uses, so nothing here introduces a new alert palette
    (§26): delayed borrows the existing warning language, Ready keeps its own
@@ -78,7 +100,26 @@ export default function NeedsAttentionSection({ items = [], onNavigate }) {
   if (!items.length) return null;
 
   const shown = items.slice(0, MAX_ROWS);
-  const overflow = items.length - shown.length;
+
+  /* Phase 97.8.1 — the overflow affordance is derived from where the hidden
+     items ACTUALLY live, not assumed.
+
+     It previously always said "and N more" and always went to Live Orders,
+     which is wrong the moment a hidden item is a staff call: the operator
+     lands on a screen that does not contain the thing they were told about,
+     and nothing on it explains why. Counting the hidden items per destination
+     and labelling each action with its own page is the whole fix — one action
+     when the hidden items share a destination, two when they do not, and the
+     misleading generic case disappears because it can no longer be produced.
+
+     Iterating DESTINATION_ORDER rather than the hidden items keeps the
+     actions in a stable order regardless of which condition happens to spill
+     over first. */
+  const hidden = items.slice(MAX_ROWS);
+  const hiddenDestinations = DESTINATION_ORDER.map((destination) => ({
+    destination,
+    count: hidden.filter((item) => item.destination === destination).length,
+  })).filter((entry) => entry.count > 0);
 
   return (
     <>
@@ -139,16 +180,22 @@ export default function NeedsAttentionSection({ items = [], onNavigate }) {
           );
         })}
 
-        {overflow > 0 && (
-          <li>
-            <button
-              type="button"
-              className="ad-attention__more"
-              onClick={() => onNavigate("liveOrders")}
-            >
-              {t("admin.andNMore", "and {n} more").replace("{n}", overflow)}
-              <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
-            </button>
+        {hiddenDestinations.length > 0 && (
+          <li className="ad-attention__more-row">
+            {hiddenDestinations.map(({ destination, count }) => (
+              <button
+                key={destination}
+                type="button"
+                className="ad-attention__more"
+                onClick={() => onNavigate(destination)}
+              >
+                {t(
+                  MORE_LABEL[destination].key,
+                  MORE_LABEL[destination].fallback
+                ).replace("{n}", count)}
+                <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            ))}
           </li>
         )}
       </ul>

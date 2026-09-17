@@ -462,7 +462,10 @@ export const translations = {
       groupName: "Group name",
       /* Phase 97.8 §6 — the Overview action queue. */
       needsAttention: "Needs Attention",
-      andNMore: "and {n} more",
+      /* Phase 97.8.1 — the overflow actions name the page they open, because
+         hidden attention items do not all live in the same place. */
+      viewMoreInLiveOrders: "View more in Live Orders ({n})",
+      viewMoreStaffCalls: "View more Staff Calls ({n})",
       /* Phase 97.7 §15/§18 — the merchant is never required to translate. */
       oneLanguageIsEnough: "One language is enough — the other is optional.",
       nameRequiredAnyLanguage: "Enter a name in at least one language.",
@@ -1429,7 +1432,8 @@ export const translations = {
       choiceGroups: "مجموعات الخيارات",
       groupName: "اسم المجموعة",
       needsAttention: "يحتاج متابعة",
-      andNMore: "و{n} إضافية",
+      viewMoreInLiveOrders: "عرض المزيد في الطلبات المباشرة ({n})",
+      viewMoreStaffCalls: "عرض المزيد من طلبات الموظف ({n})",
       oneLanguageIsEnough: "لغة واحدة تكفي — الثانية اختيارية.",
       nameRequiredAnyLanguage: "أدخل الاسم بلغة واحدة على الأقل.",
       maxSelections: "الحد الأقصى للاختيارات",
