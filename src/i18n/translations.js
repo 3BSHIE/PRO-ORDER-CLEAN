@@ -691,7 +691,12 @@ export const translations = {
          being the Received STATUS everywhere else, so reusing it as the
          success message made the two mean different things in the same
          flow. */
-      orderPlacedSuccessfully: "Order placed successfully",
+      /* Phase 97.4 §10 — approved Order Placed copy. Renamed from
+         orderPlacedSuccessfully, which no longer described its own value,
+         and joined by the two lines the screen never had. */
+      orderPlacedTitle: "Order placed",
+      orderPlacedLine1: "Your order has been sent to the restaurant.",
+      orderPlacedLine2: "We'll keep you updated here.",
       orderNumber: "Order number",
       /* Phase 74 §30/§31 — subdued actions for finished/dead orders. */
       viewOrder: "View order",
@@ -732,13 +737,24 @@ export const translations = {
        already grown to cover confirmation copy, My Orders copy and status
        history labels. */
     track: {
-      /* §6 — one sentence per real status. Ready is the one that had to
-         change meaning: the old wording ("ready and will be served soon")
-         left it ambiguous whether the guest should get up and collect it. */
-      sentenceReceived:  "Your order has been received and sent to the kitchen.",
-      sentencePreparing: "Your order is being prepared now.",
-      sentenceReady:     "Your order is ready. A waiter is on the way to your table.",
-      sentenceDelivered: "Your order has been delivered to your table.",
+      /* Phase 97.4 §8/§9 — approved final status copy, and it is now TWO
+         lines per status rather than one. The split is the point (§9): the
+         sentence states the STATUS and nothing else, and the helper adds the
+         one piece of context the guest cannot infer from it. Packing both
+         into a single sentence is what made the old Ready line have to
+         promise a waiter, and the old Received line recite plumbing.
+
+         Ready deliberately does NOT promise immediate service, and Preparing
+         deliberately does not say the food is on the way — both were
+         explicitly ruled out. */
+      sentenceReceived:  "Your order has been received.",
+      sentencePreparing: "Your order is being prepared.",
+      sentenceReady:     "Your order is ready.",
+      sentenceDelivered: "Your order has been delivered.",
+      helperReceived:    "Your order is in the queue.",
+      helperPreparing:   "The kitchen is working on it now.",
+      helperReady:       "It's waiting to be served.",
+      helperDelivered:   "Enjoy your meal.",
 
       /* §19 — route state for screen readers, so current/completed/upcoming
          does not depend on the disc being bigger or a different colour. */
@@ -1590,7 +1606,9 @@ export const translations = {
       orderReceivedMsg: "تم إرسال طلبك إلى المطعم.",
       trackOrder: "تتبع الطلب",
       /* Phase 88 §1 */
-      orderPlacedSuccessfully: "تم تأكيد طلبك بنجاح",
+      orderPlacedTitle: "تم تأكيد طلبك",
+      orderPlacedLine1: "طلبك الآن عند المطعم.",
+      orderPlacedLine2: "رح نحدثك بحالة طلبك هون.",
       orderNumber: "رقم الطلب",
       viewOrder: "عرض الطلب",
       viewDetails: "عرض التفاصيل",
@@ -1622,13 +1640,16 @@ export const translations = {
     },
     /* ── Phase 88 (Unit 6) ── */
     track: {
-      /* §6 — natural Arabic rather than literal renderings. Ready states
-         outright that the waiter is on the way (النادل في طريقه), which is
-         the point §6 insists on. */
-      sentenceReceived:  "تم استلام طلبك وإرساله إلى المطبخ.",
-      sentencePreparing: "يتم تحضير طلبك الآن.",
-      sentenceReady:     "طلبك جاهز، والنادل في طريقه إلى طاولتك.",
-      sentenceDelivered: "تم تقديم طلبك على طاولتك.",
+      /* Phase 97.4 §8 — approved final Arabic, in the same two-line shape as
+         the English: status first, context second. */
+      sentenceReceived:  "استلمنا طلبك.",
+      sentencePreparing: "طلبك قيد التحضير.",
+      sentenceReady:     "طلبك جاهز.",
+      sentenceDelivered: "تم تسليم طلبك.",
+      helperReceived:    "طلبك دخل قائمة التحضير.",
+      helperPreparing:   "المطبخ شغال على طلبك هسا.",
+      helperReady:       "طلبك بانتظار التقديم.",
+      helperDelivered:   "صحة وعافية.",
 
       stepCurrent:   "الخطوة الحالية",
       stepCompleted: "مكتملة",

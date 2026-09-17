@@ -243,12 +243,24 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
       <h1 className="confirm__title">
         {isCanceled
           ? t("orders.canceledBanner", "This order was canceled.")
-          : t("orders.orderPlacedSuccessfully", "Order placed successfully")}
+          : t("orders.orderPlacedTitle", "Order placed")}
       </h1>
 
-      {isCanceled && (
+      {isCanceled ? (
         <p className="confirm__msg">
           {t("orders.trackingMsgCanceled", "This order was canceled. Please contact the staff if you need help.")}
+        </p>
+      ) : (
+        /* Phase 97.4 §10 — the two approved lines. The screen previously
+           carried only a title, so a guest who had just paid was told the
+           order existed and nothing about what happens next. Kept out of the
+           canceled branch entirely: a canceled order has not been sent
+           anywhere and nobody will be updating the guest about it. */
+        <p className="confirm__msg">
+          {t("orders.orderPlacedLine1", "Your order has been sent to the restaurant.")}
+          <span className="confirm__msg-line">
+            {t("orders.orderPlacedLine2", "We'll keep you updated here.")}
+          </span>
         </p>
       )}
 

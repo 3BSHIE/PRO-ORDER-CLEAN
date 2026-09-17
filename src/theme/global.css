@@ -5438,6 +5438,13 @@ button{font-family:var(--font-body)}
 .confirm__msg{
   font-size:13.5px;color:var(--text-2);line-height:1.6;
   margin:0 0 4px;max-width:34ch}
+/* Phase 97.4 §10 — line 2 of the approved copy. A block span rather than a
+   second paragraph so the pair stays one sentence-level unit to a screen
+   reader, reading as the two-line message it is. It is quieter than line 1
+   for the same reason the tracking helper is: the first line is the fact, the
+   second is the reassurance. */
+.confirm__msg-line{
+  display:block;margin-top:2px;color:var(--text-3)}
 
 /* §1 — the order number, promoted to the strongest functional element after
    the headline. Its own block, its own label, tabular figures, and isolated
@@ -5512,9 +5519,22 @@ button{font-family:var(--font-body)}
 
 /* §6 — the one sentence. Sits directly under the route and is the only
    place the current status is described in words. */
+/* Phase 97.4 §8/§9 — status, then context. Two lines, and the difference
+   between them is carried entirely by weight and ink: the status keeps the
+   size and the primary text colour it already had, and the helper sits under
+   it a size down in --text-3. No card, no icon, no second block — it is the
+   quiet half of one thought, not a new component.
+
+   The wrapper owns the centring and the measure so the two lines share one
+   column and wrap against the same edge. */
+.track__status-copy{
+  text-align:center;margin:0 auto;max-width:36ch}
 .track__sentence{
   font-size:14.5px;line-height:1.6;color:var(--text-1);
-  text-align:center;margin:0 auto;max-width:36ch}
+  margin:0}
+.track__helper{
+  font-size:13px;line-height:1.55;color:var(--text-3);
+  margin:4px 0 0}
 
 /* §14 — Call Staff, prominent and centered for every status. Generous space
    above so it never crowds the timer, and below so it never crowds the
@@ -5622,12 +5642,35 @@ button{font-family:var(--font-body)}
    the live station. The upcoming stations additionally carried opacity:.72,
    which made their whole surface translucent for the same reason. Both are
    gone — the route now passes BEHIND every station, as §6 requires. */
+/* ── Phase 97.4 §3/§4 — ONE size, ONE set of ratios, every state ─────────
+   Each state now sets only --disc. Everything that has to grow with the
+   station — the lucide glyph, the Delivered setting, and the parts of the
+   Received and Ready motions that are anchored to the artwork — is derived
+   from it here, so the icon/station relationship is stated once and cannot
+   drift between states or breakpoints.
+
+   Measured before this phase at 390px: an inactive lucide glyph was 17px in
+   a 28px disc (0.607), but the ACTIVE one was 19px in a 47px disc — 0.404.
+   The live station was a large ring with a small mark adrift in it. The
+   ratio below is the inactive one, so active and inactive now agree.
+
+   --setting-ratio is separate because the Delivered mark is not a lucide
+   glyph: it is a three-part composite whose ink fills 96% of its own box,
+   where a lucide glyph fills 75-91% of a square box with padding built in.
+   Measured, its ink spanned 0.894 of the inactive disc against 0.504-0.554
+   for the others — the cramping §2 describes. See the setting rule for why
+   0.7 rather than a full optical match. */
 .sroute__disc{
   --station-surface:var(--surface-2);
+  --disc:34px;
+  --glyph-ratio:.6;
+  --setting-ratio:.7;
+  --glyph-size:calc(var(--disc) * var(--glyph-ratio));
+  --setting-size:calc(var(--disc) * var(--setting-ratio));
   display:grid;place-items:center;border-radius:50%;
   background:var(--station-surface);border:1px solid var(--border);
   color:var(--text-3);
-  width:34px;height:34px;
+  width:var(--disc);height:var(--disc);
   transition:width var(--route-dur) var(--ease-route),
     height var(--route-dur) var(--ease-route),
     background var(--route-dur) var(--ease-route),
@@ -5663,7 +5706,7 @@ button{font-family:var(--font-body)}
    is ~72px and the disc plus halo is 64px. */
 .sroute__station--current .sroute__disc{
   --station-surface:color-mix(in srgb, var(--tone) 15%, var(--surface-1));
-  width:52px;height:52px;
+  --disc:52px;
   background:var(--station-surface);
   border-color:var(--tone);border-width:1.5px;
   color:var(--tone);
@@ -5676,7 +5719,7 @@ button{font-family:var(--font-body)}
    what stops four finished stations turning the route into a rainbow. */
 .sroute__station--done .sroute__disc{
   --station-surface:var(--surface-3);
-  width:32px;height:32px;
+  --disc:32px;
   background:var(--station-surface);
   border-color:var(--border-strong);
   color:var(--text-2)}
@@ -5688,7 +5731,7 @@ button{font-family:var(--font-body)}
    inside is dimmed instead, which is invisible to the route. */
 .sroute__station--future .sroute__disc{
   --station-surface:var(--surface-2);
-  width:30px;height:30px;
+  --disc:30px;
   background:var(--station-surface);
   border-color:var(--border);
   color:var(--text-3)}
@@ -5734,12 +5777,11 @@ button{font-family:var(--font-body)}
 .sicon__setting{
   transition:width var(--route-dur) var(--ease-route),
     height var(--route-dur) var(--ease-route)}
-.sicon > svg{width:17px;height:17px}
-.sroute__station--current .sicon > svg{width:19px;height:19px}
-/* The Delivered setting needs one extra class to win: .sicon--delivered
-   .sicon__setting also sets a width and ties on specificity while sitting
-   later in the file, so a two-class selector here would silently lose. */
-.sroute__station--current .sicon--delivered .sicon__setting{width:29px}
+/* Phase 97.4 §3/§4 — one declaration for all four states. The per-state
+   overrides that used to live here (19px current, 29px Delivered current)
+   are gone: they were the reason the active icon fell out of proportion,
+   and a second source of truth for a size that is now derived. */
+.sicon > svg{width:var(--glyph-size);height:var(--glyph-size)}
 
 /* ── Received: an arrival signal (§4) ───────────────────────────────────
    The ticket stays still; a line sweeps down across it, like a docket being
@@ -5762,11 +5804,26 @@ button{font-family:var(--font-body)}
    with a hair to spare at each end, so the line still crosses the whole
    receipt rather than stopping short of it (§2, and the Phase 88.2 rule that
    the scan must not appear to reset halfway). */
+/* Phase 97.4 §3/§6 — the band was 33%/34% of the STATION, a pair of numbers
+   that were only ever right for one glyph size (the comment above says so:
+   they were computed for a 19px glyph in a 47px disc). Now that the glyph is
+   derived, those constants would leave the scan covering the middle half of a
+   receipt that had grown past it — the exact "resets halfway" failure Phase
+   88.2 fixed. So the band is anchored to the GLYPH instead: the receipt
+   occupies y 2..22 of the 24-unit lucide box, i.e. it starts one twelfth down
+   the glyph and runs five sixths of its height, and the beam spans the glyph
+   box. The motion, its keyframes and its timing are untouched. */
 .sicon--received .sicon__scan{
-  position:absolute;left:22%;right:22%;top:33%;height:34%;
+  position:absolute;
+  left:calc((var(--disc) - var(--glyph-size)) / 2);
+  right:calc((var(--disc) - var(--glyph-size)) / 2);
+  top:calc((var(--disc) - var(--glyph-size)) / 2 + var(--glyph-size) / 12);
+  height:calc(var(--glyph-size) * 0.8333);
   opacity:0;pointer-events:none}
 .sicon--received .sicon__scan::after{
-  content:"";position:absolute;left:0;right:0;top:0;height:1.6px;
+  content:"";position:absolute;left:0;right:0;top:0;
+  /* 1.6px against the 19px glyph this was drawn on. */
+  height:calc(var(--glyph-size) * 0.084);
   border-radius:1px;background:currentColor}
 .sicon--received.is-live .sicon__scan{
   animation:sicon-scan 2.6s var(--ease) infinite}
@@ -5862,15 +5919,25 @@ button{font-family:var(--font-body)}
    It fires at 56% of the cycle — just after the tray reaches the top of its
    lift at 38-58% — so the shine reads as a consequence of the presentation
    rather than an unrelated twinkle. */
+/* Phase 97.4 §3/§6 — 58%/41% of the STATION put the sparkle on the tray only
+   at the glyph size it was measured against. Resolved against the 19px active
+   glyph it sat at 69.8%/27.7% of the GLYPH box, so that is what it is anchored
+   to now, and it stays on the tray line at any station size. Its own size
+   scales with the glyph for the same reason. Timing and keyframes unchanged. */
 .sicon--ready .sicon__spark{
-  position:absolute;left:58%;top:41%;width:7px;height:7px;
+  position:absolute;
+  left:calc((var(--disc) - var(--glyph-size)) / 2 + var(--glyph-size) * 0.698);
+  top:calc((var(--disc) - var(--glyph-size)) / 2 + var(--glyph-size) * 0.277);
+  width:calc(var(--glyph-size) * 0.368);height:calc(var(--glyph-size) * 0.368);
   transform:translate(-50%,-50%) scale(0);opacity:0;pointer-events:none}
 .sicon--ready .sicon__spark::before,
 .sicon--ready .sicon__spark::after{
   content:"";position:absolute;left:50%;top:50%;
   background:currentColor;border-radius:1px}
-.sicon--ready .sicon__spark::before{width:100%;height:1.3px;transform:translate(-50%,-50%)}
-.sicon--ready .sicon__spark::after{width:1.3px;height:100%;transform:translate(-50%,-50%)}
+.sicon--ready .sicon__spark::before{
+  width:100%;height:calc(var(--glyph-size) * 0.068);transform:translate(-50%,-50%)}
+.sicon--ready .sicon__spark::after{
+  width:calc(var(--glyph-size) * 0.068);height:100%;transform:translate(-50%,-50%)}
 .sicon--ready.is-live .sicon__spark{
   animation:sicon-spark 2.4s var(--ease) infinite}
 @keyframes sicon-spark{
@@ -5916,11 +5983,30 @@ button{font-family:var(--font-body)}
    the drawing rather than by taste: the master already parks the utensils
    about 1% of the icon's width from the plate. What makes the gesture read is
    the hold at each end of the loop, not the distance. */
-/* The setting is a touch larger than Phase 88.1's 24px, which §5 explicitly
-   allows: the utensils now travel across the plate, and the extra 2px is what
-   keeps two crossing silhouettes legible at station size. */
+/* Phase 97.4 §2/§5 — the Delivered mark gets its breathing room.
+
+   MEASURED, not guessed. The three PNG masks recombined fill 96.3% of the
+   shared 269x202 box, so the box IS the ink — unlike a lucide glyph, which
+   draws 75-91% of a square box and carries its own padding. At the old 26px
+   in a 28px inactive disc that put 25px of ink across a 28px circle: 0.894 of
+   the diameter, against 0.504 (ChefHat) and 0.554 (HandPlatter) for its two
+   neighbours. That is the cramping §2 describes, and it is why the mark read
+   as nearly filling its station.
+
+   WHY 0.7 AND NOT A FULL OPTICAL MATCH. Landing the ink at 0.55 of the disc
+   would mean a 16px box, a 38% cut, and the plate, fork and knife are three
+   separate silhouettes — Phase 88.2 already found they merge into a blob once
+   they are too small to stay apart. 0.7 takes the inactive box from 26px to
+   19.6px at 390px and the ink from 0.894 to 0.674 of the disc, closing about
+   two thirds of the gap while leaving the mark readable. §2 asks for a similar
+   proportion AND a slight reduction; this is as much of the first as the
+   artwork survives.
+
+   §5 B — the active size is no longer its own number. It derives from the
+   corrected base through the same --disc, so Delivered is promoted by exactly
+   the proportion every other station is and cannot become oversized. */
 .sicon--delivered .sicon__setting{
-  position:relative;display:block;width:26px;aspect-ratio:269 / 202}
+  position:relative;display:block;width:var(--setting-size);aspect-ratio:269 / 202}
 .sicon--delivered .sicon__setting > span{
   position:absolute;inset:0;background:currentColor;
   -webkit-mask:var(--u) center/contain no-repeat;
@@ -5935,8 +6021,10 @@ button{font-family:var(--font-body)}
    what lets §5's much larger movement stay sleek instead of turning to mush. */
 .sicon--delivered .sicon__fork,
 .sicon--delivered .sicon__knife{
-  filter:drop-shadow(0 0 1.1px var(--station-surface))
-         drop-shadow(0 0 1.1px var(--station-surface))}
+  /* 1.1px against the 26px setting it was tuned on, so the hairline gap keeps
+     its weight relative to the utensils at any station size. */
+  filter:drop-shadow(0 0 calc(var(--setting-size) * 0.042) var(--station-surface))
+         drop-shadow(0 0 calc(var(--setting-size) * 0.042) var(--station-surface))}
 
 /* Each utensil rotates about ITS OWN centroid in the shared box — measured
    from the master, fork at 9%/45% and knife at 93%/50% — so they pivot where
@@ -6270,10 +6358,12 @@ button{font-family:var(--font-body)}
    being truncated. Four stations still fit on 320px. */
 @media(max-width:400px){
   .sroute__label{font-size:10px}
-  /* §2 — 42px -> 47px (+12%), the same uplift the wide layout takes. */
-  .sroute__station--current .sroute__disc{width:47px;height:47px}
-  .sroute__station--done .sroute__disc{width:30px;height:30px}
-  .sroute__station--future .sroute__disc{width:28px;height:28px}
+  /* §2 — 42px -> 47px (+12%), the same uplift the wide layout takes.
+     Phase 97.4 — these set --disc only; every icon size follows from it, so
+     this breakpoint no longer restates any of them. */
+  .sroute__station--current .sroute__disc{--disc:47px}
+  .sroute__station--done .sroute__disc{--disc:30px}
+  .sroute__station--future .sroute__disc{--disc:28px}
   .track__idline{font-size:12px}
 }
 @media(max-width:340px){
@@ -6286,7 +6376,7 @@ button{font-family:var(--font-body)}
    wide stops reading as a journey and becomes four unrelated icons. */
 @media(min-width:720px){
   .sroute,
-  .track__sentence,
+  .track__status-copy,
   .otimer,
   .track__call-staff,
   .odetails,

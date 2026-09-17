@@ -39,11 +39,29 @@ import { fmtPrice } from "../../lib/format.js";
  * canceled notice below states it once (§13, no duplicate cancellation
  * copy). */
 const STATUS_MESSAGE = {
-  received:  "Your order has been received and sent to the kitchen.",
-  preparing: "Your order is being prepared now.",
-  ready:     "Your order is ready. A waiter is on the way to your table.",
-  delivered: "Your order has been delivered to your table.",
+  received:  "Your order has been received.",
+  preparing: "Your order is being prepared.",
+  ready:     "Your order is ready.",
+  delivered: "Your order has been delivered.",
   canceled:  "This order was canceled. Please contact the staff if you need help.",
+};
+
+/* Phase 97.4 §8/§9 — the second half of the approved copy: one short line of
+   CONTEXT under the status sentence. Deliberately a separate map with no
+   canceled entry — a canceled order is not a step on this journey, it keeps
+   its own notice, and §14 rules out giving it a second line of copy. */
+const STATUS_HELPER = {
+  received:  "Your order is in the queue.",
+  preparing: "The kitchen is working on it now.",
+  ready:     "It's waiting to be served.",
+  delivered: "Enjoy your meal.",
+};
+
+const TRACKING_HELPER_KEY = {
+  received:  "track.helperReceived",
+  preparing: "track.helperPreparing",
+  ready:     "track.helperReady",
+  delivered: "track.helperDelivered",
 };
 
 const STATUS_BADGE_TONE = {
@@ -325,6 +343,11 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
   const statusMsg = TRACKING_MSG_KEY[order.status]
     ? t(TRACKING_MSG_KEY[order.status], STATUS_MESSAGE[order.status])
     : t("orders.trackingFallbackMsg", "We're tracking your order.");
+  /* Absent for canceled and for any unrecognised status, in which case the
+     helper line is simply not rendered rather than falling back to filler. */
+  const statusHelper = TRACKING_HELPER_KEY[order.status]
+    ? t(TRACKING_HELPER_KEY[order.status], STATUS_HELPER[order.status])
+    : null;
 
   return (
     /* Phase 88 §2 — a restrained entrance: opacity plus a few pixels of
@@ -379,10 +402,18 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
           {/* ── 2. the route (§4) ─────────────────────────────────────── */}
           <StatusRoute currentStatus={order.status} />
 
-          {/* ── 3. one sentence for the real current status (§6) ───────
+          {/* ── 3. the status, then its context (§6, Phase 97.4 §8/§9) ──
               role="status" so an advance arriving over the 4s poll is
-              announced once, politely, rather than silently changing. */}
-          <p className="track__sentence" role="status">{statusMsg}</p>
+              announced once, politely, rather than silently changing.
+
+              Both lines live inside the SAME live region: they change
+              together on an advance, and announcing them as one utterance
+              is how a person would read them. A second region would
+              interrupt itself. */}
+          <div className="track__status-copy" role="status">
+            <p className="track__sentence">{statusMsg}</p>
+            {statusHelper && <p className="track__helper">{statusHelper}</p>}
+          </div>
 
           {/* ── 4. the Main Timer (§7) ─────────────────────────────────
               Renders nothing at Ready/Delivered, and nothing for an order
