@@ -11,6 +11,7 @@ import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
+import { getLocalizedText, localizedVariants } from "../../lib/localizedContent.js";
 import { prefersReducedMotion } from "../../lib/motion.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import RestaurantClosedNotice from "./components/RestaurantClosedNotice.jsx";
@@ -147,7 +148,10 @@ export default function CustomerMenuScreen({
 function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewCart, onViewOrders }) {
   const [activeCategory, setActiveCategory] = useState(null); // null = All
   const [searchQuery,    setSearchQuery]    = useState("");
-  const { t } = useLanguage();
+  /* Phase 97.7 — `language` is the CUSTOMER language, and it is what resolves
+     merchant-authored text (category and product names). System copy keeps
+     going through t(). */
+  const { t, language } = useLanguage();
   const { categories: allCategories, items: allMenuItems } = useMenuData(restaurant.slug);
   /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
      sees the notice appear when staff flip it, without reloading. */
@@ -246,7 +250,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const filteredItems = useMemo(() => {
     const catOrder = Object.fromEntries(categories.map((c) => [c.id, c.sortOrder]));
     const catNames = Object.fromEntries(
-      categories.map((c) => [c.id, c.name.toLowerCase()])
+      categories.map((c) => [c.id, localizedVariants(c.name).map((n) => n.toLowerCase())])
     );
 
     /* Phase 28 — the gate for EVERY list on this screen. Filtering here
@@ -262,11 +266,18 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
     const q = searchQuery.trim().toLowerCase();
     if (q) {
+      /* Phase 97.7 §29 — search every language a field holds, not only the one
+         on screen. A guest reading the Arabic menu who types "chicken" still
+         finds برغر دجاج, and the reverse works too. The dataset is local and
+         small, so a couple of extra string compares per item cost nothing and
+         need no index. */
+      const matches = (value) =>
+        localizedVariants(value).some((text) => text.toLowerCase().includes(q));
       items = items.filter(
         (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.description.toLowerCase().includes(q) ||
-          (catNames[i.categoryId] || "").includes(q)
+          matches(i.name) ||
+          matches(i.description) ||
+          (catNames[i.categoryId] || []).some((n) => n.includes(q))
       );
     }
 
@@ -303,7 +314,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   const sectionTitle = isSearching
     ? formatResultCount(t, filteredItems.length, searchQuery.trim())
     : activeCat
-    ? `${activeCat.emoji} ${activeCat.name}`
+    ? `${activeCat.emoji} ${getLocalizedText(activeCat.name, language)}`
     : t("customer.menuWord", "Menu");
   const sectionCount = isSearching
     ? null
@@ -326,8 +337,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     const nextCart = addCartItem({
       itemId: item.id,
       categoryId: item.categoryId,
-      name: item.name,
-      description: item.description,
+      /* Phase 97.7 §23 — the line snapshots RESOLVED TEXT. Every operational
+         reader of a cart/order line (Kitchen, Admin Live Orders, Cashier,
+         Tracking) treats these as plain strings, so the localized value is
+         resolved here rather than travelling any further. */
+      name: getLocalizedText(item.name, language),
+      description: getLocalizedText(item.description, language),
       imageUrl: item.imageUrl,
       basePrice: item.price,
       unitPrice,
@@ -343,7 +358,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     setSelectedItem(null);
     /* Acknowledge only when the FAB was already there to acknowledge with. */
     if (fabVisibleRef.current) setFabAck(true);
-  }, []);
+    /* Phase 97.7 — language is a real dependency now: the line snapshots
+       RESOLVED text, so a callback frozen at the first render would store the
+       name in whatever language the guest opened the menu in rather than the
+       one they are reading when they press Add. */
+  }, [language]);
 
   /* Clear the one-shot class so a later add can replay it. 340ms covers the
      320ms animation with a little slack; it never loops. */
@@ -595,7 +614,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               aria-pressed={activeCategory === cat.id}
               onClick={(e) => { setActiveCategory(cat.id); setSearchQuery(""); revealChip(e.currentTarget); }}
             >
-              {cat.emoji} {cat.name}
+              {cat.emoji} {getLocalizedText(cat.name, language)}
             </button>
           ))}
         </div>
@@ -687,7 +706,7 @@ function revealChip(el) {
 
 /* ── Grouped view (All, no search) ─────────────────────────────────────── */
 function GroupedView({ items, categories, onOpen }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   return (
     <>
       {/* Receives the already visibility-filtered category list. */}
@@ -698,7 +717,7 @@ function GroupedView({ items, categories, onOpen }) {
           <section key={cat.id} className="menu-cat-section anim-rise">
             <div className="menu-cat-section__header">
               <h2 className="menu-cat-section__title">
-                {cat.emoji} {cat.name}
+                {cat.emoji} {getLocalizedText(cat.name, language)}
               </h2>
               <span className="menu-cat-section__count">
                 {formatItemCount(t, catItems.length)}
@@ -726,7 +745,9 @@ function ItemGrid({ items, onOpen }) {
 /* ── Product card ───────────────────────────────────────────────────────── */
 function ItemCard({ item, onOpen }) {
   const available = item.isAvailable;
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const itemName = getLocalizedText(item.name, language);
+  const itemDescription = getLocalizedText(item.description, language);
   const oosId = `oos-${item.id}`;
 
   /* Phase 44 — an unavailable card is not a control.
@@ -754,7 +775,9 @@ function ItemCard({ item, onOpen }) {
       {/* Phase 73 §10 — the category emoji is no longer used as a product
           image stand-in. It said nothing about the dish and rendered the same
           giant glyph across every item in a category. */}
-      <ItemImage src={item.imageUrl} alt={item.name} name={item.name} />
+      {/* Phase 97.7 — resolved once; alt text and the placeholder initial both
+         need a string, never the localized object. */}
+      <ItemImage src={item.imageUrl} alt={itemName} name={itemName} />
 
       {/* Out of stock overlay badge. Carries an id so the disabled "+" can
           point at it instead of repeating the wording — one source of truth
@@ -788,8 +811,8 @@ function ItemCard({ item, onOpen }) {
             </span>
           )}
         </div>
-        <p className="item-card__name">{item.name}</p>
-        <p className="item-card__desc">{item.description}</p>
+        <p className="item-card__name">{itemName}</p>
+        <p className="item-card__desc">{itemDescription}</p>
         <div className="item-card__foot">
           <span className="item-card__price">{fmtPrice(item.price)}</span>
           {/* Unchanged behavior for an available item: this opens Item
@@ -807,8 +830,8 @@ function ItemCard({ item, onOpen }) {
             }}
             aria-label={
               available
-                ? t("customer.openItem", "Open {name}").replace("{name}", item.name)
-                : item.name
+                ? t("customer.openItem", "Open {name}").replace("{name}", itemName)
+                : itemName
             }
             aria-describedby={available ? undefined : oosId}
           >

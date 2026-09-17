@@ -18,6 +18,14 @@ import {
   genAddOnId,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import LocalizedField from "../../components/ui/LocalizedField.jsx";
+import {
+  getLocalizedText,
+  localizedVariants,
+  hasLocalizedText,
+  trimLocalizedText,
+  BASE_CONTENT_LANGUAGE,
+} from "../../lib/localizedContent.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 /* Phase 66 — the price rules moved to src/lib/menuPricing.js so the storage
    boundary can enforce the identical rules. Behaviour here is unchanged. */
@@ -145,7 +153,7 @@ export function validateChoiceGroups(choices) {
   let firstInvalidGroupId = null;
 
   for (const group of choices || []) {
-    if (!(group.name || "").trim()) continue; // dropped on save anyway
+    if (!hasLocalizedText(group.name)) continue; // dropped on save anyway
 
     /* Phase 80 — the per-group rules moved to lib/choiceRules.js so the
        editor, the customer sheet, the cart and the order gate all judge a
@@ -193,9 +201,9 @@ export function validateCustomizationPrices(choices, paidAddOns) {
   let firstInvalidFieldId = null;
 
   for (const group of choices || []) {
-    if (!(group.name || "").trim()) continue; // dropped on save anyway
+    if (!hasLocalizedText(group.name)) continue; // dropped on save anyway
     for (const opt of group.options || []) {
-      if (!(opt.name || "").trim()) continue; // dropped on save anyway
+      if (!hasLocalizedText(opt.name)) continue; // dropped on save anyway
       if (parseChoiceOptionPrice(opt.price) === null) {
         optionErrors[optionErrorKey(group.id, opt.id)] = true;
         if (!firstInvalidFieldId) firstInvalidFieldId = optionPriceFieldId(group.id, opt.id);
@@ -204,7 +212,7 @@ export function validateCustomizationPrices(choices, paidAddOns) {
   }
 
   for (const addon of paidAddOns || []) {
-    if (!(addon.name || "").trim()) continue; // dropped on save anyway
+    if (!hasLocalizedText(addon.name)) continue; // dropped on save anyway
     if (parseAddOnPrice(addon.price) === null) {
       addOnErrors[addon.id] = true;
       if (!firstInvalidFieldId) firstInvalidFieldId = addOnPriceFieldId(addon.id);
@@ -221,7 +229,7 @@ export function validateCustomizationPrices(choices, paidAddOns) {
 
 export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { categories, items } = useMenuData(restaurant.slug);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -230,13 +238,23 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  const categoryName = (categoryId) => categories.find((c) => c.id === categoryId)?.name || "—";
+  /* Phase 97.7 — resolved, never the raw value: a bilingual category name is
+     an object, and React throws rather than printing it. */
+  const categoryName = (categoryId) =>
+    getLocalizedText(categories.find((c) => c.id === categoryId)?.name, language) || "—";
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return items
       .filter((i) => categoryFilter === "all" || i.categoryId === categoryFilter)
-      .filter((i) => !q || i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q))
+      /* Admin search matches every language too, so a manager can find a
+         product by either name regardless of the interface language. */
+      .filter(
+        (i) =>
+          !q ||
+          localizedVariants(i.name).some((v) => v.toLowerCase().includes(q)) ||
+          localizedVariants(i.description).some((v) => v.toLowerCase().includes(q))
+      )
       .sort((a, b) => {
         const cd = (categories.findIndex((c) => c.id === a.categoryId)) - (categories.findIndex((c) => c.id === b.categoryId));
         return cd !== 0 ? cd : (a.sortOrder || 0) - (b.sortOrder || 0);
@@ -368,7 +386,7 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
         >
           <option value="all">{t("admin.allCategories", "All categories")}</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+            <option key={c.id} value={c.id}>{c.emoji} {getLocalizedText(c.name, language)}</option>
           ))}
         </select>
         {canCreateProducts && (
@@ -443,7 +461,7 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
             >
               <div className="mm-item-row__thumb">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} loading="lazy" />
+                  <img src={item.imageUrl} alt={getLocalizedText(item.name, language)} loading="lazy" />
                 ) : (
                   <span className="mm-item-row__emoji">
                     {categories.find((c) => c.id === item.categoryId)?.emoji || "🍽️"}
@@ -452,7 +470,7 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
               </div>
 
               <div className="mm-item-row__info">
-                <p className="mm-item-row__name">{item.name}</p>
+                <p className="mm-item-row__name">{getLocalizedText(item.name, language)}</p>
                 <p className="mm-item-row__meta">
                   <span className="mm-item-row__cat">{categoryName(item.categoryId)}</span>
                   <span className="mm-item-row__price">{fmtPrice(item.price)}</span>
@@ -578,11 +596,16 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
 
 /* ── Add/Edit item form modal — the big one ──────────────────────────────── */
 function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelete }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isNew = !item.id;
 
-  const [name, setName] = useState(item.name || "");
-  const [description, setDescription] = useState(item.description || "");
+  /* Phase 97.7 §21 — the draft carries each value in whatever shape it is
+     stored in, legacy string included. Merely opening a product must not
+     rewrite it; the bilingual object is produced by Save and nowhere else.
+     Both take part in draftSignature below exactly as before, so dirty state,
+     the discard guard and the double-save lock all keep working untouched. */
+  const [name, setName] = useState(item.name ?? "");
+  const [description, setDescription] = useState(item.description ?? "");
   const [price, setPrice] = useState(item.price != null ? String(item.price) : "");
   const [categoryId, setCategoryId] = useState(item.categoryId || categories[0]?.id || "");
   const [imageUrl, setImageUrl] = useState(item.imageUrl || "");
@@ -628,7 +651,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
   /* ── Ingredients ──────────────────────────────────────────────────────── */
   function handleAddIngredient() {
     const value = newIngredient.trim();
-    if (!value || removableIngredients.includes(value)) { setNewIngredient(""); return; }
+    /* Compared against each entry's base-language text, so adding "onions"
+       twice is still refused once the first one has an Arabic translation. */
+    const exists = removableIngredients.some(
+      (entry) => getLocalizedText(entry, BASE_CONTENT_LANGUAGE).trim() === value
+    );
+    if (!value || exists) { setNewIngredient(""); return; }
     setRemovableIngredients([...removableIngredients, value]);
     setNewIngredient("");
   }
@@ -839,7 +867,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
   async function handleSubmit() {
     /* Before validation, so a double press cannot even re-run the checks. */
     if (savingRef.current) return;
-    if (!name.trim()) { setError(t("admin.productNameRequired", "Please enter an item name.")); return; }
+    if (!hasLocalizedText(name)) { setError(t("admin.nameRequiredAnyLanguage", "Enter a name in at least one language.")); return; }
     if (!categoryId) { setError(t("admin.productCategoryRequired", "Please choose a category.")); return; }
 
     /* Phase 47 — the save is abandoned before onSave, so nothing is written
@@ -918,8 +946,8 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
     setIsSaving(true);
     try {
       await onSave({
-      name: name.trim(),
-      description: description.trim(),
+      name: trimLocalizedText(name),
+      description: trimLocalizedText(description),
       /* Already a validated finite Number > 0 — storage shape is unchanged. */
       price: parsedPrice,
       categoryId,
@@ -944,9 +972,10 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       // and the untouched option objects preserves every existing group and
       // option id, which Phase 37's cart matching depends on.
       choices: choices
-        .filter((g) => g.name.trim())
+        .filter((g) => hasLocalizedText(g.name))
         .map((g) => ({
           ...g,
+          name: trimLocalizedText(g.name),
           /* Phase 80 — both bounds become Numbers here, and the legacy
              `required` flag is dropped rather than written back, so a saved
              product carries exactly one description of its rule. */
@@ -959,9 +988,10 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
              shape the customer modal and Phase 37 expect. Spreading the
              existing option object preserves its id. */
           options: g.options
-            .filter((o) => o.name.trim())
+            .filter((o) => hasLocalizedText(o.name))
             .map((o) => ({
               ...o,
+              name: trimLocalizedText(o.name),
               price: parseChoiceOptionPrice(o.price),
               /* Persisted with the option it belongs to (§10) — there is no
                  separate availability store to fall out of step with. */
@@ -969,8 +999,8 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             })),
         })),
       paidAddOns: paidAddOns
-        .filter((a) => a.name.trim())
-        .map((a) => ({ ...a, price: parseAddOnPrice(a.price) })),
+        .filter((a) => hasLocalizedText(a.name))
+        .map((a) => ({ ...a, name: trimLocalizedText(a.name), price: parseAddOnPrice(a.price) })),
       });
     } finally {
       savingRef.current = false;
@@ -1048,7 +1078,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       ? t("admin.removableIngredientsLabel", "Removable ingredients")
       : sec.kind === "addOns"
       ? t("admin.paidAddOns", "Paid add-ons")
-      : sec.group.name.trim() || t("admin.untitledGroup", "Untitled group");
+      : getLocalizedText(sec.group.name, language).trim() || t("admin.untitledGroup", "Untitled group");
 
   /* Phase 92 §16/§17 — the choice-group card, lifted out of the JSX so the
      editor can emit each group wherever the configured customization order
@@ -1121,15 +1151,15 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           return (
           <Card key={group.id} className={`mm-group-card ${gErr.max || gErr.options ? "mm-group-card--invalid" : ""}`}>
             <div className="mm-row-2">
-              <Input
+              <LocalizedField
                 id={groupNameFieldId(group.id)}
                 label={t("admin.groupName", "Group name")}
                 value={group.name}
                 error={optionsErrorText}
-                aria-invalid={optionsErrorText ? "true" : undefined}
-                onChange={(e) => {
-                  handleUpdateChoiceGroup(group.id, { name: e.target.value });
-                  revalidateGroup({ ...group, name: e.target.value });
+                compact
+                onChange={(next) => {
+                  handleUpdateChoiceGroup(group.id, { name: next });
+                  revalidateGroup({ ...group, name: next });
                 }}
               />
             </div>
@@ -1192,19 +1222,19 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                 const optPriceError = !!optionPriceErrors[optionErrorKey(group.id, opt.id)];
                 return (
                 <div className="mm-option-row" key={opt.id}>
-                  <input
-                    className="input"
+                  <LocalizedField
                     value={opt.name}
                     placeholder={t("admin.optionName", "Option name")}
-                    onChange={(e) => {
-                      handleUpdateOption(group.id, opt.id, { name: e.target.value });
+                    compact
+                    onChange={(next) => {
+                      handleUpdateOption(group.id, opt.id, { name: next });
                       /* Naming a blank option is what turns an empty group
                          valid, so this is the edit that most often clears
                          the error. */
                       revalidateGroup({
                         ...group,
                         options: group.options.map((o) =>
-                          o.id === opt.id ? { ...o, name: e.target.value } : o
+                          o.id === opt.id ? { ...o, name: next } : o
                         ),
                       });
                     }}
@@ -1246,7 +1276,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                       opt.isAvailable === false ? "mm-opt-avail--off" : "mm-opt-avail--on"
                     }`}
                     aria-pressed={opt.isAvailable !== false}
-                    aria-label={`${opt.name || t("admin.optionName", "Option name")} — ${
+                    aria-label={`${getLocalizedText(opt.name, language) || t("admin.optionName", "Option name")} — ${
                       opt.isAvailable === false
                         ? t("choice.soldOut", "Sold out")
                         : t("admin.available", "Available")
@@ -1321,14 +1351,33 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
      carries the label, and two headings for one block read as two blocks. */
   const removalsBody = (
     <>
-        <div className="mm-tags">
+        {/* Phase 97.7 §16 — an ingredient is merchant-authored text like any
+            other, so it needs its second language. A static tag cannot hold
+            two editable values, so each entry becomes one compact pair with
+            the same remove control it always had. The add row below is
+            untouched and still adds in the base language. */}
+        <div className="mm-localized-rows">
           {removableIngredients.map((ing, idx) => (
-            <span className="mm-tag" key={`${ing}-${idx}`}>
-              {ing}
-              <button type="button" onClick={() => handleRemoveIngredient(idx)} aria-label={t("common.remove", "Remove")}>
-                <X size={12} strokeWidth={2.4} />
+            <div className="mm-localized-row" key={`ingredient-${idx}`}>
+              <LocalizedField
+                value={ing}
+                placeholder={t("admin.ingredientPlaceholder", "e.g. onions")}
+                compact
+                onChange={(next) =>
+                  setRemovableIngredients(
+                    removableIngredients.map((entry, i) => (i === idx ? next : entry))
+                  )
+                }
+              />
+              <button
+                type="button"
+                className="mm-localized-row__remove"
+                onClick={() => handleRemoveIngredient(idx)}
+                aria-label={t("common.remove", "Remove")}
+              >
+                <X size={13} strokeWidth={2.4} />
               </button>
-            </span>
+            </div>
           ))}
         </div>
         <div className="mm-inline-add">
@@ -1353,11 +1402,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             const addOnPriceError = !!addOnPriceErrors[addon.id];
             return (
             <div className="mm-option-row" key={addon.id}>
-              <input
-                className="input"
+              <LocalizedField
                 value={addon.name}
                 placeholder={t("admin.addOnName", "Add-on name")}
-                onChange={(e) => handleUpdateAddOn(addon.id, { name: e.target.value })}
+                compact
+                onChange={(next) => handleUpdateAddOn(addon.id, { name: next })}
               />
               <input
                 id={addOnPriceFieldId(addon.id)}
@@ -1438,7 +1487,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           </span>
           <span className="mm-overview__info">
             <p className="mm-overview__name">
-              {name.trim() || (isNew
+              {getLocalizedText(name, language).trim() || (isNew
                 ? t("admin.newProduct", "New item")
                 : t("admin.untitledProduct", "Untitled item"))}
             </p>
@@ -1447,7 +1496,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                 {parseProductPrice(price) !== null ? fmtPrice(parseProductPrice(price)) : "—"}
               </span>
               <span>·</span>
-              <span>{categories.find((c) => c.id === categoryId)?.name || "—"}</span>
+              <span>{getLocalizedText(categories.find((c) => c.id === categoryId)?.name, language) || "—"}</span>
               <span>·</span>
               {/* Stated in words, never colour alone (§48). */}
               <span className={isAvailable ? "mm-avail mm-avail--on" : "mm-avail mm-avail--off"}>
@@ -1457,21 +1506,23 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           </span>
         </div>
 
-        <Input
+        <LocalizedField
+          id="product-name"
           label={t("admin.productName", "Item name")}
           value={name}
           error={error}
-          onChange={(e) => { setName(e.target.value); if (error) setError(null); }}
-          autoFocus
+          required
+          onChange={(next) => { setName(next); if (error) setError(null); }}
         />
 
         <label className="field mm-field">
-          <span className="field__label">{t("admin.productDescription", "Description")}</span>
-          <textarea
-            className="mm-textarea"
+          <LocalizedField
+            id="product-description"
+            label={t("admin.productDescription", "Description")}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            multiline
             rows={3}
+            onChange={(next) => setDescription(next)}
           />
         </label>
 
@@ -1504,7 +1555,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
               onChange={(e) => setCategoryId(e.target.value)}
             >
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                <option key={c.id} value={c.id}>{c.emoji} {getLocalizedText(c.name, language)}</option>
               ))}
             </select>
           </label>

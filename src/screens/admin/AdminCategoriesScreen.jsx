@@ -16,6 +16,12 @@ import {
   setCategoryVisible,
 } from "../../lib/menuData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import LocalizedField from "../../components/ui/LocalizedField.jsx";
+import {
+  getLocalizedText,
+  hasLocalizedText,
+  trimLocalizedText,
+} from "../../lib/localizedContent.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { getCategoryVisibilityState, formatSchedule } from "../../lib/categoryVisibility.js";
@@ -70,7 +76,7 @@ function CategoryStateBadge({ category, timeZone }) {
 
 export default function AdminCategoriesScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { categories, items } = useMenuData(restaurant.slug);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   /* Restaurant timezone drives the schedule verdict shown per row. */
   const { settings } = useSettingsData(restaurant.slug);
 
@@ -227,7 +233,7 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
               <span className="mm-cat-row__emoji">{cat.emoji}</span>
 
               <div className="mm-cat-row__info">
-                <p className="mm-cat-row__name">{cat.name}</p>
+                <p className="mm-cat-row__name">{getLocalizedText(cat.name, language)}</p>
                 <p className="mm-cat-row__meta">
                   {itemCountFor(cat.id)} {t("orders.items", "Items")}
                   {formatSchedule(cat) && (
@@ -335,7 +341,10 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
 function CategoryEditorModal({ category, onSave, onClose }) {
   const { t } = useLanguage();
   const isNew = !category.id;
-  const [name, setName] = useState(category.name || "");
+  /* Phase 97.7 §21 — the draft holds the value EXACTLY as stored, legacy
+     string included. Opening a legacy category must not rewrite it; the
+     bilingual object appears only when Save actually runs. */
+  const [name, setName] = useState(category.name ?? "");
   const [emoji, setEmoji] = useState(category.emoji || "");
   const [imageUrl, setImageUrl] = useState(category.imageUrl || "");
   const [isActive, setIsActive] = useState(category.isActive !== false);
@@ -352,8 +361,8 @@ function CategoryEditorModal({ category, onSave, onClose }) {
   const [error, setError] = useState(null);
 
   function handleSubmit() {
-    if (!name.trim()) {
-      setError(t("admin.categoryNameRequired", "Please enter a category name."));
+    if (!hasLocalizedText(name)) {
+      setError(t("admin.nameRequiredAnyLanguage", "Enter a name in at least one language."));
       return;
     }
     if (visibilityMode === "scheduled" && (!visibleFrom || !visibleUntil)) {
@@ -361,7 +370,7 @@ function CategoryEditorModal({ category, onSave, onClose }) {
       return;
     }
     onSave({
-      name: name.trim(),
+      name: trimLocalizedText(name),
       emoji: emoji.trim(),
       imageUrl: imageUrl.trim(),
       isActive,
@@ -386,14 +395,16 @@ function CategoryEditorModal({ category, onSave, onClose }) {
         </>
       }
     >
-      <Input
-        label={t("admin.categoryName", "Category name")}
-        value={name}
-        error={error}
-        onChange={(e) => { setName(e.target.value); if (error) setError(null); }}
-        style={{ marginBottom: 14 }}
-        autoFocus
-      />
+      <div style={{ marginBottom: 14 }}>
+        <LocalizedField
+          id="category-name"
+          label={t("admin.categoryName", "Category name")}
+          value={name}
+          error={error}
+          required
+          onChange={(next) => { setName(next); if (error) setError(null); }}
+        />
+      </div>
       <Input
         label={t("admin.categoryEmoji", "Emoji")}
         value={emoji}

@@ -8116,3 +8116,48 @@ button{font-family:var(--font-body)}
   .kb-column__title{font-size:14px}
   .kb-cancels{padding:11px;margin-bottom:12px}
 }
+
+/* ══ Phase 97.7 — bilingual merchant-content fields (§15/§17/§38) ═════════
+   One value, every content language visible at once. The chip is what tells
+   the manager which box is which: relying on text direction alone would fail
+   for a product named in Latin script inside the Arabic box, and it says
+   nothing at all while a field is still empty.
+
+   Built from the existing .field / .input primitives so the pair inherits the
+   form's type, focus ring and error state rather than introducing a second
+   input style. */
+.lfield{display:flex;flex-direction:column;gap:6px}
+.lfield__label{margin-bottom:0}
+.lfield__row{display:flex;align-items:flex-start;gap:8px}
+/* Fixed, small, and never shrinks — it is a label, not a control. */
+.lfield__chip{
+  flex:none;min-width:30px;height:38px;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 7px;border-radius:var(--r-sm);
+  background:var(--surface-3);border:1px solid var(--border);
+  color:var(--text-3);font-size:11px;font-weight:700;letter-spacing:.06em;
+  cursor:default;user-select:none}
+.lfield__input{flex:1;min-width:0}
+.lfield__hint{color:var(--text-3)}
+/* Nested rows (options, add-ons, ingredients) carry many of these, so they
+   tighten rather than repeating the full field rhythm. */
+.lfield--compact{gap:4px}
+.lfield--compact .lfield__chip{height:34px;min-width:26px;font-size:10px}
+.lfield--compact .lfield__hint{display:none}
+/* A textarea pair aligns its chip to the first line rather than centring it
+   against a tall box. */
+.lfield__row textarea.lfield__input{min-height:64px}
+
+/* Removable ingredients in the Product Editor: one bilingual pair per entry
+   with the remove control it always had (§16). Replaces the tag cloud, which
+   could display a value but never hold two editable ones. */
+.mm-localized-rows{display:flex;flex-direction:column;gap:10px}
+.mm-localized-row{display:flex;align-items:flex-start;gap:8px}
+.mm-localized-row .lfield{flex:1;min-width:0}
+.mm-localized-row__remove{
+  flex:none;width:34px;height:34px;margin-top:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--r-sm);border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text-3);cursor:pointer;
+  transition:color .15s,border-color .15s}
+.mm-localized-row__remove:hover{color:var(--canceled);border-color:var(--border-strong)}

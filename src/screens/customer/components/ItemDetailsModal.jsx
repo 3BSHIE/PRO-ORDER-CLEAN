@@ -3,6 +3,22 @@ import { flushSync } from "react-dom";
 import { X, Check, AlertCircle } from "lucide-react";
 import QuantityStepper from "../../../components/ui/QuantityStepper.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
+import {
+  getLocalizedText,
+  localizedVariants,
+  BASE_CONTENT_LANGUAGE,
+} from "../../../lib/localizedContent.js";
+
+/* Phase 97.7 §13/§31 — a removable ingredient has no id of its own: the
+   string IS the identity, in the selection Set, in the cart line and on the
+   Kitchen ticket. Making the label bilingual therefore has to keep identity
+   separate from display, or a guest switching language would deselect their
+   own removals and the Kitchen would stop matching.
+
+   The base-language value is that identity. It is stable across interface
+   language, and for legacy data it is the original string unchanged, so
+   every stored cart line and order keeps matching exactly as before. */
+const ingredientKey = (entry) => getLocalizedText(entry, BASE_CONTENT_LANGUAGE);
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
 import { CUSTOMER_ITEM_NOTES_MAX_LENGTH } from "../../../lib/customerCart.js";
@@ -97,10 +113,19 @@ function reconcileLineToItem(item, line) {
       .map((a) => a.id)
   );
 
+  /* Phase 97.7 — a line saved while the guest was reading Arabic stored the
+     Arabic label, so re-opening it in English has to recognise that too.
+     Matching against every variant maps the stored label back to the
+     ingredient it came from; the Set itself still holds identities. */
   const removedIds = new Set(
-    (line.selectedRemovals || []).filter((r) =>
-      (item.removableIngredients || []).includes(r)
-    )
+    (item.removableIngredients || [])
+      .filter((entry) => {
+        const variants = localizedVariants(entry);
+        return (line.selectedRemovals || []).some(
+          (r) => r === ingredientKey(entry) || variants.includes(r)
+        );
+      })
+      .map(ingredientKey)
   );
 
   return {
@@ -137,7 +162,14 @@ export default function ItemDetailsModal({
   const [addOnIds,   setAddOnIds]   = useState(() => new Set());
   /* choiceErrors: { [choiceGroupId]: true } for required groups missing a selection */
   const [choiceErrors, setChoiceErrors] = useState({});
-  const { t } = useLanguage();
+  /* Phase 97.7 — `language` resolves merchant-authored labels; t() stays for
+     system copy. */
+  const { t, language } = useLanguage();
+  /* Optional chaining is load-bearing: this component stays mounted with a
+     null item while the sheet is closed, and the  guard
+     is further down because the hooks above it must not be skipped. */
+  const itemName = getLocalizedText(item?.name, language);
+  const itemDescription = getLocalizedText(item?.description, language);
 
   /* Phase 35 — the modal element itself is the scroll container
      (.item-modal has overflow-y:auto), and each required group registers its
@@ -432,7 +464,18 @@ export default function ItemDetailsModal({
        reusable later as the order-item payload for kitchen/admin/tracking.
        Names and prices are captured now so future menu edits never change
        what a customer already ordered. */
-    const selectedRemovals = Array.from(removedIds);
+    /* Phase 97.7 §23/§24 — the cart line, and through it the order, keeps
+       carrying PLAIN STRINGS. Kitchen, Admin Live Orders, Cashier, Tracking
+       and My Orders all read these fields as text, so a localized object here
+       would print as [object Object] on an operational screen. The snapshot is
+       resolved in the guest's current language at the moment they add the
+       item, which is exactly what the architecture did before this phase —
+       only the source is now bilingual. */
+    const removalLabel = (key) => {
+      const entry = (item.removableIngredients || []).find((e) => ingredientKey(e) === key);
+      return entry === undefined ? key : getLocalizedText(entry, language);
+    };
+    const selectedRemovals = Array.from(removedIds).map(removalLabel);
 
     const selectedChoices = [];
     for (const group of choices) {
@@ -442,9 +485,9 @@ export default function ItemDetailsModal({
         if (!opt) continue;
         selectedChoices.push({
           groupId: group.id,
-          groupName: group.name,
+          groupName: getLocalizedText(group.name, language),
           optionId: opt.id,
-          optionName: opt.name,
+          optionName: getLocalizedText(opt.name, language),
           price: opt.price || 0,
         });
       }
@@ -452,7 +495,7 @@ export default function ItemDetailsModal({
 
     const selectedPaidAddOns = paidAddOns
       .filter((a) => addOnIds.has(a.id))
-      .map((a) => ({ id: a.id, name: a.name, price: a.price || 0 }));
+      .map((a) => ({ id: a.id, name: getLocalizedText(a.name, language), price: a.price || 0 }));
 
     onSubmit?.(item, quantity, notes, {
       selectedRemovals,
@@ -476,16 +519,17 @@ export default function ItemDetailsModal({
                     </p>
                     <div className="cust-pills">
                       {item.removableIngredients.map((ing) => {
-                        const active = removedIds.has(ing);
+                        const key = ingredientKey(ing);
+                        const active = removedIds.has(key);
                         return (
                           <button
-                            key={ing}
+                            key={key}
                             type="button"
                             className={`cust-pill ${active ? "cust-pill--active" : ""}`}
-                            onClick={() => toggleRemoved(ing)}
+                            onClick={() => toggleRemoved(key)}
                           >
                             {active && <Check size={12} strokeWidth={3} />}
-                            {t("customer.noPrefix", "No")} {ing}
+                            {t("customer.noPrefix", "No")} {getLocalizedText(ing, language)}
                           </button>
                         );
                       })}
@@ -554,7 +598,7 @@ export default function ItemDetailsModal({
                       }
                     >
                       <div className="cust-section__head">
-                        <h3 className="cust-section__title" id={titleId}>{group.name}</h3>
+                        <h3 className="cust-section__title" id={titleId}>{getLocalizedText(group.name, language)}</h3>
                         {/* Phase 80 — Required/Optional is DERIVED from
                             minSelections, never read from a stored flag. */}
                         {required ? (
@@ -598,7 +642,7 @@ export default function ItemDetailsModal({
                               }
                             >
                               <span className="cust-option__mark" aria-hidden="true" />
-                              <span className="cust-option__name">{opt.name}</span>
+                              <span className="cust-option__name">{getLocalizedText(opt.name, language)}</span>
                               {soldOut ? (
                                 /* Calm and muted, not an error treatment — the
                                    guest has done nothing wrong (§16). */
@@ -644,7 +688,7 @@ export default function ItemDetailsModal({
                             onClick={() => toggleAddOn(addOn.id)}
                           >
                             <span className="cust-addon__mark" aria-hidden="true" />
-                            <span className="cust-addon__name">{addOn.name}</span>
+                            <span className="cust-addon__name">{getLocalizedText(addOn.name, language)}</span>
                             <span className="cust-addon__price">
                               +{fmtPrice(addOn.price)}
                             </span>
@@ -662,7 +706,7 @@ export default function ItemDetailsModal({
       className="item-modal__overlay"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="item-modal" role="dialog" aria-modal="true" aria-label={item.name} ref={modalRef}>
+      <div className="item-modal" role="dialog" aria-modal="true" aria-label={itemName} ref={modalRef}>
         <div className="item-modal__handle" />
 
         <button
@@ -680,7 +724,7 @@ export default function ItemDetailsModal({
             <img
               className="item-modal__img"
               src={item.imageUrl}
-              alt={item.name}
+              alt={itemName}
               onError={() => setImgErr(true)}
             />
           ) : (
@@ -718,8 +762,8 @@ export default function ItemDetailsModal({
             </div>
           )}
 
-          <h2 className="item-modal__name">{item.name}</h2>
-          <p className="item-modal__desc">{item.description}</p>
+          <h2 className="item-modal__name">{itemName}</h2>
+          <p className="item-modal__desc">{itemDescription}</p>
           <div className="item-modal__price">{fmtPrice(item.price)}</div>
 
           {!available ? (

@@ -460,6 +460,9 @@ export const translations = {
       addIngredient: "Add ingredient",
       choiceGroups: "Choice groups",
       groupName: "Group name",
+      /* Phase 97.7 §15/§18 — the merchant is never required to translate. */
+      oneLanguageIsEnough: "One language is enough — the other is optional.",
+      nameRequiredAnyLanguage: "Enter a name in at least one language.",
       maxSelections: "Max selections",
       minSelections: "Min selections",
       minSelectionsInvalid: "Enter a valid minimum (0 or more).",
@@ -1422,6 +1425,8 @@ export const translations = {
       addIngredient: "إضافة مكوّن",
       choiceGroups: "مجموعات الخيارات",
       groupName: "اسم المجموعة",
+      oneLanguageIsEnough: "لغة واحدة تكفي — الثانية اختيارية.",
+      nameRequiredAnyLanguage: "أدخل الاسم بلغة واحدة على الأقل.",
       maxSelections: "الحد الأقصى للاختيارات",
       minSelections: "الحد الأدنى للاختيارات",
       minSelectionsInvalid: "أدخل حدًا أدنى صحيحًا (صفر أو أكثر).",

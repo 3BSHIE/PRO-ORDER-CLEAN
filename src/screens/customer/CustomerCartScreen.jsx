@@ -11,6 +11,7 @@ import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import CallStaffButton    from "./components/CallStaffButton.jsx";
 import LanguageSwitcher   from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
+import { getLocalizedText } from "../../lib/localizedContent.js";
 import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { resolveCustomerAccess } from "../../lib/tableData.js";
@@ -158,7 +159,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
      Never an array index: the cart can hold several lines of the same product
      and lines are removed while the screen is open. */
   const [editingLineId, setEditingLineId] = useState(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
   /* Phase 97.2 §2 — the same source the menu reads, so a language the
      restaurant has switched off is absent here too. LanguageSwitcher
@@ -358,7 +359,11 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     for (const chosen of selections.selectedPaidAddOns) {
       const addOn = (fresh.paidAddOns || []).find((a) => a.id === chosen.id);
       if (!addOn) continue; // silently dropped — it no longer exists to charge for
-      selectedPaidAddOns.push({ id: addOn.id, name: addOn.name, price: Number(addOn.price) || 0 });
+      selectedPaidAddOns.push({
+        id: addOn.id,
+        name: getLocalizedText(addOn.name, language),
+        price: Number(addOn.price) || 0,
+      });
     }
 
     const basePrice = Number(fresh.price) || 0;
@@ -368,8 +373,9 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
     const unitPrice = parseFloat((basePrice + extras).toFixed(3));
 
     const updated = updateCartItem(editingLineId, {
-      name: fresh.name,
-      description: fresh.description,
+      /* Phase 97.7 §23 — same snapshot rule as the add path. */
+      name: getLocalizedText(fresh.name, language),
+      description: getLocalizedText(fresh.description, language),
       imageUrl: fresh.imageUrl,
       categoryId: fresh.categoryId,
       basePrice,
