@@ -460,6 +460,9 @@ export const translations = {
       addIngredient: "Add ingredient",
       choiceGroups: "Choice groups",
       groupName: "Group name",
+      /* Phase 97.8 §6 — the Overview action queue. */
+      needsAttention: "Needs Attention",
+      andNMore: "and {n} more",
       /* Phase 97.7 §15/§18 — the merchant is never required to translate. */
       oneLanguageIsEnough: "One language is enough — the other is optional.",
       nameRequiredAnyLanguage: "Enter a name in at least one language.",
@@ -1425,6 +1428,8 @@ export const translations = {
       addIngredient: "إضافة مكوّن",
       choiceGroups: "مجموعات الخيارات",
       groupName: "اسم المجموعة",
+      needsAttention: "يحتاج متابعة",
+      andNMore: "و{n} إضافية",
       oneLanguageIsEnough: "لغة واحدة تكفي — الثانية اختيارية.",
       nameRequiredAnyLanguage: "أدخل الاسم بلغة واحدة على الأقل.",
       maxSelections: "الحد الأقصى للاختيارات",

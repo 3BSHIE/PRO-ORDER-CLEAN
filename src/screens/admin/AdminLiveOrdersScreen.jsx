@@ -8,6 +8,9 @@ import Modal   from "../../components/ui/Modal.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import { getCustomerOrders, updateCustomerOrderStatus, updateCustomerOrderPaymentStatus } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+/* Phase 97.8 §8 — both definitions moved to the shared lib so Overview and
+   this screen can never disagree about whether a ticket is late. */
+import { elapsedMinutes, isOrderDelayed as isDelayed } from "../../lib/operationalAttention.js";
 import { fmtPrice } from "../../lib/format.js";
 import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
 
@@ -863,11 +866,9 @@ function EmptyOrdersView({ filterKey, filterLabel, isAll }) {
    No new timer architecture (§10): the screen already re-reads orders every
    4 seconds, which re-renders this at a granularity far finer than the
    minutes it displays. */
-function elapsedMinutes(iso, now = Date.now()) {
-  const started = Date.parse(iso);
-  if (!Number.isFinite(started)) return null;
-  return Math.max(0, Math.floor((now - started) / 60000));
-}
+/* Phase 97.8 §8 — elapsedMinutes and isDelayed moved to
+   lib/operationalAttention.js, unchanged, and are imported at the top. The
+   Overview needs the same verdicts and a second copy would drift. */
 
 /* Under an hour reads as plain minutes; past that, hours and minutes, so a
    forgotten ticket does not render as "184 min". */
@@ -893,14 +894,7 @@ function formatElapsed(t, mins) {
    The Kitchen board keeps its own three-tier model (normal / delayed /
    critical, Phase 71) untouched: §11 asks for that logic to stay separate,
    and Admin only needs the one restrained amber step. */
-const IN_KITCHEN_STATUSES = ["received", "preparing"];
-function isDelayed(order, mins) {
-  if (mins === null) return false;
-  if (!IN_KITCHEN_STATUSES.includes(order.status)) return false;
-  const estimate = order.estimatedPrepMinutes;
-  if (!Number.isInteger(estimate) || estimate <= 0) return false;
-  return mins > estimate;
-}
+/* The rule itself now lives in lib/operationalAttention.js. */
 
 function formatTimestamp(iso) {
   try {

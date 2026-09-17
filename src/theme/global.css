@@ -8161,3 +8161,81 @@ button{font-family:var(--font-body)}
   background:var(--surface-2);color:var(--text-3);cursor:pointer;
   transition:color .15s,border-color .15s}
 .mm-localized-row__remove:hover{color:var(--canceled);border-color:var(--border-strong)}
+
+/* ══ Phase 97.8 — Order status row: balanced at ANY count (§3/§4) ═════════
+   The KPI row above keeps its fixed grid: it is four cards by design and a
+   2x2 phone layout is exactly right for it. This row is different — it holds
+   however many statuses the product defines, and the old shared 4-column grid
+   left the fifth card stranded alone on the left of a second row, which read
+   as a mistake rather than as a layout.
+
+   flex-wrap with justify-content:center is what actually satisfies the rule.
+   Grid cannot centre an incomplete final row: its items sit in their columns
+   wherever the track list puts them, so a 5th card stays hard left no matter
+   how the columns are declared. Wrapping and centring is count-independent by
+   construction, so 1, 2, 3, 5 or 6 cards all balance with no :nth-child rule
+   and no branch on statusCount.
+
+   flex:1 1 128px lets a row fill the width it has (so cards match the density
+   the grid used to give), and max-width caps them so a short final row cannot
+   stretch into one giant card. */
+.ad-status-row{
+  display:flex;flex-wrap:wrap;justify-content:center;
+  gap:12px;margin-bottom:32px}
+/* The cap is min(190px, 50%) rather than a flat 190px, so a lone card on a
+   wrapped final row cannot end up much wider than the pairs above it. On a
+   320px phone 50% resolves to ~140px and the orphan matches its siblings; on
+   desktop the 190px arm wins and nothing changes. Still one fluid rule, still
+   no breakpoint and no card count anywhere in it. */
+.ad-status-row > *{flex:1 1 128px;min-width:0;max-width:min(190px, 50%)}
+@media(min-width:960px){.ad-status-row{gap:14px}}
+
+/* ══ Phase 97.8 — Needs Attention (§6/§16/§26) ════════════════════════════
+   A short action queue, built from the dashboard's existing card surface so
+   it reads as part of the page rather than as a new widget. Rows are full-
+   width controls: an operator reaching for one on a tablet mid-service should
+   not have to hit a small chevron.
+
+   Severity is carried by a single tinted icon chip and nothing else. Tinting
+   whole rows would turn a busy moment into a wall of red and make the one
+   genuinely urgent item harder to find, so the row surface stays neutral and
+   the semantic colour appears once, at the smallest element that can carry
+   it. Every tone reuses an existing status token — no new alert palette. */
+.ad-attention{
+  list-style:none;margin:0 0 32px;padding:0;
+  display:flex;flex-direction:column;gap:8px}
+.ad-attention__row{
+  width:100%;display:flex;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:var(--r-md);
+  background:var(--surface-1);border:1px solid var(--border);
+  color:var(--text-1);font-family:var(--font-body);text-align:start;
+  cursor:pointer;transition:border-color .15s,background .15s}
+.ad-attention__row:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.ad-attention__row > svg{flex:none;color:var(--text-3)}
+
+.ad-attention__icon{
+  flex:none;width:28px;height:28px;border-radius:var(--r-sm);
+  display:inline-flex;align-items:center;justify-content:center}
+.ad-attention__icon--delayed{background:var(--preparing-soft);color:var(--preparing)}
+.ad-attention__icon--call{background:var(--received-soft);color:var(--received)}
+.ad-attention__icon--ready{background:var(--ready-soft);color:var(--ready)}
+.ad-attention__icon--payment{background:var(--surface-3);color:var(--text-2)}
+
+/* The body takes the free space and is the only part allowed to shrink, so a
+   long table/order string wraps instead of pushing the age off the row. */
+.ad-attention__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ad-attention__label{font-size:13px;font-weight:600;color:var(--text-1)}
+.ad-attention__where{font-size:11.5px;color:var(--text-3);overflow-wrap:anywhere}
+.ad-attention__order{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.ad-attention__sep{opacity:.6}
+/* Elapsed time never wraps and never shrinks — it is the thing being scanned. */
+.ad-attention__age{
+  flex:none;font-size:11.5px;font-weight:600;color:var(--text-2);white-space:nowrap}
+
+.ad-attention__more{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:9px 14px;border-radius:var(--r-md);
+  background:none;border:1px dashed var(--border);
+  color:var(--text-3);font-family:var(--font-body);font-size:12px;font-weight:600;
+  cursor:pointer;transition:color .15s,border-color .15s}
+.ad-attention__more:hover{color:var(--text-2);border-color:var(--border-strong)}

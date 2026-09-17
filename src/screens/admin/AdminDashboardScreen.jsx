@@ -7,8 +7,10 @@ import AdminLayout from "./AdminLayout.jsx";
 import AcceptingOrdersCard from "./AcceptingOrdersCard.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
 import DashboardDrillDown from "./DashboardDrillDown.jsx";
+import NeedsAttentionSection from "./NeedsAttentionSection.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
+import { buildAttentionItems } from "../../lib/operationalAttention.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import {
@@ -107,6 +109,23 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
   const openCallCount = useMemo(
     () => staffCalls.filter((c) => c.status === "open").length,
     [staffCalls]
+  );
+
+  /* Phase 97.8 §6/§7 — the operational queue. Every input is already on this
+     screen: the same order list the KPIs count and the same open calls the nav
+     badge reads. Nothing new is fetched and no new field is invented.
+
+     `tick` is the existing 4s refresh, so the elapsed ages re-derive on the
+     same cadence the rest of the page already updates on rather than needing a
+     timer of their own. */
+  const attentionItems = useMemo(
+    () =>
+      buildAttentionItems({
+        orders: restaurantOrders,
+        staffCalls: staffCalls.filter((c) => c.status === "open"),
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [restaurantOrders, staffCalls]
   );
 
   /* Phase 30 — every number below now comes from src/lib/dashboardStats.js,
@@ -442,6 +461,14 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         />
       </div>
 
+      {/* ── Needs Attention (Phase 97.8 §6) ───────────────────────────────
+          Placed directly under the snapshot and the operations controls, and
+          above the per-status counts: it is the only block on the page that
+          asks the operator to DO something, so it sits with the numbers they
+          scan first rather than at the bottom with the history. Renders
+          nothing at all when the queue is empty (§18). */}
+      <NeedsAttentionSection items={attentionItems} onNavigate={onNavigate} />
+
       {/* ── Order status (Phase 75 §10) ───────────────────────────────────
           The per-status counts, kept but demoted: same data and the same
           Live-Orders shortcuts as before, now clearly secondary to the
@@ -449,7 +476,12 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       <div className="ad-section-bar anim-rise">
         <h2 className="ad-section-title">{t("admin.orderStatus", "Order status")}</h2>
       </div>
-      <div className="ad-stats ad-stats--secondary anim-rise">
+      {/* Phase 97.8 §3 — its own layout class, not the KPI grid. The KPI row
+          is exactly four cards by design and its fixed 4-up / 2x2 grid is
+          correct for it; this row has however many statuses the product
+          happens to define, so it needs a layout that stays balanced at any
+          count instead of leaving a fifth card stranded. */}
+      <div className="ad-status-row ad-stats--secondary anim-rise">
         {STATUS_CARDS.map((stat) => renderStatCard(stat, ""))}
       </div>
 
