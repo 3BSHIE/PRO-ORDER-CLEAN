@@ -3126,6 +3126,64 @@ button{font-family:var(--font-body)}
   min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Phase 97.9.1 — the three Customer targets the system above did not reach
+
+   Hit-testing (elementFromPoint walked out from each control centre, which
+   counts a ::after hit area where a bounding box cannot) confirms the rules
+   above already work: .item-card__add measures 30x30 on screen and 44x45 to
+   a finger, .qty-stepper__btn 34x34 and 44x45, the rating stars 49x44 with
+   5px between them. Three controls sat outside that system.
+
+   ── A) The two icon-only controls in the Customer sticky topbar ─────────
+   Call Staff (30x44) and My Orders (36x44) are already 44 TALL; only their
+   width falls short, and that width cannot be bought. Measured at 320px the
+   bar runs 12..308 with the left group ending at 122 and the right group
+   starting at 137 — 15px of slack against the 22px that two 44px-wide
+   controls would need. Spending it wraps the row and takes the sticky bar
+   from 61px to 113px, which is the exact regression Phase 97.2 fixed.
+
+   So the hit area takes the room that genuinely exists. Horizontally it
+   claims 2px of the 6px gap on each side, leaving 2px of dead space between
+   neighbouring targets rather than letting them meet: a mis-aimed tap should
+   land on nothing rather than on the wrong control, the same trade Phase 74
+   made for the rating stars. Vertically it grows into the bar own slack —
+   a 44px control inside a 61px bar, so 56px stays within the bar and cannot
+   reach the page content scrolling beneath it.
+
+   Call Staff 30x44 -> 34x56 and My Orders 36x44 -> 40x56: still short of 44
+   wide, but ~44% more area each, bought in the axis that was free. The pills
+   themselves do not move, so the header keeps its measured 61px height.
+   ─────────────────────────────────────────────────────────────────────── */
+.customer-theme .call-staff--compact,
+.customer-theme .menu-topbar-right .btn--sm,
+.customer-theme .cust-topbar-right .btn--sm{position:relative}
+
+.customer-theme .call-staff--compact::after,
+.customer-theme .menu-topbar-right .btn--sm::after,
+.customer-theme .cust-topbar-right .btn--sm::after{
+  content:"";position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  /* +6, not +4: an absolutely positioned child sizes 100% against its
+     containing block PADDING box, so the pill 1px border on each side is
+     already excluded. 6px therefore buys the intended 2px per side over the
+     button border-box width, and leaves 2px of the 6px gap as dead space.
+     Verified by hit-test, not by arithmetic alone. */
+  width:calc(100% + 6px);height:56px}
+
+/* ── B) Footer contact links ────────────────────────────────────────────
+   25px tall, and here a pseudo-element is the wrong tool: the row wraps to
+   two lines only 2px apart on a phone, so a 44px invisible box would swallow
+   the line above or below and hand taps to the wrong channel. The height has
+   to be real, which is why this is a min-height and not a hit area.
+
+   It applies to the LINK alone. .cust-footer__contact-text is the channel
+   with no href — it is not a target, and inflating it would add height for
+   nothing. Type size, colour and weight are untouched, so the row still
+   reads as a credit line rather than a set of buttons; it simply has room to
+   be tapped. */
+.customer-theme .cust-footer__contact-link{min-height:44px}
+
+/* ═══════════════════════════════════════════════════════════════════════
    Phase 41 — Customer sheet overscroll containment
 
    Stops a flick that reaches the end of the sheet's own scroll from
