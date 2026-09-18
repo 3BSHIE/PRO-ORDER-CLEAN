@@ -62,20 +62,42 @@ const EMPTY_MSG_KEY = {
   ready:     "kitchen.noReadyOrders",
 };
 
-/* Portrait on a handheld gets tabs; everything else — landscape phone,
-   landscape tablet, laptop, desktop — gets the three-column board.
+/* ── How the board composes (Phase 97.9 §7/§9) ─────────────────────────────
+   This answers exactly one question: is there enough usable width for three
+   genuinely readable Kitchen columns? It does not ask what the device is, and
+   it does not ask which way the device is turned. The rule it replaces asked
+   about orientation, which stood in for width and got it wrong at both ends.
 
-   §22 states this as a GLOBAL rule, and the reason it is expressed as
-   orientation rather than device is that the same iPad is both: turned one
-   way it is a phone-shaped surface, turned the other it is a small desktop.
-   The 1023px ceiling keeps a genuinely narrow desktop window on columns,
-   since a mouse user resizing a window has not changed device. */
-const PORTRAIT_QUERY = "(orientation: portrait) and (max-width: 1023px)";
+   920 is measured rather than picked. A ticket header is the identity — table
+   number over order id, 65px at its natural width — beside the elapsed/ready
+   cluster, 172px at its widest ("Ready for NNNN min"), with a 10px gap. That
+   is 247px of content; 30px of card padding and border makes 277px, and three
+   of those plus two 14px gutters and the container 20px each side needs
+   899px. Measured on a board of deliberately long tickets, every header was
+   intact from 910px up. 920 takes that with a margin for the font-rendering
+   differences between platforms.
 
-function useCompactPortrait() {
+   Below it the identity is the first thing to go, which is the worst thing to
+   lose on a kitchen ticket: at 880 the table number wraps to two lines, by
+   780 the order id is clipped outright, and at 667 — a landscape phone, which
+   the retired rule handed three columns purely for being landscape — the
+   third column reads "T a b l e 8" one letter per line with the order id cut
+   to nothing.
+
+   So a narrow landscape phone now gets the tabbed board and a wide portrait
+   tablet gets three columns when its width supports them. Neither outcome
+   knows, or needs to know, what it is running on. */
+const BOARD_MIN_WIDTH = 920;
+const BOARD_QUERY = "(min-width: " + BOARD_MIN_WIDTH + "px)";
+
+function useIsCompactBoard() {
+  /* Asked positively — "is there board width?" — and negated once, here, so
+     the single media query in this file states the rule the way it is meant
+     to be read. The catch still resolves to columns, unchanged: a browser
+     that cannot answer is far more likely to be a desktop than a phone. */
   const read = () => {
     try {
-      return window.matchMedia(PORTRAIT_QUERY).matches;
+      return !window.matchMedia(BOARD_QUERY).matches;
     } catch {
       return false;
     }
@@ -86,23 +108,25 @@ function useCompactPortrait() {
      emulated browsers resize the viewport without emitting resize or
      matchMedia change at all, and a board left in the wrong composition is a
      bad failure — it either hides two thirds of the work behind tabs on a
-     wide screen, or squeezes three columns onto a phone. The board already
-     re-renders on its 1s clock, so even with no event whatsoever the layout
-     self-corrects within a second. */
+     wide screen, or squeezes three columns into a width that cannot hold
+     them. The board already re-renders on its 1s clock, so even with no
+     event whatsoever the layout self-corrects within a second. */
   const [, forceRender] = useState(0);
 
   useEffect(() => {
     /* Re-read rather than trusting the event payload, and listen on three
-       signals rather than one. A tablet being turned fires orientationchange;
-       a window being dragged fires resize; matchMedia's own change event
-       covers the rest. Some embedded/emulated browsers deliver only a subset,
-       and a board stuck in the wrong composition is a bad failure — it either
-       hides two thirds of the work or squeezes three columns onto a phone. */
+       signals rather than one. These are CHANGE NOTIFICATIONS, not inputs to
+       the decision above — orientationchange stays subscribed because some
+       browsers fire it and nothing else when a tablet is turned, and turning
+       a tablet changes its width, which is the thing that actually decides.
+       Some embedded/emulated browsers deliver only a subset, and a board
+       stuck in the wrong composition is a bad failure — it either hides two
+       thirds of the work or squeezes three columns into too little width. */
     const sync = () => forceRender((n) => n + 1);
 
     let mq;
     try {
-      mq = window.matchMedia(PORTRAIT_QUERY);
+      mq = window.matchMedia(BOARD_QUERY);
       mq.addEventListener("change", sync);
     } catch {
       mq = null;
@@ -145,7 +169,7 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
   const { t } = useLanguage();
   const { settings: alertSettings } = useKitchenAlertSettings(restaurant.slug);
   const { settings: restaurantSettings } = useSettingsData(restaurant.slug);
-  const isCompactPortrait = useCompactPortrait();
+  const isCompactBoard = useIsCompactBoard();
   const [activeTab, setActiveTab] = useState("received");
 
   const timeZone = restaurantSettings.timeZone;
@@ -474,8 +498,8 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
             the layout does not transform the moment the last ticket clears,
             and a new order has a stable place to appear in. Each column
             carries its own light hint instead. */}
-        {isCompactPortrait ? (
-          <PortraitBoard
+        {isCompactBoard ? (
+          <TabbedBoard
             ordersByStatus={ordersByStatus}
             activeTab={activeTab}
             onTabChange={setActiveTab}
@@ -514,8 +538,9 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
   );
 }
 
-/* ── Portrait: one status at a time, chosen by tab (§24) ─────────────────── */
-function PortraitBoard({ ordersByStatus, activeTab, onTabChange, now, updatingOrderId, enterKinds, onAdvance }) {
+/* ── Too narrow for three columns: one status at a time, chosen by tab (§24)
+   ──────────────────────────────────────────────────────────────────────── */
+function TabbedBoard({ ordersByStatus, activeTab, onTabChange, now, updatingOrderId, enterKinds, onAdvance }) {
   const { t } = useLanguage();
   const column = BOARD_COLUMNS.find((c) => c.status === activeTab) || BOARD_COLUMNS[0];
   const orders = ordersByStatus[column.status] || [];
@@ -566,7 +591,7 @@ function PortraitBoard({ ordersByStatus, activeTab, onTabChange, now, updatingOr
   );
 }
 
-/* ── One board column (landscape + desktop) ──────────────────────────────── */
+/* ── One board column, on a viewport wide enough for three ───────────────── */
 function BoardColumn({ column, orders, now, updatingOrderId, enterKinds, onAdvance }) {
   const { t } = useLanguage();
   return (

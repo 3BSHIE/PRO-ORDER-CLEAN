@@ -7922,7 +7922,7 @@ button{font-family:var(--font-body)}
 .kb-column{min-width:0;max-width:none;flex:initial}
 .kb-column__body{min-width:0}
 
-/* ── Portrait tabs (§24) ────────────────────────────────────────────────
+/* ── Status tabs, for viewports too narrow for three columns (§24) ──────
    Order follows the document direction, so Arabic reads right-to-left with no
    reversed array and no logic change (§25). */
 .kb-tabs{
@@ -8102,10 +8102,18 @@ button{font-family:var(--font-body)}
 /* Details indent under their own item so ownership is unambiguous. */
 .kb-item--group .kb-item__custom{margin-inline-start:14px;margin-top:4px}
 
-/* ── Landscape on a handheld (§23) ──────────────────────────────────────
+/* ── Short viewports (§23; width-based since Phase 97.9 §27) ────────────
    Same three columns, same information, same actions — only the scale comes
-   down. Nothing is hidden to make it fit. */
-@media (orientation:landscape) and (max-height:560px){
+   down. Nothing is hidden to make it fit.
+
+   The condition is height, and only height. It used to also require
+   landscape, which named the case it was written for rather than the case it
+   solves: a portrait phone is 650-930px tall and never matched the 560px
+   ceiling anyway, so the orientation clause excluded nothing except a short
+   window on a laptop — which needs the tighter scale exactly as much as a
+   turned tablet does. Keeping the height is deliberate (§27): vertical room
+   is a real constraint on a board whose columns scroll. */
+@media (max-height:560px){
   .container--kb{padding-inline:14px}
   .kb-columns{gap:10px;padding-bottom:20px}
   .kb-header{padding:12px 0 10px}
