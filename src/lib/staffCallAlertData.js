@@ -30,7 +30,24 @@
  *   Kitchen — never reads this at all; it keeps its own record
  */
 
-import { SOUND_TYPES, DEFAULT_SOUND_TYPE } from "./alertSound.js";
+import { SOUND_TYPES } from "./alertSound.js";
+
+/* Phase 98.0 — the Staff Call alert's own default.
+
+   Settings requires all three alert purposes to carry DIFFERENT sounds and
+   blocks Save until they do. New Order already defaults to
+   DEFAULT_SOUND_TYPE and the cancellation alert was given its own default
+   for exactly that reason (see DEFAULT_CANCELED_SOUND_TYPE), but Staff Call
+   was left on DEFAULT_SOUND_TYPE as well. The two collided out of the box,
+   so a restaurant that had never touched a sound opened Settings to a
+   validation error it had not caused — and, because the check gates the
+   whole form, could not save an unrelated field like its own name until it
+   resolved the clash.
+
+   "chime" is the remaining member of SOUND_TYPES, so the three defaults are
+   now distinct by construction: bell for a new order, beep for a
+   cancellation, chime for a guest asking for help. */
+export const DEFAULT_STAFF_CALL_SOUND_TYPE = "chime";
 
 const STAFF_CALL_ALERTS_KEY_PREFIX = "pro_order_staff_call_alerts";
 
@@ -44,7 +61,7 @@ function defaultAlertSettings(restaurantSlug) {
   return {
     restaurantSlug,
     soundEnabled: true,
-    soundType: DEFAULT_SOUND_TYPE,
+    soundType: DEFAULT_STAFF_CALL_SOUND_TYPE,
     volume: 0.7,
     updatedAt: null,
   };

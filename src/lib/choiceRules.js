@@ -1,4 +1,5 @@
 import { parseSortOrder } from "./menuSortOrder.js";
+import { hasLocalizedText } from "./localizedContent.js";
 
 /**
  * choiceRules — Phase 80. The single source of truth for what a choice group
@@ -453,7 +454,14 @@ export function validateItemSelections(item, selectedChoices) {
 export function validateGroupConfig(group) {
   const errors = {};
 
-  const validOptions = (group?.options || []).filter((o) => (o.name || "").trim());
+  /* Phase 98.0 — an option NAME is merchant-authored text, so since Phase
+     97.7 it is either a legacy string or a localized { en, ar } object.
+     This used to read (o.name || "").trim(), which threw the moment a
+     manager typed an Arabic option name and took the whole Product editor
+     down with it. hasLocalizedText asks the question that was always meant
+     here — "did the manager name this option, in ANY language?" — and is
+     total across both shapes. */
+  const validOptions = (group?.options || []).filter((o) => hasLocalizedText(o.name));
   const availableCount = validOptions.filter((o) => o.isAvailable !== false).length;
 
   const min = parseSelectionBound(group?.minSelections, { min: 0 });

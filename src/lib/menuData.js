@@ -194,6 +194,26 @@ function saveMenuItems(restaurantSlug, items) {
   notifyChange(restaurantSlug);
 }
 
+/**
+ * Trim merchant-authored text without destroying its shape (Phase 98.0).
+ *
+ * Since Phase 97.7 a name or description is EITHER a legacy string or a
+ * localized { en, ar } object. The create paths below used to call
+ * (value || "").trim() unconditionally, which throws on the object shape —
+ * so creating a product or a category with an Arabic name crashed.
+ *
+ * A string is still trimmed exactly as before. An object is passed through
+ * untouched, which is both correct and consistent: the Admin editors already
+ * run every localized value through trimLocalizedText before calling in, and
+ * updateCategory/updateMenuItem spread their patch without trimming at all.
+ * Create was the only path that stringified merchant content, and that is
+ * precisely why it was the only one that broke.
+ */
+function trimAuthored(value) {
+  if (typeof value === "string") return value.trim();
+  return value ?? "";
+}
+
 /* ═══════════════════════════════════════════ Categories ═══════════════════ */
 
 /**
@@ -219,7 +239,7 @@ export function createCategory(
   const maxSort = categories.reduce((max, c) => Math.max(max, c.sortOrder || 0), 0);
   const category = {
     id: genId("cat"),
-    name: (name || "").trim(),
+    name: trimAuthored(name),
     emoji: (emoji || "").trim() || "🍽️",
     imageUrl: (imageUrl || "").trim() || null,
     sortOrder: maxSort + 1,
@@ -454,8 +474,8 @@ export function createMenuItem(restaurantSlug, data) {
   const item = {
     id: genId("item"),
     categoryId: data.categoryId,
-    name: (data.name || "").trim(),
-    description: (data.description || "").trim(),
+    name: trimAuthored(data.name),
+    description: trimAuthored(data.description),
     /* Already a validated finite Number — no coercion left in this module. */
     price: priced.price,
     imageUrl: (data.imageUrl || "").trim() || null,

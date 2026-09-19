@@ -423,9 +423,17 @@ button{font-family:var(--font-body)}
 .menu-cat-section__header{
   display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+/* Phase 98.0 — a category name is merchant-authored text, so it can carry a
+   token no space ever breaks. As a flex item it defaulted to min-width:auto,
+   which means it could not shrink below that token min-content width: a 62
+   character name measured 591px inside a 320px phone and pushed the PAGE to
+   670px. min-width:0 lets the item shrink and overflow-wrap:anywhere lets the
+   token itself break, the same pair Phase 97.5 applied to the other
+   user-generated text. Ordinary names wrap on their spaces exactly as before. */
 .menu-cat-section__title{
   font-family:var(--font-display);font-size:20px;font-weight:600;
-  color:var(--text-1);margin:0}
+  color:var(--text-1);margin:0;
+  min-width:0;overflow-wrap:anywhere}
 .menu-cat-section__count{
   font-size:12px;color:var(--text-3);font-weight:600;
   letter-spacing:.05em;white-space:nowrap}

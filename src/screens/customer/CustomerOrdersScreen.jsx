@@ -354,7 +354,10 @@ function OrderCard({ order, onTrackOrder }) {
                                                rating is the valuable act now,
                                                and Track pointed at the same
                                                screen, so it is not repeated
-            delivered + already rated          View order, secondary
+            delivered + already rated          "Rated" — an inert state, not a
+                                               button (Phase 89 §5/§6; see
+                                               OrderCardAction below, which is
+                                               what actually renders)
             canceled                           View details, secondary — the
                                                tracking screen carries the
                                                cancellation notice, the payment
