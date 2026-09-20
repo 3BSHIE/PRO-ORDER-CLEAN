@@ -260,9 +260,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     const visibleCategoryIds = new Set(categories.map((c) => c.id));
     let items = allMenuItems.filter((i) => visibleCategoryIds.has(i.categoryId));
 
-    if (activeCategory) {
-      items = items.filter((i) => i.categoryId === activeCategory);
-    }
+    /* Phase 99.0 §10 — the category strip became NAVIGATION, so it no longer
+       filters. Every category section is always rendered and the strip scrolls
+       to one; this is the minimal adaptation the new behaviour requires, and
+       it is the only business-logic change in this phase. Search still
+       filters exactly as before. */
 
     const q = searchQuery.trim().toLowerCase();
     if (q) {
@@ -285,10 +287,10 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
       const cd = (catOrder[a.categoryId] || 99) - (catOrder[b.categoryId] || 99);
       return cd !== 0 ? cd : (a.sortOrder || 0) - (b.sortOrder || 0);
     });
-  }, [activeCategory, searchQuery, categories, allMenuItems]);
+  }, [searchQuery, categories, allMenuItems]);
 
   const isSearching  = searchQuery.trim().length > 0;
-  const showGrouped  = !activeCategory && !isSearching;
+  const showGrouped  = !isSearching;
   const activeCat    = categories.find((c) => c.id === activeCategory);
 
   /* Phase 74 §44/§45 — is there anything at all to order right now?
@@ -302,19 +304,103 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   }, [categories, allMenuItems]);
 
   /* If the category the guest is currently browsing gets hidden underneath
-     them (staff toggled it, or its schedule just ended), fall back to All
-     rather than leaving them staring at an empty list with no chip selected. */
+     them (staff toggled it, or its schedule just ended), drop the highlight
+     rather than underlining a strip entry that no longer exists. */
   useEffect(() => {
     if (activeCategory && !activeCat) setActiveCategory(null);
   }, [activeCategory, activeCat]);
+
+  /* ── Phase 99.0 §9/§10 — category navigation ──────────────────────────
+
+     stickyOffset() is measured, never hardcoded: the topbar and the strip
+     both change height with the viewport and with the language, and a guessed
+     constant would eventually hide a category heading behind them. */
+  const catNavRef = useRef(null);
+  const spyPausedUntil = useRef(0);
+
+  const stickyOffset = useCallback(() => {
+    const bar = document.querySelector(".topbar");
+    const barH = bar ? bar.getBoundingClientRect().height : 61;
+    const navH = catNavRef.current ? catNavRef.current.getBoundingClientRect().height : 0;
+    return barH + navH;
+  }, []);
+
+  /* Tap a category -> scroll its section clear of the sticky stack. The strip
+     is updated immediately and the observer is muted briefly, because a smooth
+     scroll crosses every section on the way and would otherwise flicker the
+     underline through all of them before settling. */
+  const handleCategoryJump = useCallback((catId, el) => {
+    setActiveCategory(catId);
+    spyPausedUntil.current = Date.now() + 700;
+    if (el) revealChip(el);
+    const target = document.getElementById(`menu-cat-${catId}`);
+    if (!target) return;
+    const y = window.scrollY + target.getBoundingClientRect().top - stickyOffset() - 10;
+    try {
+      window.scrollTo({
+        top: Math.max(0, y),
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    } catch {
+      window.scrollTo(0, Math.max(0, y));
+    }
+  }, [stickyOffset]);
+
+  /* Which section is the guest actually looking at? The bottom rootMargin is
+     what makes this read as "the one at the top of the screen" rather than
+     "any section on screen", and the top margin subtracts the sticky stack so
+     a section counts only once it clears the bar. */
+  useEffect(() => {
+    if (isSearching) return undefined;
+    const ids = categories.map((c) => c.id);
+    const els = ids
+      .map((id) => document.getElementById(`menu-cat-${id}`))
+      .filter(Boolean);
+    if (!els.length || typeof IntersectionObserver === "undefined") return undefined;
+
+    const seen = new Set();
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) seen.add(e.target.id);
+          else seen.delete(e.target.id);
+        });
+        if (Date.now() < spyPausedUntil.current) return;
+        const first = els.find((el) => seen.has(el.id));
+        if (first && first.dataset.catId) {
+          setActiveCategory(first.dataset.catId);
+          return;
+        }
+        /* Nothing is inside the band — which happens at the very top of the
+           page, where the first heading still sits below it, and in any gap
+           between two sections. Leaving the previous value there would strand
+           a stale underline, so fall back to the last section that has already
+           passed above the band, or to the first one when we are above them
+           all. */
+        const bandTop = stickyOffset() + 4;
+        const passed = els.filter((el) => el.getBoundingClientRect().top < bandTop);
+        const pick = passed.length ? passed[passed.length - 1] : els[0];
+        if (pick && pick.dataset.catId) setActiveCategory(pick.dataset.catId);
+      },
+      { rootMargin: `-${Math.round(stickyOffset()) + 4}px 0px -62% 0px`, threshold: 0 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [categories, isSearching, filteredItems.length, stickyOffset]);
+
+  /* Nothing is underlined on first paint until the observer fires, which reads
+     as a missing state. Seed it with the first category instead. */
+  useEffect(() => {
+    if (!isSearching && !activeCategory && categories.length) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [categories, isSearching, activeCategory]);
 
   /* Phase 43 — both counted labels go through the shared formatters so each
      language picks its own shape. The category branch is untouched: emoji and
      name are Admin-entered content, not UI copy. */
   const sectionTitle = isSearching
     ? formatResultCount(t, filteredItems.length, searchQuery.trim())
-    : activeCat
-    ? `${activeCat.emoji} ${getLocalizedText(activeCat.name, language)}`
     : t("customer.menuWord", "Menu");
   const sectionCount = isSearching
     ? null
@@ -421,8 +507,15 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             >
               <BrandMarkStatic size={22} />
             </button>
+            {/* Phase 99.0 §14 — the word and the number become two elements so
+                the header plaque can stack them the way the Welcome plaque does.
+                The "#" is dropped for the same reason Welcome omits it: the
+                label already says TABLE. */}
             <span className="menu-table-pill anim-identity-in">
-              {t("customer.yourTable", "Table")} #{table.tableNumber}
+              <span className="menu-table-pill__word">
+                {t("customer.yourTable", "Table")}
+              </span>
+              <span className="menu-table-pill__num">{table.tableNumber}</span>
             </span>
           </div>
         }
@@ -448,7 +541,6 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               icon={ShoppingBag}
               onClick={onViewOrders}
               aria-label={t("customer.myOrders", "My Orders")}
-              style={{ fontSize: 13 }}
             >
               <span className="menu-orders-label">
                 {t("customer.myOrders", "My Orders")}
@@ -590,34 +682,41 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           )}
         </div>
 
-        {/* ── Category chips ────────────────────────────────────────────
-            Phase 73 §11/§12 — the emoji stays. It is Admin-entered content
-            that gives a restaurant its personality, not UI decoration, and
-            removing it was explicitly rejected by the owner. Only the active
-            treatment and the scroll behaviour changed. */}
-        <div className="chips-row anim-rise" style={{ animationDelay: "120ms" }}>
-          <button
-            type="button"
-            className={`chip ${!activeCategory ? "chip--active" : ""}`}
-            aria-pressed={!activeCategory}
-            onClick={(e) => { setActiveCategory(null); setSearchQuery(""); revealChip(e.currentTarget); }}
+        {/* ── Category navigation (Phase 99.0 §7) ───────────────────────
+            The emoji is still Admin-entered restaurant content, now in a
+            fixed-width slot so a wide grapheme cannot set the column width.
+            It is hidden while searching because there are no sections to
+            navigate to — the results list has replaced them. */}
+        {!isSearching && categories.length > 0 && (
+          <nav
+            ref={catNavRef}
+            className="menu-cats"
+            aria-label={t("customer.menuWord", "Menu")}
           >
-            {t("common.all", "All")}
-          </button>
-          {/* `categories` is already the visibility-filtered list (which
-              subsumes the old isActive check), so no extra filter here. */}
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`chip ${activeCategory === cat.id ? "chip--active" : ""}`}
-              aria-pressed={activeCategory === cat.id}
-              onClick={(e) => { setActiveCategory(cat.id); setSearchQuery(""); revealChip(e.currentTarget); }}
-            >
-              {cat.emoji} {getLocalizedText(cat.name, language)}
-            </button>
-          ))}
-        </div>
+            <div className="menu-cats__track">
+              {categories.map((cat) => {
+                const emoji = typeof cat.emoji === "string" ? cat.emoji.trim() : "";
+                const isActive = activeCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`menu-cats__item ${isActive ? "menu-cats__item--active" : ""}`}
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={(e) => handleCategoryJump(cat.id, e.currentTarget)}
+                  >
+                    <span className="menu-cats__glyph" aria-hidden="true">
+                      {emoji || <UtensilsCrossed size={14} strokeWidth={1.9} />}
+                    </span>
+                    <span className="menu-cats__label">
+                      {getLocalizedText(cat.name, language)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        )}
 
         {/* ── Section bar ─────────────────────────────────────────────── */}
         <div className="menu-section-bar anim-rise" style={{ animationDelay: "160ms" }}>
@@ -714,7 +813,12 @@ function GroupedView({ items, categories, onOpen }) {
         const catItems = items.filter((i) => i.categoryId === cat.id);
         if (!catItems.length) return null;
         return (
-          <section key={cat.id} className="menu-cat-section anim-rise">
+          <section
+            key={cat.id}
+            id={`menu-cat-${cat.id}`}
+            data-cat-id={cat.id}
+            className="menu-cat-section anim-rise"
+          >
             <div className="menu-cat-section__header">
               <h2 className="menu-cat-section__title">
                 {cat.emoji} {getLocalizedText(cat.name, language)}
