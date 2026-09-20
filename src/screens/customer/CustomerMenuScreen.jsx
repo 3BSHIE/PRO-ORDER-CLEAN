@@ -507,15 +507,8 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             >
               <BrandMarkStatic size={22} />
             </button>
-            {/* Phase 99.0 §14 — the word and the number become two elements so
-                the header plaque can stack them the way the Welcome plaque does.
-                The "#" is dropped for the same reason Welcome omits it: the
-                label already says TABLE. */}
             <span className="menu-table-pill anim-identity-in">
-              <span className="menu-table-pill__word">
-                {t("customer.yourTable", "Table")}
-              </span>
-              <span className="menu-table-pill__num">{table.tableNumber}</span>
+              {t("customer.yourTable", "Table")} #{table.tableNumber}
             </span>
           </div>
         }
@@ -541,6 +534,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               icon={ShoppingBag}
               onClick={onViewOrders}
               aria-label={t("customer.myOrders", "My Orders")}
+              style={{ fontSize: 13 }}
             >
               <span className="menu-orders-label">
                 {t("customer.myOrders", "My Orders")}

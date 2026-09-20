@@ -80,16 +80,8 @@ button{font-family:var(--font-body)}
   justify-content:space-between;gap:12px}
 
 /* ── buttons ── */
-/* Phase 99.0 §1 — action buttons move from a full pill to a refined rounded
-   rectangle. Changed on the PRIMITIVE so every variant (primary, outline,
-   ghost, danger, danger-outline, ready) and every size follow at once.
-   Height, padding, typography, the gold gradient, its glow, hover, the .97
-   press and disabled behaviour are all untouched — this is shape only.
-   Pills deliberately remain for badges, status labels, chips, the language
-   switcher and the other controls named in the brief, which is why this is
-   NOT a global find-and-replace of 999px. */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  border:1px solid transparent;border-radius:14px;cursor:pointer;
+  border:1px solid transparent;border-radius:999px;cursor:pointer;
   font-weight:600;letter-spacing:.015em;white-space:nowrap;user-select:none;
   transition:transform .15s var(--ease),background .2s,border-color .2s,
     color .2s,box-shadow .2s,filter .2s}
@@ -332,27 +324,10 @@ button{font-family:var(--font-body)}
 .topbar--customer-deep .topbar__inner{flex-wrap:nowrap}
 .topbar--customer-deep .cart-back-btn{flex:none}
 .topbar--customer-deep .cust-topbar-right{flex:0 1 auto}
-/* Phase 99.0 §14 — the header table identity now speaks the same language as
-   the Welcome plaque (.cx-landing__table): a gold-tinted surface with a gold
-   hairline, the word TABLE set small and letter-spaced above the number, and
-   the number itself in the display face. Compressed hard for the 61px bar —
-   this is the Welcome plaque's VOCABULARY at header scale, not a copy of its
-   geometry. The number keeps direction:ltr so Latin digits stay in order
-   inside Arabic, exactly as the Welcome plaque does.
-
-   The width flexes with the number but the word TABLE sets a stable floor,
-   so a 1-digit and a 3-digit table barely differ. */
-.menu-table-pill{
-  display:inline-flex;flex-direction:column;align-items:center;gap:0;
-  padding:3px 9px;border-radius:10px;
-  background:var(--gold-soft);border:1px solid var(--gold-line);
-  white-space:nowrap;line-height:1}
-.menu-table-pill__word{
-  font-size:7.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--text-3)}
-.menu-table-pill__num{
-  font-family:var(--font-display);font-size:13px;font-weight:700;line-height:1.15;
-  color:var(--gold-ink);direction:ltr;unicode-bidi:isolate}
+.menu-table-pill{font-size:11.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--text-2);white-space:nowrap;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:999px;padding:4px 10px}
 
 /* menu header */
 /* Phase 45 — compacted. Was 28px/20px padding around a three-line stack
@@ -638,9 +613,7 @@ button{font-family:var(--font-body)}
   font-family:var(--font-display);font-size:15px;
   color:var(--gold-ink);font-weight:600;letter-spacing:-.01em}
 .item-card__add{
-  /* Phase 99.0 §2 — 6px, deliberately sharper than the 14px action buttons.
-     Size, gradient, interaction and the 44x44 ::after hit area are unchanged. */
-  width:30px;height:30px;flex:none;border-radius:6px;
+  width:30px;height:30px;flex:none;border-radius:8px;
   background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
   color:var(--on-primary);border:none;cursor:pointer;
   font-size:20px;font-weight:700;
@@ -2420,14 +2393,11 @@ button{font-family:var(--font-body)}
    identity and My Orders, so it is icon-led and sheds its label on narrow
    phones; the accessible name is supplied via aria-label in that case, so
    nothing is lost to assistive tech. */
-/* Phase 99.0 §15 — the sticky-topbar variant keeps ICON + TEXT at every
-   supported phone width; the rule that dropped its label under 360px is gone.
-   Shape moves off the full pill onto the same compact rounded-rectangle
-   language as the plaque beside it. Border and surface stay restrained so it
-   reads as actionable without competing with the page's real primary CTA —
-   no gold fill, no glow. Called/notified state logic is untouched. */
-.call-staff--compact{
-  padding:6px 10px;font-size:12px;gap:5px;border-radius:10px}
+.call-staff--compact{padding:7px 12px;font-size:12.5px;gap:6px}
+@media(max-width:359px){
+  .call-staff--compact{padding:7px;gap:0}
+  .call-staff--compact .call-staff__label{display:none}
+}
 
 .call-staff--prominent{
   padding:13px 26px;font-size:14.5px;color:var(--on-primary);border-color:transparent;
@@ -3696,9 +3666,6 @@ button{font-family:var(--font-body)}
    So the labels now collapse to icons much earlier. Both controls keep their
    aria-label in that state, so nothing is lost to assistive tech — only the
    redundant visible text, which the icons already carry. */
-/* Phase 99.0 §17 — Call Staff and My Orders keep icon AND text at every phone
-   width, so the three rules that used to hide those labels are gone. The room
-   is bought back from spacing and type size instead, in measured tiers. */
 @media(max-width:480px){
   .menu-topbar-right,
   .cust-topbar-right{gap:6px}
@@ -3708,43 +3675,9 @@ button{font-family:var(--font-body)}
      on a phone it yields more width than on the screens where it sits alone.
      It already truncates with an ellipsis, so this costs no layout. */
   .cust-topbar-right .rest-identity--compact{max-width:34vw}
-}
-
-/* MEASURED at 390: the bar needs 412px of content for 366px of room once both
-   actions carry their labels. 46px has to come from somewhere, and the brand
-   mark is the only occupant that is a convenience shortcut rather than an
-   approved header requirement — Table identity, Call Staff, My Orders and the
-   language switcher are all explicitly protected. So on phones the shortcut
-   yields and every protected element keeps its full treatment. The mark still
-   appears from 481px up, and the restaurant identity is never lost: it is the
-   first thing in the page body directly beneath the bar. */
-@media(max-width:480px){
-  .menu-topbar-left{gap:0}
-  .menu-topbar-right{gap:6px}
-  .menu-topbar-right .btn--sm{padding-inline:7px;gap:5px}
-  .menu-orders-label{font-size:12px}
-}
-@media(max-width:389.98px){
-  .topbar__inner{gap:6px}
-  .menu-topbar-right{gap:4px}
-  .menu-topbar-right .btn--sm{padding-inline:4px;gap:4px}
-  .menu-orders-label{font-size:11.5px}
-  .call-staff--compact{padding:6px 7px;gap:4px;font-size:11.5px}
-}
-/* 320 is the tightest case the brief names. The language switcher is approved
-   as-is and keeps its 44px options, so the remaining 203px has to carry the
-   plaque and both labelled actions. Type drops to 10.5px and the plaque takes
-   its compact sizing — both explicitly allowed — rather than a label being
-   dropped or the row being split. */
-@media(max-width:340px){
-  .topbar__inner{gap:5px}
-  .menu-topbar-right{gap:3px}
-  .menu-topbar-right .btn--sm{padding-inline:2px;gap:3px}
-  .menu-orders-label{font-size:10.5px}
-  .call-staff--compact{padding:6px 5px;gap:3px;font-size:10.5px}
-  .menu-table-pill{padding:3px 6px}
-  .menu-table-pill__word{letter-spacing:.08em;font-size:7px}
-  .menu-table-pill__num{font-size:12px}
+  .menu-orders-label{display:none}
+  .call-staff--compact{padding:7px;gap:0}
+  .call-staff--compact .call-staff__label{display:none}
 }
 /* Narrower still: the language codes tighten horizontally but keep their full
    44px height, so the target stays comfortable in the direction that matters
@@ -3753,6 +3686,8 @@ button{font-family:var(--font-body)}
   .lang-switcher--compact .lang-switcher__option{min-width:36px;padding:0 2px}
 }
 @media(max-width:340px){
+  .menu-table-pill{font-size:10.5px;padding-inline:8px}
+  .topbar__inner{gap:8px}
   .menu-topbar-left{gap:4px}
   .lang-switcher--compact .lang-switcher__option{min-width:32px}
 }
@@ -4799,10 +4734,7 @@ button{font-family:var(--font-body)}
 
 .cart-line__edit{
   display:inline-flex;align-items:center;gap:6px;
-  /* Phase 99.0 §4 — compact utility radius instead of the full pill. Size,
-     transparent surface, hairline border and text hierarchy are unchanged;
-     it must stay quieter than checkout. */
-  min-height:36px;padding:7px 14px;border-radius:10px;cursor:pointer;
+  min-height:36px;padding:7px 14px;border-radius:999px;cursor:pointer;
   background:transparent;border:1px solid var(--border);
   color:var(--text-2);font-family:var(--font-body);
   font-size:12.5px;font-weight:600;
@@ -5434,12 +5366,6 @@ button{font-family:var(--font-body)}
 .menu-home-btn:hover{background:var(--surface-2);border-color:var(--border)}
 .menu-home-btn:hover .po-mark{opacity:1}
 .menu-home-btn:active{transform:scale(.94)}
-/* Phase 99.0 §17 — on phones the bar gives this slot to the labelled actions.
-   Declared HERE rather than with the other header tiers because the base rule
-   above has equal specificity and would otherwise win on source order. */
-@media(max-width:480px){
-  .menu-home-btn{display:none}
-}
 
 /* ── Utility strip layout (§2, §7) ────────────────────────────────────────
    The mark and the table pill travel together on the leading edge; the action
