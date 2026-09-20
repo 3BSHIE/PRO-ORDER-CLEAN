@@ -29,6 +29,7 @@
  */
 
 import { PAYMENT_METHODS } from "../data/paymentMethods.js";
+import { getRestaurantClockParts } from "./categoryVisibility.js";
 
 /** Order statuses that mean "still in flight". Mirrors the kitchen board. */
 export const ACTIVE_STATUSES = ["received", "preparing", "ready"];
@@ -180,4 +181,148 @@ export function summarizeOrderStatuses(orders) {
    floating-point drift out of the displayed totals. */
 function round3(value) {
   return Math.round(value * 1000) / 1000;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 100.1 — Revenue Analytics
+
+   Three additive helpers. summarizeRevenue above is UNTOUCHED: these read
+   its output or the same order list, so the analytics section and the card
+   it grew out of cannot disagree, exactly as the drill-down could not.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export const HOURS_IN_DAY = 24;
+
+/**
+ * Which hour (0–23) an ISO timestamp falls in, ON THE RESTAURANT'S CLOCK.
+ *
+ * Routed through getRestaurantClockParts — the project's one restaurant
+ * clock — rather than Date#getHours(), so a manager in another timezone is
+ * not shown their own hours against the venue's takings. Returns null for a
+ * timestamp the engine cannot place, so the caller can account for the money
+ * instead of silently dropping it into hour 0.
+ *
+ * @param {string} iso
+ * @param {string} timeZone — IANA name; falls back to Asia/Amman internally
+ * @returns {number|null}
+ */
+export function getOrderHourInZone(iso, timeZone) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  /* hourCycle h23 so midnight is 00 and never 24 — h24 would index past the
+     end of the bucket array. */
+  const parts = getRestaurantClockParts(timeZone, date, {
+    hour: "2-digit",
+    hourCycle: "h23",
+  });
+  const raw = parts?.find((part) => part.type === "hour")?.value;
+  const hour = Number(raw);
+  if (!Number.isFinite(hour)) return null;
+  return ((hour % HOURS_IN_DAY) + HOURS_IN_DAY) % HOURS_IN_DAY;
+}
+
+/**
+ * Revenue per hour of the restaurant's day, for an already-scoped list.
+ *
+ * ── WHY 24 FIXED BUCKETS ────────────────────────────────────────────────
+ *   The axis never shifts. A window that grew and shrank with the first and
+ *   last order would move the same bar to a different place on the screen
+ *   between two refreshes, and an empty hour is itself information in a
+ *   restaurant — a quiet stretch is worth seeing.
+ *
+ * ── THE ONE RULE THIS SHARES WITH summarizeRevenue ──────────────────────
+ *   Canceled orders are excluded, everything else contributes its total.
+ *   That is what makes sum(buckets) === summarizeRevenue(same list).total,
+ *   so the chart can never disagree with the figure printed above it.
+ *
+ *   `unplaced` is the escape hatch for that guarantee: money whose
+ *   timestamp could not be resolved to an hour is reported rather than
+ *   dropped, so a caller can say so instead of drawing a chart that quietly
+ *   sums to less than its own headline. In practice it is always 0, because
+ *   filterToday already rejects an unparseable createdAt.
+ *
+ * @param {Array<object>} orders — already scoped (e.g. today's orders)
+ * @param {string} timeZone
+ * @returns {{buckets:Array<{hour:number,total:number,collected:number,pending:number,orders:number}>,
+ *            total:number, peak:number, peakHour:number|null, unplaced:number}}
+ */
+export function summarizeRevenueByHour(orders, timeZone) {
+  const buckets = Array.from({ length: HOURS_IN_DAY }, (unused, hour) => ({
+    hour, total: 0, collected: 0, pending: 0, orders: 0,
+  }));
+  let unplaced = 0;
+  let total = 0;
+
+  for (const order of orders || []) {
+    if (order.status === "canceled") continue;
+    const amount = Number(order.total) || 0;
+    total += amount;
+
+    const hour = getOrderHourInZone(order.createdAt, timeZone);
+    if (hour === null) {
+      unplaced += amount;
+      continue;
+    }
+    const bucket = buckets[hour];
+    bucket.total += amount;
+    bucket.orders += 1;
+    if (order.paymentStatus === "paid") bucket.collected += amount;
+    else bucket.pending += amount;
+  }
+
+  let peak = 0;
+  let peakHour = null;
+  for (const bucket of buckets) {
+    bucket.total = round3(bucket.total);
+    bucket.collected = round3(bucket.collected);
+    bucket.pending = round3(bucket.pending);
+    if (bucket.total > peak) {
+      peak = bucket.total;
+      peakHour = bucket.hour;
+    }
+  }
+
+  return { buckets, total: round3(total), peak, peakHour, unplaced: round3(unplaced) };
+}
+
+/**
+ * Average order value for a revenue summary.
+ *
+ * ── THE DENOMINATOR, STATED EXACTLY ─────────────────────────────────────
+ *   countedOrders — the non-canceled orders that contributed to `total`.
+ *   Not paidCount: dividing the full total by the paid count would inflate
+ *   the average with money the paid orders did not earn. Not the raw list
+ *   length either, because canceled orders are not in `total` and would
+ *   deflate it. total / countedOrders is the only pairing where numerator
+ *   and denominator describe the same set of orders.
+ *
+ * Returns null rather than NaN or Infinity when nothing has been counted, so
+ * the caller renders a dash instead of a broken figure.
+ *
+ * @param {{total:number, countedOrders:number}} revenue
+ * @returns {number|null}
+ */
+export function averageOrderValue(revenue) {
+  const counted = revenue?.countedOrders || 0;
+  if (counted <= 0) return null;
+  return round3((Number(revenue.total) || 0) / counted);
+}
+
+/**
+ * Each payment method's share of COLLECTED revenue.
+ *
+ * Collected is the right denominator because byMethod only accrues on paid
+ * orders — sharing against `total` would make Cash and Card add up to less
+ * than 100% with no visible reason. Zero collected yields share 0 for every
+ * row rather than a division by zero.
+ *
+ * @param {{collected:number, byMethod:Array<{id:string,amount:number,count:number}>}} revenue
+ * @returns {Array<{id:string, amount:number, count:number, share:number}>}
+ */
+export function revenueMethodShares(revenue) {
+  const collected = Number(revenue?.collected) || 0;
+  return (revenue?.byMethod || []).map((method) => ({
+    ...method,
+    share: collected > 0 ? (Number(method.amount) || 0) / collected : 0,
+  }));
 }

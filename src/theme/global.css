@@ -1661,12 +1661,13 @@ button{font-family:var(--font-body)}
 .ad-topbar-rest{font-size:12.5px;font-weight:700;color:var(--text-2);
   letter-spacing:.02em;white-space:nowrap;
   min-width:0;overflow:hidden;text-overflow:ellipsis}
-.ad-topbar-user{font-size:12px;color:var(--text-3);white-space:nowrap;
-  min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* Phase 100.1 §6 — .ad-topbar-user is no longer rendered. The ADMIN /
+   CASHIER label says the same thing once, in one size. The session itself is
+   untouched; only this duplicate painting of it is gone. */
 /* Phase 91.1 §15 — .ad-topbar-rest is gone (the restaurant is rendered by
    RestaurantIdentity now and deliberately SURVIVES on narrow widths). Only
    the signed-in user name gives way here. */
-@media(max-width:640px){.ad-topbar-user{display:none}}
+
 
 .container--admin{max-width:1200px}
 
@@ -1805,6 +1806,12 @@ button{font-family:var(--font-body)}
   letter-spacing:.03em}
 
 /* recent orders section */
+/* Phase 100.1 §18 — Operations and everything after it get a slightly larger
+   gap above them than the blocks inside a section do, so the page reads as
+   four steps rather than one long evenly-spaced list. Only the Overview's
+   own shell is targeted, so no other Admin page's rhythm moves. */
+.ad-shell__main .ad-rev + .ad-section-bar{margin-top:2px}
+
 /* Phase 100.0 §18 — one shared rhythm for every section heading on the page.
    SPACING ONLY: the font family, size and weight are untouched, so Live
    Orders, Menu, Settings and the rest keep their own headings exactly as they
@@ -4088,8 +4095,11 @@ button{font-family:var(--font-body)}
    side), 4-up once there is room. Never 1-up: a single column of four cards
    pushes Operations below the fold, which is the problem this section was
    moved up to solve. */
+/* Phase 100.1 §18 — the KPI row sits closer to the page title than to the
+   Revenue section beneath it: they are one glance together, and Revenue is
+   the next thing down rather than part of the same row. */
 .ad-kpis{
-  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:26px}
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:22px}
 /* 4-up is a DESKTOP layout (§4). 768 is a tablet and stays 2×2 — four
    cards across an iPad-width column would make each one narrower than the
    "JOD 242.000" it has to hold.
@@ -4115,25 +4125,33 @@ button{font-family:var(--font-body)}
    No trend, no comparison, no arrow — the product stores no historical series
    to derive one from, so none is drawn. */
 .ad-kpi{
-  display:flex;flex-direction:column;gap:5px;
-  padding:15px 16px 14px;width:100%;text-align:start;
+  display:flex;flex-direction:column;gap:4px;
+  padding:16px 16px 15px;width:100%;text-align:start;
   border:1px solid var(--border);
   transition:border-color .18s var(--ease),background-color .18s var(--ease)}
 .ad-kpi__top{
   display:flex;align-items:center;justify-content:space-between;
-  gap:8px;height:16px;margin-bottom:3px}
+  gap:8px;height:16px;margin-bottom:6px}
 .ad-kpi__icon{flex:none;color:var(--text-3);transition:color .18s var(--ease)}
-/* The chevron is the affordance, so it appears on hover/focus rather than
-   sitting there permanently and competing with the number. */
+/* Phase 100.1 §4 — the chevron is VISIBLE AT REST again. Hiding it until
+   hover meant a card gave no sign it was a destination until the pointer was
+   already on it, and on a touch screen it never appeared at all. It stays
+   quiet: --text-3 at rest, warming to --gold-ink with the icon on hover and
+   focus, and it is still rendered only for cards that genuinely navigate. */
 .ad-kpi__chevron{
-  flex:none;color:var(--text-3);opacity:0;
+  flex:none;color:var(--text-3);opacity:.7;
   transition:opacity .18s var(--ease),color .18s var(--ease)}
 [dir="rtl"] .ad-kpi__chevron{transform:scaleX(-1)}
+/* §5 — the number keeps its weight and gains a little air beneath it; the
+   label drops to --text-3 tracking so the figure reads first. Concept,
+   surface, icon size and interaction are the approved Minimal Metric. */
 .ad-kpi__value{
   font-family:var(--font-display);font-size:clamp(26px,5.4vw,32px);
-  font-weight:700;color:var(--text-1);line-height:1;letter-spacing:-.01em}
+  font-weight:700;color:var(--text-1);line-height:1;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums}
 .ad-kpi__label{
-  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--text-3)}
+  margin-top:2px;
+  font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--text-3)}
 
 /* Hover exists only on the cards that genuinely go somewhere (§13). All four
    of these were already destinations before this phase; a card whose action
@@ -4144,6 +4162,8 @@ button{font-family:var(--font-body)}
 .ad-kpi--interactive:focus-visible .ad-kpi__icon{color:var(--gold-ink)}
 .ad-kpi--interactive:hover .ad-kpi__chevron,
 .ad-kpi--interactive:focus-visible .ad-kpi__chevron{opacity:1;color:var(--gold-ink)}
+/* A hairline of extra definition on hover rather than a lift or a shadow. */
+.ad-kpi--interactive:hover{box-shadow:inset 0 0 0 1px var(--gold-line)}
 .ad-kpi--interactive:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* The status row keeps the same card, one step quieter — it is reference
@@ -8029,69 +8049,225 @@ button{font-family:var(--font-body)}
    treatment for an item that is switched off.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ══ Phase 100.0 §14/§15 — REVENUE SPLIT ═════════════════════════════════
+/* ══ Phase 100.1 §7–§15 — REVENUE ANALYTICS ══════════════════════════════
 
-   This block carries more weight than a single KPI card, which is what §15
-   asks for, and it earns that with TYPE rather than with decoration: the
-   total is the largest number on the page, everything under it is quiet, and
-   there is no chart, no gradient, no glow. Same shared card surface as the
-   KPI row above so it still reads as part of one system.
+   The Overview's strongest block, and the depth comes from COMPOSITION —
+   a header, a primary summary, a chart, a distribution and a status ledger,
+   each on its own sub-surface — rather than from decoration. There is no
+   glow, no glass, no 3D, no giant gradient: the only gradient in here is the
+   8% vertical fade inside a chart bar.
 
-   Structure, top to bottom: a calm uppercase label, the total, the real
-   payment-method sub-surfaces, then the pending remainder behind a hairline.
-   The remainder is deliberately NOT a third method surface — it is a
-   different kind of fact (money not collected yet, on no method), and
-   separating it by a rule is what stops it reading as an "Other" bucket.
-
-   auto-fit rather than a fixed two columns: the method rows come from real
-   data, so there could one day be three of them, and at 320px even two would
-   not fit. The grid decides from the space it actually has. */
+   Every colour is an existing token. Cash and Card are told apart by gold
+   against neutral, not by a new palette, and the only semantic colours are
+   the ones the product already uses for ready/preparing. */
 .ad-rev{
-  display:block;width:100%;text-align:start;cursor:pointer;
-  padding:17px 18px 15px;margin:-14px 0 28px;
-  border:1px solid var(--border);
-  transition:border-color .18s var(--ease)}
-.ad-rev:hover{border-color:var(--gold-line)}
-.ad-rev:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  display:block;width:100%;
+  padding:20px;margin:0 0 30px;
+  border:1px solid var(--border-strong);border-radius:var(--r-lg);
+  background:var(--surface-1)}
 
+/* ── Header ──────────────────────────────────────────────────────────── */
 .ad-rev__head{
-  display:flex;align-items:center;justify-content:space-between;gap:10px}
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.ad-rev__heading{min-width:0}
+.ad-rev__title{
+  font-family:var(--font-display);font-size:19px;font-weight:600;
+  color:var(--text-1);margin:0;letter-spacing:-.01em}
+/* The period, stated rather than chosen — see RevenueAnalytics.jsx. */
+.ad-rev__context{
+  margin:3px 0 0;font-size:11px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-3)}
+.ad-rev__detail{
+  flex:none;display:inline-flex;align-items:center;gap:5px;
+  padding:7px 11px;border-radius:var(--r-sm);
+  background:none;border:1px solid var(--border);
+  color:var(--text-2);cursor:pointer;
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  transition:color .18s var(--ease),border-color .18s var(--ease)}
+.ad-rev__detail:hover{color:var(--gold-ink);border-color:var(--gold-line)}
+.ad-rev__detail:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+[dir="rtl"] .ad-rev__detail svg{transform:scaleX(-1)}
+
+/* ── Primary summary + chart ─────────────────────────────────────────── */
+/* One column by default. The two-column split is applied further down, by a
+   query that accounts for the sidebar, so a tablet never gets a squeezed
+   chart beside a squeezed total (§19). */
+.ad-rev__grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+
+.ad-rev__primary{min-width:0}
 .ad-rev__label{
+  display:block;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-3)}
+/* The largest number on the Overview, and deliberately larger than a KPI
+   value (§8): this is the figure the section exists for. */
+.ad-rev__total{
+  display:block;margin-top:6px;
+  font-family:var(--font-display);font-size:clamp(32px,6.4vw,44px);
+  font-weight:700;color:var(--text-1);line-height:1.02;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+
+.ad-rev__minis{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:10px;margin-top:16px}
+.ad-rev__mini{
+  min-width:0;padding:10px 12px;border-radius:var(--r-sm);
+  background:var(--surface-2);border:1px solid var(--border)}
+.ad-rev__mini-label{
+  display:block;font-size:10.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-rev__mini-value{
+  display:block;margin-top:4px;
+  font-size:15px;font-weight:700;color:var(--text-1);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.ad-rev__chart-wrap{min-width:0;display:flex;flex-direction:column}
+.ad-rev__chart-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ad-rev__chart-title{
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--text-2)}
+/* The peak is printed as TEXT, not left to a tooltip — it is the one figure
+   hovering a bar would reveal, and a phone has no hover (§14). */
+.ad-rev__peak{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;color:var(--text-3);white-space:nowrap}
+.ad-rev__peak svg{color:var(--gold-ink)}
+.ad-rev__peak strong{color:var(--text-2);font-weight:600}
+.ad-rev__empty{
+  margin:0;padding:26px 12px;text-align:center;
+  border:1px dashed var(--border);border-radius:var(--r-sm);
+  color:var(--text-3);font-size:12.5px}
+.ad-rev__note{margin:8px 0 0;font-size:11px;color:var(--text-3)}
+
+/* ── The chart ───────────────────────────────────────────────────────────
+   CSS bars, not SVG: a percentage height inside a flex row is responsive
+   with no viewBox to recompute and no way to overflow its container, and the
+   axis stays real text at a real size in both themes.
+
+   direction:ltr is deliberate and survives Arabic (§20). The x-axis is a
+   clock: 00 must sit before 23 or the series stops being chronological, and
+   a mirrored time axis is a harder thing for a reader to undo than a
+   left-to-right one is to read. Only the chart is pinned; every label around
+   it still flows with the page. */
+.ad-chart{
+  position:relative;direction:ltr;
+  height:118px;padding-bottom:16px;margin-top:2px}
+.ad-chart__grid{
+  position:absolute;inset:0 0 16px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  pointer-events:none}
+.ad-chart__grid span{display:block;height:1px;background:var(--border)}
+.ad-chart__bars{
+  position:relative;height:100%;
+  display:flex;align-items:flex-end;gap:2px}
+.ad-chart__col{
+  flex:1 1 0;min-width:0;height:100%;
+  display:flex;align-items:flex-end;justify-content:center}
+.ad-chart__bar{
+  width:100%;border-radius:3px 3px 1px 1px;
+  background:linear-gradient(180deg,var(--gold),color-mix(in srgb,var(--gold) 68%,transparent));
+  min-height:2px}
+/* An hour with no takings still draws a hairline, so the row reads as a
+   continuous timeline rather than as gaps between islands. */
+.ad-chart__bar[data-empty]{
+  height:2px;min-height:2px;background:var(--border-strong);border-radius:1px}
+.ad-chart__axis{
+  position:absolute;inset-inline:0;bottom:0;
+  display:flex;justify-content:space-between;
+  font-size:9.5px;font-weight:600;letter-spacing:.04em;color:var(--text-3)}
+
+/* ── Distribution + status ───────────────────────────────────────────── */
+.ad-rev__foot{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
+  margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+
+.ad-rev__dist{min-width:0}
+.ad-rev__dist-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:9px}
+.ad-rev__dist-label{
   font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--text-3)}
-.ad-rev__chevron{flex:none;color:var(--text-3);transition:color .18s var(--ease)}
-[dir="rtl"] .ad-rev__chevron{transform:scaleX(-1)}
-.ad-rev:hover .ad-rev__chevron{color:var(--gold-ink)}
+.ad-rev__dist-value{
+  font-size:14px;font-weight:700;color:var(--text-1);
+  font-variant-numeric:tabular-nums}
 
-.ad-rev__value{
-  display:block;margin-top:7px;
-  font-family:var(--font-display);font-size:clamp(28px,6vw,38px);
-  font-weight:700;color:var(--text-1);line-height:1.05;letter-spacing:-.015em}
+/* The distribution bar. It represents COLLECTED money only — Cash and Card
+   share it, and Pending is never a segment in it (§12). */
+.ad-rev__bar{
+  display:flex;height:8px;border-radius:999px;overflow:hidden;
+  background:var(--surface-3);gap:2px}
+.ad-rev__bar--empty{background:var(--surface-3)}
+.ad-rev__bar-seg{display:block;height:100%;min-width:2px}
+.ad-rev__bar-seg--cash{background:var(--gold)}
+.ad-rev__bar-seg--card{background:color-mix(in srgb,var(--gold) 42%,var(--text-3))}
+.ad-rev__bar-seg--other{background:var(--text-3)}
 
-.ad-rev__methods{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));
-  gap:10px;margin-top:16px}
-.ad-rev__method{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  min-width:0;padding:9px 12px;border-radius:var(--r-sm);
-  background:var(--surface-2);border:1px solid var(--border)}
-.ad-rev__method-label{
-  display:inline-flex;align-items:center;gap:7px;min-width:0;
-  font-size:12px;font-weight:600;color:var(--text-2);
+.ad-rev__legend{list-style:none;margin:12px 0 0;padding:0;
+  display:flex;flex-direction:column;gap:8px}
+.ad-rev__legend-row{
+  display:flex;align-items:center;gap:8px;min-width:0;font-size:12px}
+.ad-rev__legend-row svg{flex:none;color:var(--text-3)}
+.ad-rev__legend-label{
+  min-width:0;color:var(--text-2);font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ad-rev__method-label svg{flex:none;color:var(--text-3)}
-.ad-rev__method-value{
-  flex:none;font-size:12.5px;font-weight:600;color:var(--text-1);
-  white-space:nowrap}
+/* The share is pushed to sit just before the amount, both flush to the
+   trailing edge, with logical margin so Arabic mirrors it. */
+.ad-rev__legend-share{
+  margin-inline-start:auto;flex:none;
+  color:var(--text-3);font-variant-numeric:tabular-nums}
+.ad-rev__legend-value{
+  flex:none;min-width:84px;text-align:end;
+  color:var(--text-1);font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
 
-/* The remainder. Quiet, behind a hairline, and always present so that
-   Cash + Card + this visibly equals the total above it. */
-.ad-rev__pending{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
-.ad-rev__pending-label{font-size:11.5px;color:var(--text-3)}
-.ad-rev__pending-value{
-  font-size:12.5px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.ad-rev__dot{
+  flex:none;width:8px;height:8px;border-radius:50%;background:var(--text-3)}
+.ad-rev__dot--cash{background:var(--gold)}
+.ad-rev__dot--card{background:color-mix(in srgb,var(--gold) 42%,var(--text-3))}
+.ad-rev__dot--collected{background:var(--ready)}
+.ad-rev__dot--pending{background:var(--preparing)}
+
+/* The ledger. Collected + Pending = Total, set out as the arithmetic it is,
+   with the total behind a rule so the relationship is legible at a glance. */
+.ad-rev__status{
+  min-width:0;align-self:start;
+  padding:14px 14px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border)}
+.ad-rev__status-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:5px 0;font-size:12px}
+.ad-rev__status-label{
+  display:inline-flex;align-items:center;gap:7px;min-width:0;
+  color:var(--text-2)}
+.ad-rev__status-value{
+  flex:none;color:var(--text-1);font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.ad-rev__status-row--total{
+  margin-top:5px;padding-top:9px;border-top:1px solid var(--border)}
+.ad-rev__status-row--total .ad-rev__status-label{
+  font-weight:600;color:var(--text-1);
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.ad-rev__status-row--total .ad-rev__status-value{font-size:14px}
+
+/* ── Wide composition (§19) ───────────────────────────────────────────────
+   Two columns, and the thresholds account for the sidebar exactly as the KPI
+   and Operations grids do: from 1024px it has already taken 294px, so the
+   split waits for the viewport that leaves the chart a real column. Below
+   that everything stacks, which is what §19 asks for on a tablet rather than
+   three cramped columns. */
+@media(min-width:760px) and (max-width:1023.98px){
+  .ad-rev__grid{grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:24px}
+  .ad-rev__foot{grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:24px}
+}
+@media(min-width:1200px){
+  .ad-rev{padding:24px}
+  .ad-rev__grid{grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px}
+  .ad-rev__foot{grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:28px}
+  .ad-chart{height:140px}
+}
 
 /* ── Availability toggle (§10/§11) ───────────────────────────────────────
    ONE control, shared by the Menu and Categories rows. It is the primary

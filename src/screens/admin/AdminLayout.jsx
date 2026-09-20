@@ -283,7 +283,13 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
            bar keeps its height and its other thirteen consumers are untouched. */
         right={
           <div className="ad-topbar-right">
-            <span className="ad-topbar-user">{session.name}</span>
+            {/* Phase 100.1 §6 — the signed-in display name is no longer
+                painted here. In mockStaff.js it resolves to "Restaurant
+                Admin" / "Cashier Staff", which beside the ADMIN / CASHIER
+                label is the same fact twice in two sizes. The SESSION is
+                untouched — session.name is still carried in state and
+                nothing about authentication, restore or sign out changes;
+                only its duplicate rendering is gone. */}
             {/* §5 — the SAME compact control the Customer header uses, not a
                 third style invented for Admin: the component and its styles
                 already exist, so this is a variant switch and nothing more.

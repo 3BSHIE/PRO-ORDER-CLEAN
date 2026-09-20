@@ -7,8 +7,6 @@ import {
      the KIND of number at a glance. Deliberately small and monochrome — §12
      rules out large coloured icon circles. */
   ClipboardList, Timer, Wallet, BellRing,
-  /* §14/§15 — the payment-method sub-surfaces. */
-  Banknote, CreditCard,
 } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -18,8 +16,13 @@ import AcceptingOrdersCard from "./AcceptingOrdersCard.jsx";
 import BusyModeCard from "./BusyModeCard.jsx";
 import DashboardDrillDown from "./DashboardDrillDown.jsx";
 import NeedsAttentionSection from "./NeedsAttentionSection.jsx";
+import RevenueAnalytics from "./RevenueAnalytics.jsx";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
+/* Phase 100.1 — read ONLY for the restaurant timezone the hourly revenue
+   buckets are resolved against. Same hook the shell already uses, so this
+   adds no new data path and no new storage key. */
+import { useSettingsData } from "../../lib/useSettingsData.js";
 import { buildAttentionItems } from "../../lib/operationalAttention.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -66,19 +69,8 @@ const METHOD_LABEL_KEY = {
   online_payment: "payment.onlinePayment",
 };
 
-/* Phase 100.0 §14 — SHORT forms for the Revenue split, where the full names
-   ("Cash at the table", "Card / Visa at the table") are far too long for a
-   compact sub-surface. Same money, same ids, same source — only the wording
-   is shorter. A method with no short form falls back to its full label rather
-   than being dropped, so takings can never silently vanish from the split. */
-const METHOD_SHORT_KEY = {
-  cash_at_table: "payment.cashShort",
-  card_at_table: "payment.cardShort",
-};
-const METHOD_ICON = {
-  cash_at_table: Banknote,
-  card_at_table: CreditCard,
-};
+/* Phase 100.1 — the short method labels and their icons moved to
+   RevenueAnalytics.jsx along with the surfaces that render them. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminDashboardScreen — Phase 18
@@ -130,6 +122,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
   /* The same live call list the nav badge already reads — one source, so the
      KPI and the badge can never disagree. */
   const { calls: staffCalls } = useStaffCalls(restaurant.slug);
+  const { settings } = useSettingsData(restaurant.slug);
   const openCallCount = useMemo(
     () => staffCalls.filter((c) => c.status === "open").length,
     [staffCalls]
@@ -498,69 +491,32 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           surface, same chevron affordance, same interactive treatment), and
           it states the split — collected vs still at the table — which is
           the one thing the bare total cannot say. Identical for both roles. */}
-      {/* Phase 100.0 §14/§15 — REVENUE SPLIT.
+      {/* ── Revenue Analytics (Phase 100.1 §7) ────────────────────────────
 
-          The breakdown is REAL. summarizeRevenue already returns byMethod —
-          per-method amounts and counts derived from each order's own
-          paymentMethod.id — so Cash and Card are read from the same
-          calculation the drill-down has always used. Nothing is invented and
-          no figure is estimated.
+          PERIOD SCOPE, stated once: this section is Today, and Today only.
+          Week and Month selectors were considered and deliberately left out
+          (§10). The orders store is a single localStorage list with no
+          retention policy and no historical seed, so on a real install those
+          tabs would almost always render the same figures as Today while
+          implying the product keeps a history it does not. A selector that
+          shows the same numbers three times is decoration, and §10 is
+          explicit that they must not be added for appearance.
 
-          One thing the mockup could not know: byMethod only accrues on orders
-          that are actually PAID, because an unpaid order has no method
-          takings yet. So Cash + Card equals Collected, not Total. Printing
-          only Total, Cash and Card would show three numbers that visibly fail
-          to add up, which is why the pending remainder stays on the card —
-          it is existing approved data, it is the difference between the two,
-          and §14 is explicit that data integrity outranks the mockup. It is
-          rendered as a quiet context line rather than a third method surface,
-          so it cannot be misread as an "Other" payment method.
+          The hourly buckets are resolved on the RESTAURANT's clock, not the
+          viewer's, through the same getRestaurantClockParts chain Working
+          Hours and category visibility already use. The DAY boundary is
+          still filterToday's, unchanged — see the note in the report.
 
-          The rows come from byMethod rather than being hardcoded to two, which
-          is what guarantees money can never be hidden: summarizeRevenue lists
-          a method when it is enabled OR has real records, so today that is
-          exactly Cash and Card, and an Online Payment order — were one ever to
-          exist — would appear instead of silently vanishing. */}
-      <button
-        type="button"
-        className="card ad-rev anim-rise"
-        onClick={() => setOpenDetail("revenueToday")}
-        aria-haspopup="dialog"
-      >
-        <span className="ad-rev__head">
-          <span className="ad-rev__label">{t("admin.revenueToday", "Revenue Today")}</span>
-          <ChevronRight className="ad-rev__chevron" size={16} strokeWidth={2.2} aria-hidden="true" />
-        </span>
-        <span className="ad-rev__value">{fmtPrice(todayRevenue.total)}</span>
+          `ordersToday` is handed over alongside the summary so the chart and
+          the total are built from one list rather than two filters. */}
+      <RevenueAnalytics
+        revenue={todayRevenue}
+        orders={ordersToday}
+        timeZone={settings.timeZone}
+        onOpenDetail={() => setOpenDetail("revenueToday")}
+      />
 
-        <span className="ad-rev__methods">
-          {todayRevenue.byMethod.map((method) => {
-            const Icon = METHOD_ICON[method.id];
-            const shortKey = METHOD_SHORT_KEY[method.id];
-            const label = shortKey
-              ? t(shortKey, method.id)
-              : t(METHOD_LABEL_KEY[method.id], method.id);
-            return (
-              <span className="ad-rev__method" key={method.id}>
-                <span className="ad-rev__method-label">
-                  {Icon && (
-                    <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
-                  )}
-                  {label}
-                </span>
-                <span className="ad-rev__method-value">{fmtPrice(method.amount)}</span>
-              </span>
-            );
-          })}
-        </span>
 
-        <span className="ad-rev__pending">
-          <span className="ad-rev__pending-label">
-            {t("payment.pendingAtTable", "Pending at table")}
-          </span>
-          <span className="ad-rev__pending-value">{fmtPrice(todayRevenue.pending)}</span>
-        </span>
-      </button>
 
       {/* ── Operations (Phase 75 §5) ──────────────────────────────────────
           The things a manager ACTS on, grouped under one heading so they read
