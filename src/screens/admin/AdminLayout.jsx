@@ -36,6 +36,24 @@ import ErrorBoundary from "../../components/system/ErrorBoundary.jsx";
    badge is the derived duplicate and session.name is the real identity
    field. The badge is what goes; the name stays. */
 
+/* Phase 100.0 §10 — the header names the ROLE where it used to name the
+   restaurant, because the restaurant now lives at the top of the sidebar and
+   saying it twice was the redundancy the brief calls out.
+
+   This reads session.role purely to LABEL it. It is not an access decision,
+   so it is not a hardcoded role check of the kind §25 forbids — there is no
+   permission helper for "what is my own role called", and every real
+   authorization on this screen still goes through canViewPage. An unknown
+   role falls back to the Admin wording rather than rendering an empty slot. */
+const ROLE_LABEL = {
+  admin:   ["admin.adminRole", "Admin"],
+  cashier: ["admin.cashierRole", "Cashier"],
+};
+
+/* Phase 100.0 §12 — a small contextual icon per nav destination already
+   exists on each item below; these are the KPI icons and live on the
+   dashboard, not here. */
+
 /* Nav items shared by every admin page. "overview" and "liveOrders" are the
    only two real destinations this phase — clicking them calls onNavigate.
    Everything else is a coming-soon placeholder that only shows a toast. */
@@ -213,6 +231,9 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
      render the screen regardless of how adminPage got set. */
   const visibleNavItems = ADMIN_NAV_ITEMS.filter((item) => canViewPage(session, item.key));
 
+  const [roleKey, roleFallback] = ROLE_LABEL[session.role] || ROLE_LABEL.admin;
+  const roleLabel = t(roleKey, roleFallback);
+
   function handleNavClick(item) {
     if (!canViewPage(session, item.key)) return; // defense in depth
     if (item.active) {
@@ -243,30 +264,23 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
         className="topbar--admin"
         left={
           <div className="ad-topbar-identity">
-            {/* §11 — the system's anchor, deliberately small: 20px against a
-                28px restaurant logo, because the restaurant is the entity
-                being managed and PRO·ORDER is only the thing managing it. */}
+            {/* §11 — the system's anchor, deliberately small. PRO·ORDER is the
+                thing doing the managing; the venue being managed is now named
+                at the top of the sidebar instead of here (§10). */}
             <BrandMarkStatic size={20} className="ad-topbar-mark" />
             <span className="ad-topbar-divider" aria-hidden="true" />
-            <RestaurantIdentity
-              name={settings.name?.trim() || restaurant.name}
-              logoUrl={settings.logoUrl}
-              variant="compact"
-            />
+            {/* §10 — the role, in the slot the restaurant name used to hold.
+                Slightly more present than the old derived badge but still a
+                label on the chrome, not a headline: no pill, no fill, no
+                border. */}
+            <span className="ad-topbar-role">{roleLabel}</span>
           </div>
         }
-        /* §3 — the page context moves OUT of the utilities cluster and
-           becomes the middle zone in its own right. It was welded to the
-           right-hand group only because the shell had nowhere else to put it;
-           with three real zones it reads as "where you are", between "which
-           venue" and "who you are". Same source as before (the route's own
-           activeKey through the sidebar's translation map), so the header and
-           the sidebar still cannot disagree about a page's name. */
-        center={
-          <span className="ad-topbar-page">
-            {t(NAV_ITEM_KEY[activeKey], activeKey)}
-          </span>
-        }
+        /* §10 — the centre zone is gone. It named the current page, which the
+           sidebar's active item now states far more clearly and in a place the
+           eye is already going. Leaving both meant the chrome said the page
+           name twice. Topbar renders nothing for an omitted `center`, so the
+           bar keeps its height and its other thirteen consumers are untouched. */
         right={
           <div className="ad-topbar-right">
             <span className="ad-topbar-user">{session.name}</span>
@@ -285,24 +299,64 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
         }
       />
 
-      <main className="container container--admin">
-        <nav className="ad-nav anim-rise">
-          {visibleNavItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`ad-nav__item ${activeKey === item.key ? "ad-nav__item--active" : ""}`}
-              onClick={() => handleNavClick(item)}
-            >
-              <item.icon size={15} strokeWidth={2} />
-              {t(NAV_ITEM_KEY[item.key], item.label)}
-              {item.key === "staffCalls" && openCalls.length > 0 && (
-                <span className="ad-nav__count">{openCalls.length}</span>
-              )}
-              {!item.active && <span className="ad-nav__soon">{t("admin.soon", "Soon")}</span>}
-            </button>
-          ))}
-        </nav>
+      {/* ── Phase 100.0 §3 — the desktop shell ────────────────────────────
+          ONE shell for Admin and Cashier (§25). There is no second sidebar
+          component and no role branch anywhere in it: the item list is the
+          same canViewPage filter it has always been, so Cashier gets the same
+          furniture with fewer doors in it.
+
+          The <main> keeps BOTH `container` and `container--admin`, unchanged,
+          because the print isolation and the Admin modal rules key off
+          `.container--admin > *` and moving the class would silently break QR
+          printing. The sidebar is its SIBLING, so nothing about what counts as
+          a direct child of the content container changes. */}
+      <div className="ad-shell">
+        <aside className="ad-sidebar">
+          {/* §5 — the venue being managed, from the same live settings source
+              the header used to read, so a rename still lands here with no
+              extra plumbing. Nothing is invented: RestaurantIdentity renders
+              the logo only when one exists and is a safe URL, and falls back
+              to a name-only treatment otherwise. No avatar, no subtitle, no
+              version string. */}
+          <div className="ad-sidebar__identity">
+            <RestaurantIdentity
+              name={settings.name?.trim() || restaurant.name}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
+
+          <nav className="ad-sidebar__nav" aria-label={t("admin.overview", "Overview")}>
+            {visibleNavItems.map((item) => {
+              const isActive = activeKey === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`ad-sidebar__item ${isActive ? "ad-sidebar__item--active" : ""}`}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => handleNavClick(item)}
+                >
+                  {/* §3 — the active indicator. A rail on the INLINE-START
+                      edge, so RTL mirrors it with no second rule. It scales
+                      rather than appearing, which is what makes the change
+                      read as movement without moving the row itself. */}
+                  <span className="ad-sidebar__rail" aria-hidden="true" />
+                  <item.icon className="ad-sidebar__icon" size={16} strokeWidth={1.9} />
+                  <span className="ad-sidebar__label">
+                    {t(NAV_ITEM_KEY[item.key], item.label)}
+                  </span>
+                  {item.key === "staffCalls" && openCalls.length > 0 && (
+                    <span className="ad-nav__count">{openCalls.length}</span>
+                  )}
+                  {!item.active && <span className="ad-nav__soon">{t("admin.soon", "Soon")}</span>}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+      <main className="container container--admin ad-shell__main">
 
         {/* Phase 65 — the boundary sits HERE, not around the screen, because
             every Admin screen renders its own AdminLayout: the chrome is a
@@ -318,6 +372,7 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
           {children}
         </ErrorBoundary>
       </main>
+      </div>
 
       {/* Phase 59 — rendered here in the shared chrome, not inside a screen,
           so a call reaches Admin/Cashier wherever they happen to be. Kitchen

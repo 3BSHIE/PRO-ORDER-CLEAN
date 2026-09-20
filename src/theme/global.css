@@ -1670,21 +1670,105 @@ button{font-family:var(--font-body)}
 
 .container--admin{max-width:1200px}
 
-/* minimal nav shell */
-.ad-nav{
-  display:flex;gap:6px;overflow-x:auto;padding:20px 0 4px;
+/* ══ Phase 100.0 §3 — Admin/Cashier navigation: MINIMAL FLAT ═════════════
+
+   One system, two shapes. Below 1024px this is the horizontal scroller the
+   shell has always had (§8 — no drawer, no off-canvas, no bottom bar is
+   introduced); from 1024px up the same markup becomes the vertical desktop
+   sidebar. Nothing is duplicated and there is no Cashier variant: the item
+   list is whatever canViewPage already allowed through.
+
+   Flat on purpose. No filled card per item, no border per item, no shadow.
+   An inactive row is just an icon and a label in --text-3; the active one
+   warms to --gold-ink, picks up a very light --gold-soft tint and grows a
+   2px rail. That rail is the whole indicator — there is no gold filled
+   button and no glow anywhere in this block.
+
+   THE RAIL AND RTL: it is placed with inset-inline-start and inset-inline,
+   never left/right, so Arabic mirrors it to the other edge of the row with
+   no second rule and no [dir="rtl"] override. Same for every padding below. */
+.ad-shell{display:block}
+
+/* Narrow: identity above, the scroller below — the same strip as before. */
+.ad-sidebar{
+  width:100%;max-width:1200px;margin:0 auto;padding:16px 20px 0}
+.ad-sidebar__identity{margin-bottom:12px;min-width:0}
+/* padding-bottom is 6px, not 4px, and that is deliberate: overflow-x:auto
+   clips on BOTH axes, so a 4px pad put the 4px focus ring exactly on the
+   clipping boundary with zero clearance (Phase 97.9 §14 measured it). The
+   desktop item below uses an INSET ring, which cannot clip at all. */
+.ad-sidebar__nav{
+  display:flex;gap:4px;overflow-x:auto;padding-bottom:6px;
   scrollbar-width:none}
-.ad-nav::-webkit-scrollbar{display:none}
-.ad-nav__item{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:9px 15px;border-radius:999px;border:1px solid var(--border);
-  background:transparent;color:var(--text-3);cursor:pointer;
+.ad-sidebar__nav::-webkit-scrollbar{display:none}
+
+.ad-sidebar__item{
+  position:relative;flex:none;
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 12px;border:none;background:none;border-radius:var(--r-sm);
+  color:var(--text-3);cursor:pointer;
   font-family:var(--font-body);font-size:13px;font-weight:500;
-  white-space:nowrap;transition:border-color .18s,color .18s,background .18s}
-.ad-nav__item:hover{border-color:var(--border-strong);color:var(--text-2)}
-.ad-nav__item--active{
-  background:var(--gold-soft);border-color:var(--gold-line);
-  color:var(--gold-ink);font-weight:600}
+  white-space:nowrap;text-align:start;
+  /* §24 — ~200ms, and only colour plus a very subtle tint. Nothing here
+     moves the row, so a page change can never shift the layout. */
+  transition:color .2s var(--ease),background-color .2s var(--ease)}
+.ad-sidebar__icon{flex:none;color:currentColor}
+.ad-sidebar__label{min-width:0}
+.ad-sidebar__item:hover{color:var(--text-2);background:var(--surface-2)}
+.ad-sidebar__item:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.ad-sidebar__item--active{color:var(--gold-ink);font-weight:600;background:var(--gold-soft)}
+
+/* The indicator. Narrow: a short underline under the active tab. It scales
+   from the centre rather than fading in, which is what makes the change read
+   as movement without any box actually moving. */
+.ad-sidebar__rail{
+  position:absolute;inset-inline:8px;bottom:0;height:2px;
+  border-radius:2px;background:var(--gold);
+  opacity:0;transform:scaleX(.35);transform-origin:center;
+  transition:opacity .2s var(--ease),transform .2s var(--ease)}
+.ad-sidebar__item--active .ad-sidebar__rail{opacity:1;transform:scaleX(1)}
+
+/* The live open-call count pushes to the trailing edge on desktop, where the
+   row is full width; on the narrow strip it simply follows the label. */
+.ad-sidebar__item .ad-nav__count{flex:none}
+
+/* ── Desktop: the same markup becomes the sidebar (§3) ────────────────── */
+@media(min-width:1024px){
+  /* The shell owns the page gutters here so the sidebar and the content
+     column share one rhythm. .container--admin keeps its class — the print
+     isolation and the Admin modal rules both key off it — and only has its
+     own padding and cap neutralised inside the shell. */
+  .ad-shell{
+    display:flex;align-items:flex-start;gap:26px;
+    max-width:1320px;margin:0 auto;padding:0 20px}
+  .ad-shell__main{flex:1 1 auto;min-width:0;max-width:none;margin:0;padding:0}
+
+  .ad-sidebar{
+    flex:none;width:228px;max-width:none;margin:0;padding:22px 0 28px;
+    position:sticky;top:61px;align-self:flex-start;
+    max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:none}
+  .ad-sidebar::-webkit-scrollbar{display:none}
+
+  .ad-sidebar__identity{
+    margin-bottom:16px;padding:0 10px 16px;
+    border-bottom:1px solid var(--border)}
+
+  .ad-sidebar__nav{
+    flex-direction:column;gap:1px;overflow:visible;padding-bottom:0}
+  .ad-sidebar__item{
+    width:100%;flex:0 0 auto;
+    padding-block:10px;padding-inline:14px 12px;
+    font-size:13.5px;border-radius:var(--r-sm)}
+  .ad-sidebar__item .ad-nav__count{margin-inline-start:auto}
+
+  /* Vertical rail on the inline-start edge — mirrored for Arabic by the
+     logical property alone. */
+  .ad-sidebar__rail{
+    inset-inline:auto;inset-inline-start:0;
+    top:7px;bottom:7px;height:auto;width:2px;
+    transform:scaleY(.3);transform-origin:center}
+  .ad-sidebar__item--active .ad-sidebar__rail{transform:scaleY(1)}
+}
 .ad-nav__soon{
   font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
   color:var(--text-3);background:var(--surface-3);
@@ -1721,9 +1805,17 @@ button{font-family:var(--font-body)}
   letter-spacing:.03em}
 
 /* recent orders section */
+/* Phase 100.0 §18 — one shared rhythm for every section heading on the page.
+   SPACING ONLY: the font family, size and weight are untouched, so Live
+   Orders, Menu, Settings and the rest keep their own headings exactly as they
+   were (§23). All this does is give every section the same gap above it,
+   which is what made Operations, Needs Attention and Order status sit at
+   three different distances from whatever preceded them. */
 .ad-section-bar{
   display:flex;align-items:baseline;justify-content:space-between;
-  gap:12px;margin-bottom:16px}
+  gap:12px;margin:0 0 14px}
+.ad-section-bar + *{margin-top:0}
+.ad-shell__main .ad-section-bar:not(:first-child){margin-top:4px}
 .ad-section-title{
   font-family:var(--font-display);font-size:19px;font-weight:600;
   color:var(--text-1);margin:0}
@@ -1934,7 +2026,7 @@ button{font-family:var(--font-body)}
    icon-before-text button still reads correctly when mirrored */
 [dir="rtl"] .btn,
 [dir="rtl"] .chip,
-[dir="rtl"] .ad-nav__item,
+[dir="rtl"] .ad-sidebar__item,
 [dir="rtl"] .kb-column__header{
   flex-direction:row} /* icon+label pairs stay in reading order via gap, not margin */
 
@@ -2170,7 +2262,7 @@ button{font-family:var(--font-body)}
    12px outside the content box — pushing the page's scrollWidth past its
    clientWidth on every Admin screen.
 
-   The nav strip below it was NEVER the problem: .ad-nav sets overflow-x:auto
+   The nav strip below it was NEVER the problem: .ad-sidebar__nav sets overflow-x:auto
    and scrolls its own 1019px of tabs internally, which is intentional.
 
    Fixed by reducing the intrinsic width of the chrome at narrow widths and
@@ -3475,6 +3567,11 @@ button{font-family:var(--font-body)}
   .topbar,
   .demo-switcher,
   .toast-wrap,
+  /* Phase 100.0 — the sidebar is a SIBLING of .container--admin, so the
+     `.container--admin > *` rule below cannot reach it. Named explicitly,
+     otherwise the QR stand sheet would print with a navigation column
+     beside it. */
+  .ad-sidebar,
   .sc-alert{display:none !important}
 
   .container--admin > *:not(.modal__overlay){display:none !important}
@@ -3995,12 +4092,59 @@ button{font-family:var(--font-body)}
   display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:26px}
 /* 4-up is a DESKTOP layout (§4). 768 is a tablet and stays 2×2 — four
    cards across an iPad-width column would make each one narrower than the
-   "JOD 242.000" it has to hold. */
-@media(min-width:1024px){.ad-kpis{grid-template-columns:repeat(4,1fr);gap:14px}}
+   "JOD 242.000" it has to hold.
 
-.ad-kpi{padding:16px 15px}
-.ad-kpi .ad-stat__value{font-size:clamp(24px,5.2vw,30px)}
-.ad-kpi .ad-stat__label{font-size:11px;color:var(--text-2)}
+   Phase 100.0 §22 — these thresholds are VIEWPORT queries, and from 1024px up
+   the sidebar now takes 228px plus a 26px gap out of the row before this grid
+   sees any of it. Left alone, 1024 would have put four cards into a ~730px
+   column and crushed exactly what §22 says must not be crushed. So 4-up moves
+   to the viewport width at which the CONTENT column is still the ~980px the
+   old 1024 threshold actually meant: 1024 + 294 ≈ 1320, pulled back to 1280
+   where each card still measures a comfortable ~236px. Between 1024 and 1280
+   the row is a clean 2x2 of wide cards, which is the right answer for that
+   column rather than a compromise. */
+@media(min-width:1280px){.ad-kpis{grid-template-columns:repeat(4,1fr);gap:14px}}
+
+/* ── MINIMAL METRIC (§12) ─────────────────────────────────────────────────
+   The number is the strongest element on the card and everything else gets
+   out of its way: a small monochrome icon marks the kind of figure, the label
+   sits quietly beneath, and that is all. Gone from the previous design: the
+   coloured status dot (decoration that repeated the label), the accent edge,
+   any gradient and any shadow beyond the shared card surface.
+
+   No trend, no comparison, no arrow — the product stores no historical series
+   to derive one from, so none is drawn. */
+.ad-kpi{
+  display:flex;flex-direction:column;gap:5px;
+  padding:15px 16px 14px;width:100%;text-align:start;
+  border:1px solid var(--border);
+  transition:border-color .18s var(--ease),background-color .18s var(--ease)}
+.ad-kpi__top{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;height:16px;margin-bottom:3px}
+.ad-kpi__icon{flex:none;color:var(--text-3);transition:color .18s var(--ease)}
+/* The chevron is the affordance, so it appears on hover/focus rather than
+   sitting there permanently and competing with the number. */
+.ad-kpi__chevron{
+  flex:none;color:var(--text-3);opacity:0;
+  transition:opacity .18s var(--ease),color .18s var(--ease)}
+[dir="rtl"] .ad-kpi__chevron{transform:scaleX(-1)}
+.ad-kpi__value{
+  font-family:var(--font-display);font-size:clamp(26px,5.4vw,32px);
+  font-weight:700;color:var(--text-1);line-height:1;letter-spacing:-.01em}
+.ad-kpi__label{
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--text-3)}
+
+/* Hover exists only on the cards that genuinely go somewhere (§13). All four
+   of these were already destinations before this phase; a card whose action
+   resolves to null renders as a plain div and picks up none of this. */
+.ad-kpi--interactive{cursor:pointer}
+.ad-kpi--interactive:hover{border-color:var(--gold-line);background:var(--surface-2)}
+.ad-kpi--interactive:hover .ad-kpi__icon,
+.ad-kpi--interactive:focus-visible .ad-kpi__icon{color:var(--gold-ink)}
+.ad-kpi--interactive:hover .ad-kpi__chevron,
+.ad-kpi--interactive:focus-visible .ad-kpi__chevron{opacity:1;color:var(--gold-ink)}
+.ad-kpi--interactive:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* The status row keeps the same card, one step quieter — it is reference
    detail now, not the headline (§10). */
@@ -4025,6 +4169,15 @@ button{font-family:var(--font-body)}
      trying to get rid of. Giving categories the larger share fits two per
      line while Busy Mode keeps ample room for its controls. */
   .ad-ops{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:start}
+}
+/* Phase 100.0 §16/§22 — PRESERVE FIRST: the two cards, their controls, their
+   copy and their state logic are untouched. The only change is which viewport
+   earns the side-by-side layout, for the same reason as the KPI row above —
+   from 1024px the sidebar has already taken 294px, so the 900px this split
+   needs is 900 + 294 ≈ 1200 of viewport. Without this the pair would collapse
+   into two crushed halves at exactly the width the sidebar appears. */
+@media(min-width:1024px) and (max-width:1199.98px){
+  .ad-ops{grid-template-columns:minmax(0,1fr);gap:14px}
 }
 /* Both cards were previously wrapped in their own spacing divs; inside the
    grid they manage their own height. */
@@ -4119,15 +4272,6 @@ button{font-family:var(--font-body)}
   .sc-card__action{flex:1 1 100%}
   .sc-card__action .btn{width:100%}
 }
-
-/* ── Admin navigation (§27) ───────────────────────────────────────────── */
-
-/* The active item already used a gold tint; it gains a full-strength gold
-   border so the current page is obvious at a glance without becoming a
-   filled gold block. Inactive items are unchanged. */
-.ad-nav__item--active{border-color:var(--gold)}
-.ad-nav__item{transition:border-color .14s var(--ease),color .14s var(--ease),
-  background .14s var(--ease)}
 
 /* ── Admin motion (§30, §31) ──────────────────────────────────────────── */
 
@@ -6904,14 +7048,16 @@ button{font-family:var(--font-body)}
   flex:none;width:1px;height:18px;
   background:var(--border-strong);opacity:.8}
 
-/* §13 — the current page. Sits with the utilities rather than centred, so it
-   reads as a label on the chrome instead of competing with the page's own
-   <h1> a few pixels below it. */
-.ad-topbar-page{
-  font-size:12.5px;font-weight:700;color:var(--text-1);
-  letter-spacing:.02em;white-space:nowrap;
-  padding-inline-end:10px;margin-inline-end:2px;
-  border-inline-end:1px solid var(--border);
+/* Phase 100.0 §10 — the ROLE, where the restaurant name used to be. The page
+   label that lived in the centre zone is gone with it: the sidebar states the
+   current page, so the header was saying it twice.
+
+   "Slightly more prominent than the current role treatment" (§10) means type,
+   not furniture — uppercase, tracked, at full --text-1 weight. No pill, no
+   fill, no border, nothing that would read as a badge. */
+.ad-topbar-role{
+  font-size:12px;font-weight:700;color:var(--text-1);
+  letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;
   line-height:1}
 
 /* The restaurant's compact identity inside the header: small logo, readable
@@ -6928,8 +7074,10 @@ button{font-family:var(--font-body)}
    way, because the sidebar's active item still answers "which page" and the
    role badge still answers "as whom". */
 @media(max-width:640px){
-  .ad-topbar-page{display:none}
-  .ad-topbar-identity .rest-identity__name{max-width:12ch}
+  /* §10 — the role label is short enough to survive every width, so nothing
+     is hidden here any more. The restaurant name left this bar entirely and
+     is answered by the sidebar identity at every width. */
+  .ad-topbar-role{letter-spacing:.1em}
 }
 @media(max-width:420px){
   .ad-topbar-divider{display:none}
@@ -7027,22 +7175,12 @@ button{font-family:var(--font-body)}
 
    justify-self:start/end are flow-relative, so the zones swap sides in
    Arabic with no mirrored override of their own (§4). */
-@media (min-width:901px){
-  .topbar--admin .topbar__inner{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
-    align-items:center}
-  .topbar--admin .ad-topbar-identity{justify-self:start}
-  .topbar--admin .ad-topbar-page{justify-self:center}
-  .topbar--admin .ad-topbar-right{justify-self:end}
-}
-
-/* Phase 91.1 gave .ad-topbar-page a trailing hairline because it sat directly
-   in front of the user name inside the right-hand cluster. Standing alone as
-   its own zone that border has nothing to separate it from, so it goes —
-   logical properties, so there is no physical edge to mirror in RTL (§4). */
-.topbar--admin .ad-topbar-page{
-  padding-inline-end:0;margin-inline-end:0;border-inline-end:none}
+/* Phase 100.0 §10 — the three-column grid is gone with the centre zone it
+   existed to centre. With exactly two children the shell's own flex
+   `space-between` puts identity at the leading edge and utilities at the
+   trailing one, which is what a 3-column grid would now get wrong: it would
+   drop the utilities into the middle column. Header height, surface, sticky
+   behaviour and every control inside it are untouched (§9). */
 
 /* ── §5 — the compact language control in a 60px bar ──────────────────────
    .lang-switcher--compact sizes each option 44x44 for touch, which is right
@@ -7146,28 +7284,6 @@ button{font-family:var(--font-body)}
      badge-then-actions mirrored in Arabic, with no physical-side override. */
   .mm-cat-row__actions{margin-inline-start:auto}
 }
-
-/* ── §14 — the nav's focus ring had exactly 0px of clearance ──────────────
-
-   .ad-nav is a horizontal scroller (overflow-x:auto), and setting one axis to
-   auto makes the other axis clip too — so the bar clips at its PADDING box on
-   every side, not just the sides it scrolls.
-
-   The global ring is `outline:2px solid` at `outline-offset:2px`, i.e. it
-   extends exactly 4px past the item. .ad-nav's padding-bottom was exactly
-   4px, which put the ring's outer edge precisely ON the clipping boundary:
-
-     item bottom 119.0 + ring 4 = 123.0
-     nav padding-box bottom     = 123.0   → clearance 0.0px
-
-   Not clipped today, but with nothing at all in hand — one device-pixel of
-   rounding on a fractional-DPI screen takes the ring's last row with it. 6px
-   restores a 2px margin. Nothing else moves: the bar grows 2px, and the nav
-   is not a measured surface in any earlier phase.
-
-   Only the block-end padding changes; the 20px block-start and the 0 inline
-   padding stay as they were. */
-.ad-nav{padding-block-end:6px}
 
 /* ── §15/§7 — the Dashboard order row could not shrink ────────────────────
 
@@ -7913,53 +8029,69 @@ button{font-family:var(--font-body)}
    treatment for an item that is switched off.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Revenue Today (§6) ──────────────────────────────────────────────────
-   Sits directly under the KPI grid and reads as its financial footer: same
-   card surface and same chevron affordance, but one full-width row instead
-   of a fifth tile, so the 2x2 phone grid above it stays intact. */
-.ad-revenue{
-  display:flex;align-items:center;gap:18px;width:100%;
-  padding:14px 16px;margin:-14px 0 26px;
-  text-align:start;cursor:pointer;
+/* ══ Phase 100.0 §14/§15 — REVENUE SPLIT ═════════════════════════════════
+
+   This block carries more weight than a single KPI card, which is what §15
+   asks for, and it earns that with TYPE rather than with decoration: the
+   total is the largest number on the page, everything under it is quiet, and
+   there is no chart, no gradient, no glow. Same shared card surface as the
+   KPI row above so it still reads as part of one system.
+
+   Structure, top to bottom: a calm uppercase label, the total, the real
+   payment-method sub-surfaces, then the pending remainder behind a hairline.
+   The remainder is deliberately NOT a third method surface — it is a
+   different kind of fact (money not collected yet, on no method), and
+   separating it by a rule is what stops it reading as an "Other" bucket.
+
+   auto-fit rather than a fixed two columns: the method rows come from real
+   data, so there could one day be three of them, and at 320px even two would
+   not fit. The grid decides from the space it actually has. */
+.ad-rev{
+  display:block;width:100%;text-align:start;cursor:pointer;
+  padding:17px 18px 15px;margin:-14px 0 28px;
   border:1px solid var(--border);
-  transition:border-color .16s var(--ease),transform .16s var(--ease)}
-.ad-revenue:hover{border-color:var(--gold-line)}
-.ad-revenue:active{transform:translateY(1px)}
-.ad-revenue:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  transition:border-color .18s var(--ease)}
+.ad-rev:hover{border-color:var(--gold-line)}
+.ad-rev:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-.ad-revenue__main{display:flex;flex-direction:column;gap:2px;flex:none}
-.ad-revenue__label{
-  font-size:11px;font-weight:600;letter-spacing:.04em;
+.ad-rev__head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ad-rev__label{
+  font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--text-3)}
-.ad-revenue__value{
-  font-family:var(--font-display);font-size:clamp(20px,4.4vw,26px);
-  font-weight:700;color:var(--text-1);line-height:1.1}
+.ad-rev__chevron{flex:none;color:var(--text-3);transition:color .18s var(--ease)}
+[dir="rtl"] .ad-rev__chevron{transform:scaleX(-1)}
+.ad-rev:hover .ad-rev__chevron{color:var(--gold-ink)}
 
-/* The split is the reason this is not just a number: it says how much of
-   today is actually in the till. */
-.ad-revenue__split{
-  display:flex;flex-wrap:wrap;gap:6px 18px;flex:1 1 auto;min-width:0;
-  padding-inline-start:18px;border-inline-start:1px solid var(--border)}
-.ad-revenue__part{
-  display:flex;align-items:center;gap:7px;min-width:0;
-  font-size:12px;color:var(--text-2)}
-.ad-revenue__part strong{color:var(--text-1);font-weight:600;white-space:nowrap}
-.ad-revenue__part-dot{
-  flex:none;width:7px;height:7px;border-radius:50%}
-.ad-revenue__part-dot--collected{background:var(--ready)}
-.ad-revenue__part-dot--pending{background:var(--preparing)}
-.ad-revenue__chevron{flex:none;color:var(--text-3)}
+.ad-rev__value{
+  display:block;margin-top:7px;
+  font-family:var(--font-display);font-size:clamp(28px,6vw,38px);
+  font-weight:700;color:var(--text-1);line-height:1.05;letter-spacing:-.015em}
 
-/* Phones: the divider becomes a horizontal rule and the strip stacks, which
-   keeps "JOD 242.000" off a second line at 320px. */
-@media(max-width:620px){
-  .ad-revenue{flex-wrap:wrap;gap:10px;position:relative}
-  .ad-revenue__main{flex:1 1 auto}
-  .ad-revenue__split{
-    flex:1 1 100%;padding-inline-start:0;border-inline-start:0;
-    padding-top:10px;border-top:1px solid var(--border)}
-  .ad-revenue__chevron{position:absolute;inset-inline-end:16px;top:18px}
-}
+.ad-rev__methods{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));
+  gap:10px;margin-top:16px}
+.ad-rev__method{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-width:0;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--surface-2);border:1px solid var(--border)}
+.ad-rev__method-label{
+  display:inline-flex;align-items:center;gap:7px;min-width:0;
+  font-size:12px;font-weight:600;color:var(--text-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-rev__method-label svg{flex:none;color:var(--text-3)}
+.ad-rev__method-value{
+  flex:none;font-size:12.5px;font-weight:600;color:var(--text-1);
+  white-space:nowrap}
+
+/* The remainder. Quiet, behind a hairline, and always present so that
+   Cash + Card + this visibly equals the total above it. */
+.ad-rev__pending{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:13px;padding-top:12px;border-top:1px solid var(--border)}
+.ad-rev__pending-label{font-size:11.5px;color:var(--text-3)}
+.ad-rev__pending-value{
+  font-size:12.5px;font-weight:600;color:var(--text-2);white-space:nowrap}
 
 /* ── Availability toggle (§10/§11) ───────────────────────────────────────
    ONE control, shared by the Menu and Categories rows. It is the primary
@@ -8351,17 +8483,30 @@ button{font-family:var(--font-body)}
 .ad-attention{
   list-style:none;margin:0 0 32px;padding:0;
   display:flex;flex-direction:column;gap:8px}
+/* Phase 100.0 §17 — CURRENT STYLE REFINED. Structure, logic, priority, the
+   max-visible rule and every destination are untouched; these are still
+   compact rows and not cards. Refined: a slightly calmer row surface so the
+   list reads as one block rather than eight stacked cards, a touch more
+   breathing room, the icon chip squared up to match the KPI icon language,
+   and a hover that warms the chevron because the whole row is genuinely a
+   control. The semantic tints stay exactly as they were — one small chip,
+   no coloured panels. */
 .ad-attention__row{
   width:100%;display:flex;align-items:center;gap:12px;
-  padding:11px 14px;border-radius:var(--r-md);
+  padding:11px 13px;border-radius:var(--r-md);
   background:var(--surface-1);border:1px solid var(--border);
   color:var(--text-1);font-family:var(--font-body);text-align:start;
-  cursor:pointer;transition:border-color .15s,background .15s}
-.ad-attention__row:hover{border-color:var(--border-strong);background:var(--surface-2)}
-.ad-attention__row > svg{flex:none;color:var(--text-3)}
+  cursor:pointer;
+  transition:border-color .18s var(--ease),background-color .18s var(--ease)}
+.ad-attention__row:hover{border-color:var(--gold-line);background:var(--surface-2)}
+.ad-attention__row:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ad-attention__row > svg{
+  flex:none;color:var(--text-3);transition:color .18s var(--ease)}
+.ad-attention__row:hover > svg{color:var(--gold-ink)}
+[dir="rtl"] .ad-attention__row > svg{transform:scaleX(-1)}
 
 .ad-attention__icon{
-  flex:none;width:28px;height:28px;border-radius:var(--r-sm);
+  flex:none;width:30px;height:30px;border-radius:var(--r-sm);
   display:inline-flex;align-items:center;justify-content:center}
 .ad-attention__icon--delayed{background:var(--preparing-soft);color:var(--preparing)}
 .ad-attention__icon--call{background:var(--received-soft);color:var(--received)}
@@ -8371,8 +8516,8 @@ button{font-family:var(--font-body)}
 /* The body takes the free space and is the only part allowed to shrink, so a
    long table/order string wraps instead of pushing the age off the row. */
 .ad-attention__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.ad-attention__label{font-size:13px;font-weight:600;color:var(--text-1)}
-.ad-attention__where{font-size:11.5px;color:var(--text-3);overflow-wrap:anywhere}
+.ad-attention__label{font-size:13px;font-weight:600;color:var(--text-1);line-height:1.3}
+.ad-attention__where{font-size:11.5px;color:var(--text-3);overflow-wrap:anywhere;line-height:1.35}
 .ad-attention__order{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
 .ad-attention__sep{opacity:.6}
 /* Elapsed time never wraps and never shrinks — it is the thing being scanned. */

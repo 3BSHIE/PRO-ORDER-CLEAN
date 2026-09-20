@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { LineChart, ChevronRight } from "lucide-react";
+import {
+  LineChart, ChevronRight,
+  /* Phase 100.0 §12 — one small contextual icon per KPI. These replace the
+     coloured status dot the cards used to carry: the dot was decoration that
+     said nothing the label did not already say, while an icon at least names
+     the KIND of number at a glance. Deliberately small and monochrome — §12
+     rules out large coloured icon circles. */
+  ClipboardList, Timer, Wallet, BellRing,
+  /* §14/§15 — the payment-method sub-surfaces. */
+  Banknote, CreditCard,
+} from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
@@ -54,6 +64,20 @@ const METHOD_LABEL_KEY = {
   cash_at_table: "payment.cashAtTable",
   card_at_table: "payment.cardAtTable",
   online_payment: "payment.onlinePayment",
+};
+
+/* Phase 100.0 §14 — SHORT forms for the Revenue split, where the full names
+   ("Cash at the table", "Card / Visa at the table") are far too long for a
+   compact sub-surface. Same money, same ids, same source — only the wording
+   is shorter. A method with no short form falls back to its full label rather
+   than being dropped, so takings can never silently vanish from the split. */
+const METHOD_SHORT_KEY = {
+  cash_at_table: "payment.cashShort",
+  card_at_table: "payment.cardShort",
+};
+const METHOD_ICON = {
+  cash_at_table: Banknote,
+  card_at_table: CreditCard,
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -235,11 +259,15 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
 
      Four cards exactly, so the grid is 4-up on desktop and a clean 2x2 on a
      phone with no orphan row. */
+  /* Phase 100.0 §12 — same four KPIs, same values, same order, same sources.
+     `tone` is gone because the coloured dot it drove is gone; `icon` replaces
+     it. No comparison, no trend, no "vs yesterday" — the app holds no
+     historical series to compute any of that from, so none is shown (§12). */
   const KPI_CARDS = [
-    { key: "ordersToday",     label: "Orders Today",     value: todayStatuses.total,       tone: "gold" },
-    { key: "activeOrders",    label: "Active Orders",    value: allTimeStatuses.active,    tone: "gold" },
-    { key: "pendingPayments", label: "Pending Payments", value: todayRevenue.pendingCount, tone: "preparing" },
-    { key: "staffCalls",      label: "Staff Calls",      value: openCallCount,             tone: "preparing" },
+    { key: "ordersToday",     label: "Orders Today",     value: todayStatuses.total,       icon: ClipboardList },
+    { key: "activeOrders",    label: "Active Orders",    value: allTimeStatuses.active,    icon: Timer },
+    { key: "pendingPayments", label: "Pending Payments", value: todayRevenue.pendingCount, icon: Wallet },
+    { key: "staffCalls",      label: "Staff Calls",      value: openCallCount,             icon: BellRing },
   ];
 
   /* The per-status counts. These stay on the page — they are genuinely
@@ -267,6 +295,79 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      extra class differs, which is what drives their different sizing. Two
      copies of this would be two places for the drill-down and filter-shortcut
      behaviour to drift apart. */
+  /* Phase 100.0 §13 — where a card goes, in ONE place. The KPI row and the
+     status row render differently now, and duplicating this would be two
+     places for a destination to drift. Returns null for a card that is
+     genuinely informational, which is what keeps a non-clickable KPI from
+     growing a fake hover. Every destination here is the pre-existing one. */
+  function cardAction(stat) {
+    if (INTERACTIVE_CARDS.includes(stat.key)) {
+      return {
+        onClick: () => setOpenDetail(stat.key),
+        props: { "aria-haspopup": "dialog" },
+      };
+    }
+    if (stat.key === "staffCalls") {
+      return {
+        onClick: () => onNavigate("staffCalls"),
+        props: { "aria-label": t("admin.viewStaffCalls", "View staff calls") },
+      };
+    }
+    const orderFilter = CARD_TO_ORDER_FILTER[stat.key];
+    if (orderFilter) {
+      const [ariaKey, ariaFallback] = FILTER_CARD_ARIA[stat.key];
+      return {
+        onClick: () => onNavigate("liveOrders", { ordersFilter: orderFilter }),
+        props: { "aria-label": t(ariaKey, ariaFallback) },
+      };
+    }
+    return null;
+  }
+
+  /* Phase 100.0 §12 — MINIMAL METRIC. The number is the strongest element,
+     the label sits under it, and a small icon marks the kind of figure. No
+     dot, no accent edge, no gradient, no heavy shadow.
+
+     All four of these KPIs were already destinations before this phase, so
+     all four still render as real <button>s — this does not turn anything
+     informational into a fake control (§13). If cardAction ever returns null
+     the card degrades to a plain div with no hover at all. */
+  function renderKpiCard(stat) {
+    const label = t(STAT_LABEL_KEY[stat.key], stat.label);
+    const Icon = stat.icon;
+    const action = cardAction(stat);
+
+    const body = (
+      <>
+        <span className="ad-kpi__top">
+          <Icon className="ad-kpi__icon" size={15} strokeWidth={1.9} aria-hidden="true" />
+          {action && (
+            <ChevronRight className="ad-kpi__chevron" size={14} strokeWidth={2.2} aria-hidden="true" />
+          )}
+        </span>
+        <span className="ad-kpi__value">{stat.value}</span>
+        <span className="ad-kpi__label">{label}</span>
+      </>
+    );
+
+    if (!action) {
+      return (
+        <div key={stat.key} className="card ad-kpi">{body}</div>
+      );
+    }
+    return (
+      <button
+        key={stat.key}
+        type="button"
+        className="card ad-kpi ad-kpi--interactive"
+        onClick={action.onClick}
+        {...action.props}
+      >
+        {body}
+      </button>
+    );
+  }
+
   function renderStatCard(stat, extraClass) {
     const label = t(STAT_LABEL_KEY[stat.key], stat.label);
     const isInteractive = INTERACTIVE_CARDS.includes(stat.key);
@@ -382,7 +483,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           single number. The four figures that answer "how is service going
           right now" come first. */}
       <div className="ad-kpis anim-rise">
-        {KPI_CARDS.map((stat) => renderStatCard(stat, "ad-kpi"))}
+        {KPI_CARDS.map(renderKpiCard)}
       </div>
 
       {/* ── Revenue Today (Phase 95.1 §6) ─────────────────────────────────
@@ -397,29 +498,68 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           surface, same chevron affordance, same interactive treatment), and
           it states the split — collected vs still at the table — which is
           the one thing the bare total cannot say. Identical for both roles. */}
+      {/* Phase 100.0 §14/§15 — REVENUE SPLIT.
+
+          The breakdown is REAL. summarizeRevenue already returns byMethod —
+          per-method amounts and counts derived from each order's own
+          paymentMethod.id — so Cash and Card are read from the same
+          calculation the drill-down has always used. Nothing is invented and
+          no figure is estimated.
+
+          One thing the mockup could not know: byMethod only accrues on orders
+          that are actually PAID, because an unpaid order has no method
+          takings yet. So Cash + Card equals Collected, not Total. Printing
+          only Total, Cash and Card would show three numbers that visibly fail
+          to add up, which is why the pending remainder stays on the card —
+          it is existing approved data, it is the difference between the two,
+          and §14 is explicit that data integrity outranks the mockup. It is
+          rendered as a quiet context line rather than a third method surface,
+          so it cannot be misread as an "Other" payment method.
+
+          The rows come from byMethod rather than being hardcoded to two, which
+          is what guarantees money can never be hidden: summarizeRevenue lists
+          a method when it is enabled OR has real records, so today that is
+          exactly Cash and Card, and an Online Payment order — were one ever to
+          exist — would appear instead of silently vanishing. */}
       <button
         type="button"
-        className="card ad-revenue anim-rise"
+        className="card ad-rev anim-rise"
         onClick={() => setOpenDetail("revenueToday")}
         aria-haspopup="dialog"
       >
-        <span className="ad-revenue__main">
-          <span className="ad-revenue__label">{t("admin.revenueToday", "Revenue Today")}</span>
-          <span className="ad-revenue__value">{fmtPrice(todayRevenue.total)}</span>
+        <span className="ad-rev__head">
+          <span className="ad-rev__label">{t("admin.revenueToday", "Revenue Today")}</span>
+          <ChevronRight className="ad-rev__chevron" size={16} strokeWidth={2.2} aria-hidden="true" />
         </span>
-        <span className="ad-revenue__split">
-          <span className="ad-revenue__part">
-            <span className="ad-revenue__part-dot ad-revenue__part-dot--collected" />
-            {t("admin.collected", "Collected")}
-            <strong>{fmtPrice(todayRevenue.collected)}</strong>
-          </span>
-          <span className="ad-revenue__part">
-            <span className="ad-revenue__part-dot ad-revenue__part-dot--pending" />
+        <span className="ad-rev__value">{fmtPrice(todayRevenue.total)}</span>
+
+        <span className="ad-rev__methods">
+          {todayRevenue.byMethod.map((method) => {
+            const Icon = METHOD_ICON[method.id];
+            const shortKey = METHOD_SHORT_KEY[method.id];
+            const label = shortKey
+              ? t(shortKey, method.id)
+              : t(METHOD_LABEL_KEY[method.id], method.id);
+            return (
+              <span className="ad-rev__method" key={method.id}>
+                <span className="ad-rev__method-label">
+                  {Icon && (
+                    <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
+                  )}
+                  {label}
+                </span>
+                <span className="ad-rev__method-value">{fmtPrice(method.amount)}</span>
+              </span>
+            );
+          })}
+        </span>
+
+        <span className="ad-rev__pending">
+          <span className="ad-rev__pending-label">
             {t("payment.pendingAtTable", "Pending at table")}
-            <strong>{fmtPrice(todayRevenue.pending)}</strong>
           </span>
+          <span className="ad-rev__pending-value">{fmtPrice(todayRevenue.pending)}</span>
         </span>
-        <ChevronRight className="ad-revenue__chevron" size={16} strokeWidth={2.4} aria-hidden="true" />
       </button>
 
       {/* ── Operations (Phase 75 §5) ──────────────────────────────────────

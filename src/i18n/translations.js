@@ -817,6 +817,9 @@ export const translations = {
       unpaid: "Unpaid",
       cashAtTable: "Cash at the table",
       cardAtTable: "Card / Visa at the table",
+      /* Phase 100.0 — short forms for the Overview revenue split only. */
+      cashShort: "Cash",
+      cardShort: "Card",
       onlinePayment: "Online payment",
       cashAtTableDesc: "Pay with cash when the staff brings your bill.",
       cardAtTableDesc: "Pay using the restaurant POS terminal.",
@@ -1724,6 +1727,8 @@ export const translations = {
       unpaid: "غير مدفوع",
       cashAtTable: "الدفع نقداً على الطاولة",
       cardAtTable: "بطاقة / فيزا على الطاولة",
+      cashShort: "نقداً",
+      cardShort: "بطاقة",
       onlinePayment: "الدفع الإلكتروني",
       cashAtTableDesc: "ادفع نقداً عند إحضار النادل للفاتورة.",
       cardAtTableDesc: "ادفع باستخدام جهاز نقاط البيع في المطعم.",
