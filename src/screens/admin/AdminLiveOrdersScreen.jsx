@@ -13,6 +13,11 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { elapsedMinutes, isOrderDelayed as isDelayed } from "../../lib/operationalAttention.js";
 import { fmtPrice } from "../../lib/format.js";
 import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
+/* Phase 101.0 — the item count was hardcoded English ("1 item" / "3 items")
+   and stayed English on an Arabic row. formatItemCount is the project's
+   existing pluraliser, already used by the Customer menu, so this reuses a
+   helper and two existing keys rather than adding anything (§32). */
+import { formatItemCount } from "../../i18n/counts.js";
 
 const STATUS_LABEL = {
   received: "Received", preparing: "Preparing", ready: "Ready",
@@ -42,6 +47,10 @@ const FILTER_TABS = [
   { key: "delivered", label: "Delivered" },
   { key: "canceled",  label: "Canceled" },
 ];
+
+/* §4 — the only tabs that carry a count. Kept beside FILTER_TABS so adding a
+   tab and deciding whether it earns a count are one edit, not two. */
+const FILTER_COUNT_TABS = ["active", "unpaid"];
 
 /* The one place a filter key becomes a question about an order. "all" is
    absent on purpose — it is the no-op default in the selector below. */
@@ -92,6 +101,27 @@ const METHOD_LABEL_KEY = {
   card_at_table: "payment.cardAtTable",
   online_payment: "payment.onlinePayment",
 };
+
+/* Phase 101.0 §30 — LEGACY SAFETY.
+
+   A legacy or corrupted order can carry no `paymentMethod` object at all.
+   Reading `.id` straight off it threw a TypeError that the error boundary
+   caught at screen level, so one bad record blanked the entire page.
+
+   Resolution order, which leaves every VALID order behaving exactly as
+   before: the live translation for a known id, then the label frozen on the
+   order at creation time, then the raw id, then a neutral dash. An id that
+   is present but unknown to the catalogue now also resolves without passing
+   an undefined key to t(), which used to log a warning on every paint.
+
+   This is a read-path guard only. Nothing about the payment workflow, the
+   stored shape or how new orders are created changes. */
+function resolveMethodLabel(t, paymentMethod) {
+  const id = paymentMethod?.id;
+  const frozen = paymentMethod?.label;
+  if (id && METHOD_LABEL_KEY[id]) return t(METHOD_LABEL_KEY[id], frozen || id);
+  return frozen || id || "—";
+}
 
 /* Valid admin/cashier-initiated transitions this phase allows:
    ready → delivered, and received/preparing/ready → canceled. Nothing else
@@ -210,6 +240,37 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     return () => clearTimeout(timer);
   }, [restaurantOrders]);
 
+
+  /* §4 — the only two tabs that get a count. Active is "how much work is on
+     the floor" and Unpaid is "how much money is still out"; the status tabs
+     are already answered by the rows underneath them, and All/Today would
+     just restate the list length. Derived from FILTER_PREDICATE, so these
+     are the same questions the tabs ask. */
+  const filterCounts = useMemo(
+    () => ({
+      active: restaurantOrders.filter(FILTER_PREDICATE.active).length,
+      unpaid: restaurantOrders.filter(FILTER_PREDICATE.unpaid).length,
+    }),
+    [restaurantOrders]
+  );
+
+  /* §6 — on a narrow screen the row scrolls, and a tab selected from the
+     Overview KPI cards can land off-screen with nothing to say the view
+     changed. Bring it into view on the inline axis only: `block: "nearest"`
+     stops this from scrolling the PAGE as well, which would yank the order
+     list out from under the operator. */
+  const filtersRef = useRef(null);
+  useEffect(() => {
+    const row = filtersRef.current;
+    if (!row) return;
+    const tab = row.querySelector(`[data-filter="${activeFilter}"]`);
+    if (!tab || typeof tab.scrollIntoView !== "function") return;
+    try {
+      tab.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    } catch {
+      tab.scrollIntoView();
+    }
+  }, [activeFilter]);
 
   const filteredOrders = useMemo(
     () =>
@@ -342,17 +403,49 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         </p>
       </header>
 
-      <div className="ad-filters anim-rise" style={{ animationDelay: "80ms" }}>
-        {FILTER_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`ad-filter ${activeFilter === tab.key ? "ad-filter--active" : ""}`}
-            onClick={() => setActiveFilter(tab.key)}
-          >
-            {t(FILTER_TAB_KEY[tab.key], tab.label)}
-          </button>
-        ))}
+      {/* ── Phase 101.0 §3 — MINIMAL STATUS TABS ──────────────────────────
+          The pill row becomes a tab row: no capsule per filter, quiet text
+          when inactive, Primary text plus an underline when active. The
+          underline belongs to the active tab itself — there is no gliding
+          indicator travelling across the row (§3).
+
+          role="tablist" is deliberate: these were always mutually exclusive
+          views of one list, which is what a tab is, and saying so gives a
+          screen reader the selected state the underline gives everyone else.
+          Filter keys, predicates and behaviour are untouched. */}
+      <div
+        className="ad-filters anim-rise"
+        style={{ animationDelay: "80ms" }}
+        role="tablist"
+        aria-label={t("admin.liveOrders", "Live Orders")}
+        ref={filtersRef}
+      >
+        {FILTER_TABS.map((tab) => {
+          const isActive = activeFilter === tab.key;
+          const count = FILTER_COUNT_TABS.includes(tab.key)
+            ? filterCounts[tab.key]
+            : null;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              data-filter={tab.key}
+              className={`ad-filter ${isActive ? "ad-filter--active" : ""}`}
+              onClick={() => setActiveFilter(tab.key)}
+            >
+              {t(FILTER_TAB_KEY[tab.key], tab.label)}
+              {/* §4 — a count only where it answers an operational question,
+                  and only when there is something to answer. Counting every
+                  tab, or printing a row of zeros, is the noise §4 warns
+                  against. Both figures come from the SAME predicates the
+                  filters themselves use, so a tab and its count can never
+                  disagree. */}
+              {count > 0 && <span className="ad-filter__count">{count}</span>}
+            </button>
+          );
+        })}
       </div>
 
       {filteredOrders.length === 0 ? (
@@ -452,7 +545,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               <div className="ad-paid-modal__row">
                 <span>{t("payment.paymentMethod", "Payment method")}</span>
                 <span className="ad-paid-modal__value">
-                  {t(METHOD_LABEL_KEY[pendingCancelOrder.paymentMethod.id], pendingCancelOrder.paymentMethod.label)}
+                  {resolveMethodLabel(t, pendingCancelOrder.paymentMethod)}
                 </span>
               </div>
               <div className="ad-paid-modal__row">
@@ -515,7 +608,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
             <div className="ad-paid-modal__row">
               <span>{t("payment.paymentMethod", "Payment method")}</span>
               <span className="ad-paid-modal__value">
-                {t(METHOD_LABEL_KEY[pendingPaidOrder.paymentMethod.id], pendingPaidOrder.paymentMethod.label)}
+                {resolveMethodLabel(t, pendingPaidOrder.paymentMethod)}
               </span>
             </div>
             <div className="ad-paid-modal__row ad-paid-modal__row--total">
@@ -542,11 +635,11 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
   const paymentLabel = isPaid
     ? t("payment.paid", "Paid")
     : t("payment.pendingAtTable", "Pending at table");
-  const paymentMethodLabel = t(
-    METHOD_LABEL_KEY[order.paymentMethod.id],
-    order.paymentMethod.label
-  );
+  const paymentMethodLabel = resolveMethodLabel(t, order.paymentMethod);
   const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
+  /* Trimmed once here so an order whose name is "" or "   " takes the
+     no-name path rather than rendering a separator against blank space. */
+  const customerName = order.customerName?.trim();
 
   const canDeliver = order.status === "ready";
   const canCancel  = CANCELABLE_STATUSES.includes(order.status);
@@ -576,10 +669,30 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
         onClick={onToggle}
         aria-expanded={expanded}
       >
+        {/* §8 — the hierarchy inverts. An operator works the floor by TABLE,
+            not by internal order number, so the table is now the strongest
+            thing on the row and ORD-0003 drops to a quiet reference beside
+            the guest name.
+
+            The separator is rendered conditionally rather than interpolated,
+            so an order with no customer name shows the id alone instead of a
+            dangling "ORD-0003 ·". The human reference is never removed and no
+            internal id is exposed. */}
         <div className="ad-live-card__summary-left">
-          <p className="ad-live-card__id">{order.orderId}</p>
-          <p className="ad-live-card__meta">
-            {t("customer.yourTable", "Table")} #{order.tableNumber} &middot; {order.customerName}
+          <p className="ad-live-card__table">
+            <span className="ad-live-card__table-word">
+              {t("customer.yourTable", "Table")}
+            </span>
+            <span className="ad-live-card__table-num">{order.tableNumber}</span>
+          </p>
+          <p className="ad-live-card__ref">
+            <span className="ad-live-card__ref-id">{order.orderId}</span>
+            {customerName && (
+              <>
+                <span className="ad-live-card__ref-sep" aria-hidden="true"> · </span>
+                <span className="ad-live-card__ref-name">{customerName}</span>
+              </>
+            )}
           </p>
         </div>
 
@@ -614,6 +727,11 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
               §11 — when the estimate has been passed the figure takes the
               amber treatment and gains an explicit "Delayed" word, so the
               state never rests on colour alone (§28). */}
+          {/* §9/§11 — elapsed leads and the absolute stamp sits beside it
+              rather than beneath: both answer "when", and stacking them made
+              the metadata cluster three rows deep for no gain. Every field
+              the row carried before is still here. */}
+          <span className="ad-live-card__when">
           <span className={`ad-live-card__elapsed ${delayed ? "ad-live-card__elapsed--delayed" : ""}`}>
             {elapsedLabel && (
               <span className="ad-live-card__elapsed-value">{elapsedLabel}</span>
@@ -625,10 +743,11 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
             )}
           </span>
           <span className="ad-live-card__time">{formatTimestamp(order.createdAt)}</span>
+          </span>
         </div>
 
         <div className="ad-live-card__summary-right">
-          <span className="ad-live-card__items">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+          <span className="ad-live-card__items">{formatItemCount(t, itemCount)}</span>
           <span className="ad-live-card__total">{fmtPrice(order.total)}</span>
           <ChevronDown
             size={16}
@@ -657,6 +776,11 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
             </div>
           </div>
 
+          {/* 2 + 3 — Payment and Summary (§18).
+              Same blocks, same data, same order; they simply sit side by side
+              once there is genuinely room, and stack again when there is not.
+              The wrapper adds no surface of its own. */}
+          <div className="ad-live-split">
           {/* 2 — Payment */}
           <div className="ad-live-block">
             <h4 className="ad-live-block__title">{t("payment.paymentTitle", "Payment")}</h4>
@@ -677,18 +801,19 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
           {/* 3 — Summary */}
           <div className="ad-live-block">
             <h4 className="ad-live-block__title">{t("admin.summary", "Summary")}</h4>
-          <div className="ad-live-card__totals">
-            <div className="ad-live-card__totals-row">
-              <span>{t("common.subtotal", "Subtotal")}</span>
-              <span>{fmtPrice(order.subtotal)}</span>
-            </div>
-            <div className="ad-live-card__totals-row">
-              <span>{t("common.serviceCharge", "Service charge")} ({order.serviceChargePercent}%)</span>
-              <span>{fmtPrice(order.serviceCharge)}</span>
-            </div>
-            <div className="ad-live-card__totals-row ad-live-card__totals-row--total">
-              <span>{t("common.total", "Total")}</span>
-              <span>{fmtPrice(order.total)}</span>
+            <div className="ad-live-card__totals">
+              <div className="ad-live-card__totals-row">
+                <span>{t("common.subtotal", "Subtotal")}</span>
+                <span>{fmtPrice(order.subtotal)}</span>
+              </div>
+              <div className="ad-live-card__totals-row">
+                <span>{t("common.serviceCharge", "Service charge")} ({order.serviceChargePercent}%)</span>
+                <span>{fmtPrice(order.serviceCharge)}</span>
+              </div>
+              <div className="ad-live-card__totals-row ad-live-card__totals-row--total">
+                <span>{t("common.total", "Total")}</span>
+                <span>{fmtPrice(order.total)}</span>
+              </div>
             </div>
           </div>
           </div>

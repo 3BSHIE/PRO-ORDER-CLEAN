@@ -1861,69 +1861,161 @@ button{font-family:var(--font-body)}
 
 /* ══ Phase 18 — Admin Live Orders (read-only) ═════════════════════════════════ */
 
-/* filter chips row */
+/* ══ Phase 101.0 §3 — MINIMAL STATUS TABS ════════════════════════════════
+
+   Nine capsules became a tab row. There is no pill, border or fill around a
+   filter any more: inactive tabs are quiet text, the active one takes the
+   Primary colour and a 2px underline that belongs to that tab and does not
+   travel. The row carries one shared baseline so the underline reads as a
+   selection on a rule rather than as a floating dash.
+
+   NAVIGATION COLOUR IS GOLD, NOT SEMANTIC (§5). A "Ready" tab is a place to
+   go, not a state a ticket is in — colouring it green would put the status
+   vocabulary in two jobs at once. Semantic colour stays inside the rows.
+
+   The row scrolls horizontally and never wraps (§6); the scrollbar is hidden
+   visually while the scrolling itself is untouched. */
 .ad-filters{
-  display:flex;gap:8px;overflow-x:auto;margin-bottom:20px;
-  padding-bottom:2px;scrollbar-width:none}
+  display:flex;gap:2px;overflow-x:auto;margin-bottom:18px;
+  scrollbar-width:none;
+  border-bottom:1px solid var(--border)}
 .ad-filters::-webkit-scrollbar{display:none}
 .ad-filter{
-  padding:8px 16px;border-radius:999px;border:1px solid var(--border);
-  background:transparent;color:var(--text-2);cursor:pointer;
+  position:relative;flex:none;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 13px 10px;
+  background:none;border:none;border-radius:var(--r-sm) var(--r-sm) 0 0;
+  color:var(--text-3);cursor:pointer;
   font-family:var(--font-body);font-size:13px;font-weight:500;
-  white-space:nowrap;transition:border-color .18s,color .18s,background .18s}
-.ad-filter:hover{border-color:var(--border-strong);color:var(--text-1)}
-.ad-filter--active{
-  background:var(--gold-soft);border-color:var(--gold-line);
-  color:var(--gold-ink);font-weight:600}
+  white-space:nowrap;
+  transition:color .17s var(--ease),background-color .17s var(--ease)}
+/* The underline is a child pseudo-element of the tab, so it appears and
+   disappears in place — no sliding indicator crossing the row (§3). */
+.ad-filter::after{
+  content:"";position:absolute;inset-inline:6px;bottom:-1px;height:2px;
+  border-radius:2px 2px 0 0;background:var(--gold);
+  opacity:0;transform:scaleX(.4);transform-origin:center;
+  transition:opacity .17s var(--ease),transform .17s var(--ease)}
+.ad-filter:hover{color:var(--text-2);background:var(--surface-2)}
+.ad-filter:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.ad-filter--active{color:var(--gold-ink);font-weight:600}
+.ad-filter--active::after{opacity:1;transform:scaleX(1)}
+/* A count, where one earns its place. Neutral at rest so it never competes
+   with the label, warming with the tab when it is the active view. */
+.ad-filter__count{
+  min-width:18px;padding:1px 5px;border-radius:999px;
+  background:var(--surface-3);color:var(--text-3);
+  font-size:10.5px;font-weight:700;line-height:1.5;text-align:center;
+  font-variant-numeric:tabular-nums;
+  transition:color .17s var(--ease),background-color .17s var(--ease)}
+.ad-filter--active .ad-filter__count{
+  background:var(--gold-soft);color:var(--gold-ink)}
 
 /* order list */
 .ad-live-orders{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
 .ad-live-card{padding:0;overflow:hidden}
 
+/* §11 — the row loses dead vertical space without losing a single field.
+   Measured before: 91.5px. The whole row is the control, so it stays far
+   above any touch-target floor even at the tighter padding. */
 .ad-live-card__summary{
   width:100%;display:flex;align-items:center;gap:14px;
-  padding:14px 16px;background:none;border:none;cursor:pointer;
-  text-align:start;font-family:var(--font-body);color:var(--text-1)}
-.ad-live-card__summary:hover{background:rgba(255,255,255,.02)}
-.ad-live-card__summary-left{flex:1 1 140px;min-width:0}
-.ad-live-card__id{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:13px;font-weight:700;color:var(--text-1);margin:0}
-.ad-live-card__meta{
-  font-size:11.5px;color:var(--text-3);margin:2px 0 0;
+  padding:11px 15px;background:none;border:none;cursor:pointer;
+  text-align:start;font-family:var(--font-body);color:var(--text-1);
+  transition:background-color .16s var(--ease)}
+/* §12 — one tonal step and a warmer chevron. No shadow, no scale, nothing
+   that moves the rows around it. */
+.ad-live-card__summary:hover{background:var(--surface-2)}
+.ad-live-card__summary:hover .ad-live-card__chevron{color:var(--gold-ink)}
+.ad-live-card__summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.ad-live-card__summary-left{flex:1 1 150px;min-width:0}
+
+/* §8 — TABLE IS THE IDENTIFIER. Display face, large, in the page's primary
+   text colour; the word "Table" rides beside it small and tracked so the
+   number itself carries the weight. */
+.ad-live-card__table{
+  display:flex;align-items:baseline;gap:5px;margin:0;min-width:0}
+.ad-live-card__table-word{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3)}
+/* The LTR lock lives in the shared "always stay LTR" list with every other
+   bare Latin token, not inline here. */
+.ad-live-card__table-num{
+  font-family:var(--font-display);font-size:18px;font-weight:700;
+  line-height:1.1;color:var(--text-1);
+  font-variant-numeric:tabular-nums}
+/* §8 — the order id and guest name, demoted to a reference line. */
+.ad-live-card__ref{
+  margin:1px 0 0;font-size:11.5px;color:var(--text-3);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-live-card__ref-id{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.01em}
+.ad-live-card__ref-sep{opacity:.65}
 
 .ad-live-card__summary-mid{
   flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;
-  gap:4px}
-.ad-live-card__time{font-size:11px;color:var(--text-3)}
+  gap:3px}
+/* Elapsed and the creation stamp share one line (§11). */
+.ad-live-card__when{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.ad-live-card__time{font-size:10.5px;color:var(--text-3);white-space:nowrap}
 
 .ad-live-card__summary-right{
   flex:0 0 auto;display:flex;align-items:center;gap:12px}
-.ad-live-card__items{font-size:11.5px;color:var(--text-3);white-space:nowrap}
+.ad-live-card__items{font-size:11px;color:var(--text-3);white-space:nowrap}
 .ad-live-card__total{
-  font-family:var(--font-display);font-size:15px;font-weight:700;
-  color:var(--gold-ink);white-space:nowrap}
-.ad-live-card__chevron{color:var(--text-3);transition:transform .2s var(--ease)}
+  font-family:var(--font-display);font-size:16px;font-weight:700;
+  color:var(--gold-ink);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.ad-live-card__chevron{
+  color:var(--text-3);
+  transition:transform .16s var(--ease),color .16s var(--ease)}
 .ad-live-card__chevron--open{transform:rotate(180deg);color:var(--gold-ink)}
 
-@media(max-width:640px){
-  .ad-live-card__summary{flex-wrap:wrap}
-  .ad-live-card__summary-mid{flex:1 1 auto;flex-direction:row;align-items:center;gap:8px}
+/* §28 — the clusters reflow rather than shrinking into unreadable columns.
+   Table stays strongest, and status, elapsed and total all survive. */
+@media(max-width:720px){
+  .ad-live-card__summary{flex-wrap:wrap;gap:8px 12px}
+  .ad-live-card__summary-left{flex:1 1 100%}
+  .ad-live-card__summary-mid{flex:1 1 auto;flex-direction:row;align-items:center;gap:10px}
+  .ad-live-card__summary-right{margin-inline-start:auto}
+}
+/* The row stacks here, so there is room for every field — nothing is
+   hidden (§9). Only the side padding tightens. */
+@media(max-width:420px){
+  .ad-live-card__summary{padding:11px 13px}
 }
 
 /* expanded details */
+/* §15 — the rule between the summary header and the detail body is the gold
+   accent. It is a 1px hairline at --gold-line, not a glow and not a band:
+   enough to say "this belongs to the row above and the detail starts here",
+   quiet enough to sit under a dense operational card all shift. */
 .ad-live-card__details{
-  padding:0 16px 16px;border-top:1px solid var(--border);
+  padding:0 15px 15px;border-top:1px solid var(--gold-line);
   animation:rise .18s var(--ease) both}
+
+/* §18 — Payment and Summary side by side once there is genuinely room, and
+   stacked when there is not. The wrapper paints nothing of its own. */
+.ad-live-split{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+@media(min-width:820px){
+  .ad-live-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+}
 .ad-live-card__payment-row{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:8px 0 0;font-size:12.5px;color:var(--text-2)}
-.ad-live-card__payment-value{color:var(--text-1);font-weight:600}
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:7px 0 0;font-size:12.5px;color:var(--text-2)}
+.ad-live-card__payment-value{
+  color:var(--text-1);font-weight:600;text-align:end}
 .ad-live-card__divider{height:1px;background:var(--border);margin:12px 0}
 
-.ad-live-card__items-list{display:flex;flex-direction:column;gap:12px}
-.ad-live-item{display:flex;flex-direction:column;gap:2px}
+/* Items are separated by a hairline rather than by a gap alone, which is
+   what lets a three-line customised item read as one unit (§16). */
+.ad-live-card__items-list{display:flex;flex-direction:column}
+.ad-live-item{
+  display:flex;flex-direction:column;gap:2px;
+  padding:9px 0;border-top:1px solid var(--border)}
+.ad-live-item:first-child{padding-top:2px;border-top:none}
 .ad-live-item__head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .ad-live-item__qty{font-size:12.5px;font-weight:700;color:var(--gold-ink);flex:none}
 .ad-live-item__name{flex:1;min-width:120px;font-size:13px;font-weight:600;color:var(--text-1)}
@@ -1931,7 +2023,14 @@ button{font-family:var(--font-body)}
 .ad-live-item__total{
   font-family:var(--font-display);font-size:13px;font-weight:700;
   color:var(--gold-ink);white-space:nowrap}
-.ad-live-item__custom{margin:2px 0 0 19px;display:flex;flex-direction:column;gap:1px}
+/* §16 — the customisation block is indented from the quantity, with a
+   hairline rail instead of a nested card, so a long list of choices reads as
+   belonging to its item without stacking surfaces inside surfaces.
+   Logical padding and border, so Arabic mirrors it. */
+.ad-live-item__custom{
+  margin:4px 0 0;padding-inline-start:11px;
+  border-inline-start:1px solid var(--border);
+  display:flex;flex-direction:column;gap:2px}
 /* Phase 97.5 §3/§4 — kitchen-facing free text from the guest. Measured before
    the fix at 390px: an unbroken 102-character note laid out 625px wide inside
    a 297px row, and the 328px of overflow propagated up through .ad-live-item
@@ -2042,7 +2141,8 @@ button{font-family:var(--font-body)}
 
 [dir="rtl"] .order-card__id,
 [dir="rtl"] .ad-order__id,
-[dir="rtl"] .ad-live-card__id,
+[dir="rtl"] .ad-live-card__ref-id,
+[dir="rtl"] .ad-live-card__table-num,
 [dir="rtl"] .kb-card__id,
 [dir="rtl"] .confirm__order-id,
 [dir="rtl"] .track__order-id,
@@ -4219,21 +4319,35 @@ button{font-family:var(--font-body)}
 /* Grouping by spacing and a small heading rather than by nesting cards
    inside cards — §16 explicitly rules out heavy nested surfaces and badge
    overload in what has to stay a fast operational card. */
-.ad-live-block{padding-top:14px}
-.ad-live-block:first-child{padding-top:12px}
+.ad-live-block{padding-top:13px}
+.ad-live-block:first-child{padding-top:11px}
+.ad-live-split .ad-live-block:first-child{padding-top:13px}
 .ad-live-block__title{
-  margin:0 0 8px;font-size:10.5px;font-weight:700;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3)}
+  margin:0 0 7px;font-size:10px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
 
 /* The action row is separated from the information above it by a rule, so a
    destructive control can never be mistaken for another data row (§17). */
+/* §20 — THE ONE PLACE TWO INSTRUCTIONS COLLIDE, AND HOW IT WAS RESOLVED.
+
+   The brief asks for a 10–15% height reduction AND for a ~44px minimum
+   interactive height. Measured before this phase, these buttons were already
+   exactly 44px, so any reduction would have taken them to 37–40px and broken
+   the floor. The floor is an accessibility minimum and the stronger of the
+   two, so the buttons KEEP 44px.
+
+   What was actually too tall is the row around them: 16px margin + 14px pad
+   + 44px button = 74px. That is now 11 + 11 + 44 = 66px, a 10.8% reduction
+   in the action row's footprint, with the tap target untouched. The buttons
+   also lose a little horizontal padding so they read less bulky at the same
+   height, and keep their generous min-width. */
 .ad-live-card__actions--row{
   flex-direction:row;flex-wrap:wrap;gap:8px;
-  margin-top:16px;padding-top:14px;
+  margin-top:11px;padding-top:11px;
   border-top:1px solid var(--border)}
-/* 44px floor: these are the operational controls staff tap on a phone at
-   the pass, and btn--md renders 42px on its own (§41). */
-.ad-live-card__actions--row .btn{flex:1 1 auto;min-width:132px;min-height:44px}
+.ad-live-card__actions--row .btn{
+  flex:1 1 auto;min-width:132px;min-height:44px;
+  padding-block:9px}
 
 /* ── Secondary destructive (§12) ──────────────────────────────────────── */
 
@@ -4256,9 +4370,12 @@ button{font-family:var(--font-body)}
 
 /* 200ms, opacity plus a 4px settle — enough to show that content arrived,
    short enough that opening five orders in a row never feels slow. */
+/* §22 — ~200ms opacity plus a 4px settle for the reveal, ~160ms for the
+   chevron. No spring, no bounce, and the global prefers-reduced-motion rule
+   collapses both. List order is never animated. */
 @keyframes ad-expand{from{opacity:0;transform:translateY(-4px)}}
 .ad-live-card__details{animation:ad-expand .2s var(--ease) both}
-.ad-live-card__chevron{transition:transform .14s var(--ease),color .14s var(--ease)}
+.ad-live-card__chevron{transition:transform .16s var(--ease),color .16s var(--ease)}
 
 /* ── New order entrance (§19) ─────────────────────────────────────────── */
 

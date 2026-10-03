@@ -69,6 +69,27 @@ const METHOD_LABEL_KEY = {
   online_payment: "payment.onlinePayment",
 };
 
+/* Phase 101.0 §30 — LEGACY SAFETY.
+
+   A legacy or corrupted order can carry no `paymentMethod` object at all.
+   Reading `.id` straight off it threw a TypeError that the error boundary
+   caught at screen level, so one bad record blanked the entire page.
+
+   Resolution order, which leaves every VALID order behaving exactly as
+   before: the live translation for a known id, then the label frozen on the
+   order at creation time, then the raw id, then a neutral dash. An id that
+   is present but unknown to the catalogue now also resolves without passing
+   an undefined key to t(), which used to log a warning on every paint.
+
+   This is a read-path guard only. Nothing about the payment workflow, the
+   stored shape or how new orders are created changes. */
+function resolveMethodLabel(t, paymentMethod) {
+  const id = paymentMethod?.id;
+  const frozen = paymentMethod?.label;
+  if (id && METHOD_LABEL_KEY[id]) return t(METHOD_LABEL_KEY[id], frozen || id);
+  return frozen || id || "—";
+}
+
 /* Phase 100.1 — the short method labels and their icons moved to
    RevenueAnalytics.jsx along with the surfaces that render them. */
 
@@ -615,10 +636,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
               order.paymentStatus === "paid"
                 ? t("payment.paid", "Paid")
                 : t("payment.pendingAtTable", "Pending at table");
-            const paymentMethodLabel = t(
-              METHOD_LABEL_KEY[order.paymentMethod.id],
-              order.paymentMethod.label
-            );
+            const paymentMethodLabel = resolveMethodLabel(t, order.paymentMethod);
             return (
               <Card key={order.orderId} className="ad-order">
                 <div className="ad-order__top">
