@@ -4604,121 +4604,40 @@ button{font-family:var(--font-body)}
   transition:background .14s var(--ease),border-color .14s var(--ease)}
 .mm-edit-btn:hover{background:rgba(212,169,78,.18);border-color:var(--gold)}
 
-/* ══ Phase 103.0 — Menu management surface ═══════════════════════════════
+/* ══ Phase 103.1 — the two approved deltas, and nothing else ═════════════
 
-   SCOPING, WHICH IS THE WHOLE REASON THIS BLOCK LOOKS THE WAY IT DOES:
-   .mm-toolbar, .mm-search, .mm-select, .mm-edit-btn, .mm-icon-btn, .mm-avail
-   and .mm-avail-toggle are SHARED with Categories, Tables & Access, Settings
-   and the two alert cards — every one of which this phase is forbidden to
-   touch. So the toolbar changes hang off a Menu-only `--menu` modifier, and
-   the row-level ones are scoped under .mm-item-row, which only Menu uses.
-   Nothing below can reach another page. */
+   Phase 103.0 redesigned this page and the redesign was rejected. The whole
+   of its CSS is gone: the toolbar, typography, badges, Edit/Delete and hover
+   treatments above are the pre-103 originals, untouched.
 
-/* ── Toolbar (§4–§7) ─────────────────────────────────────────────────────
-   Search takes the remaining width, the category select stays compact, and
-   Add Item stays the one primary. The capsules become ordinary admin inputs
-   at a common 44px height: moderate radius, a standard border, and a gold
-   border on focus with no glow and no ring. */
-.mm-toolbar--menu{gap:10px;margin-bottom:18px}
-.mm-toolbar--menu .mm-search{
-  flex:1 1 260px;height:44px;padding:0 13px;gap:9px;
-  border-radius:var(--r-sm);
-  background:var(--surface-1);border:1px solid var(--border);
-  transition:border-color .16s var(--ease)}
-.mm-toolbar--menu .mm-search:focus-within{border-color:var(--gold)}
-.mm-toolbar--menu .mm-search:focus-within > svg{color:var(--gold-ink)}
-.mm-toolbar--menu .mm-search > svg{
-  flex:none;color:var(--text-3);transition:color .16s var(--ease)}
-.mm-toolbar--menu .mm-search input{font-size:13.5px}
-/* The input already carries the focus treatment on its wrapper, so the
-   shared focus ring would draw a second rectangle inside the first. */
-.mm-toolbar--menu .mm-search input:focus-visible{outline:none}
+   Two changes survive, because the user asked for them specifically:
+   a slightly shorter row and a smaller thumbnail. Both are spacing/size
+   only — no colour, radius, weight or layout rule is altered, so the page
+   still reads as the design that was approved before 103.0.
 
-.mm-toolbar--menu .mm-select{
-  flex:none;height:44px;padding-inline:13px;
-  border-radius:var(--r-sm);
-  background:var(--surface-1);border:1px solid var(--border);
-  font-size:13px;
-  transition:border-color .16s var(--ease)}
-.mm-toolbar--menu .mm-select:focus{border-color:var(--gold);outline:none}
+   WHERE THE HEIGHT COMES FROM: the row is governed by its info column
+   (name + metadata + badges), not by the thumbnail, so shrinking the image
+   alone would have changed nothing. 93px → ~82px is 8px off the block
+   padding plus 3px of internal margin, which is the most that can go
+   without the three text rows starting to touch. */
+.mm-item-row{padding-block:8px}
+.mm-item-row__thumb{width:48px;height:48px}
+.mm-item-row__name{margin-bottom:2px}
+.mm-item-row__meta{margin-bottom:5px}
 
-/* §7 — primary, content-width, and brought in line with the two controls
-   beside it rather than standing a size apart. */
-.mm-toolbar--menu .btn{min-height:44px;padding-inline:17px}
-
-/* §23 — on a phone Search takes its own row and the select + Add Item share
-   the next, rather than three controls shrinking until the labels clip. */
-@media(max-width:620px){
-  .mm-toolbar--menu .mm-search{flex:1 1 100%}
-  .mm-toolbar--menu .mm-select{flex:1 1 auto;min-width:0}
-  .mm-toolbar--menu .btn{flex:none}
-}
-
-/* ── Product row (§8–§14, §19–§21) ─────────────────────────────────────── */
-.mm-item-list{gap:8px}
-.mm-item-row{
-  gap:13px;padding:9px 13px;
-  transition:border-color .16s var(--ease),background-color .16s var(--ease)}
-/* §20 — one tonal step and a hairline of warmth. No lift, no shadow, no
-   glow, nothing that moves the rows around it. */
-.mm-item-row:hover{border-color:var(--border-strong);background:var(--surface-2)}
-.mm-item-row:hover .mm-edit-btn{border-color:var(--gold);color:var(--gold-ink)}
-
-/* §9 — a real thumbnail at 60px, the dense end of the approved 60–68px
-   range. Image handling, upload and storage are untouched; the broken-URL
-   fallback lives in ProductThumb. */
-.mm-item-row__thumb{width:60px;height:60px;border-radius:var(--r-sm)}
-.mm-item-row__emoji{font-size:24px}
-
-/* §10 — the product name is the strongest thing in the row and is allowed
-   to take a second line rather than being cut short while space remains. */
-.mm-item-row__name{
-  font-size:17px;line-height:1.25;margin:0 0 2px;
-  white-space:normal;overflow:visible;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  overflow:hidden;overflow-wrap:anywhere}
-
-/* §11 — one quiet metadata line, category then price, on a real separator. */
-.mm-item-row__meta{gap:7px;margin:0 0 5px;font-size:12px}
-.mm-item-row__cat{
-  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mm-item-row__meta::before{display:none}
-.mm-item-row__price::before{
-  content:"·";margin-inline-end:7px;color:var(--text-3);font-weight:400}
-
-/* §13/§14 — availability first, then the two flags, all compact. */
-.mm-item-row__badges{gap:5px}
-.mm-item-row .mm-avail{font-size:9.5px;padding:2px 7px;letter-spacing:.05em}
-.mm-flag{font-size:9.5px;padding:2px 7px;font-weight:600}
-
-/* §15 — Edit is the primary per-row action and Delete is quieter, but both
-   were under the 44px this screen is operated at: Edit 36px and Delete 32px.
-   Both now meet it, and Delete stays an icon-only outline rather than a
-   filled red peer. */
-.mm-item-row__actions{gap:7px;align-items:center}
-.mm-item-row .mm-edit-btn{min-height:44px;padding:0 14px;border-radius:var(--r-sm)}
-.mm-item-row .mm-icon-btn{
-  width:44px;height:44px;border-radius:var(--r-sm);background:transparent}
-.mm-item-row .mm-icon-btn--danger{background:transparent}
-
-/* §18 — the availability-only control a Cashier gets. Same row, same
-   geometry as Edit, so the list does not look like a lesser page. */
-.mm-item-row .mm-avail-toggle{min-height:44px;border-radius:var(--r-sm)}
-
-/* §22 — stacked management card on phones. At 375 the desktop row gave the
+/* §7 — stacked management card on phones. At 375 the desktop row gave the
    product name about 90px between a thumbnail and two buttons. */
 @media(max-width:560px){
   .mm-item-row{flex-wrap:wrap;align-items:flex-start;row-gap:10px}
   .mm-item-row__info{flex:1 1 100%;order:2;min-width:0}
-  .mm-item-row__thumb{order:1;width:52px;height:52px}
+  .mm-item-row__thumb{order:1;width:44px;height:44px}
   .mm-item-row__actions{
     order:3;flex:1 1 100%;justify-content:flex-end;
-    padding-top:9px;border-top:1px solid var(--border)}
-  .mm-item-row__name{-webkit-line-clamp:3}
-  .mm-item-row .mm-edit-btn,
-  .mm-item-row .mm-icon-btn{min-height:44px}
-  .mm-item-row .mm-icon-btn{min-width:44px}
-  .mm-item-row .mm-avail-toggle{flex:1 1 auto}
+    padding-top:2px;border-top:1px solid var(--border)}
+  .mm-item-row__name{white-space:normal}
+  .mm-edit-btn,
+  .mm-item-row__actions .mm-icon-btn{min-height:44px}
+  .mm-item-row__actions .mm-icon-btn{min-width:44px}
 }
 
 /* ── Product Editor sticky action bar (§10–§12) ───────────────────────── */

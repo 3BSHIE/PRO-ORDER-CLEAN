@@ -372,16 +372,7 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
         </p>
       </header>
 
-      {/* Phase 103.0 §4 — the toolbar keeps its three controls and its
-          markup; only the LOOK changes, and only here.
-
-          .mm-toolbar / .mm-search / .mm-select are shared with Categories,
-          Tables & Access, Settings and the two alert cards, every one of
-          which this phase is forbidden to touch. So the new treatment hangs
-          off a Menu-only modifier and the shared rules are left alone —
-          restyling them directly would have silently redesigned four other
-          pages. */}
-      <div className="mm-toolbar mm-toolbar--menu anim-rise">
+      <div className="mm-toolbar anim-rise">
         <div className="mm-search">
           <Search size={15} strokeWidth={2} />
           <input
