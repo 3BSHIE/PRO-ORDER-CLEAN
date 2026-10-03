@@ -2673,25 +2673,61 @@ button{font-family:var(--font-body)}
 .track__call-staff--prominent{margin:0 0 32px}
 
 /* ── Admin / Cashier Staff Calls panel ───────────────────────────────────── */
-.sc-list{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
-.sc-list--resolved{opacity:.72}
+/* ══ Phase 102.0 — Staff Calls ═══════════════════════════════════════════
 
-.sc-card{padding:14px 16px;display:flex;align-items:center;
-  justify-content:space-between;gap:14px;flex-wrap:wrap}
-.sc-card--open{border-color:var(--gold-line)}
+   Open calls must win the hierarchy and resolved history must stay quiet,
+   and that difference is carried by SURFACE and a small accent rather than
+   by a loud perimeter: an open row used to take a full gold border, which
+   made every waiting guest look like a warning and left nothing louder for
+   the one who had actually been waiting longest.
+
+   Open now = ordinary card border + a 3px amber rail on the inline-start
+   edge + an amber status pill + an amber wait. Resolved = a recessed
+   surface, no rail, a calm green pill. Neither uses opacity, which washed
+   the resolved badge out along with everything else (§21). */
+.sc-list{display:flex;flex-direction:column;gap:8px;margin-bottom:30px}
+
+/* §3/§12 — the count sits WITH its heading. Small, quiet, not a status
+   chip: gold-soft for the live queue, a neutral surface for history. */
+.sc-heading{display:inline-flex;align-items:center;gap:9px}
+.sc-count{
+  min-width:20px;padding:1px 7px;border-radius:999px;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold-ink);
+  font-family:var(--font-body);font-size:11px;font-weight:700;line-height:1.6;
+  text-align:center;font-variant-numeric:tabular-nums}
+.sc-count--resolved{
+  background:var(--surface-3);border-color:var(--border);color:var(--text-3)}
+/* History is a step down from the live queue, so its heading is too. */
+.sc-heading--resolved{font-size:17px;color:var(--text-2)}
+.sc-section-bar--resolved{margin-top:4px}
+
+/* §4 — full-width operational row, a little denser than before. */
+.sc-card{
+  position:relative;overflow:hidden;
+  padding:10px 15px;display:flex;align-items:center;
+  justify-content:space-between;gap:14px;flex-wrap:wrap;
+  transition:border-color .16s var(--ease),background-color .16s var(--ease)}
+
+/* §10 — the accent, not a perimeter. Logical inset, so Arabic mirrors it. */
+.sc-card--open::before{
+  content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;
+  background:var(--preparing)}
+/* The row is now governed by the 44px Resolve target (§9), so the padding
+   is what buys the density §4 asks for: 10px block keeps 11px of air above
+   and below the button without crowding it. */
+.sc-card--open{padding-inline-start:18px}
+/* §11 — one tonal step and a hairline of warmth. No glow, no shadow, no
+   scale, nothing that moves the rows around it. */
+.sc-card--open:hover{border-color:var(--border-strong);background:var(--surface-2)}
+
+/* §14 — resolved rows are recessed rather than faded, so the RESOLVED badge
+   and the table stay fully legible while the row clearly recedes. */
+.sc-card--resolved{background:var(--surface-2);border-color:var(--border)}
 
 .sc-card__main{display:flex;align-items:center;gap:16px;flex:1 1 220px;min-width:0}
 .sc-card__id{min-width:0}
-.sc-card__table{font-size:12px;color:var(--text-3);letter-spacing:.04em}
-.sc-card__table-num{
-  font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--gold-ink);
-  margin-inline-start:2px}
-.sc-card__customer{
-  font-size:14.5px;font-weight:600;color:var(--text-1);margin:2px 0 0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
 .sc-card__meta{display:flex;align-items:center;gap:10px;flex:none}
-.sc-card__elapsed{font-size:11.5px;color:var(--text-3);white-space:nowrap}
 .sc-card__action{flex:none}
 
 /* Live open-call count on the shared admin nav item */
@@ -4399,39 +4435,62 @@ button{font-family:var(--font-body)}
 
 /* ── Staff Calls (§21–§25) ────────────────────────────────────────────── */
 
-/* There is no call reason in the data and none is invented (§21). The card
+/* There is no call reason in the data and none is invented. The card
    therefore has exactly two things to say — which table, and how long they
    have been waiting — so both are given real weight.
 
-   Previously the guest's NAME was the largest text (14.5px cream) while the
-   word "Table" was 12px muted and the elapsed time was the faintest thing on
-   the card. For staff walking the floor that is backwards: the table is how
-   you find them and the wait is how you triage. */
+   Phase 102.0 §5 — the table becomes one phrase, "Table 1", in the same
+   language Live Orders settled on: display face, word in primary text, the
+   number in --gold-ink because the number is what differs row to row.
+   Purely typographic — no pill, no badge, no fill, no glow. */
 .sc-card__table{
-  font-size:15px;font-weight:600;color:var(--text-1);letter-spacing:.02em}
+  display:flex;align-items:baseline;gap:6px;margin:0;min-width:0}
+.sc-card__table-word{
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  line-height:1.1;letter-spacing:-.01em;color:var(--text-1)}
 .sc-card__table-num{
-  font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--gold-ink);
-  margin-inline-start:3px}
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  line-height:1.1;color:var(--gold-ink);font-variant-numeric:tabular-nums}
+/* §14 — history keeps the table readable but one step quieter, so the open
+   queue above it clearly wins. */
+.sc-card--resolved .sc-card__table-word{font-size:17px;color:var(--text-2)}
+.sc-card--resolved .sc-card__table-num{font-size:17px}
+
+/* §6 — secondary, and allowed to truncate rather than stretch the row. */
 .sc-card__customer{
-  font-size:12.5px;font-weight:500;color:var(--text-3);margin:3px 0 0;
+  font-size:12px;font-weight:500;color:var(--text-3);margin:2px 0 0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* §8 — the wait is the second thing staff read, so it outweighs the guest
+   name. Open reads in the operational amber; the state is always spelled out
+   in the badge beside it, so nothing depends on colour alone. */
 .sc-card__elapsed{
   font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap;
   font-variant-numeric:tabular-nums}
-/* An open call's wait is the number staff triage on, so it reads in the
-   operational amber rather than as muted body text. Resolved rows stay calm.
-   The state is always spelled out in the badge beside it, so this never
-   depends on colour alone (§41). */
 .sc-card--open .sc-card__elapsed{color:var(--preparing)}
-.sc-card--resolved{opacity:.72}
+.sc-card--resolved .sc-card__elapsed{font-size:11.5px;color:var(--text-3)}
 
-@media(max-width:420px){
-  /* Keep table + state on the first line and the action full-width beneath,
-     rather than squeezing Resolve into a sliver (§25). */
+/* §9 — compact at the edge of the row, and never below the 44px staff tap
+   on a phone at the pass. btn--sm renders ~37px on its own. */
+.sc-card__action .btn{min-height:44px;min-width:116px}
+
+@media(max-width:560px){
+  /* §19 — the clusters stack rather than compressing into slivers. Table
+     stays first and strongest, state and wait share the next line. */
   .sc-card{gap:10px}
+  .sc-card__main{flex:1 1 100%;flex-wrap:wrap;gap:10px}
+  .sc-card__id{flex:1 1 100%}
   .sc-card__action{flex:1 1 100%}
   .sc-card__action .btn{width:100%}
 }
+
+/* Phase 102.0 §16 — a compact all-clear. Same copy and icon as the full
+   empty state; an operational page should be able to say "nobody is waiting"
+   without spending a third of the screen on it. */
+.ad-empty--compact{padding:22px 18px;margin-bottom:30px}
+.ad-empty--compact .ad-empty__icon{width:40px;height:40px;margin-bottom:10px}
+.ad-empty--compact .ad-empty__title{font-size:15px;margin-bottom:4px}
+.ad-empty--compact .ad-empty__sub{font-size:12.5px}
 
 /* ── Admin motion (§30, §31) ──────────────────────────────────────────── */
 

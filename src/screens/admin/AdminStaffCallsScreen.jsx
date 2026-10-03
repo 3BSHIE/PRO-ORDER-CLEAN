@@ -102,17 +102,27 @@ export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, 
       </header>
 
       {/* ── Open calls ──────────────────────────────────────────────────── */}
+      {/* §3 — the count rides WITH the title instead of being flung to the
+          opposite edge of the content column, where on a wide screen it read
+          as an unrelated number. It is inside the <h2> so the shared
+          .ad-section-bar rule — which every other Admin page uses and this
+          phase must not touch — keeps its space-between untouched. */}
       <div className="ad-section-bar anim-rise" style={{ animationDelay: "80ms" }}>
-        <h2 className="ad-section-title">{t("staff.openCalls", "Open calls")}</h2>
-        {openCalls.length > 0 && (
-          <span className="ad-section-count">{openCalls.length}</span>
-        )}
+        <h2 className="ad-section-title sc-heading">
+          {t("staff.openCalls", "Open calls")}
+          {openCalls.length > 0 && (
+            <span className="sc-count">{openCalls.length}</span>
+          )}
+        </h2>
       </div>
 
       {openCalls.length === 0 ? (
-        <div className="ad-empty anim-rise">
+        /* §16 — the all-clear state. Same copy and same icon as before, in a
+           compact variant: an operational page should say "nobody is waiting"
+           without spending a third of the screen doing it. */
+        <div className="ad-empty ad-empty--compact anim-rise">
           <span className="ad-empty__icon">
-            <BellRing size={28} strokeWidth={1.7} />
+            <BellRing size={22} strokeWidth={1.7} />
           </span>
           <h3 className="ad-empty__title">{t("staff.noOpenCalls", "No open staff calls.")}</h3>
           <p className="ad-empty__sub">
@@ -135,11 +145,13 @@ export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, 
       {/* ── Recently resolved (read-only trail) ─────────────────────────── */}
       {resolvedCalls.length > 0 && (
         <>
-          <div className="ad-section-bar anim-rise">
-            <h2 className="ad-section-title">{t("staff.recentlyResolved", "Recently resolved")}</h2>
-            <span className="ad-section-count">{resolvedCalls.length}</span>
+          <div className="ad-section-bar sc-section-bar--resolved anim-rise">
+            <h2 className="ad-section-title sc-heading sc-heading--resolved">
+              {t("staff.recentlyResolved", "Recently resolved")}
+              <span className="sc-count sc-count--resolved">{resolvedCalls.length}</span>
+            </h2>
           </div>
-          <div className="sc-list sc-list--resolved anim-rise">
+          <div className="sc-list anim-rise">
             {resolvedCalls.map((call) => (
               <StaffCallCard key={call.id} call={call} />
             ))}
@@ -160,22 +172,44 @@ export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, 
 function StaffCallCard({ call, isResolving, onResolve }) {
   const { t } = useLanguage();
   const isOpen = call.status === "open";
+  /* createStaffCall already trims, but a legacy record could still hold
+     whitespace. Trimming here means a blank name renders NOTHING rather than
+     an empty line that pushes the row taller for no content (§6). */
+  const customerName = call.customerName?.trim();
+  const elapsed = formatElapsed(isOpen ? call.createdAt : call.updatedAt, t);
 
   return (
     <Card className={`sc-card ${isOpen ? "sc-card--open" : "sc-card--resolved"}`}>
       <div className="sc-card__main">
         <div className="sc-card__id">
-          <span className="sc-card__table">
-            {t("customer.yourTable", "Table")} <span className="sc-card__table-num">#{call.tableNumber}</span>
-          </span>
-          <p className="sc-card__customer">{call.customerName}</p>
+          {/* §5 — the same identifier philosophy as Live Orders 101.1: one
+              phrase, display face, word in primary text and the number in
+              --gold-ink, because the number is the half that differs between
+              rows. The "#" is dropped — "Table 1" is how staff say it. */}
+          <p className="sc-card__table">
+            <span className="sc-card__table-word">
+              {t("customer.yourTable", "Table")}
+            </span>
+            <span className="sc-card__table-num">{call.tableNumber}</span>
+          </p>
+          {customerName && (
+            <p className="sc-card__customer">{customerName}</p>
+          )}
         </div>
 
         <div className="sc-card__meta">
           <Badge tone={isOpen ? "preparing" : "ready"} dot>
             {isOpen ? t("staff.statusOpen", "Open") : t("staff.statusResolved", "Resolved")}
           </Badge>
-          <span className="sc-card__elapsed">{formatElapsed(isOpen ? call.createdAt : call.updatedAt, t)}</span>
+          {/* §8/§13 — an open call shows the bare wait, which is what staff
+              triage on. A resolved one names what the time refers to, so the
+              trail reads as "handled N ago" rather than as another queue.
+              Both strings already exist; nothing new was added. */}
+          <span className="sc-card__elapsed">
+            {isOpen
+              ? elapsed
+              : `${t("staff.statusResolved", "Resolved")} ${elapsed}`}
+          </span>
         </div>
       </div>
 
