@@ -8,6 +8,9 @@ import Modal   from "../../components/ui/Modal.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import { useMenuData } from "../../lib/useMenuData.js";
+/* Phase 103.0 §25 — the project's existing URL guard, already used by
+   RestaurantIdentity and CustomerLoadingScreen. Reused, not reimplemented. */
+import { isSafeImageUrl } from "../../lib/safeImage.js";
 import {
   createMenuItem,
   updateMenuItem,
@@ -369,7 +372,16 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
         </p>
       </header>
 
-      <div className="mm-toolbar anim-rise">
+      {/* Phase 103.0 §4 — the toolbar keeps its three controls and its
+          markup; only the LOOK changes, and only here.
+
+          .mm-toolbar / .mm-search / .mm-select are shared with Categories,
+          Tables & Access, Settings and the two alert cards, every one of
+          which this phase is forbidden to touch. So the new treatment hangs
+          off a Menu-only modifier and the shared rules are left alone —
+          restyling them directly would have silently redesigned four other
+          pages. */}
+      <div className="mm-toolbar mm-toolbar--menu anim-rise">
         <div className="mm-search">
           <Search size={15} strokeWidth={2} />
           <input
@@ -459,15 +471,11 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
                  are off today" at a glance without anything disappearing. */
               className={`mm-item-row ${item.isAvailable === false ? "mm-item-row--off" : ""}`}
             >
-              <div className="mm-item-row__thumb">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={getLocalizedText(item.name, language)} loading="lazy" />
-                ) : (
-                  <span className="mm-item-row__emoji">
-                    {categories.find((c) => c.id === item.categoryId)?.emoji || "🍽️"}
-                  </span>
-                )}
-              </div>
+              <ProductThumb
+                item={item}
+                categories={categories}
+                language={language}
+              />
 
               <div className="mm-item-row__info">
                 <p className="mm-item-row__name">{getLocalizedText(item.name, language)}</p>
@@ -591,6 +599,45 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
 
       <Toast visible={toastVisible} message={toastMessage} onDone={() => setToastVisible(false)} />
     </AdminLayout>
+  );
+}
+
+/* ── Product thumbnail ───────────────────────────────────────────────────
+
+   Phase 103.0 §25 — a product whose imageUrl is non-empty but unreachable
+   (deleted file, dead host, a URL that was never valid) rendered the
+   BROWSER'S broken-image glyph: the row showed a torn-page icon rather than
+   the fallback, which §25 says must never happen. An absent image was
+   already handled; a broken one was not.
+
+   This is the same guard RestaurantIdentity and CustomerLoadingScreen
+   already use — isSafeImageUrl plus a failed-url latch — so no new technique
+   is introduced. The fallback is the EXISTING category emoji, not a new
+   placeholder (§25 rules out introducing one).
+
+   The latch stores the URL rather than a boolean so that editing an item to
+   a new image retries instead of staying stuck on the fallback. Nothing
+   about upload or image storage changes; this is render-time only. */
+function ProductThumb({ item, categories, language }) {
+  const [failedUrl, setFailedUrl] = useState(null);
+  const url = item.imageUrl;
+  const showImage = isSafeImageUrl(url) && failedUrl !== url;
+
+  return (
+    <div className="mm-item-row__thumb">
+      {showImage ? (
+        <img
+          src={url}
+          alt={getLocalizedText(item.name, language)}
+          loading="lazy"
+          onError={() => setFailedUrl(url)}
+        />
+      ) : (
+        <span className="mm-item-row__emoji">
+          {categories.find((c) => c.id === item.categoryId)?.emoji || "🍽️"}
+        </span>
+      )}
+    </div>
   );
 }
 
