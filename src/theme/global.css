@@ -1930,19 +1930,31 @@ button{font-family:var(--font-body)}
 .ad-live-card__summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .ad-live-card__summary-left{flex:1 1 150px;min-width:0}
 
-/* §8 — TABLE IS THE IDENTIFIER. Display face, large, in the page's primary
-   text colour; the word "Table" rides beside it small and tracked so the
-   number itself carries the weight. */
+/* §8 — TABLE IS THE IDENTIFIER.
+
+   Phase 101.1 — it reads as one phrase now, "Table 1", rather than a tiny
+   tracked label sitting above a number. Both halves share the display face
+   at the same size, so the eye lands on the whole identifier at once while
+   scanning a column of orders.
+
+   The treatment is typographic, not decorative: no pill, no badge, no fill,
+   no glow. The only accent is the NUMBER taking --gold-ink while the word
+   stays in primary text — which is what distinguishes one table from the
+   next at a glance, since the word is identical on every row.
+
+   19px is chosen from the approved 18–21px range: it is a clear step up
+   from the old 18px number, and it keeps the identifier shorter than the
+   22px it would need to start competing with the row's total. */
 .ad-live-card__table{
-  display:flex;align-items:baseline;gap:5px;margin:0;min-width:0}
+  display:flex;align-items:baseline;gap:6px;margin:0;min-width:0}
 .ad-live-card__table-word{
-  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--text-3)}
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  line-height:1.1;letter-spacing:-.01em;color:var(--text-1)}
 /* The LTR lock lives in the shared "always stay LTR" list with every other
    bare Latin token, not inline here. */
 .ad-live-card__table-num{
-  font-family:var(--font-display);font-size:18px;font-weight:700;
-  line-height:1.1;color:var(--text-1);
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  line-height:1.1;color:var(--gold-ink);
   font-variant-numeric:tabular-nums}
 /* §8 — the order id and guest name, demoted to a reference line. */
 .ad-live-card__ref{
