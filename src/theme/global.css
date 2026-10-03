@@ -4124,15 +4124,25 @@ button{font-family:var(--font-body)}
 
    No trend, no comparison, no arrow — the product stores no historical series
    to derive one from, so none is drawn. */
+/* Phase 100.2 §3 — polish only. Same four cards, same Minimal Metric idea,
+   same icon size, same destinations. A little more padding and a slightly
+   firmer border so the row holds its own beside the heavier Revenue section
+   below it, and the icon sits in a small recessed well rather than floating
+   on the card — a sub-surface, not a large coloured block. */
 .ad-kpi{
   display:flex;flex-direction:column;gap:4px;
-  padding:16px 16px 15px;width:100%;text-align:start;
-  border:1px solid var(--border);
+  padding:17px 17px 16px;width:100%;text-align:start;
+  border:1px solid var(--border-strong);
   transition:border-color .18s var(--ease),background-color .18s var(--ease)}
 .ad-kpi__top{
   display:flex;align-items:center;justify-content:space-between;
-  gap:8px;height:16px;margin-bottom:6px}
-.ad-kpi__icon{flex:none;color:var(--text-3);transition:color .18s var(--ease)}
+  gap:8px;min-height:24px;margin-bottom:8px}
+.ad-kpi__icon{
+  flex:none;box-sizing:content-box;
+  width:14px;height:14px;padding:5px;border-radius:7px;
+  background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-3);
+  transition:color .18s var(--ease),border-color .18s var(--ease)}
 /* Phase 100.1 §4 — the chevron is VISIBLE AT REST again. Hiding it until
    hover meant a card gave no sign it was a destination until the pointer was
    already on it, and on a touch screen it never appeared at all. It stays
@@ -4159,7 +4169,8 @@ button{font-family:var(--font-body)}
 .ad-kpi--interactive{cursor:pointer}
 .ad-kpi--interactive:hover{border-color:var(--gold-line);background:var(--surface-2)}
 .ad-kpi--interactive:hover .ad-kpi__icon,
-.ad-kpi--interactive:focus-visible .ad-kpi__icon{color:var(--gold-ink)}
+.ad-kpi--interactive:focus-visible .ad-kpi__icon{
+  color:var(--gold-ink);border-color:var(--gold-line)}
 .ad-kpi--interactive:hover .ad-kpi__chevron,
 .ad-kpi--interactive:focus-visible .ad-kpi__chevron{opacity:1;color:var(--gold-ink)}
 /* A hairline of extra definition on hover rather than a lift or a shadow. */
@@ -8089,13 +8100,30 @@ button{font-family:var(--font-body)}
 .ad-rev__detail:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 [dir="rtl"] .ad-rev__detail svg{transform:scaleX(-1)}
 
-/* ── Primary summary + chart ─────────────────────────────────────────── */
-/* One column by default. The two-column split is applied further down, by a
-   query that accounts for the sidebar, so a tablet never gets a squeezed
-   chart beside a squeezed total (§19). */
-.ad-rev__grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+/* ── Zones (§4) ──────────────────────────────────────────────────────────
+   Two rows: summary + chart, then payments + status. One column by default;
+   the splits are applied further down by queries that account for the
+   sidebar, so a tablet never gets a squeezed chart beside a squeezed total. */
+.ad-rev__top,
+.ad-rev__bottom{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.ad-rev__bottom{margin-top:16px}
 
-.ad-rev__primary{min-width:0}
+/* A framed sub-surface for the chart and the payment ring. This is where the
+   section gets its depth (§15): a recessed panel inside a raised card, which
+   is composition rather than shadow. */
+.ad-rev__panel{
+  min-width:0;display:flex;flex-direction:column;
+  padding:15px 16px 13px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--border)}
+.ad-rev__panel-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.ad-rev__panel-title{
+  font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-3)}
+
+.ad-rev__summary{min-width:0;display:flex;flex-direction:column;
+  justify-content:center;padding:4px 2px}
 .ad-rev__label{
   display:block;font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--text-3)}
@@ -8107,34 +8135,40 @@ button{font-family:var(--font-body)}
   font-weight:700;color:var(--text-1);line-height:1.02;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums}
 
+/* §8 — icon, then label over value. Same two metrics, given the same
+   sub-surface language as the panels so the whole section reads as one kit. */
 .ad-rev__minis{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
-  gap:10px;margin-top:16px}
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:10px;margin-top:20px}
 .ad-rev__mini{
-  min-width:0;padding:10px 12px;border-radius:var(--r-sm);
+  min-width:0;display:flex;align-items:center;gap:10px;
+  padding:11px 12px;border-radius:var(--r-sm);
   background:var(--surface-2);border:1px solid var(--border)}
+.ad-rev__mini-icon{
+  flex:none;width:26px;height:26px;border-radius:var(--r-sm);
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--surface-3);color:var(--text-3)}
+.ad-rev__mini-text{min-width:0;display:flex;flex-direction:column}
 .ad-rev__mini-label{
   display:block;font-size:10.5px;font-weight:600;letter-spacing:.03em;
   color:var(--text-3);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ad-rev__mini-value{
-  display:block;margin-top:4px;
+  display:block;margin-top:3px;
   font-size:15px;font-weight:700;color:var(--text-1);
   font-variant-numeric:tabular-nums;white-space:nowrap}
-
-.ad-rev__chart-wrap{min-width:0;display:flex;flex-direction:column}
-.ad-rev__chart-head{
-  display:flex;align-items:baseline;justify-content:space-between;
-  gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.ad-rev__chart-title{
-  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--text-2)}
 /* The peak is printed as TEXT, not left to a tooltip — it is the one figure
    hovering a bar would reveal, and a phone has no hover (§14). */
+/* The peak is printed as TEXT, not left to a tooltip — it is the one figure
+   hovering a bar would reveal, and a phone has no hover (§5). */
 .ad-rev__peak{
   display:inline-flex;align-items:center;gap:5px;
-  font-size:11px;color:var(--text-3);white-space:nowrap}
+  padding:3px 8px;border-radius:999px;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  font-size:10.5px;color:var(--text-2);white-space:nowrap}
 .ad-rev__peak svg{color:var(--gold-ink)}
-.ad-rev__peak strong{color:var(--text-2);font-weight:600}
+.ad-rev__peak strong{
+  color:var(--gold-ink);font-weight:700;font-variant-numeric:tabular-nums}
 .ad-rev__empty{
   margin:0;padding:26px 12px;text-align:center;
   border:1px dashed var(--border);border-radius:var(--r-sm);
@@ -8153,60 +8187,94 @@ button{font-family:var(--font-body)}
    it still flows with the page. */
 .ad-chart{
   position:relative;direction:ltr;
-  height:118px;padding-bottom:16px;margin-top:2px}
+  height:132px;padding-bottom:18px}
 .ad-chart__grid{
-  position:absolute;inset:0 0 16px;
+  position:absolute;inset:0 0 18px;
   display:flex;flex-direction:column;justify-content:space-between;
   pointer-events:none}
 .ad-chart__grid span{display:block;height:1px;background:var(--border)}
+/* The baseline is the one rule that should read as a floor rather than as a
+   guide, so it alone takes the stronger token. */
+.ad-chart__grid span:last-child{background:var(--border-strong)}
 .ad-chart__bars{
   position:relative;height:100%;
-  display:flex;align-items:flex-end;gap:2px}
+  display:flex;align-items:flex-end;gap:3px}
 .ad-chart__col{
   flex:1 1 0;min-width:0;height:100%;
   display:flex;align-items:flex-end;justify-content:center}
+
+/* §5 — dimension from a two-stop vertical tone, not from a shadow or a glow.
+   The bar is brightest at its cap and settles toward the surface at its foot,
+   which is what reads as depth at this size. */
 .ad-chart__bar{
-  width:100%;border-radius:3px 3px 1px 1px;
-  background:linear-gradient(180deg,var(--gold),color-mix(in srgb,var(--gold) 68%,transparent));
-  min-height:2px}
+  width:100%;border-radius:3px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--gold) 86%,transparent) 0%,
+    color-mix(in srgb,var(--gold) 46%,transparent) 100%);
+  min-height:3px;
+  transition:background .16s var(--ease)}
+/* The busiest hour is the thing being looked for, so it is the only bar at
+   full strength and the only one with a cap highlight. */
+.ad-chart__bar[data-peak]{
+  background:linear-gradient(180deg,
+    var(--gold) 0%,
+    color-mix(in srgb,var(--gold) 62%,transparent) 100%);
+  box-shadow:inset 0 1.5px 0 0 color-mix(in srgb,#fff 42%,var(--gold))}
+/* A small hover emphasis, nothing more (§16): the bar warms, it does not
+   grow, so the chart never reflows under the pointer. */
+.ad-chart__col:hover .ad-chart__bar{
+  background:linear-gradient(180deg,var(--gold) 0%,
+    color-mix(in srgb,var(--gold) 62%,transparent) 100%)}
 /* An hour with no takings still draws a hairline, so the row reads as a
    continuous timeline rather than as gaps between islands. */
-.ad-chart__bar[data-empty]{
-  height:2px;min-height:2px;background:var(--border-strong);border-radius:1px}
+.ad-chart__bar[data-empty],
+.ad-chart__col:hover .ad-chart__bar[data-empty]{
+  height:2px;min-height:2px;border-radius:1px;box-shadow:none;
+  background:var(--border-strong)}
 .ad-chart__axis{
   position:absolute;inset-inline:0;bottom:0;
   display:flex;justify-content:space-between;
-  font-size:9.5px;font-weight:600;letter-spacing:.04em;color:var(--text-3)}
-
-/* ── Distribution + status ───────────────────────────────────────────── */
-.ad-rev__foot{
-  display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
-  margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
-
-.ad-rev__dist{min-width:0}
-.ad-rev__dist-head{
-  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  margin-bottom:9px}
-.ad-rev__dist-label{
-  font-size:11px;font-weight:600;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--text-3)}
-.ad-rev__dist-value{
-  font-size:14px;font-weight:700;color:var(--text-1);
+  font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--text-3);
   font-variant-numeric:tabular-nums}
 
-/* The distribution bar. It represents COLLECTED money only — Cash and Card
-   share it, and Pending is never a segment in it (§12). */
-.ad-rev__bar{
-  display:flex;height:8px;border-radius:999px;overflow:hidden;
-  background:var(--surface-3);gap:2px}
-.ad-rev__bar--empty{background:var(--surface-3)}
-.ad-rev__bar-seg{display:block;height:100%;min-width:2px}
-.ad-rev__bar-seg--cash{background:var(--gold)}
-.ad-rev__bar-seg--card{background:color-mix(in srgb,var(--gold) 42%,var(--text-3))}
-.ad-rev__bar-seg--other{background:var(--text-3)}
+/* ── Payment ring (§6) ───────────────────────────────────────────────────
+   The flat distribution line becomes a ring. It represents COLLECTED money
+   only — Cash and Card share it, and Pending is never an arc in it, because
+   Pending is a payment STATUS and has no method.
 
-.ad-rev__legend{list-style:none;margin:12px 0 0;padding:0;
-  display:flex;flex-direction:column;gap:8px}
+   Two tones, both derived from --gold, so the pair reads as one family at a
+   glance and neither needs a legend to be told apart from the page. Anything
+   that is not Cash or Card takes the neutral tone rather than a new colour.
+
+   The ring itself is aria-hidden; the legend beside it carries every value
+   as real text, so nothing is encoded by colour or arc length alone (§17). */
+.ad-rev__pay-body{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.ad-ring-wrap{
+  position:relative;flex:none;width:132px;height:132px}
+.ad-ring{display:block;width:100%;height:100%}
+.ad-ring__track{stroke:var(--surface-3)}
+.ad-ring__seg{
+  transition:stroke .18s var(--ease)}
+.ad-ring__seg--cash{stroke:var(--gold)}
+.ad-ring__seg--card{stroke:color-mix(in srgb,var(--gold) 42%,var(--text-3))}
+.ad-ring__seg--other{stroke:var(--text-3)}
+/* The figure in the middle is ordinary HTML laid over the artwork, so it
+   never scales with the SVG and stays readable at every width. */
+.ad-ring__center{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;pointer-events:none;text-align:center;padding:0 18px}
+.ad-ring__center-label{
+  font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3)}
+.ad-ring__center-value{
+  font-family:var(--font-display);font-size:14px;font-weight:700;
+  color:var(--text-1);line-height:1.15;
+  font-variant-numeric:tabular-nums}
+
+.ad-rev__legend{list-style:none;margin:0;padding:0;flex:1 1 190px;min-width:0;
+  display:flex;flex-direction:column;gap:9px}
 .ad-rev__legend-row{
   display:flex;align-items:center;gap:8px;min-width:0;font-size:12px}
 .ad-rev__legend-row svg{flex:none;color:var(--text-3)}
@@ -8227,30 +8295,40 @@ button{font-family:var(--font-body)}
   flex:none;width:8px;height:8px;border-radius:50%;background:var(--text-3)}
 .ad-rev__dot--cash{background:var(--gold)}
 .ad-rev__dot--card{background:color-mix(in srgb,var(--gold) 42%,var(--text-3))}
-.ad-rev__dot--collected{background:var(--ready)}
-.ad-rev__dot--pending{background:var(--preparing)}
+/* --collected / --pending dots are gone with the ledger rows they marked;
+   the status mini cards carry their semantic colour as an edge rail now. */
 
-/* The ledger. Collected + Pending = Total, set out as the arithmetic it is,
-   with the total behind a rule so the relationship is legible at a glance. */
+/* ── Revenue status (§7) ─────────────────────────────────────────────────
+   Three mini cards instead of three ledger rows. Each carries its semantic
+   colour as a 3px rail on the inline-start edge and nothing else — no filled
+   surface, no tinted background — so the block states Collected + Pending =
+   Total without becoming the loudest thing on the page.
+
+   Logical inset, so Arabic mirrors the rail with no second rule. */
 .ad-rev__status{
-  min-width:0;align-self:start;
-  padding:14px 14px 12px;border-radius:var(--r-md);
+  min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;
+  align-content:start}
+.ad-rev__stat{
+  position:relative;min-width:0;overflow:hidden;
+  padding:12px 14px;border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--border)}
-.ad-rev__status-row{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:5px 0;font-size:12px}
-.ad-rev__status-label{
-  display:inline-flex;align-items:center;gap:7px;min-width:0;
-  color:var(--text-2)}
-.ad-rev__status-value{
-  flex:none;color:var(--text-1);font-weight:600;
+.ad-rev__stat::before{
+  content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;
+  background:var(--text-3)}
+.ad-rev__stat--collected::before{background:var(--ready)}
+.ad-rev__stat--pending::before{background:var(--preparing)}
+.ad-rev__stat--total::before{background:var(--gold)}
+.ad-rev__stat-label{
+  display:block;font-size:10.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-rev__stat-value{
+  display:block;margin-top:4px;
+  font-size:16px;font-weight:700;color:var(--text-1);
   font-variant-numeric:tabular-nums;white-space:nowrap}
-.ad-rev__status-row--total{
-  margin-top:5px;padding-top:9px;border-top:1px solid var(--border)}
-.ad-rev__status-row--total .ad-rev__status-label{
-  font-weight:600;color:var(--text-1);
-  font-size:11px;letter-spacing:.06em;text-transform:uppercase}
-.ad-rev__status-row--total .ad-rev__status-value{font-size:14px}
+/* The total is the one the eye should land on last and remember. */
+.ad-rev__stat--total{background:var(--surface-3);border-color:var(--border-strong)}
+.ad-rev__stat--total .ad-rev__stat-value{font-size:18px}
 
 /* ── Wide composition (§19) ───────────────────────────────────────────────
    Two columns, and the thresholds account for the sidebar exactly as the KPI
@@ -8259,14 +8337,23 @@ button{font-family:var(--font-body)}
    that everything stacks, which is what §19 asks for on a tablet rather than
    three cramped columns. */
 @media(min-width:760px) and (max-width:1023.98px){
-  .ad-rev__grid{grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:24px}
-  .ad-rev__foot{grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:24px}
+  .ad-rev__top{grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:18px}
+  .ad-rev__bottom{grid-template-columns:minmax(0,1fr) minmax(0,260px);gap:18px}
 }
 @media(min-width:1200px){
   .ad-rev{padding:24px}
-  .ad-rev__grid{grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px}
-  .ad-rev__foot{grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:28px}
-  .ad-chart{height:140px}
+  .ad-rev__top{grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:22px}
+  .ad-rev__bottom{grid-template-columns:minmax(0,1fr) minmax(0,300px);
+    gap:22px;margin-top:22px}
+  .ad-chart{height:156px}
+}
+/* The three status cards sit in a row only where that is genuinely roomier
+   than a column: on the stacked layouts, where they get the full width. */
+@media(min-width:560px) and (max-width:759.98px){
+  .ad-rev__status{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:1024px) and (max-width:1199.98px){
+  .ad-rev__status{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
 /* ── Availability toggle (§10/§11) ───────────────────────────────────────
