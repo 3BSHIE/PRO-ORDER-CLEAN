@@ -497,10 +497,34 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                       for one of the methods. */}
                   <span>{t("admin.manageAccess", "Manage Access")}</span>
                 </button>
-                {/* §7/§50 — labelled, not a bare icon: "which way does this
+                <button type="button" className="mm-icon-btn" onClick={() => setEditingTable(table)} aria-label={`${t("admin.editTable", "Edit Table")} — ${table.displayName}`}>
+                  <Pencil size={15} strokeWidth={2.2} />
+                </button>
+                {/* §29 — Delete is pushed to its own end of the management
+                    cluster by the separator so it is never the button next to
+                    the one you meant to press. */}
+                <span className="tb-row__actions-sep" aria-hidden="true" />
+                <button type="button" className="mm-icon-btn mm-icon-btn--danger" onClick={() => setPendingDelete(table)} aria-label={`${t("admin.deleteTable", "Delete Table")} — ${table.displayName}`}>
+                  <Trash2 size={15} strokeWidth={2.2} />
+                </button>
+
+                {/* Phase 106.1 §2/§3 — the state action leaves the management
+                    cluster and takes the trailing edge of the SAME row.
+                    Manage Access, Edit and Delete are things you do TO a
+                    table record; Activate/Deactivate is whether the table is
+                    open for service. Grouping the four together read as one
+                    undifferentiated toolbar.
+
+                    Moved here in the MARKUP rather than reordered with CSS
+                    `order`, so reading order, tab order and visual order stay
+                    the same three things — a visual-only reorder would hand a
+                    keyboard user Deactivate before Edit and Delete.
+
+                    §7/§50 — labelled, not a bare icon: "which way does this
                     power symbol point right now" is exactly the question a
                     manager should not have to answer. The name states the
-                    action AND implies the current state. */}
+                    action AND implies the current state. Handler, confirmation
+                    and styling are untouched. */}
                 <button
                   type="button"
                   className={`tb-toggle-btn ${table.isActive ? "" : "tb-toggle-btn--off"}`}
@@ -514,16 +538,6 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
                       ? t("admin.deactivateTable", "Deactivate")
                       : t("admin.activateTable", "Activate")}
                   </span>
-                </button>
-                <button type="button" className="mm-icon-btn" onClick={() => setEditingTable(table)} aria-label={`${t("admin.editTable", "Edit Table")} — ${table.displayName}`}>
-                  <Pencil size={15} strokeWidth={2.2} />
-                </button>
-                {/* §29 — Delete is pushed to its own end of the row by the
-                    separator so it is never the button next to the one you
-                    meant to press. */}
-                <span className="tb-row__actions-sep" aria-hidden="true" />
-                <button type="button" className="mm-icon-btn mm-icon-btn--danger" onClick={() => setPendingDelete(table)} aria-label={`${t("admin.deleteTable", "Delete Table")} — ${table.displayName}`}>
-                  <Trash2 size={15} strokeWidth={2.2} />
                 </button>
               </div>
             </Card>

@@ -8193,19 +8193,89 @@ button{font-family:var(--font-body)}
    at this width is kept. */
 @media(max-width:560px){
   .tb-row__actions{gap:8px}
-  /* flex:1 1 auto was not enough: with basis auto the two labelled buttons
-     only took their content width, Edit joined them on line 1 and Delete was
-     left alone on line 2 — measured as [Manage Access 142][Deactivate 118]
-     [Edit 44] / [Delete 44]. An explicit half-width basis fills the first
-     line exactly, so the pair sits together and BOTH icon buttons fall to
-     the second line as one group (§9). */
-  .tb-row__actions .mm-edit-btn,
-  .tb-row__actions .tb-toggle-btn{flex:1 1 calc(50% - 4px);justify-content:center}
+  /* Phase 106.1 §13 — the grouping changed, so the phone rule did too.
+     Manage Access absorbs the slack on line one, which keeps the three
+     management controls together as one cluster; the state action is the
+     only item that cannot fit beside them and wraps to line two, where its
+     auto margin holds it at the trailing edge. Management grouped, state
+     action visually distinct, four controls never crammed into one line. */
+  .tb-row__actions .mm-edit-btn{flex:1 1 auto;justify-content:center}
   /* And one target height across the row: the toggle measured 36px next to
      44px neighbours on a surface operated by thumb. Height only. */
   .tb-row__actions .tb-toggle-btn{min-height:44px}
   .tb-row__actions .mm-icon-btn{width:44px;height:44px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 106.1 — IDENTITY ALIGNMENT + ACTION GROUPING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §2/§3 — management cluster leading, state action trailing ───────────
+   The button is last in the markup now, so one logical margin is the whole
+   layout change. margin-inline-start, not margin-left, so Arabic mirrors it
+   without a second rule (§15). */
+.tb-row__actions .tb-toggle-btn{margin-inline-start:auto}
+
+/* ── §4–§9 — one coherent identity line ─────────────────────────────────
+
+   Measured before changing, and the complaint was precise. THREE separate
+   causes, not one:
+
+   1. The hierarchy was inverted. "#1" rendered at 22px Playfair Display
+      bold in gold while "Table 1" rendered at 14px DM Sans — the index was
+      larger, heavier and more decorative than the name it indexes (§6/§7).
+
+   2. Three alignment modes coexisted in one container: align-items:baseline
+      on .tb-row__id aligned the two TEXT BASELINES, and a 22px serif baseline
+      sits far lower in its box than a 14px sans one, so the name's box was
+      dragged down — while the badge opted out of both with align-self:center.
+      Measured optical centres: index 312.8, badge 312.8, name 317.3. The name
+      sat 4.5px below its own group.
+
+   3. All three computed line-height:normal, so each element's box height came
+      from a different font's metrics (§5).
+
+   Fixed at the cause: one alignment mode, explicit line-heights, and a size
+   relationship that matches the information hierarchy. */
+
+/* §9 — ONE alignment mode for the whole cluster. Centre rather than baseline:
+   baseline is the better primitive when items share a type size, and actively
+   harmful when they do not and one of them is a pill with no baseline at all. */
+.tb-row__id{align-items:center;gap:4px 9px}
+
+/* §6 — the index reads as a sequence reference, not as the table's identity:
+   smaller than the name, muted, body font rather than the display serif, and
+   line-height:1 so its box is its text. No pill, no stacking, and the "#" is
+   still there, still its own element, still its own value (§10). */
+.tb-row__number{
+  font-family:var(--font-body);font-size:12.5px;font-weight:600;
+  color:var(--text-3);line-height:1;letter-spacing:.02em}
+
+/* §7 — the name anchors the group. 14px to 15px is the "tiny adjustment" the
+   brief allows, not a dramatic increase; what actually makes it dominant is
+   that it is no longer competing with a 22px numeral beside it. */
+.tb-row__name{font-size:15px;line-height:1.2}
+
+/* §8 — the badge becomes an inline token on the name's line instead of a
+   free-standing object: line-height:1 so its height is its own text plus its
+   own padding, and a hair less horizontal padding. align-self is dropped —
+   with the container centring, a per-item override is exactly the kind of
+   second alignment rule that caused this. Size, colour, tone, radius and
+   letter-spacing are untouched, and the rule is scoped to .tb-row__id so the
+   shared .badge used on Categories, Live Orders, Staff Calls, Overview and
+   nine Customer screens is not reached (§16).
+
+   §10 — and the negative margin trims the flex gap from 9px to 7px for this
+   one pair, so name-to-status is tighter than index-to-name and the status
+   reads as belonging to the name rather than floating between the two. */
+.tb-row__id .badge{flex:none;margin-inline-start:-2px;line-height:1;padding:4px 9px}
+
+/* §12 — and the card height is HELD. Dropping the index from 22px removes
+   the tallest thing in the row, which would have taken the card from 103.5px
+   to roughly 94px: a density change this phase explicitly does not reopen.
+   30px is the identity row's existing height rounded up from 29.5px, so the
+   card moves by half a pixel rather than by nine. */
+.tb-row__main{min-height:30px}
 
 /* ── §13 — the top X stays reachable while the modal scrolls ─────────────
 
