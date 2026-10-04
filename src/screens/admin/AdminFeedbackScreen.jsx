@@ -95,11 +95,37 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
           new data: overall is the mean of the two averages this screen
           already computed, and it is shown only when both exist. Nothing is
           charted, trended or scored — §31 rules all of that out. */}
+      {/* Phase 105.0 §5–§9 — three logical groups on one compact row:
+          Average, then Food and Service as supporting metrics behind a
+          hairline. The split no longer takes margin-inline-start:auto, which
+          is what flung it to the far edge and created the dead space §4
+          complains about; it now sits next to the lead and the card wraps
+          naturally instead.
+
+          The stars are the existing read-only StarRating, fed the SAME
+          averages already shown — nothing new is computed. A fractional
+          average fills whole stars only (3.3 renders three), which is why no
+          custom half-star SVG was invented (§6); the numeric value stays
+          authoritative and visible beside them, and StarRating's own
+          screen-reader label reports the real fraction ("3.3 out of 5"). */}
       <div className="fb-summary anim-rise">
         <div className="fb-summary__lead">
-          <span className="fb-summary__value">
-            {overallAverage === null ? "—" : overallAverage}
-            {overallAverage !== null && <span className="fb-summary__of">/5</span>}
+          {/* §6 allows the stars BESIDE the average rather than beneath it,
+              and beside is what keeps the card short: on its own row the star
+              strip cost ~18px of height for information the number already
+              carries. */}
+          <span className="fb-summary__headline">
+            <span className="fb-summary__value">
+              {overallAverage === null ? "—" : overallAverage}
+              {overallAverage !== null && <span className="fb-summary__of">/5</span>}
+            </span>
+            <StarRating
+              readOnly
+              size={15}
+              name="fb-summary-overall"
+              label={t("feedback.averageRating", "Average rating")}
+              value={overallAverage ?? 0}
+            />
           </span>
           <span className="fb-summary__label">
             {t("feedback.averageRating", "Average rating")}
@@ -109,18 +135,45 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
           </span>
         </div>
 
+        {/* §8 — the same two labels the cards use, so the summary and the
+            reviews beneath it name the metrics identically. Both keys
+            already exist; nothing was added to the translations. */}
         <div className="fb-summary__split">
           <div className="fb-summary__metric">
+            <span className="fb-summary__metric-label">
+              {t("feedback.foodQuality", "Food Quality")}
+            </span>
             <span className="fb-summary__metric-value">
               {summary.averageFood === null ? "—" : summary.averageFood}
+              {summary.averageFood !== null && (
+                <span className="fb-summary__metric-of">/5</span>
+              )}
             </span>
-            <span className="fb-summary__metric-label">{t("feedback.avgFood", "Avg. Food")}</span>
+            <StarRating
+              readOnly
+              size={12}
+              name="fb-summary-food"
+              label={t("feedback.foodQuality", "Food Quality")}
+              value={summary.averageFood ?? 0}
+            />
           </div>
           <div className="fb-summary__metric">
+            <span className="fb-summary__metric-label">
+              {t("feedback.service", "Service")}
+            </span>
             <span className="fb-summary__metric-value">
               {summary.averageService === null ? "—" : summary.averageService}
+              {summary.averageService !== null && (
+                <span className="fb-summary__metric-of">/5</span>
+              )}
             </span>
-            <span className="fb-summary__metric-label">{t("feedback.avgService", "Avg. Service")}</span>
+            <StarRating
+              readOnly
+              size={12}
+              name="fb-summary-service"
+              label={t("feedback.service", "Service")}
+              value={summary.averageService ?? 0}
+            />
           </div>
         </div>
       </div>
@@ -157,6 +210,8 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
 /* ── One feedback record ─────────────────────────────────────────────────── */
 function FeedbackRow({ entry }) {
   const { t } = useLanguage();
+  /* Trimmed once so a name of "" or "   " takes the no-name path (§17). */
+  const customerName = entry.customerName?.trim();
 
   /* Phase 76 §35 — the "Show more" control appears ONLY when the comment is
      genuinely clamped. Measuring after layout rather than guessing from a
@@ -245,15 +300,24 @@ function FeedbackRow({ entry }) {
         </div>
       )}
 
-      {/* Context, deliberately last and quiet — still complete. */}
+      {/* Context, deliberately last and quiet — still complete.
+
+          §17 — the guest name and its separator are rendered together, so a
+          review submitted without a name shows "ORD-0002 · Table #1 · 1:14 AM"
+          rather than a dangling middot with a gap after it. No session or
+          other technical identity is exposed. */}
       <div className="fb-row__context">
         <span className="fb-row__order">{entry.orderId}</span>
         <span className="fb-row__ctx-dot">&middot;</span>
         <span>
           {t("customer.yourTable", "Table")} <span className="fb-row__table">#{entry.tableNumber}</span>
         </span>
-        <span className="fb-row__ctx-dot">&middot;</span>
-        <span>{entry.customerName}</span>
+        {customerName && (
+          <>
+            <span className="fb-row__ctx-dot">&middot;</span>
+            <span>{customerName}</span>
+          </>
+        )}
         <span className="fb-row__ctx-dot">&middot;</span>
         <span className="fb-row__time">{formatTimestamp(entry.createdAt)}</span>
       </div>

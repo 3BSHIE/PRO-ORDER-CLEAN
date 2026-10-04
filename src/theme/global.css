@@ -3307,10 +3307,19 @@ button{font-family:var(--font-body)}
    Either way the end of the review was unreadable, which is the complaint.
    With a break opportunity the clamp counts real wrapped lines and Show more
    reveals the whole comment. */
+/* Phase 105.0 §12 — this was a filled, bordered, rounded box with inset
+   padding: a disabled textarea, which is exactly what a guest's words should
+   not look like. The box is gone entirely. What is left is body copy on the
+   card itself — a step larger, in the primary text colour, with the line
+   height a paragraph wants. The italic and the curly quotes already in the
+   markup stay, because together they read as a quotation rather than as
+   decoration.
+
+   overflow-wrap:anywhere is preserved from Phase 97.5: without it a long
+   unbroken comment laid out 555px inside a 314px box at 390px. */
 .fb-row__comment{
-  margin:0;padding:10px 12px;border-radius:var(--r-md);
-  background:var(--surface-2);border:1px solid var(--border);
-  font-size:13px;color:var(--text-2);line-height:1.6;font-style:italic;
+  margin:0;padding:0;border:none;background:none;border-radius:0;
+  font-size:14px;color:var(--text-1);line-height:1.65;font-style:italic;
   overflow-wrap:anywhere}
 
 /* Order ids and table numbers stay LTR-readable inside an Arabic page,
@@ -4745,30 +4754,89 @@ button{font-family:var(--font-body)}
 
 /* ── Feedback (§31–§35) ───────────────────────────────────────────────── */
 
+/* ══ Phase 105.0 §5–§9 — the summary ═════════════════════════════════════
+
+   Same four figures as before — overall, review count, food, service — in a
+   third less height. Two things made it tall and empty: the split carried
+   margin-inline-start:auto, which pinned it to the far edge of a 980px card
+   and left a lake of nothing in the middle, and the lead stacked four items
+   at full spacing. The split now sits beside the lead behind a hairline and
+   the card wraps naturally when there is no room.
+
+   Nothing is charted, trended or compared (§4). */
 .fb-summary{
-  display:flex;flex-wrap:wrap;align-items:center;gap:22px;
-  padding:18px 20px;margin-bottom:26px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;
+  padding:14px 18px;margin-bottom:22px;
   background:var(--surface-1);border:1px solid var(--border);
   border-radius:var(--r-lg)}
-.fb-summary__lead{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fb-summary__lead{
+  display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+/* The average and its stars share one baseline-aligned row (§6). */
+.fb-summary__headline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .fb-summary__value{
   font-family:var(--font-display);font-size:34px;font-weight:700;
   color:var(--gold-ink);line-height:1;
+  font-variant-numeric:tabular-nums;
   direction:ltr;unicode-bidi:isolate}
 .fb-summary__of{font-size:17px;color:var(--text-3);margin-inline-start:2px}
 .fb-summary__label{font-size:12px;font-weight:600;color:var(--text-2)}
 .fb-summary__count{font-size:11.5px;color:var(--text-3)}
+
+/* §8 — supporting metrics, not a second pair of headline cards. Behind a
+   hairline so they read as belonging to the average rather than competing
+   with it, and the whole group drops below the lead once the card wraps. */
 .fb-summary__split{
-  display:flex;gap:26px;margin-inline-start:auto;flex-wrap:wrap}
-.fb-summary__metric{display:flex;flex-direction:column;gap:2px}
+  display:flex;gap:28px;flex-wrap:wrap;
+  padding-inline-start:28px;border-inline-start:1px solid var(--border)}
+.fb-summary__metric{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fb-summary__metric-label{
+  font-size:10.5px;font-weight:600;color:var(--text-3);letter-spacing:.04em}
 .fb-summary__metric-value{
   font-family:var(--font-display);font-size:19px;font-weight:700;
-  color:var(--text-1);line-height:1;direction:ltr;unicode-bidi:isolate}
-.fb-summary__metric-label{font-size:10.5px;color:var(--text-3);
-  letter-spacing:.04em}
+  color:var(--text-1);line-height:1;
+  font-variant-numeric:tabular-nums;
+  direction:ltr;unicode-bidi:isolate}
+.fb-summary__metric-of{
+  font-size:11px;font-weight:600;color:var(--text-3);margin-inline-start:2px}
+
+/* StarRating prints its own "3.6/5" beside the stars, which here would be
+   the same figure twice on one line. The numeric value is already the
+   largest thing in each group, so only the stars are kept — the component
+   is untouched and its screen-reader label still carries the real value. */
+.fb-summary .star-rating{gap:0}
+.fb-summary .star-rating__value{display:none}
+.fb-summary .star-rating__stars{gap:3px}
+.fb-summary__metric .star-rating__stars{gap:2px}
+
+/* Once the card wraps, the hairline would hang in mid-air above the split. */
+@media(max-width:620px){
+  .fb-summary{gap:14px}
+  .fb-summary__split{
+    padding-inline-start:0;border-inline-start:none;
+    padding-top:14px;border-top:1px solid var(--border);
+    flex:1 1 100%;gap:24px}
+}
 
 /* Card: rating first, the guest's words as the body, context last. */
-.fb-row__ratings{margin-bottom:10px}
+
+/* §18 — a little tighter without compressing the review itself. */
+.fb-row{padding:14px 16px;gap:0}
+/* §19 — read-only cards. The border warms a shade and nothing else moves:
+   no lift, no shadow, no scale. */
+.fb-row{transition:border-color .16s var(--ease)}
+.fb-row:hover{border-color:var(--border-strong)}
+
+/* §11 — the two ratings read as one scannable pair. The label sits above
+   its stars rather than beside them, which lets Food and Service sit
+   genuinely adjacent instead of each needing a 78px label gutter. */
+.fb-row__ratings{margin-bottom:12px;gap:10px 32px}
+.fb-row__rating{align-items:center;gap:9px}
+.fb-row__rating-label{
+  font-size:11px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);min-width:0}
+.fb-row__rating .star-rating{gap:8px}
+.fb-row__rating .star-rating__stars{gap:3px}
+
 .fb-row__comment-wrap{margin-bottom:12px}
 .fb-row__comment{
   display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
