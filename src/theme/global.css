@@ -2257,6 +2257,49 @@ button{font-family:var(--font-body)}
 .mm-cat-row__meta{font-size:12px;color:var(--text-3);margin:0}
 .mm-cat-row__actions{display:flex;gap:6px;flex:none}
 
+/* ══ Phase 104.0 — Categories compact polish ═════════════════════════════
+
+   Three refinements, nothing else. Everything below is scoped to
+   .mm-cat-row, which only this page uses: .mm-reorder-btn is shared with
+   the Menu item editor and .mm-cat-list with Tables & Access, so neither
+   base rule is touched and no other page can be reached from here.
+
+   §4/§5 — the two separate bordered buttons become ONE control. The markup
+   already wrapped them in .mm-cat-row__reorder, so the housing moves to the
+   wrapper and the buttons give up their own borders and radius; a single
+   hairline between them keeps Up and Down readable as two distinct targets.
+
+   Each target also gets BIGGER while the control gets shorter: 26x22 becomes
+   36x22, a 38% larger click area, because the control widens to 36px even as
+   the row tightens. Nothing is traded away for the density. */
+.mm-cat-row__reorder{
+  gap:0;width:36px;overflow:hidden;
+  border:1px solid var(--border);border-radius:var(--r-sm)}
+.mm-cat-row .mm-reorder-btn{
+  width:100%;height:22px;border:none;border-radius:0;
+  transition:background-color .14s var(--ease),color .14s var(--ease)}
+/* The divider between the two targets, not an outline around each. */
+.mm-cat-row .mm-reorder-btn + .mm-reorder-btn{
+  border-top:1px solid var(--border)}
+/* §6 — a calm disabled state: lower contrast, no hover warmth, no pointer.
+   The arrow stays visible so the reorder structure is still legible. */
+.mm-cat-row .mm-reorder-btn:disabled{opacity:.28;background:none}
+
+/* §8/§9 — availability becomes secondary to the category name. The shared
+   .badge is 10.5px uppercase with .09em tracking, which read louder than
+   the name beside it; here it drops the uppercase and tightens. Semantics,
+   tones and the dot are the shared component's and are untouched. */
+.mm-cat-row .badge{
+  padding:3px 9px;font-size:10px;font-weight:600;
+  letter-spacing:.01em;text-transform:none}
+
+/* §12 — the row was 76px and its height was set by the reorder control, so
+   shortening that plus trimming the block padding is what moves it. 14px to
+   10px lands it at ~66px, a 13% reduction, inside the requested 10–15%
+   without touching the emoji, the name, the item count or the 32px Edit and
+   Delete targets. */
+.mm-cat-row{padding-block:10px}
+
 .mm-icon-btn{
   width:32px;height:32px;display:grid;place-items:center;border-radius:9px;
   background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);

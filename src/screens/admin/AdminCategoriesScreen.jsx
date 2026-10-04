@@ -46,7 +46,12 @@ function CategoryStateBadge({ category, timeZone }) {
      visible for free: isActive === false always resolves to "Off Menu",
      whatever the operational switch says. The second badge is therefore
      redundant and was removed rather than reworded. */
-  if (visible) return <Badge tone="ready" dot>{t("admin.stateAvailableNow", "Available Now")}</Badge>;
+  /* Phase 104.0 §9 — "Available" rather than "Available Now". This reuses
+     admin.available, which already exists in both languages (the Menu page
+     uses it), so no translation was added or edited. The other three states
+     keep their wording: "Outside hours" and "Off Menu" are the distinctions
+     Phase 54 introduced deliberately and nothing here flattens them. */
+  if (visible) return <Badge tone="ready" dot>{t("admin.available", "Available")}</Badge>;
   if (reason === "schedule") {
     return <Badge tone="preparing" dot>{t("admin.stateOutsideHours", "Outside hours")}</Badge>;
   }
