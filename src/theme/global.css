@@ -3766,7 +3766,19 @@ button{font-family:var(--font-body)}
 /* Off-screen rather than display:none — a display:none subtree is not
    guaranteed to lay out, and the QR must be measured and rendered normally
    so it is ready the instant the print dialog opens. */
-.qr-stand-sheet{position:absolute;left:-10000px;top:0;width:105mm}
+/* Phase 106.0 §30/§31/§32 — parked at the LOGICAL start, not at left.
+
+   Pre-existing and found by measuring the modal in Arabic: left:-10000px
+   puts this sheet 10,000px past the inline-END edge under RTL, and that is
+   the side a browser counts, so .modal reported scrollWidth 10553 against
+   clientWidth 553 — the dialog could be dragged sideways into ten thousand
+   pixels of nothing. In LTR the same overflow lands on the inline-start side
+   and is not counted, which is why it never showed up before.
+
+   inset-inline-start keeps it on the uncounted leading side in BOTH
+   directions. The print block is untouched and still works, because it
+   forces position:static, and a static box ignores every inset property. */
+.qr-stand-sheet{position:absolute;inset-inline-start:-10000px;top:0;width:105mm}
 
 @media print{
   /* ── Print isolation ───────────────────────────────────────────────────
@@ -8116,6 +8128,193 @@ button{font-family:var(--font-body)}
    reliably (§30). Padding only; it stays visually a quiet summary line. */
 .tb-tech__summary{padding-block:11px}
 .tb-tech{padding-top:4px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 106.0 — TABLES & ACCESS POLISH
+
+   Positioning, spacing and one frame removal. No control is redesigned, no
+   token is introduced, and every rule below is scoped to .tb-* or
+   .modal--access, so the shared .mm-toolbar/.mm-search/.mm-select/
+   .mm-edit-btn/.mm-icon-btn/.badge classes keep behaving exactly as they do
+   on Menu, Categories and Settings (§10, §37).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §2/§4 — the top row: identity + status, then QR + NFC ───────────────
+
+   Measured before changing: .tb-row__main had THREE children under
+   justify-content:space-between, so the ACTIVE badge landed in the middle of
+   a 637px row with exactly 219px of dead space on each side of it. The badge
+   is now the third child of .tb-row__id instead, which leaves .tb-row__main
+   with two children — so the same space-between that was scattering three
+   items now does the one job §5 asks for: identity leading, methods
+   trailing. The rule itself is unchanged.
+
+   §3 — #1 and Table 1 are still two elements. Nothing is collapsed. */
+.tb-row__id{flex-wrap:wrap;row-gap:4px}
+/* The two texts stay on a shared baseline, which is what makes "#1" at 22px
+   and "Table 1" at 14px sit together as one identifier. A pill has no useful
+   baseline, so it centres on the line instead of hanging off the text. */
+.tb-row__id .badge{align-self:center;flex:none;margin-inline-start:2px}
+/* So the NAME gives way first when the row is narrow — the badge and the
+   number are short and fixed, the display name is the part that can ellipse
+   without losing meaning. */
+.tb-row__name{flex:0 1 auto;min-width:0}
+
+/* ── §8 — slightly shorter, through rhythm rather than compression ───────
+
+   Measured at 1280: 113.5px, built from 16px padding, a 29.5px identity row,
+   an 8px flex gap, a further 6px margin-top on the action row (so 14px of
+   separation specified twice), a 36px action row and 16px padding again.
+
+   The duplicated separation becomes one 10px gap and the padding comes in a
+   little. The QR/NFC summary, the status, the name, the number and all four
+   actions are untouched — nothing is removed to buy the space (§8). */
+.tb-row{padding:13px 14px;gap:10px}
+.tb-row__actions{margin-top:0}
+
+/* ── §6/§7 — one action row, aligned ────────────────────────────────────
+
+   Manage Access and Activate/Deactivate measured 36px while Edit and Delete
+   measured 32px, so the row had two different control heights sitting on a
+   shared centre line. Height only, and scoped to .tb-row__actions so the
+   same .mm-icon-btn keeps its 32px on Menu and Categories (§37).
+
+   Fill, border, colour, icon size and order are all untouched: Manage Access
+   keeps the gold-bordered pill, the toggle keeps its operational/amber
+   treatment, Edit stays a quiet icon, Delete stays an outline icon behind
+   the separator. No new button system (§7). */
+.tb-row__actions{align-items:center;gap:7px}
+.tb-row__actions .mm-icon-btn{width:36px;height:36px}
+
+/* ── §9 — the two-row structure survives narrowing ──────────────────────
+   Below 560px four controls cannot share a line legibly, so the labelled
+   pair takes the first line and the two icon buttons the next, rather than
+   four shrunken targets in one unreadable row. The existing 44px touch floor
+   at this width is kept. */
+@media(max-width:560px){
+  .tb-row__actions{gap:8px}
+  /* flex:1 1 auto was not enough: with basis auto the two labelled buttons
+     only took their content width, Edit joined them on line 1 and Delete was
+     left alone on line 2 — measured as [Manage Access 142][Deactivate 118]
+     [Edit 44] / [Delete 44]. An explicit half-width basis fills the first
+     line exactly, so the pair sits together and BOTH icon buttons fall to
+     the second line as one group (§9). */
+  .tb-row__actions .mm-edit-btn,
+  .tb-row__actions .tb-toggle-btn{flex:1 1 calc(50% - 4px);justify-content:center}
+  /* And one target height across the row: the toggle measured 36px next to
+     44px neighbours on a surface operated by thumb. Height only. */
+  .tb-row__actions .tb-toggle-btn{min-height:44px}
+  .tb-row__actions .mm-icon-btn{width:44px;height:44px}
+}
+
+/* ── §13 — the top X stays reachable while the modal scrolls ─────────────
+
+   .modal is itself the scroll container (overflow-y:auto), which is why
+   .modal__foot could already be position:sticky;bottom:0. The header is a
+   sibling in that same container, so the honest implementation is the mirror
+   of the footer the shell already has — no second header, no element lifted
+   out of the modal, nothing floating outside its bounds (§13).
+
+   Scoped to .modal--access: every other dialog in the app keeps a header
+   that scrolls with its (short) content. */
+.modal--access .modal__head{
+  position:sticky;top:0;z-index:3;
+  margin-bottom:4px;padding-bottom:10px;
+  background:var(--surface-1)}
+/* Sticky offsets resolve against the scrollport INSET BY ITS PADDING, so
+   top:0 pins the header 10px (mobile) / 20px (desktop) below the modal's top
+   edge and content would otherwise be visible sliding through that strip.
+   left/right rather than logical properties because 0/0 is symmetrical and
+   provably direction-independent — the same idiom .modal__foot::before uses
+   (§32). */
+.modal--access .modal__head::before{
+  content:"";position:absolute;left:0;right:0;bottom:100%;height:26px;
+  background:var(--surface-1)}
+/* A 14px fade, so content dissolves under the header instead of being cut by
+   a hard line — matching the footer's established treatment. pointer-events
+   :none so it can never swallow a click meant for what is beneath it. */
+.modal--access .modal__head::after{
+  content:"";position:absolute;left:0;right:0;top:100%;height:14px;
+  pointer-events:none;
+  background:linear-gradient(to bottom,var(--surface-1),rgba(0,0,0,0))}
+/* §34 — the X is focusable and now sits in a positioned, stacked context.
+   The ring is drawn inside the modal's own 22px padding, clear of the
+   overflow edge, so keyboard focus cannot be clipped by the scroll box. */
+.modal--access .modal__x{position:relative;z-index:1}
+
+/* ── §14 — the identity block, tightened only ───────────────────────────
+   Same three facts in the same order: restaurant, table with its independent
+   (#1), compact status. Only the gaps move. */
+.tb-access-head{gap:4px 10px;margin-bottom:12px}
+
+/* ── §16 — the QR section reads as one connected block ──────────────────
+
+   The heading, the code, "Scan to order", the link and the actions were each
+   separated by their own margin, so the section was a stack of five loosely
+   related objects. The QR plate itself is NOT touched — it stays 220px, which
+   §15/§20 require for a code that has to be inspected and scanned. */
+.tb-qr-preview__box{margin-bottom:10px}
+.tb-qr-preview__scan{margin:0}
+.tb-access-link{margin-top:8px}
+.tb-section-actions{margin-top:12px}
+.tb-sensitive{margin-top:12px;padding-top:10px}
+.tb-tech{margin-top:14px}
+
+/* ── §24 — NFC stops being a card inside a card ─────────────────────────
+
+   Measured: a 1px border, a --surface-2 fill, 14px of padding and a 14px
+   radius, nested inside a modal that is itself a bordered, filled, rounded
+   surface. The frame contributed 30px of pure chrome and, more to the point,
+   made NFC read as a separate object sitting in the dialog rather than as
+   the dialog's second section.
+
+   What replaces the frame is one hairline in the existing --border token,
+   which is also the divider §23 asks for between the QR section and this
+   one. No second card, no heavy section box, no new token.
+
+   Every element inside is preserved (§25): heading, "NFC link ready", the
+   writing instruction, the access link, Copy NFC Link, Test Access and
+   Regenerate NFC Access. text-align:start is kept so the section still reads
+   from the logical start in both directions (§32). */
+.modal--access .tb-nfc{
+  margin-top:14px;padding:14px 0 0;
+  background:none;border:none;border-radius:0;
+  border-top:1px solid var(--border)}
+/* The icon keeps its own small plate — that is the section's heading mark,
+   not the card frame being removed, and the QR heading above uses the same
+   one, so dropping it here would make the two sections disagree. */
+
+/* ── §27 — regenerate stays separated from the ordinary utilities ───────
+   Unchanged in treatment: .tb-sensitive already puts both Regenerate actions
+   behind their own hairline, amber and small. Listed here only to record
+   that it was checked and deliberately left alone. */
+
+/* ── §31 — the narrow modal ─────────────────────────────────────────────
+   With the NFC frame gone there is no inner box to indent against, so the
+   section can use the full content width on a phone. */
+@media(max-width:400px){
+  .modal--access .tb-nfc{margin-top:12px;padding-top:12px}
+}
+
+/* ── §17/§26/§31 — the access link must ELLIPSE, never widen the modal ───
+
+   Pre-existing, and only visible with a realistic URL: the demo links are
+   localhost and happen to fit. Fed a production-length URL at 390px the row
+   measured 481px inside a 390px dialog and took the modal with it, so the
+   "visually truncatable" link of §17/§26 was in fact the thing breaking §31.
+
+   Two reasons it could not ellipse. .tb-access-link is a flex item of
+   .tb-qr-preview, which centres its items rather than stretching them, so
+   the row was sized to its own nowrap content instead of to the column. And
+   below 400px the row itself becomes a COLUMN, where flex-basis governs
+   height — so the existing min-width:0 had nothing to act on.
+
+   Stretching the row to the content width gives the value a bounded box, and
+   the ellipsis it was already asking for finally engages. The URL itself is
+   untouched: full value in the text node and in title, selectable, announced,
+   and still carried whole by Copy and Open. */
+.modal--access .tb-access-link{align-self:stretch;max-width:100%}
+.modal--access .tb-access-link__value{max-width:100%;overflow:hidden}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PHASE 94 — FEEDBACK GROUPING + SETTINGS HIERARCHY

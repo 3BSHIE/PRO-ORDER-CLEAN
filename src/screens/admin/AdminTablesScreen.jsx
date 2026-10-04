@@ -437,14 +437,27 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
         <div className="mm-cat-list anim-rise">
           {visibleTables.map((table) => (
             <Card key={table.id} className="tb-row">
+              {/* Phase 106.0 §4 — the status badge moves INSIDE the identity
+                  group. It was a direct child of .tb-row__main alongside the
+                  id group and the method summary; with three children and
+                  justify-content:space-between it was pinned to the centre of
+                  a 637px row with 219px of empty space on either side, which
+                  is measured, not estimated. Reading "#1 Table 1" then
+                  crossing a void to find out whether the table is open is the
+                  wrong order of operations. Two children now: identity+status
+                  leading, QR+NFC trailing (§5).
+
+                  §3 — #1 and Table 1 remain two separate elements carrying two
+                  separate pieces of information. Nothing is merged, and the
+                  underlying tableNumber/displayName fields are untouched. */}
               <div className="tb-row__main">
                 <div className="tb-row__id">
                   <span className="tb-row__number">#{table.tableNumber}</span>
                   <p className="tb-row__name">{table.displayName}</p>
+                  <Badge tone={table.isActive ? "gold" : "neutral"}>
+                    {table.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
+                  </Badge>
                 </div>
-                <Badge tone={table.isActive ? "gold" : "neutral"}>
-                  {table.isActive ? t("admin.active", "Active") : t("admin.inactive", "Inactive")}
-                </Badge>
                 {/* §44 — which credentials this table has, as a quiet summary
                     and nothing more. The links themselves stay inside Manage
                     Access; a row is for scanning a floor plan, not for
@@ -533,22 +546,20 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
           onClose={() => setPreviewTable(null)}
           title={t("admin.tableAccessTitle", "Table Access")}
           className="modal--access"
-          /* Phase 93.3 §11 — Print moves OUT of the footer and into the QR
-             section. Phase 76 made it the modal's primary when the modal was
-             the QR modal, which was right then and wrong now: this dialog is
-             about two access methods, and a footer primary that prints one of
-             them tells the manager the other is secondary. Print is still the
-             strongest action — but inside the section it belongs to.
+          /* Phase 93.3 §11 — Print lives in the QR section, not the footer:
+             this dialog covers two access methods, and a footer primary that
+             prints one of them implies the other is secondary.
 
-             That leaves Close alone in the footer, deliberately quiet (§31).
-             The header X stays too: both were already here, both are
-             keyboard-reachable, and removing one to look tidier would cost a
-             real close affordance. */
-          footer={
-            <Button variant="ghost" onClick={() => setPreviewTable(null)}>
-              {t("common.close", "Close")}
-            </Button>
-          }
+             Phase 106.0 §12 — and with Print gone from the footer, Close was
+             the only thing left in it: a second close control directly below
+             a sticky X that is permanently on screen. The `footer` prop is
+             dropped entirely, so Modal renders no .modal__foot at all for this
+             dialog and nothing is left behind.
+
+             The three close affordances that remain are the ones the shared
+             Modal already provides and this phase does not touch: the header
+             X, Escape (window keydown in Modal.jsx), and a backdrop mousedown
+             on the overlay. */
         >
           {/* §19 — table identity once, at the top, for BOTH methods. */}
           <div className="tb-access-head">
