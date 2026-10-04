@@ -249,9 +249,12 @@ function FeedbackRow({ entry }) {
       <div className="fb-row__ratings">
         <div className="fb-row__rating">
           <span className="fb-row__rating-label">{t("feedback.foodQuality", "Food Quality")}</span>
+          {/* Phase 105.1 §12 — 13px rather than 15px. The stars step back a
+              little so the numeric score beside them reads first; nothing
+              else about StarRating changes. */}
           <StarRating
             readOnly
-            size={15}
+            size={13}
             name={`admin-food-${entry.id}`}
             label={t("feedback.foodQuality", "Food Quality")}
             value={entry.foodRating}
@@ -261,7 +264,7 @@ function FeedbackRow({ entry }) {
           <span className="fb-row__rating-label">{t("feedback.service", "Service")}</span>
           <StarRating
             readOnly
-            size={15}
+            size={13}
             name={`admin-service-${entry.id}`}
             label={t("feedback.service", "Service")}
             value={entry.serviceRating}

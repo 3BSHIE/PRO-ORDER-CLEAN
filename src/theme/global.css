@@ -3317,9 +3317,13 @@ button{font-family:var(--font-body)}
 
    overflow-wrap:anywhere is preserved from Phase 97.5: without it a long
    unbroken comment laid out 555px inside a 314px box at 390px. */
+/* Phase 105.1 §9 — the review text is no longer italic. A whole paragraph
+   set in italic is harder to read than the same paragraph upright, and it is
+   the body content of the card. The curly quotes already in the markup stay
+   and now carry the "this is a quotation" job on their own. */
 .fb-row__comment{
   margin:0;padding:0;border:none;background:none;border-radius:0;
-  font-size:14px;color:var(--text-1);line-height:1.65;font-style:italic;
+  font-size:14px;color:var(--text-1);line-height:1.65;font-style:normal;
   overflow-wrap:anywhere}
 
 /* Order ids and table numbers stay LTR-readable inside an Arabic page,
@@ -4764,11 +4768,22 @@ button{font-family:var(--font-body)}
    the card wraps naturally when there is no room.
 
    Nothing is charted, trended or compared (§4). */
+/* Phase 105.1 §3/§4 — the summary stops being a card.
+
+   With a surface, a border and a 20px radius it read as one more item in
+   the review list rather than as the page's own summary. Background, border
+   and radius are gone; what is left sits directly on the page.
+
+   It is also a GRID now, not a flex row. Flex sized each group to its
+   content and let the rest of an ~980px column go to waste on the right,
+   which is the dead space §4 is about. 1.3fr 1fr 1fr is the ratio closest
+   to the requested 40/30/30 (it resolves to 39.4/30.3/30.3) and it fills
+   the width by construction. */
 .fb-summary{
-  display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;
-  padding:14px 18px;margin-bottom:22px;
-  background:var(--surface-1);border:1px solid var(--border);
-  border-radius:var(--r-lg)}
+  display:grid;grid-template-columns:1.3fr 1fr 1fr;
+  align-items:center;gap:0;
+  padding:4px 0 18px;margin-bottom:10px;
+  background:none;border:none;border-radius:0}
 .fb-summary__lead{
   display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
 /* The average and its stars share one baseline-aligned row (§6). */
@@ -4782,13 +4797,15 @@ button{font-family:var(--font-body)}
 .fb-summary__label{font-size:12px;font-weight:600;color:var(--text-2)}
 .fb-summary__count{font-size:11.5px;color:var(--text-3)}
 
-/* §8 — supporting metrics, not a second pair of headline cards. Behind a
-   hairline so they read as belonging to the average rather than competing
-   with it, and the whole group drops below the lead once the card wraps. */
-.fb-summary__split{
-  display:flex;gap:28px;flex-wrap:wrap;
-  padding-inline-start:28px;border-inline-start:1px solid var(--border)}
-.fb-summary__metric{display:flex;flex-direction:column;gap:3px;min-width:0}
+/* §4/§5 — the two supporting metrics are grid cells of the strip itself, so
+   they occupy their 30% zones instead of huddling at their content width.
+   `display:contents` is what lets the existing wrapper stay in the markup
+   while its two children become direct grid items — no JSX change needed. */
+.fb-summary__split{display:contents}
+.fb-summary__metric{
+  display:flex;flex-direction:column;gap:4px;min-width:0;
+  padding-inline-start:28px;
+  border-inline-start:1px solid var(--border)}
 .fb-summary__metric-label{
   font-size:10.5px;font-weight:600;color:var(--text-3);letter-spacing:.04em}
 .fb-summary__metric-value{
@@ -4808,13 +4825,23 @@ button{font-family:var(--font-body)}
 .fb-summary .star-rating__stars{gap:3px}
 .fb-summary__metric .star-rating__stars{gap:2px}
 
-/* Once the card wraps, the hairline would hang in mid-air above the split. */
-@media(max-width:620px){
-  .fb-summary{gap:14px}
-  .fb-summary__split{
+/* §17 — two zones at tablet (Overall keeps its own line, Food and Service
+   share the next) rather than three columns too narrow to read. */
+@media(max-width:860px){
+  .fb-summary{grid-template-columns:1fr 1fr;gap:16px 0}
+  .fb-summary__lead{
+    grid-column:1 / -1;padding-bottom:16px;
+    border-bottom:1px solid var(--border)}
+  .fb-summary__metric:first-of-type{padding-inline-start:0;border-inline-start:none}
+}
+/* §17 — fully stacked on a phone, with horizontal rules instead of vertical
+   ones so no divider is left hanging on an axis it no longer separates. */
+@media(max-width:560px){
+  .fb-summary{grid-template-columns:1fr;gap:0;padding-bottom:14px}
+  .fb-summary__lead{padding-bottom:14px}
+  .fb-summary__metric{
     padding-inline-start:0;border-inline-start:none;
-    padding-top:14px;border-top:1px solid var(--border);
-    flex:1 1 100%;gap:24px}
+    padding-top:14px;border-top:1px solid var(--border)}
 }
 
 /* Card: rating first, the guest's words as the body, context last. */
@@ -4834,12 +4861,23 @@ button{font-family:var(--font-body)}
 .fb-row__rating-label{
   font-size:11px;font-weight:600;letter-spacing:.03em;
   color:var(--text-3);min-width:0}
-.fb-row__rating .star-rating{gap:8px}
-.fb-row__rating .star-rating__stars{gap:3px}
+/* §12 — the numeric score steps forward and the stars step back, so "4/5" is
+   scannable down a column of reviews instead of having to be counted off the
+   stars. Star size dropped 15px to 13px in the markup; the fills, the gold
+   and the neutral unfilled treatment are untouched. */
+.fb-row__rating .star-rating{gap:9px}
+.fb-row__rating .star-rating__stars{gap:2px}
+.fb-row__rating .star-rating__value{
+  font-size:12.5px;font-weight:700;color:var(--text-1);min-width:28px}
 
 .fb-row__comment-wrap{margin-bottom:12px}
+/* §10 — 3 lines, not 4, at every width. A genuinely long review used to
+   clamp only on a phone and left one desktop card dramatically taller than
+   its neighbours; three lines keeps the list even and Show more reveals the
+   rest. The clamp is still MEASURED from the live element, so a comment that
+   fits in three lines gets no button at all. */
 .fb-row__comment{
-  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
   overflow:hidden;margin:0}
 .fb-row__comment--open{-webkit-line-clamp:unset;overflow:visible}
 .fb-row__more{
