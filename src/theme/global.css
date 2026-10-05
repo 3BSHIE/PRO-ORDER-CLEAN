@@ -9428,3 +9428,168 @@ button{font-family:var(--font-body)}
   color:var(--text-3);font-family:var(--font-body);font-size:12px;font-weight:600;
   cursor:pointer;transition:color .15s,border-color .15s}
 .ad-attention__more:hover{color:var(--text-2);border-color:var(--border-strong)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 107.0 — RESTAURANT SETTINGS POLISH
+
+   Appended after every existing Settings rule so each override below wins on
+   source order at equal specificity, rather than by inflating selectors.
+
+   SCOPING, which governs the whole block: .mm-toggles, .mm-toggle-row,
+   .mm-section-title and .ad-settings__hint are SHARED with the Menu product
+   editor and Categories. Every rule that touches one of them is scoped under
+   .ad-settings__section — a class used only by this screen and the two alert
+   cards — so the product editor keeps its filled toggle box untouched (§58).
+   .st-*, .wh-*, .ap-*, .th-* and .ad-settings__* are Settings-only.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §51 — vertical rhythm ───────────────────────────────────────────────
+   The page measured 3537px against a 900px viewport. Most of it was
+   duplicated padding: a 20px card inset holding a 14px gap holding a nested
+   box with its own 12px inset. One step out of each. */
+.ad-settings__section{padding:18px;gap:12px}
+.ad-settings__group + .ad-settings__group{margin-top:24px}
+.ad-settings__group-head{margin:0 0 10px}
+.ad-settings__row + .ad-settings__row{margin-top:14px}
+
+/* ── §8/§9/§10 — Restaurant Profile ──────────────────────────────────────
+   Two columns of three fields, description spanning beneath. Logical gaps
+   and minmax(0,1fr) tracks so a long placeholder cannot widen the page; one
+   column below 860px, matching the breakpoint the paired rows already use. */
+.st-split{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:14px 20px;align-items:start}
+.st-split__col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.st-profile__desc{margin-top:14px}
+@media(max-width:860px){
+  .st-split{grid-template-columns:minmax(0,1fr);gap:14px}
+}
+
+/* ── §25 — Business Settings: three short values, one row ────────────────
+   Service Charge, Currency and Time Zone held about 60px of content in a
+   300px full-width card. §26 — the charge gets a column rather than the full
+   width, which is all a percentage ever needed. */
+.st-grid-3{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;align-items:start}
+/* 860px, the same breakpoint Restaurant Profile and the paired rows already
+   use. At 768 a three-column business grid still fit without clipping, but it
+   left the page collapsing at two different widths for no reason the manager
+   could see. One breakpoint for the whole page. */
+@media(max-width:860px){
+  .st-grid-3{grid-template-columns:minmax(0,1fr);gap:14px}
+}
+
+/* §38 — the one divider inside Branding & Theme. Existing border token, no
+   second card. */
+.st-divider{height:1px;background:var(--border);margin:4px 0 2px}
+
+/* ── §13/§15/§30/§48 — setting rows instead of boxes inside boxes ────────
+
+   Measured: each .mm-toggles rendered a --surface-2 fill, a 1px border, a
+   14px radius and 12px/14px padding INSIDE a card that already has all four.
+   Four of them on this page — Languages, Payment Methods, Kitchen Alerts,
+   Staff Call Alerts — so the card-inside-card feeling §48 describes was
+   literal, not impressionistic.
+
+   The frame is gone and what is left is rows with a hairline between them,
+   which is the "subtle row separation only if needed" §13 asks for. The
+   checkbox itself, its accent colour and its behaviour are untouched (§59). */
+.ad-settings__section .mm-toggles{
+  padding:0;background:none;border:none;border-radius:0;gap:0}
+.ad-settings__section .mm-toggle-row{
+  min-height:40px;padding:8px 0;
+  border-top:1px solid var(--border)}
+.ad-settings__section .mm-toggles > .mm-toggle-row:first-child{border-top:none}
+
+/* ── §19/§20/§21 — the weekday schedule ──────────────────────────────────
+
+   Measured: 52px a row, 412px for seven days, every row its own filled,
+   bordered, rounded box — so the list read as seven separate widgets rather
+   than one schedule. Rows share one hairline grid now and the controls come
+   down a size. Each row is still its own element with its own isClosed,
+   openTime and closeTime; nothing here couples one day to another (§22). */
+.wh-list{gap:0;margin-bottom:12px}
+.wh-row{
+  padding:5px 0;gap:12px;
+  background:none;border:none;border-radius:0;
+  border-top:1px solid var(--border)}
+.wh-list > .wh-row:first-child{border-top:none}
+.wh-row--closed{background:none}
+/* §20 — the day stays the leading identity and is not decorated further. */
+.wh-row__day{font-size:13px}
+/* §21 — compact, and still the word "Open"/"Closed" rather than a colour,
+   with aria-pressed on the control (§76). */
+.wh-toggle{min-width:64px;min-height:30px;padding:4px 10px;font-size:11.5px}
+.wh-time{min-height:30px;max-width:104px;padding:4px 8px;font-size:12.5px}
+/* §21 — a closed day mutes its own times. The inputs are also genuinely
+   disabled, so this is reinforcement, never the only signal. */
+.wh-row--closed .wh-row__times{opacity:.55}
+
+/* §55 — on a phone the row becomes two lines and the controls go back up to
+   a real touch size; the desktop density is a pointer affordance, not a
+   thumb one. */
+@media(max-width:560px){
+  .wh-row{padding:10px 0;row-gap:8px}
+  .wh-toggle{min-height:44px}
+  .wh-time{min-height:44px;font-size:13px}
+}
+
+/* §23 — Copy Monday stays, and stays quiet: a small outline button under the
+   schedule, nowhere near the weight of Save Settings. */
+.wh-actions{margin-top:2px}
+
+/* ── §42 — the Appearance control ────────────────────────────────────────
+
+   The "awkward bright/white outline" is the browser's own default fieldset
+   border: computed `2px groove rgb(240,240,240)`, never styled, drawing a
+   pale inset rectangle around the whole control in both themes. The segmented
+   options inside were already correct — 44px targets, a gold-tinted selected
+   state, a real radio group — so only the frame is removed.
+
+   The legend keeps its field-label styling, and the radio semantics §41/§76
+   rely on are untouched. */
+.ap-fieldset{border:0;padding:0;margin:0;min-width:0}
+.ap-fieldset > .field__label{display:block;margin-bottom:6px;padding:0}
+
+/* ── §45 — the theme preview, full width inside the merged card ────────── */
+.th-preview{width:100%}
+
+/* ── §5/§6/§7 — the compact sticky save bar ──────────────────────────────
+
+   Measured: 72.5px tall, 14px padding all round, a 20px radius, a full
+   --border-strong outline and a 0 14px 40px 50%-black shadow — a floating
+   card parked over the page, which is exactly what §5 rules out.
+
+   It is a bar now: no radius, no shadow, no box, one hairline along the top,
+   and the page background behind it so it reads as part of the page rather
+   than as an object on top of it.
+
+   position:sticky is kept, NOT fixed. A sticky element keeps its place in
+   normal flow, so it reserves its own height at the foot of the document and
+   can never sit over the final controls — which is how §9's clearance
+   requirement is met without inventing a padding hack. */
+.ad-settings__save-bar{
+  position:sticky;bottom:0;z-index:5;
+  margin-top:16px;padding:8px 0;
+  background:var(--bg);
+  border:none;border-top:1px solid var(--border);
+  border-radius:0;box-shadow:none}
+
+/* §6 — the two states already differ in words and in colour; the saved state
+   is quieter still now that the bar itself carries no weight. */
+.ad-settings__dirty{font-size:12.5px}
+
+/* §7 — the phone bar. Save stays full width and keeps a real target; the
+   status line sits above it rather than being squeezed beside it. */
+@media(max-width:520px){
+  .ad-settings__save-bar{padding:10px 0;gap:8px}
+  .ad-settings__save-bar .btn{min-height:44px}
+}
+
+/* ── §17/§33/§53 — paired cards ──────────────────────────────────────────
+   Languages/Payment Methods and the two alert cards keep the existing
+   equal-height pairing above 860px and natural heights below it. That rule
+   already exists and is left alone; recorded here only to note it was
+   checked against §53 and deliberately not duplicated. */
+

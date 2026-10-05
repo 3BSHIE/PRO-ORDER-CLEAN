@@ -310,7 +310,23 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   const savingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  /* Phase 107.0 — the mount flag is SET as well as cleared.
+
+     Pre-existing and development-only, found while testing the save bar: the
+     effect returned a cleanup that latches this false and never set it back
+     to true on mount. React 18 StrictMode (enabled in main.jsx) double-invokes
+     effects in development — mount, cleanup, mount — so the flag was false
+     from the first render onward, the finally block below skipped its
+     setIsSaving(false), and the Save button stayed disabled on "Saving…" for
+     the rest of the session after ONE save. Production builds do not
+     double-invoke, so this never reached a real user.
+
+     The fix is to make the effect idempotent, which is what an is-mounted
+     flag always needed to be. No save logic changes. */
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   /* ── Phase 79.2 — unsaved-changes guard ────────────────────────────────
      This screen has always held its edits in a local draft and written them
@@ -608,28 +624,41 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <h2 className="ad-settings__group-title">{t("admin.groupProfile", "Restaurant Profile")}</h2>
             <p className="ad-settings__group-hint">{t("admin.groupProfileHint", "Identity and contact details shown to guests.")}</p>
           </header>
-          <div className="ad-settings__row ad-settings__row--pair">
+          {/* Phase 107.0 §8/§9 — General and Contact Information were two
+              cards describing one thing: who this restaurant is. They are one
+              card now, in two columns, with the description spanning beneath
+              both. The group heading above already says "Restaurant Profile",
+              so the card carries no heading of its own rather than repeating
+              it (§39).
+
+              Two explicit column elements rather than a six-cell row-major
+              grid: that keeps the DOM order identity-then-contact, which is
+              the order it reads in and the order it tabs in, while still
+              rendering as the two columns §9 asks for. */}
+          <div className="ad-settings__row">
         <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.general", "General")}</h3>
-          <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
-            placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.logoUrl", "Restaurant Logo URL")} value={draft.logoUrl}
-            placeholder="https://…" onChange={(e) => setField("logoUrl", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
-            placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} style={{ marginBottom: 14 }} />
-          <label className="field mm-field">
+          <div className="st-split">
+            <div className="st-split__col">
+              <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
+                placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} />
+              <Input label={t("admin.logoUrl", "Restaurant Logo URL")} value={draft.logoUrl}
+                placeholder="https://…" onChange={(e) => setField("logoUrl", e.target.value)} />
+              <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
+                placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
+            </div>
+            <div className="st-split__col">
+              <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
+                onChange={(e) => setField("contactPhone", e.target.value)} />
+              <Input label={t("admin.email", "Email")} value={draft.contactEmail}
+                onChange={(e) => setField("contactEmail", e.target.value)} />
+              <Input label={t("admin.address", "Address")} value={draft.contactAddress}
+                onChange={(e) => setField("contactAddress", e.target.value)} />
+            </div>
+          </div>
+          <label className="field mm-field st-profile__desc">
             <span className="field__label">{t("admin.restaurantDescription", "Restaurant Description")}</span>
             <textarea className="mm-textarea" value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} />
           </label>
-        </Card>
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.contactInformation", "Contact Information")}</h3>
-          <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
-            onChange={(e) => setField("contactPhone", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.email", "Email")} value={draft.contactEmail}
-            onChange={(e) => setField("contactEmail", e.target.value)} style={{ marginBottom: 14 }} />
-          <Input label={t("admin.address", "Address")} value={draft.contactAddress}
-            onChange={(e) => setField("contactAddress", e.target.value)} />
         </Card>
           </div>
         </section>
@@ -683,7 +712,10 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
         </Card>
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.paymentMethodsSection", "Payment Methods")}</h3>
-          <div className="mm-toggles" style={{ flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
+          {/* §15 — the inline flex overrides are gone; .ad-settings__section
+              .mm-toggles is already a column, and the page-scoped rule now
+              renders these as plain setting rows rather than a filled box. */}
+          <div className="mm-toggles">
             <label className="mm-toggle-row">
               <input type="checkbox" checked={draft.paymentMethodsEnabled.cash_at_table} onChange={(e) => setNested("paymentMethodsEnabled", "cash_at_table", e.target.checked)} />
               <span>{t("payment.cashAtTable", "Cash at the table")}</span>
@@ -783,11 +815,16 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           </div>
           <div className="ad-settings__row">
         <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.business", "Business")}</h3>
+          <h3 className="mm-section-title">{t("admin.business", "Business Settings")}</h3>
+          {/* Phase 107.0 §25 — three short values that were stacked down a
+              full-width card, so the card was 300px tall to hold about 60px of
+              content. Service Charge, Currency and Time Zone sit on one row on
+              desktop and stack on a phone. Nothing about any of the three
+              values, their validation or their storage changes. */}
+          <div className="st-grid-3">
           <Input label={t("admin.serviceChargeLabel", "Service Charge %")} type="number" min="0" step="0.1"
             value={draft.serviceChargePercent ?? ""} placeholder={String(restaurant.serviceChargePercent)}
-            onChange={(e) => setField("serviceChargePercent", e.target.value === "" ? null : Number(e.target.value))}
-            style={{ marginBottom: 14 }} />
+            onChange={(e) => setField("serviceChargePercent", e.target.value === "" ? null : Number(e.target.value))} />
           {/* Phase 82.1 — Currency is shown, not edited.
 
               This was a free-text input for many phases, and nothing ever read
@@ -803,22 +840,40 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               stays in the settings record — it is the seam multi-currency
               grows from — and normalizeCurrency() in settingsData resolves
               whatever is stored, including a legacy "USD", to JOD. */}
-          <div className="ad-settings__readonly" style={{ marginBottom: 14 }}>
+          <div className="ad-settings__readonly">
             <span className="ad-settings__readonly-label">{t("admin.currency", "Currency")}</span>
             <span className="ad-settings__readonly-value">{SUPPORTED_CURRENCY}</span>
             <span className="ad-settings__readonly-note">
               {t("admin.currencyFixedHint", "JOD only in this version.")}
             </span>
           </div>
+          {/* §28 — still the restaurant's own timezone field, still editable,
+              still resolved through the existing fallback. Only its column
+              changed. */}
           <Input label={t("admin.timeZone", "Time Zone")} value={draft.timeZone}
             onChange={(e) => setField("timeZone", e.target.value)} />
+          </div>
         </Card>
           </div>
+        </section>
+
+        {/* Phase 107.0 §3/§29 — Alerts is its own group now. Both cards were
+            living inside Operations, which made that group carry four cards
+            and 1551px of page. Alerts are a distinct concern: who gets told
+            when something needs attention. They remain TWO separate cards,
+            because kitchen and front-of-house are tuned separately. */}
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("admin.groupAlerts", "Alerts")}</h2>
+            <p className="ad-settings__group-hint">{t("admin.groupAlertsHint", "Sounds that tell your team something needs attention.")}</p>
+          </header>
           <div className="ad-settings__row ad-settings__row--pair">
         {/* ── Kitchen Alerts (Phase 27) ────────────────────────────────────
-            Self-contained: it writes to its own storage key the moment a
-            control changes, so it is intentionally NOT wired to the Save
-            button below (which commits the general-settings draft only). */}
+            Writes to its own storage key, but commits through THIS page's
+            Save along with everything else (Phase 96.2). The comment that
+            used to sit here still said it was not wired to Save; that stopped
+            being true two phases ago and is corrected rather than carried
+            forward. */}
         <KitchenAlertsCard
           value={alertDraft}
           conflict={soundConflict}
@@ -851,10 +906,18 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <h2 className="ad-settings__group-title">{t("admin.groupBranding", "Branding")}</h2>
             <p className="ad-settings__group-hint">{t("admin.groupBrandingHint", "How your restaurant looks to guests.")}</p>
           </header>
-          <div className="ad-settings__row ad-settings__row--pair">
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.branding", "Branding")}</h3>
+          {/* Phase 107.0 §37–§39 — Branding and Theme were two cards in a
+              paired row: a short identity strip stretched to match a card
+              carrying appearance, two colours, two fonts, a preview and a
+              reset. The equal-height rule then padded the short one out with
+              dead space. One card now, reading as one workflow — identity,
+              then a divider, then everything that styles it.
 
+              §39 — the group heading says "Branding & Theme" and the card
+              carries no heading of its own, so the page no longer prints
+              "Branding" directly above "Branding". */}
+          <div className="ad-settings__row">
+        <Card className="ad-settings__section">
           {/* Live preview — PRO·ORDER always appears together with the
               restaurant's own branding, never replaced by it. */}
           <div className="ad-brand-preview" data-preview-appearance={draftAppearance} style={{ "--preview-primary": draft.primaryColor, "--preview-accent": draft.accentColor }}>
@@ -868,10 +931,12 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           <p className="ad-settings__hint">
             {t("admin.brandLockupHint", "PRO·ORDER always appears alongside your restaurant's identity.")}
           </p>
-        </Card>
-        <Card className="ad-settings__section">
-          <h3 className="mm-section-title">{t("admin.theme", "Theme")}</h3>
-          <p className="ad-settings__hint" style={{ margin: "-6px 0 4px" }}>
+
+          {/* §38 — one hairline between identity and the controls that style
+              it. A divider, not a second card. */}
+          <div className="st-divider" role="presentation" />
+
+          <p className="ad-settings__hint" style={{ margin: "0 0 4px" }}>
             {t("admin.themeHint", "Applies to your customer menu and ordering screens only.")}
           </p>
 
@@ -981,6 +1046,8 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             </div>
           </div>
 
+          {/* §46 — quiet secondary, unchanged behaviour: it edits the theme
+              fields on the DRAFT only, and Save is still what applies it. */}
           <div className="th-actions">
             <Button variant="outline" size="sm" onClick={handleResetTheme} disabled={themeIsDefault}>
               {t("admin.resetToDefault", "Reset to Default")}
@@ -993,7 +1060,15 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           </div>
         </section>
 
+      {/* Phase 107.0 §5/§6 — the compact sticky bar. Same markup as before:
+          the status line and the Save button were already here and the dirty
+          state already drives them (§62). What changed is the CSS — it was a
+          72.5px floating card with a 20px radius and a 0 14px 40px shadow,
+          and it is a thin rule-topped bar now. Still position:sticky, so it
+          occupies its own space in flow and cannot cover page content (§9).
 
+          Still explicit-save: nothing on this page writes without this
+          button (§4). */}
       <div className="ad-settings__save-bar anim-rise">
         {/* §63/§81 — stated in words, not by colour alone. */}
         <span className={`ad-settings__dirty ${isDirty ? "" : "ad-settings__dirty--clean"}`} role="status">
