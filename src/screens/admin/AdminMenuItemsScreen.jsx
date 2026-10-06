@@ -1746,14 +1746,20 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} />
             <span>{t("admin.available", "Available")}</span>
           </label>
+          {/* Phase 108.3 — Popular sits before Featured, matching both the
+              approved row order and the badge priority the preview applies
+              (Popular outranks Featured). Swapped in the MARKUP rather than
+              with CSS order, so reading, tab and visual order stay the same
+              three things. Both remain independent flags; neither disables
+              the other and no meaning changes. */}
           <div className="mm-flags-row">
-            <label className="mm-toggle-row">
-              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
-              <span>{t("common.featured", "Featured")}</span>
-            </label>
             <label className="mm-toggle-row">
               <input type="checkbox" checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)} />
               <span>{t("common.popular", "Popular")}</span>
+            </label>
+            <label className="mm-toggle-row">
+              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+              <span>{t("common.featured", "Featured")}</span>
             </label>
           </div>
         </div>

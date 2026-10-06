@@ -9714,7 +9714,62 @@ button{font-family:var(--font-body)}
 /* §20/§23 — Visibility & Promotion stays a compact group, not a card inside
    a card. The checkbox behaviour and the existing primary/secondary split
    between Available and the two flags are unchanged (§21/§22). */
-.mm-toggles--visibility{padding:10px 12px}
+/* ── Phase 108.3 — Visibility & Promotion as one compact row ─────────────
+
+   Measured before: 94px over two lines — Available as a framed 42px row at
+   full width, then two bare 22px checkbox rows beneath it, all inside a
+   filled, bordered box. Three controls, three different weights, two lines.
+
+   The outer box goes (it was the nested box §11 warns about) and the three
+   controls become the frames themselves, on one grid row. .mm-flags-row is
+   display:contents so its two children become direct grid items — the same
+   device used for the bilingual option rows — which is why this needs no
+   wrapper change in the markup.
+
+   Logical properties and fr tracks throughout, so the row mirrors in Arabic
+   without a second rule (§13). */
+.modal--editor .mm-toggles--visibility{
+  display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px;
+  padding:0;background:none;border:none;border-radius:0}
+.modal--editor .mm-toggles--visibility .mm-flags-row{display:contents}
+
+/* All three share one control language and one height, so the row aligns and
+   every target stays comfortable (§4/§9). */
+.modal--editor .mm-toggles--visibility .mm-toggle-row{
+  display:flex;align-items:center;gap:9px;margin:0;
+  min-height:44px;padding:0 12px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface-2);
+  font-size:13px;
+  transition:border-color .15s var(--ease),background-color .15s var(--ease)}
+
+/* §3 — Available is the operational one: a wider track, a stronger border, a
+   step up in surface and a heavier label. Restrained on purpose — it is still
+   a setting, not a call to action. */
+.modal--editor .mm-toggles--visibility .mm-toggle-row--primary{
+  border-color:var(--border-strong);background:var(--surface-3)}
+.modal--editor .mm-toggles--visibility .mm-toggle-row--primary span{
+  font-weight:700;color:var(--text-1)}
+.modal--editor .mm-toggles--visibility .mm-flags-row .mm-toggle-row span{
+  font-weight:600;color:var(--text-2)}
+
+/* §3/§10 — the ON state is legible at a glance without replacing what the
+   checkbox itself says. :has() is already used elsewhere in this stylesheet,
+   so this introduces no new technique; the checkbox remains the control, the
+   state and the accessible truth, and the tint only reinforces it. */
+.modal--editor .mm-toggles--visibility .mm-toggle-row:has(input:checked){
+  border-color:var(--gold-line);background:var(--gold-soft)}
+.modal--editor .mm-toggles--visibility .mm-toggle-row--primary:has(input:checked){
+  border-color:var(--gold)}
+/* Focus has to reach the row, since the checkbox itself is small. */
+.modal--editor .mm-toggles--visibility .mm-toggle-row:focus-within{
+  outline:2px solid var(--gold);outline-offset:2px}
+
+/* §9 — the approved phone fallback: Available on its own line, the two
+   merchandising flags sharing the next. Nothing shrinks below a real target. */
+@media(max-width:560px){
+  .modal--editor .mm-toggles--visibility{grid-template-columns:1fr 1fr}
+  .modal--editor .mm-toggles--visibility .mm-toggle-row--primary{grid-column:1 / -1}
+}
 
 /* ── §37/§38 — the compact sticky footer ─────────────────────────────────
    Measured at 60px with a filled bar. The bar is a hairline and the page
