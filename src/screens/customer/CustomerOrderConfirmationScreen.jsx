@@ -173,6 +173,37 @@ const METHOD_LABEL_KEY = {
   online_payment: "payment.onlinePayment",
 };
 
+/* ── Phase 110.1 — the payment label, resolved safely ─────────────────────
+
+   THE BUG THIS FIXES: this screen read order.paymentMethod.id directly. A
+   stored order whose paymentMethod is missing or null threw
+   "Cannot read properties of undefined (reading id)" and took the whole
+   confirmation into the ErrorBoundary — the guest saw "Something went wrong"
+   instead of the order they had just placed. Reproduced in Phase 110.0.
+
+   The current UI cannot produce that shape (createOrder always writes a
+   complete paymentMethod), so this is defensive only: it protects orders
+   persisted before the field existed, hand-edited or corrupt local data, and
+   any future payload variation.
+
+   Same shape as the resolver Phase 101.0 added to Admin Live Orders and
+   Overview, so all three surfaces agree on how a payment label degrades:
+     1. a known id  -> the translated label (frozen label as its fallback)
+     2. otherwise    -> the frozen label stored on the order
+     3. otherwise    -> a neutral dash
+
+   ONE DELIBERATE DIFFERENCE from the Admin copy: Admin ends with
+   ONE DELIBERATE DIFFERENCE from the Admin copy: Admin ends by falling back
+   to the raw id, surfacing it to staff as a last resort.
+   This is a guest-facing screen and no customer surface shows internal ids,
+   so that step is dropped and an unlabelled method shows the dash instead. */
+function resolveMethodLabel(t, paymentMethod) {
+  const id = paymentMethod?.id;
+  const frozen = paymentMethod?.label;
+  if (id && METHOD_LABEL_KEY[id]) return t(METHOD_LABEL_KEY[id], frozen || id);
+  return frozen || "—";
+}
+
 /* ── Confirmed order view ──────────────────────────────────────────────────
    Phase 88 §1 — refined hierarchy.
 
@@ -216,10 +247,7 @@ function ConfirmationView({ order, onBackToMenu, onViewTracking }) {
     setTimeout(onViewTracking, 160);
   }
 
-  const paymentMethodLabel = t(
-    METHOD_LABEL_KEY[order.paymentMethod.id],
-    order.paymentMethod.label
-  );
+  const paymentMethodLabel = resolveMethodLabel(t, order.paymentMethod);
 
   /* §1 — "Estimated Time if available". Orders placed before Phase 26 carry
      no estimate and simply omit the row; nothing is invented. A canceled
