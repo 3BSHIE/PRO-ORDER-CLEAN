@@ -9909,3 +9909,51 @@ button{font-family:var(--font-body)}
   .modal--editor .mm-localized-row .lfield__row--ar{order:3;grid-column:1 / -1}
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 109.1 — THE TWO ALIGNMENTS THE FINAL AUDIT APPROVED
+
+   Phase 109.0 audited the whole Admin and found exactly two accidental
+   inconsistencies worth correcting. Both are corrected here and nothing else
+   is touched: the audit explicitly recorded nineteen INTENTIONAL differences
+   that must survive, so these rules are scoped as narrowly as the fix allows.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── A — management-row icon utilities align at 36x36 ────────────────────
+
+   Measured in 109.0: .mm-icon-btn rendered 32x32 on Menu and Categories but
+   36x36 on Tables. The sharper problem was internal, not cross-page — on Menu
+   and Categories those 32px icon buttons sit in the SAME action row as a 36px
+   labelled .mm-edit-btn, so two of the three management pages disagreed with
+   themselves. Tables was already internally consistent, which is why 36 is the
+   target rather than 32.
+
+   Scoped to the two row-action containers by name. The base .mm-icon-btn stays
+   32x32 for every other use, which is what keeps the Product Editor option
+   delete, the Table Access modal, confirmations and any other compact utility
+   exactly as the audit found them.
+
+   Box only. Icon size, stroke, colour, border, radius, background, hover,
+   press, focus and the danger treatment are all inherited unchanged — this is
+   an alignment, not a restyle. */
+.mm-item-row__actions .mm-icon-btn,
+.mm-cat-row__actions .mm-icon-btn{width:36px;height:36px}
+
+/* ── B — Settings form selects join the form-field radius family ─────────
+
+   Measured in 109.0: inside one Settings form, text inputs were 44.5px with a
+   14px radius, number and textarea likewise 14px — and select was a 999px
+   pill. Same form, same role, two different control families side by side.
+
+   Scoped to .ad-settings__section, which is used only by Restaurant Settings
+   and by the two alert cards it hosts. That covers all five Settings selects
+   (Default Language, New Order Sound, Canceled Order Sound, Staff Call Sound,
+   Heading Font, Body Font) and reaches nothing else — in particular the Menu
+   and Tables TOOLBAR filters keep their 999px pill, which 109.0 recorded as an
+   intentional, different control family, and the Product Editor keeps its own
+   selects untouched even though they share the .mm-select--full modifier.
+
+   Radius only. Height, width, padding, typography, the native arrow, focus,
+   disabled and error treatments are untouched. */
+.ad-settings__section .mm-select{border-radius:var(--r-md)}
+
