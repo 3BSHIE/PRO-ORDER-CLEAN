@@ -595,6 +595,30 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      the admin presses Save, so navigating away discards it. */
   function handleResetTheme() {
     setDraft((prev) => ({ ...prev, ...defaultThemeFields() }));
+
+    /* ── Phase 107.1 — release the local HEX text, not just the draft ──────
+
+       THE BUG THIS FIXES: the two colour fields do not read `draft` directly.
+       hexText() returns hexDraft[field] whenever it is non-null — that is what
+       lets a manager type "F24" one character at a time without the field
+       rewriting itself (Phase 94.1 §9). Resetting `draft` alone left that text
+       in place, so after Reset the fields still displayed the old colour, and
+       because handleSaveAll normalises from hexText() rather than from draft,
+       Save then wrote the pre-reset colour straight back.
+
+       Reproduced before fixing: Primary #ff0055 → Reset → Save stored
+       #ff0055, not the default. Fonts were unaffected because they have no
+       shadowing text state of their own.
+
+       `null` is this component's existing sentinel for "not being edited", and
+       handleSaveAll already clears hexDraft exactly this way after a
+       successful write — so this is the same release, at the other moment the
+       draft stops being the manager's in-progress text. The fields fall back
+       to the freshly-reset draft, the swatches and preview follow, and
+       hexErrors clears on its own because it is DERIVED from hexDraft rather
+       than stored. Nothing about live HEX editing changes: the next keystroke
+       takes ownership again. */
+    setHexDraft({ primaryColor: null, accentColor: null });
     setError(null);
   }
 
