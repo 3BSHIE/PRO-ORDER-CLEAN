@@ -9774,18 +9774,21 @@ button{font-family:var(--font-body)}
    rows in the DOM and §9 wants it between them visually. Tab order still
    follows the DOM (EN, AR, price), which keeps typing both names together
    natural; the visual centre is presentation only. */
+/* Phase 108.2 §4 — four columns, not five. The availability control left the
+   row, so its track goes with it rather than leaving a gap; the freed width
+   is absorbed by the two 1fr name fields. Price keeps its own width and its
+   central position between the languages. */
 .modal--editor .mm-option-row{
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto auto;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;
   align-items:center;gap:8px;
   padding:8px 0;border-bottom:1px solid var(--border)}
 .modal--editor .mm-options-list > .mm-option-row:last-child{border-bottom:none}
 .modal--editor .mm-option-row .lfield__row--en{order:1}
 .modal--editor .mm-option-row .mm-option-row__price{order:2}
 .modal--editor .mm-option-row .lfield__row--ar{order:3}
-.modal--editor .mm-option-row .mm-opt-avail{order:4}
-.modal--editor .mm-option-row .mm-icon-btn{order:5}
-.modal--editor .mm-option-row .mm-option-row__error{order:6;grid-column:1 / -1;margin:0}
+.modal--editor .mm-option-row .mm-icon-btn{order:4}
+.modal--editor .mm-option-row .mm-option-row__error{order:5;grid-column:1 / -1;margin:0}
 
 /* ── §10 — the price reads as a price, not a third name box ────────────── */
 /* The tint is mixed from --text-1 rather than taken from a surface token:
@@ -9800,31 +9803,19 @@ button{font-family:var(--font-body)}
   font-variant-numeric:tabular-nums;font-weight:600;
   direction:ltr;unicode-bidi:isolate}
 
-/* ── §18/§20 — the availability control, chip removed, button kept ─────── */
-.mm-opt-avail--icon{
-  width:32px;height:32px;flex:none;padding:0;
-  display:grid;place-items:center;border-radius:var(--r-sm);
-  background:transparent;border:1px solid var(--border);
-  font-size:0;letter-spacing:0}
-.mm-opt-avail--icon.mm-opt-avail--on{color:var(--text-3)}
-.mm-opt-avail--icon.mm-opt-avail--off{color:var(--preparing);border-color:rgba(245,158,75,.42)}
-
-/* ── §40 — the legacy add-ons note ─────────────────────────────────────── */
-.mm-legacy-note{
-  margin:0 0 12px;padding:9px 11px;border-radius:var(--r-sm);
-  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.28);
-  font-size:11.5px;line-height:1.55;color:var(--text-2)}
+/* Phase 108.2 — the per-option availability toggle and the legacy add-ons
+   note were removed from the markup, so their rules are removed with them
+   rather than left behind as dead CSS. */
 
 /* ── §29/§30 — phones stack, and the price keeps a usable size ─────────── */
 @media(max-width:700px){
   .mm-bi-row{grid-template-columns:minmax(0,1fr)}
   .modal--editor .mm-option-row{
-    grid-template-columns:minmax(0,1fr) auto auto}
+    grid-template-columns:minmax(0,1fr) auto}
   .modal--editor .mm-option-row .lfield__row--en{order:1;grid-column:1 / -1}
   .modal--editor .mm-option-row .mm-option-row__price{order:2;grid-column:1}
   .modal--editor .mm-option-row .lfield__row--ar{order:3;grid-column:1 / -1}
-  .modal--editor .mm-option-row .mm-opt-avail{order:4}
-  .modal--editor .mm-option-row .mm-icon-btn{order:5}
+  .modal--editor .mm-option-row .mm-icon-btn{order:4}
 }
 
 
@@ -9834,4 +9825,32 @@ button{font-family:var(--font-body)}
    so the tint survives in Light too. */
 :root[data-appearance="light"] .modal--editor .mm-option-row__price{
   background:color-mix(in srgb,var(--text-1) 7%,transparent)}
+
+
+
+/* ── Phase 108.2 §6/§7 — removable ingredients, one compact row ──────────
+   The field renders inline now, so its two language rows are grid items here.
+   Same density and same divider language as a choice-group option row, but
+   with no price track, no availability and no rules — an ingredient is just
+   a name the guest may take off. */
+.modal--editor .mm-localized-rows{display:flex;flex-direction:column;gap:0}
+.modal--editor .mm-localized-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;
+  align-items:center;gap:8px;
+  padding:6px 0;border-bottom:1px solid var(--border)}
+.modal--editor .mm-localized-rows > .mm-localized-row:last-child{border-bottom:none}
+.modal--editor .mm-localized-row .lfield__row--en{order:1}
+.modal--editor .mm-localized-row .lfield__row--ar{order:2}
+.modal--editor .mm-localized-row__remove{order:3}
+.modal--editor .mm-localized-row .field__hint{order:4;grid-column:1 / -1}
+
+/* §8 — phones stack the two languages; the remove control stays on the
+   first line beside the English field so it never needs its own row. */
+@media(max-width:700px){
+  .modal--editor .mm-localized-row{grid-template-columns:minmax(0,1fr) auto}
+  .modal--editor .mm-localized-row .lfield__row--en{order:1}
+  .modal--editor .mm-localized-row__remove{order:2}
+  .modal--editor .mm-localized-row .lfield__row--ar{order:3;grid-column:1 / -1}
+}
 

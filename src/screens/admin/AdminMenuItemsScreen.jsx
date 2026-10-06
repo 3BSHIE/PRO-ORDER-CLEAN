@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -1429,55 +1429,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                       {t("admin.optionPriceInvalid", "Enter a valid extra price of 0 or more.")}
                     </p>
                   )}
-                  {/* §9 — sold out is a state, not a deletion. The option keeps
-                      its name, price and id so it can come back tomorrow, and
-                      the guest still sees it listed rather than wondering where
-                      it went.
+                  {/* Phase 108.2 §2 — the per-option availability control is
+                      gone from the editor. It was the eye toggle Phase 108.1
+                      kept; the row is now name, price, name, delete and
+                      nothing else.
 
-                      Phase 108.1 §18/§20 — this was never a decorative badge:
-                      it is the ONLY control that marks an option sold out, a
-                      real button with aria-pressed and a handler that writes
-                      isAvailable. Deleting it would have deleted the feature,
-                      which §19 forbids. So the CHIP goes and the CONTROL
-                      stays, as the subtle icon toggle §20 prefers: same
-                      button, same aria-pressed, same handler, same stored
-                      field. The status stays readable in words through the
-                      accessible name below, so nothing depends on the icon
-                      or on colour alone (§48). */}
-                  <button
-                    type="button"
-                    className={`mm-opt-avail mm-opt-avail--icon ${
-                      opt.isAvailable === false ? "mm-opt-avail--off" : "mm-opt-avail--on"
-                    }`}
-                    title={
-                      opt.isAvailable === false
-                        ? t("choice.soldOut", "Sold out")
-                        : t("admin.available", "Available")
-                    }
-                    aria-pressed={opt.isAvailable !== false}
-                    aria-label={`${getLocalizedText(opt.name, language) || t("admin.optionName", "Option name")} — ${
-                      opt.isAvailable === false
-                        ? t("choice.soldOut", "Sold out")
-                        : t("admin.available", "Available")
-                    }`}
-                    onClick={() => {
-                      const next = !(opt.isAvailable !== false);
-                      handleUpdateOption(group.id, opt.id, { isAvailable: next });
-                      /* Marking enough options sold out can make the group's
-                         minimum unreachable, which blocks Save — so re-judge
-                         immediately rather than at submit. */
-                      revalidateGroup({
-                        ...group,
-                        options: group.options.map((o) =>
-                          o.id === opt.id ? { ...o, isAvailable: next } : o
-                        ),
-                      });
-                    }}
-                  >
-                    {opt.isAvailable === false
-                      ? <EyeOff size={15} strokeWidth={2.2} aria-hidden="true" />
-                      : <Eye size={15} strokeWidth={2.2} aria-hidden="true" />}
-                  </button>
+                      §3 — the DATA is untouched. `isAvailable` is still read
+                      from each option, still carried through the draft, still
+                      written back by Save, and still honoured by the guest
+                      sheet, by cart validation and by this group's own "not
+                      enough available options" rule. An option stored sold
+                      out stays sold out — there is simply no Admin control
+                      for it any more, and nothing replaces it. */}
                   <button
                     type="button"
                     className="mm-icon-btn mm-icon-btn--danger"
@@ -1537,11 +1500,18 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             untouched and still adds in the base language. */}
         <div className="mm-localized-rows">
           {removableIngredients.map((ing, idx) => (
+            /* Phase 108.2 §6/§7 — one compact row with both languages side by
+               side, matching the density of a choice-group option row.
+               `inline` dissolves the field wrapper so its two language rows
+               become grid items of this row and the remove button trails
+               them. No price, no availability, no required/min/max — an
+               ingredient is just a name the guest may take off. */
             <div className="mm-localized-row" key={`ingredient-${idx}`}>
               <LocalizedField
                 value={ing}
                 placeholder={t("admin.ingredientPlaceholder", "e.g. onions")}
                 compact
+                inline
                 onChange={(next) =>
                   setRemovableIngredients(
                     removableIngredients.map((entry, i) => (i === idx ? next : entry))
@@ -1802,26 +1772,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           </p>
         </div>
 
-        {/* §37/§40 — a product that still carries legacy paid add-ons says so,
-            by name. The data is preserved and still priced by the guest sheet;
-            it simply has no authoring surface here any more. Rendered only
-            when such data actually exists, so the normal product shows
-            nothing at all and no dead space is left behind (§3). */}
-        {paidAddOns.length > 0 && (
-          <p className="mm-legacy-note" role="note">
-            {t(
-              "admin.legacyAddOnsNote",
-              "This product still uses the older paid add-ons: {list}. They keep working for guests and are saved unchanged. New extras should be added as a choice group."
-            ).replace(
-              "{list}",
-              paidAddOns
-                .map((a) => getLocalizedText(a.name, language).trim())
-                .filter(Boolean)
-                .join(", ")
-            )}
-          </p>
-        )}
-
+        {/* Phase 108.2 §9/§10 — the legacy paid add-ons note is gone. Old
+            seeded products may still carry paidAddOns; that data is left
+            silently intact for backward compatibility and is still written
+            back unchanged by Save, but it is implementation history the
+            manager has no action to take on, so the editor no longer
+            mentions it. No migration, no conversion, no deletion. */}
         <div className="mm-cz-list">
           {editorSections.map((sec, index) => (
             <section className="mm-cz" key={sec.key}>
