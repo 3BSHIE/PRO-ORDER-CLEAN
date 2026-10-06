@@ -11,6 +11,7 @@ import { useMenuData } from "../../lib/useMenuData.js";
 /* Phase 103.0 §25 — the project's existing URL guard, already used by
    RestaurantIdentity and CustomerLoadingScreen. Reused, not reimplemented. */
 import { isSafeImageUrl } from "../../lib/safeImage.js";
+import { productMonogram } from "../customer/CustomerMenuScreen.jsx";
 import {
   createMenuItem,
   updateMenuItem,
@@ -628,6 +629,97 @@ function ProductThumb({ item, categories, language }) {
           {categories.find((c) => c.id === item.categoryId)?.emoji || "🍽️"}
         </span>
       )}
+    </div>
+  );
+}
+
+/* ── Live customer preview (Phase 108.0 §4–§11) ──────────────────────────
+
+   A compact read-only rendering of what this product will look like in the
+   guest menu, pinned to the top of the editor so it stays answerable while
+   the form scrolls past it.
+
+   It deliberately does NOT reimplement the guest card. The badge rule, the
+   image fallback and the price formatting are the customer ones:
+     - fmtPrice is the same formatter the guest card calls
+     - productMonogram is imported from CustomerMenuScreen, not copied
+     - the badge priority below mirrors CustomerMenuScreen exactly:
+         unavailable  -> "Out of Stock" and NO body badge
+         available + isPopular            -> Popular
+         available + !isPopular + featured -> Featured
+       i.e. at most one badge, Out of Stock > Popular > Featured (§10).
+
+   §8/§56 — informational only. The "+" is a <span aria-hidden>, not a
+   button: it cannot be clicked, focused or tabbed to, and it carries no
+   handler at all, so there is nothing to disable. The whole strip is inert.
+
+   §9 — every value comes from the live draft state passed in, so it tracks
+   edits with no save and no extra state of its own (§60). */
+function ProductLivePreview({
+  name, price, categoryId, imageUrl, isAvailable, isPopular, isFeatured,
+  categories, isNew,
+}) {
+  const { t, language } = useLanguage();
+  const [imgErr, setImgErr] = useState(false);
+
+  const url = imageUrl.trim();
+  const showImg = isSafeImageUrl(url) && !imgErr;
+  const displayName =
+    getLocalizedText(name, language).trim() ||
+    (isNew ? t("admin.newProduct", "New item") : t("admin.untitledProduct", "Untitled item"));
+  const category = categories.find((c) => c.id === categoryId);
+  const parsed = parseProductPrice(price);
+
+  return (
+    <div className="mm-preview">
+      <span className="mm-preview__label">
+        {t("admin.livePreview", "Customer preview")}
+      </span>
+
+      <div className="mm-preview__card">
+        <span className="mm-preview__media">
+          {showImg ? (
+            /* alt="" — the name is right beside it in real text. */
+            <img src={url} alt="" loading="lazy" onError={() => setImgErr(true)} />
+          ) : (
+            <span className="mm-preview__mono" aria-hidden="true">
+              {productMonogram(displayName)}
+            </span>
+          )}
+          {!isAvailable && (
+            <span className="mm-preview__oos">
+              {t("common.outOfStock", "Out of Stock")}
+            </span>
+          )}
+        </span>
+
+        <span className="mm-preview__info">
+          <span className="mm-preview__name">{displayName}</span>
+          <span className="mm-preview__cat">
+            {category ? `${category.emoji} ${getLocalizedText(category.name, language)}` : "—"}
+          </span>
+          <span className="mm-preview__foot">
+            <span className="mm-preview__price">
+              {parsed !== null ? fmtPrice(parsed) : "—"}
+            </span>
+            {/* §10 — one badge at most, customer priority. */}
+            {isAvailable && isPopular && (
+              <span className="badge badge--gold mm-preview__badge">
+                {t("customer.popular", "Popular")}
+              </span>
+            )}
+            {isAvailable && !isPopular && isFeatured && (
+              <span className="badge badge--featured mm-preview__badge">
+                {t("customer.featured", "Featured")}
+              </span>
+            )}
+          </span>
+        </span>
+
+        {/* §56 — decorative only: inert, unfocusable, out of the tab order
+            and hidden from assistive tech. */}
+        <span className="mm-preview__add" aria-hidden="true">+</span>
+      </div>
     </div>
   );
 }
@@ -1490,6 +1582,23 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       open
       onClose={handleRequestClose}
       title={isNew ? t("admin.addProduct", "Add Item") : t("admin.editProduct", "Edit Item")}
+      className="modal--editor"
+      /* Phase 108.0 §4/§12 — the preview rides with the title and the X in
+         one sticky block, so "which product am I in, and how will it look"
+         stays answerable from anywhere in a 1859px form. */
+      stickyHead={
+        <ProductLivePreview
+          name={name}
+          price={price}
+          categoryId={categoryId}
+          imageUrl={imageUrl}
+          isAvailable={isAvailable}
+          isPopular={isPopular}
+          isFeatured={isFeatured}
+          categories={categories}
+          isNew={isNew}
+        />
+      }
       footer={
         <>
           {/* §23 — both disabled while a save is in flight: leaving Cancel
@@ -1504,45 +1613,13 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       }
     >
       <div className="mm-editor">
-        {/* Phase 92 §12 — what this product currently is, not a second form.
-            The editor is a tall scrolling sheet and the name field scrolls
-            away; this keeps "which product am I in" answerable from anywhere
-            in it. Values come from the live draft, so it tracks edits.
-
-            A new product has nothing to summarise yet, so it gets the
-            new-product treatment instead of an overview full of blanks. */}
-        <div className="mm-overview">
-          <span className="mm-overview__thumb">
-            {imageUrl.trim() ? (
-              /* alt="" — the name is right beside it, so announcing the image
-                 too would just repeat it (§48). */
-              <img src={imageUrl.trim()} alt="" loading="lazy" />
-            ) : (
-              <span aria-hidden="true">
-                {categories.find((c) => c.id === categoryId)?.emoji || "🍽️"}
-              </span>
-            )}
-          </span>
-          <span className="mm-overview__info">
-            <p className="mm-overview__name">
-              {getLocalizedText(name, language).trim() || (isNew
-                ? t("admin.newProduct", "New item")
-                : t("admin.untitledProduct", "Untitled item"))}
-            </p>
-            <span className="mm-overview__meta">
-              <span className="mm-overview__price">
-                {parseProductPrice(price) !== null ? fmtPrice(parseProductPrice(price)) : "—"}
-              </span>
-              <span>·</span>
-              <span>{getLocalizedText(categories.find((c) => c.id === categoryId)?.name, language) || "—"}</span>
-              <span>·</span>
-              {/* Stated in words, never colour alone (§48). */}
-              <span className={isAvailable ? "mm-avail mm-avail--on" : "mm-avail mm-avail--off"}>
-                {isAvailable ? t("admin.available", "Available") : t("admin.unavailable", "Unavailable")}
-              </span>
-            </span>
-          </span>
-        </div>
+        {/* Phase 108.0 §14 — ONE Product Details section, in the order the
+            brief approves: what it is called, what it costs and where it
+            lives, what it says, then what it looks like. The old summary
+            strip that used to open this body is gone — it is the sticky
+            customer preview above now (§4), which does the same job without
+            scrolling away and without reading as another form card (§6). */}
+        <h4 className="mm-section-title mm-sec">{t("admin.productDetails", "Product Details")}</h4>
 
         <LocalizedField
           id="product-name"
@@ -1552,17 +1629,6 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           required
           onChange={(next) => { setName(next); if (error) setError(null); }}
         />
-
-        <label className="field mm-field">
-          <LocalizedField
-            id="product-description"
-            label={t("admin.productDescription", "Description")}
-            value={description}
-            multiline
-            rows={3}
-            onChange={(next) => setDescription(next)}
-          />
-        </label>
 
         <div className="mm-row-2">
           <Input
@@ -1599,6 +1665,22 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           </label>
         </div>
 
+        {/* §17 — descriptions after the commercial identity, still multiline
+            and still bilingual; LocalizedField and its validation are
+            untouched. */}
+        <label className="field mm-field">
+          <LocalizedField
+            id="product-description"
+            label={t("admin.productDescription", "Description")}
+            value={description}
+            multiline
+            rows={3}
+            onChange={(next) => setDescription(next)}
+          />
+        </label>
+
+        {/* §18 — the image comes last in Product Details: the preview above is
+            its feedback. URL only — no upload, no picker, no storage. */}
         <div className="mm-row-2">
           <Input
             label={t("admin.productImageUrl", "Image URL")}
@@ -1632,8 +1714,15 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             order the thing at all, Featured and Popular only decide where it
             is shown. Same control, same behaviour — availability just gets
             its own framed row and the two merchandising flags share a quieter
-            line underneath. */}
-        <div className="mm-toggles">
+            line underneath.
+
+            Phase 108.0 §20 — named as its own section now. The three controls,
+            their state and their meaning are unchanged; Popular and Featured
+            stay separate flags and neither disables the other (§22). */}
+        <h4 className="mm-section-title mm-sec">
+          {t("admin.visibilityPromotion", "Visibility & Promotion")}
+        </h4>
+        <div className="mm-toggles mm-toggles--visibility">
           <label className="mm-toggle-row mm-toggle-row--primary">
             <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} />
             <span>{t("admin.available", "Available")}</span>

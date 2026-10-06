@@ -957,7 +957,10 @@ function ItemCard({ item, onOpen }) {
  * units, so an Arabic or accented name cannot be cut in half, and it never
  * assumes a Latin alphabet.
  */
-function productMonogram(name) {
+/* Phase 108.0 §54 — exported, not moved. The Product Editor's live preview
+   needs the SAME fallback the guest card uses; duplicating it would be a
+   second definition free to drift. Nothing about this screen changes. */
+export function productMonogram(name) {
   const words = String(name ?? "")
     .trim()
     .split(/\s+/)

@@ -9593,3 +9593,149 @@ button{font-family:var(--font-body)}
    already exists and is left alone; recorded here only to note it was
    checked against §53 and deliberately not duplicated. */
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 108.0 — PRODUCT EDITOR
+
+   Appended after every existing .mm-* rule so each override wins on source
+   order at equal specificity. Everything is scoped to .modal--editor or to
+   .mm-preview, so the shared Modal, Input, Button and Card components and
+   every other dialog in the app are untouched (§50).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §42 — a workable width ──────────────────────────────────────────────
+   The editor rendered at 480px, which is why its "2-column" rows were two
+   very narrow columns and why descriptions could not sit side by side. 680px
+   from 640px up only; the phone sheet is untouched. */
+@media(min-width:640px){
+  .modal--editor{max-width:680px}
+}
+
+/* ── §12 — the sticky editor header ──────────────────────────────────────
+
+   .modal is itself the scroll container (overflow-y:auto), which is why
+   .modal__foot could already be position:sticky. The title, the X and the
+   live preview are wrapped in ONE sticky block by the shell, so they pin as
+   a unit — no second header, nothing lifted out of the dialog, and the X
+   stays reachable at every scroll position.
+
+   Sticky offsets resolve against the scrollport inset by its padding, so
+   top:0 pins this 10px (mobile) / 20px (desktop) below the dialog edge and
+   content would otherwise be visible sliding through that strip — hence the
+   ::before cover, the same device the Tables access modal uses. */
+.modal--editor .modal__sticky{
+  position:sticky;top:0;z-index:4;
+  margin-bottom:12px;padding-bottom:10px;
+  background:var(--surface-1);
+  border-bottom:1px solid var(--border)}
+.modal--editor .modal__sticky::before{
+  content:"";position:absolute;left:0;right:0;bottom:100%;height:26px;
+  background:var(--surface-1)}
+.modal--editor .modal__head{margin-bottom:10px}
+/* The X sits in a stacked context now; keeping it positioned means its focus
+   ring draws inside the dialog padding rather than being clipped (§59). */
+.modal--editor .modal__x{position:relative;z-index:1}
+
+/* ── §5/§6/§7 — the live customer preview ────────────────────────────────
+
+   §6 is the whole point of this treatment: it must NOT read as another form
+   card. Product Details and the choice groups are --surface-2 boxes with a
+   full border and a 14px radius, so the preview deliberately takes none of
+   that. A faint gold wash and a gold hairline put it in the brand/customer
+   family instead of the form family, and the small caps label says what it
+   is in words rather than relying on the tint. */
+.mm-preview{display:flex;flex-direction:column;gap:7px;min-width:0}
+.mm-preview__label{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3)}
+.mm-preview__card{
+  display:flex;align-items:center;gap:12px;min-width:0;
+  padding:10px 12px;border-radius:var(--r-md);
+  background:var(--gold-soft);
+  border:1px solid var(--gold-line)}
+
+/* §7/§11 — image with the guest card's own monogram fallback. */
+.mm-preview__media{
+  position:relative;flex:none;width:52px;height:52px;
+  border-radius:var(--r-sm);overflow:hidden;
+  background:var(--surface-2);border:1px solid var(--border);
+  display:grid;place-items:center}
+.mm-preview__media img{width:100%;height:100%;object-fit:cover;display:block}
+.mm-preview__mono{
+  font-family:var(--font-display);font-size:16px;font-weight:700;
+  color:var(--text-3);letter-spacing:.02em}
+/* §10 — Out of Stock is the overlay, exactly as on the guest card, and it is
+   the ONLY badge an unavailable product shows. */
+.mm-preview__oos{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  padding:2px;background:rgba(10,10,11,.72);
+  font-size:8.5px;font-weight:700;letter-spacing:.04em;line-height:1.15;
+  text-transform:uppercase;color:#fff}
+
+.mm-preview__info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.mm-preview__name{
+  font-size:14px;font-weight:700;color:var(--text-1);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-preview__cat{
+  font-size:11.5px;color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-preview__foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.mm-preview__price{
+  font-size:13px;font-weight:700;color:var(--gold-ink);
+  direction:ltr;unicode-bidi:isolate}
+.mm-preview__badge{flex:none}
+
+/* §8/§56 — the guest card's "+" as context only. A span with aria-hidden:
+   no handler, no tabindex, no role, and pointer-events:none so it cannot even
+   take a click. Styled to match the real control so the preview is honest
+   about what the guest sees. */
+.mm-preview__add{
+  flex:none;width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;pointer-events:none;user-select:none;
+  background:var(--gold);color:#1a1205;
+  font-size:17px;font-weight:700;line-height:1}
+
+/* §13 — keep the sticky region restrained. The preview is a strip, not a
+   reproduction of a full guest card, so the form below keeps the viewport. */
+@media(max-width:560px){
+  .mm-preview__media{width:44px;height:44px}
+  .mm-preview__name{font-size:13.5px}
+  .mm-preview__add{width:28px;height:28px;font-size:16px}
+}
+
+/* ── §19/§20 — section headings inside the editor ────────────────────────
+   Typography and spacing carry the structure; no extra card layer (§19). */
+.mm-editor .mm-sec{
+  margin:4px 0 2px;font-size:13px;font-weight:700;
+  color:var(--text-2);letter-spacing:.02em}
+.mm-editor .mm-sec:not(:first-child){
+  margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* §20/§23 — Visibility & Promotion stays a compact group, not a card inside
+   a card. The checkbox behaviour and the existing primary/secondary split
+   between Available and the two flags are unchanged (§21/§22). */
+.mm-toggles--visibility{padding:10px 12px}
+
+/* ── §37/§38 — the compact sticky footer ─────────────────────────────────
+   Measured at 60px with a filled bar. The bar is a hairline and the page
+   surface now; Save stays the gold primary and Cancel stays ghost (§39/§40). */
+.modal--editor .modal__foot{
+  margin-top:14px;padding:10px 0 2px;
+  border-top:1px solid var(--border)}
+
+/* §41 — clearance. The footer is sticky, so it keeps its place in flow and
+   cannot cover the last control at full scroll; this adds breathing room so
+   the final field is not flush against the bar mid-scroll either. */
+.modal--editor .modal__body{padding-bottom:10px}
+
+/* ── §36/§58 — one scroll, no inner clamps ───────────────────────────────
+   Recorded explicitly: nothing in this block sets max-height or overflow on
+   .mm-cz, .mm-options-list or .mm-option-row, so long customization groups
+   grow and the dialog's single scroll handles them. */
+
+/* ── §29/§31 — option rows read as rows ──────────────────────────────────
+   Scoped to the editor so nothing else that uses .mm-option-row changes. */
+.modal--editor .mm-option-row{align-items:center}
+.modal--editor .mm-option-row .mm-option-row__price{
+  direction:ltr;unicode-bidi:isolate}
+
