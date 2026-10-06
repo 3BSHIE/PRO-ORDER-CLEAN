@@ -18,6 +18,7 @@ import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
    existing pluraliser, already used by the Customer menu, so this reuses a
    helper and two existing keys rather than adding anything (§32). */
 import { formatItemCount } from "../../i18n/counts.js";
+import { useSettingsData } from "../../lib/useSettingsData.js";
 
 const STATUS_LABEL = {
   received: "Received", preparing: "Preparing", ready: "Ready",
@@ -55,7 +56,10 @@ const FILTER_COUNT_TABS = ["active", "unpaid"];
 /* The one place a filter key becomes a question about an order. "all" is
    absent on purpose — it is the no-op default in the selector below. */
 const FILTER_PREDICATE = {
-  today:  (o) => isSameDay(o.createdAt),
+  /* Phase 110.2 — takes the restaurant timezone so this tab means the same
+     "today" the Overview does. Every other predicate ignores the second
+     argument, which is why they are left untouched. */
+  today:  (o, timeZone) => isSameDay(o.createdAt, new Date(), timeZone),
   active: (o) => ACTIVE_STATUSES.includes(o.status),
   /* Money still owed. Canceled orders are excluded for the same reason
      summarizeRevenue excludes them: nobody is going to collect on them, so
@@ -161,6 +165,9 @@ const CANCELABLE_STATUSES = ["received", "preparing", "ready"];
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, onNavigate, initialFilter }) {
+  /* Phase 110.2 — only for the restaurant timezone the "Today" tab needs,
+     so its day matches the Overview's. Nothing else here reads settings. */
+  const { settings } = useSettingsData(restaurant.slug);
   const [allOrders, setAllOrders] = useState(() => getCustomerOrders());
   /* Phase 53 — a Dashboard status card can open this screen already filtered.
      Only an initial value: the tabs stay fully in charge afterwards, and the
@@ -277,10 +284,10 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
       restaurantOrders
         .filter((o) => {
           const predicate = FILTER_PREDICATE[activeFilter];
-          return predicate ? predicate(o) : true; // "all" and any unknown key
+          return predicate ? predicate(o, settings.timeZone) : true; // "all" and any unknown key
         })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), // newest first
-    [restaurantOrders, activeFilter]
+    [restaurantOrders, activeFilter, settings.timeZone]
   );
 
   const activeFilterTab = FILTER_TABS.find((tab) => tab.key === activeFilter);

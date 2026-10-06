@@ -7,6 +7,7 @@ import AdminLayout from "./AdminLayout.jsx";
 import { useFeedback } from "../../lib/useFeedback.js";
 import { summarizeFeedback } from "../../lib/feedbackData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatReviewCount } from "../../i18n/counts.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -131,7 +132,10 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
             {t("feedback.averageRating", "Average rating")}
           </span>
           <span className="fb-summary__count">
-            {t("feedback.basedOnReviews", "{n} reviews").replace("{n}", summary.count)}
+            {/* Phase 110.2 — one review used to read "1 reviews". The shared
+                count helper handles the English pair and the Arabic fixed
+                noun phrase; nothing about the summary layout changes. */}
+            {formatReviewCount(t, summary.count)}
           </span>
         </div>
 

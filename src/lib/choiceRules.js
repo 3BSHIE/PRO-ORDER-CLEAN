@@ -331,7 +331,9 @@ export function formatGroupError(group, issue, t) {
   const { kind, min, max } = describeGroupRule(group);
 
   if (issue === CHOICE_ISSUE.ABOVE_MAX) {
-    return t("choice.errorAtMost", "Choose no more than {n} options").replace("{n}", max);
+    return max === 1
+      ? t("choice.errorAtMostOne", "Choose no more than 1 option")
+      : t("choice.errorAtMost", "Choose no more than {n} options").replace("{n}", max);
   }
 
   /* BELOW_MIN — what the group still needs. */
@@ -341,9 +343,17 @@ export function formatGroupError(group, issue, t) {
     case "exactly":
       return t("choice.errorExactly", "Choose exactly {n} options").replace("{n}", min);
     case "range":
-      return t("choice.errorAtLeast", "Choose at least {n} options").replace("{n}", min);
-    default:
-      return t("choice.errorAtLeast", "Choose at least {n} options").replace("{n}", Math.max(1, min));
+    default: {
+      /* Phase 110.2 — "range" starts at min 1 (min === max is "exactly" and
+         min 0 is "upTo"), so this branch really can be asked for 1 and used
+         to read "Choose at least 1 options". The two branches only ever
+         differed by the Math.max floor, which is what n is clamped to here
+         before the singular/plural choice is made. */
+      const n = Math.max(1, min);
+      return n === 1
+        ? t("choice.errorAtLeastOne", "Choose at least 1 option")
+        : t("choice.errorAtLeast", "Choose at least {n} options").replace("{n}", n);
+    }
   }
 }
 

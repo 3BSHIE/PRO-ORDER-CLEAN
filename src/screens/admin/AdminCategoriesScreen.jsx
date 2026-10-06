@@ -25,6 +25,7 @@ import {
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { getCategoryVisibilityState, formatSchedule } from "../../lib/categoryVisibility.js";
+import { formatItemCount } from "../../i18n/counts.js";
 
 /* Phase 28 — the live customer-facing verdict for one category, with the
    reason it is hidden. Purely informational; Admin management always lists
@@ -240,7 +241,12 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
               <div className="mm-cat-row__info">
                 <p className="mm-cat-row__name">{getLocalizedText(cat.name, language)}</p>
                 <p className="mm-cat-row__meta">
-                  {itemCountFor(cat.id)} {t("orders.items", "Items")}
+                  {/* Phase 110.2 — this printed a bare number beside a bare
+                      noun, which Arabic rendered as "3 العناصر" ("3 the-items")
+                      and English as "1 Items" for a single item. The shared
+                      helper already phrases this correctly in both languages
+                      and is what the customer surfaces use. */}
+                  {formatItemCount(t, itemCountFor(cat.id))}
                   {formatSchedule(cat) && (
                     <>
                       {" · "}

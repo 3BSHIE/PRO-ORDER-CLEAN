@@ -208,7 +208,13 @@ function StaffCallCard({ call, isResolving, onResolve }) {
           <span className="sc-card__elapsed">
             {isOpen
               ? elapsed
-              : `${t("staff.statusResolved", "Resolved")} ${elapsed}`}
+              /* Phase 110.2 — this line used to be composed from the BADGE
+                 string plus the elapsed time. In English that reads fine
+                 ("Recently resolved / RESOLVED / Resolved just now"), but in
+                 Arabic all three slots rendered the identical phrase. The
+                 time line now has its own key so each language can phrase it
+                 independently; English is unchanged. */
+              : t("staff.resolvedElapsed", "Resolved {time}").replace("{time}", elapsed)}
           </span>
         </div>
       </div>

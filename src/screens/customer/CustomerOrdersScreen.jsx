@@ -11,6 +11,7 @@ import PrepTimeEstimate   from "./components/PrepTimeEstimate.jsx";
 import StarRating         from "../../components/ui/StarRating.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import { getIdentityKey, orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
@@ -88,6 +89,14 @@ export default function CustomerOrdersScreen({
   onBackToAccess,
   onTrackOrder,
 }) {
+  /* Phase 110.2 — My Orders opens at the newest order, not at the footer.
+     Measured at 320x760 with six orders: the menu sits at scrollY 2739,
+     tapping My Orders mounted this screen and the document kept the value,
+     which clamped to 984 — this list's maximum. The heading and the newest
+     order were both above the viewport. Phase 97.3's hook, applied to this
+     screen for the same reason it was applied to the cart. */
+  useScrollToTopOnEnter();
+
   /* Phase 93.1 — the session is read FIRST and handed to the resolver, so an
      already-established guest is recognised before the URL's token is judged.
      resolveCustomerAccess falls back to resolveTableAccess for everyone

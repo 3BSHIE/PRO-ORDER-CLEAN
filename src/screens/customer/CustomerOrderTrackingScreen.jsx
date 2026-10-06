@@ -14,6 +14,7 @@ import OrderTimer         from "./components/OrderTimer.jsx";
 import OrderDetailsPanel  from "./components/OrderDetailsPanel.jsx";
 import DevStatusPreview   from "./components/DevStatusPreview.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useMenuData } from "../../lib/useMenuData.js";
@@ -124,6 +125,14 @@ export default function CustomerOrderTrackingScreen({
   onBackToMenu,
   onBackToAccess,
 }) {
+  /* Phase 110.2 — tracking opens at the status, not below it.
+     Measured at 320x760 with six orders: My Orders sits at scrollY 984,
+     tapping Track order mounted this screen and the document kept the
+     value, which clamped to 257 — this page's maximum. The guest landed
+     past the whole timeline they had just asked to see. Phase 97.3's hook,
+     applied here for the same reason. */
+  useScrollToTopOnEnter();
+
   /* Phase 93.1 — the session is read FIRST and handed to the resolver, so an
      already-established guest is recognised before the URL's token is judged.
      resolveCustomerAccess falls back to resolveTableAccess for everyone

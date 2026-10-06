@@ -173,7 +173,15 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
 
      Scope is unchanged and deliberately mixed, exactly as since Phase 18:
      the two "Today" cards are today-scoped, every status count is all-time. */
-  const ordersToday = useMemo(() => filterToday(restaurantOrders), [restaurantOrders]);
+  /* Phase 110.2 — scoped by the restaurant's trading day (04:00 boundary,
+     configured timezone falling back to Asia/Amman), not the device's
+     calendar date. This is the same definition the hourly chart below
+     already used and the one Kitchen uses for Recently Canceled, so every
+     figure on this page now agrees about which day it is describing. */
+  const ordersToday = useMemo(
+    () => filterToday(restaurantOrders, new Date(), settings.timeZone),
+    [restaurantOrders, settings.timeZone]
+  );
 
   /* Today-scoped — drives the Revenue Today and Orders Today cards and both
      drill-downs. */

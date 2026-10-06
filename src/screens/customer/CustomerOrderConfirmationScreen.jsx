@@ -9,6 +9,7 @@ import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import CanceledPaymentNotice from "./components/CanceledPaymentNotice.jsx";
 import { prefersReducedMotion } from "../../lib/motion.js";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import { getOrderById } from "../../lib/customerOrders.js";
 import { orderBelongsToSession } from "../../lib/customerIdentity.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
@@ -46,6 +47,16 @@ export default function CustomerOrderConfirmationScreen({
   onBackToAccess,
   onViewTracking,
 }) {
+  /* Phase 110.2 — the confirmation opens at the confirmation.
+     Measured at 320x480 with five cart lines: the cart sits at scrollY
+     1111 when the guest reaches the confirm button, and this screen then
+     opened at 273 — its maximum — so "Your order is confirmed", the order
+     number and the table were all above the viewport. The payment sheet's
+     scroll lock masked this on taller viewports by restoring a position
+     that happened to clamp to 0, which is what made it look fine at
+     320x760. Phase 97.3's hook, applied here for the same reason. */
+  useScrollToTopOnEnter();
+
   /* Phase 93.1 — the session is read FIRST and handed to the resolver, so an
      already-established guest is recognised before the URL's token is judged.
      resolveCustomerAccess falls back to resolveTableAccess for everyone

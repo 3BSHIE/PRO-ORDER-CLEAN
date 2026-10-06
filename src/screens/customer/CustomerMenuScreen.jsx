@@ -21,6 +21,7 @@ import { formatItemCount, formatResultCount } from "../../i18n/counts.js";
 import { resolveCustomerAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { getCustomerSession } from "../../lib/customerSession.js";
+import useScrollToTopOnEnter from "../../lib/useScrollToTopOnEnter.js";
 import {
   getCustomerCart, addCartItem,
   getCartTotal, getCartItemCount,
@@ -64,6 +65,18 @@ export default function CustomerMenuScreen({
   onViewCart,
   onViewOrders,
 }) {
+  /* Phase 110.2 — the menu now opens at the top of the menu.
+     Measured at 320x480 with the cart holding five lines: the cart sits at
+     scrollY 1111, tapping "Add more items" mounted this screen and the
+     document kept 1111, so the guest arrived in the middle of a category
+     with no idea which one. The position carried over is the CART's, not a
+     remembered menu position, so there is nothing to preserve by keeping
+     it. Mount is the only trigger: opening an item, searching, choosing a
+     category and switching language all keep this screen mounted, so none
+     of them moves the guest. Same hook and same reasoning as the cart in
+     Phase 97.3 — see useScrollToTopOnEnter for the measured cause. */
+  useScrollToTopOnEnter();
+
   /* Phase 93.1 — the session is read FIRST and handed to the resolver, so an
      already-established guest is recognised before the URL's token is judged.
      resolveCustomerAccess falls back to resolveTableAccess for everyone

@@ -27,7 +27,7 @@ export const translations = {
       /* Phase 74 §41–§43 — recovery-state copy. Deliberately free of
          "token", "slug" or "invalid access": these describe what the guest
          should do, not what the system failed to parse. */
-      tableUnavailableTitle: "This table isn’t available right now.",
+      tableUnavailableTitle: "This table isn't available right now.",
       qrNotOpenedTitle: "This access link is no longer valid.",
       /* Phase 90 §12 — a venue that cannot be resolved is NOT a bad QR code,
          and telling the guest to re-scan a code that was never the problem
@@ -57,6 +57,11 @@ export const translations = {
          operational screen. */
       decreaseQuantity: "Decrease quantity",
       increaseQuantity: "Increase quantity",
+      /* Phase 110.2 — QuantityStepper asks for this key when the stepper is at
+         its minimum and the decrease button becomes a remove button (cart rows).
+         The key was never defined, so the hard-coded English fallback was read
+         out in Arabic too. Defined here in both languages. */
+      removeItem: "Remove item",
       notes: "Notes",
       extrasLabel: "Extras",
       noteLabel: "Note",
@@ -841,7 +846,7 @@ export const translations = {
       onlinePaymentDesc: "Apple Pay, PayPal, credit/debit cards — coming soon.",
       onlinePaymentSoonHint: "Online payment will be available soon.",
       orderTotal: "Order total",
-      choosePaymentMethod: "Choose how you’d like to pay.",
+      choosePaymentMethod: "Choose how you'd like to pay.",
       selectHowToPay: "Select how you'd like to pay for this order.",
       placeOrder: "Place Order",
       /* Phase 34 — checkout submit states */
@@ -900,6 +905,7 @@ export const translations = {
       recentlyResolved: "Recently resolved",
       statusOpen: "Open",
       statusResolved: "Resolved",
+      resolvedElapsed: "Resolved {time}",
       resolve: "Resolve",
       callResolvedToast: "Staff call resolved",
       noOpenCalls: "No open staff calls.",
@@ -935,7 +941,13 @@ export const translations = {
       errorChooseOne: "Choose 1 option",
       errorExactly: "Choose exactly {n} options",
       errorAtLeast: "Choose at least {n} options",
+      /* Phase 110.2 — a required group with min 1 and max 3 is a "range",
+         so the at-least message could be asked to render n = 1 and read
+         "Choose at least 1 options". Same shape of fix the Kitchen
+         cancellation banner already uses: a dedicated singular key. */
+      errorAtLeastOne: "Choose at least 1 option",
       errorAtMost: "Choose no more than {n} options",
+      errorAtMostOne: "Choose no more than 1 option",
       chooseUpToN: "Choose up to {n}",
       chooseExactlyN: "Choose {n}",
       chooseRange: "Choose {min} to {max}",
@@ -1045,7 +1057,8 @@ export const translations = {
       adminSubtitle: "What guests said about their delivered orders.",
       totalFeedback: "Total Feedback",
       averageRating: "Average rating",
-      basedOnReviews: "{n} reviews",
+      reviewCountOne: "1 review",
+      reviewCountOther: "{n} reviews",
       avgFood: "Avg. Food",
       avgService: "Avg. Service",
       today: "Today",
@@ -1090,6 +1103,7 @@ export const translations = {
       platformTagline: "تقنية الطلب الرقمي للمطاعم",
       decreaseQuantity: "إنقاص الكمية",
       increaseQuantity: "زيادة الكمية",
+      removeItem: "إزالة العنصر",
       notes: "ملاحظات",
       extrasLabel: "إضافات",
       noteLabel: "ملاحظة",
@@ -1811,7 +1825,8 @@ export const translations = {
       openCalls: "الطلبات المفتوحة",
       recentlyResolved: "تمت المساعدة مؤخراً",
       statusOpen: "مفتوح",
-      statusResolved: "تمت المساعدة",
+      statusResolved: "مُنجَز",
+      resolvedElapsed: "اكتملت {time}",
       resolve: "تمت المساعدة",
       callResolvedToast: "تم إغلاق طلب الموظف",
       noOpenCalls: "لا توجد طلبات موظفين مفتوحة.",
@@ -1845,7 +1860,9 @@ export const translations = {
       errorChooseOne: "اختر خيارًا واحدًا",
       errorExactly: "اختر {n} خيارات بالضبط",
       errorAtLeast: "اختر {n} خيارات على الأقل",
+      errorAtLeastOne: "اختر خيارًا واحدًا على الأقل",
       errorAtMost: "اختر {n} خيارات كحد أقصى",
+      errorAtMostOne: "اختر خيارًا واحدًا كحد أقصى",
       chooseUpToN: "اختر حتى {n}",
       chooseExactlyN: "اختر {n}",
       chooseRange: "اختر من {min} إلى {max}",
@@ -1945,7 +1962,8 @@ export const translations = {
       adminSubtitle: "آراء الضيوف حول طلباتهم المُسلَّمة.",
       totalFeedback: "إجمالي التقييمات",
       averageRating: "متوسط التقييم",
-      basedOnReviews: "{n} تقييم",
+      reviewCountOne: "تقييم واحد",
+      reviewCountOther: "التقييمات: {n}",
       avgFood: "متوسط الطعام",
       avgService: "متوسط الخدمة",
       today: "اليوم",

@@ -2601,7 +2601,13 @@ button{font-family:var(--font-body)}
 .ad-brand-preview__logo{width:32px;height:32px;border-radius:8px;object-fit:cover;flex:none}
 .ad-brand-preview__name{
   font-family:var(--font-display);font-size:15px;font-weight:700;
-  color:var(--preview-primary,#d4a94e);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Phase 110.2 — the name takes the preview's INK, not the raw brand
+     colour. The live customer header uses --gold-ink, which the light
+     appearance derives (Phase 97.1); the preview kept the raw primary, so
+     in Light it showed #d4a94e on cream at 2.08:1 while the surface it
+     claims to sample showed the derived bronze. The fallbacks keep the raw
+     colour for any context that sets neither token. */
+  color:var(--preview-ink,var(--preview-primary,#d4a94e));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Customer Welcome screen — restaurant's own logo (if configured) sits
    beside its name; PRO·ORDER's full logo above is completely unaffected. */
@@ -8610,6 +8616,30 @@ button{font-family:var(--font-body)}
 :root[data-appearance="light"] .modal__overlay{
   background:rgba(38,32,20,.38)}
 
+/* Phase 110.2 — three more of exactly the same kind, found by measuring
+   every literal rgba(10,10,11,…) ground against the text it carries.
+   They sit on the item photo, so they keep their translucency and only
+   change which side of the palette they tint toward.
+
+     .item-card__oos-badge   dark ground + --canceled text. In light the
+                             token becomes rgb(181,32,32) for light grounds
+                             while the ground stayed near-black: 3.01:1 at
+                             9.5px. Measured 6.25:1 after.
+     .item-modal__oos-badge  the same badge inside the item sheet.
+     .item-modal__x          the close control: --text-1 (#232019) on a
+                             60% near-black disc, 1.22:1 — the X was not
+                             visible at all. Its hairline was white, which
+                             a light disc also swallows, so the border
+                             takes the light token with it. */
+:root[data-appearance="light"] .item-card__oos-badge,
+:root[data-appearance="light"] .item-modal__oos-badge{
+  background:color-mix(in srgb,var(--surface-1) 86%,transparent)}
+:root[data-appearance="light"] .item-modal__x{
+  background:color-mix(in srgb,var(--surface-1) 86%,transparent);
+  border-color:var(--border-strong)}
+:root[data-appearance="light"] .item-modal__x:hover{
+  background:color-mix(in srgb,var(--surface-1) 95%,transparent)}
+
 /* Inputs sit on cards, so they take the page tone to stay distinguishable
    from the card they are on — the inverse of the dark theme, where inputs are
    lighter than their card. */
@@ -8670,11 +8700,21 @@ button{font-family:var(--font-body)}
   --bg:#f2efe7;--surface-1:#fbf9f3;--surface-2:#ece8dd;--surface-3:#e2ddd0;
   --border:rgba(38,32,20,.14);--border-strong:rgba(38,32,20,.24);
   --text-1:#232019;--text-2:#57503f;--text-3:#665d4b;
+  /* Phase 110.2 — the token this sample was missing. Same 36%/#241a02 mix
+     the light root applies to --gold, so the previewed name is the colour
+     the customer header actually paints rather than the raw hex. Measured
+     on the default #d4a94e, against the sample card: 2.08:1 before,
+     7.59:1 after, and the resolved colour is byte-identical to the one the
+     customer header paints. */
+  --preview-ink:color-mix(in srgb,var(--preview-primary,#d4a94e) 36%,#241a02);
   background:var(--surface-1);color:var(--text-1)}
 .ad-brand-preview[data-preview-appearance="dark"]{
   --bg:#0a0a0b;--surface-1:#131315;--surface-2:#1b1b1e;--surface-3:#242428;
   --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.15);
   --text-1:#f4f0e6;--text-2:#a89f8a;--text-3:#968d76;
+  /* The dark root keeps --gold-ink as the raw gold, so the dark sample
+     shows the raw primary. Stated rather than inherited by fallback. */
+  --preview-ink:var(--preview-primary,#d4a94e);
   background:var(--surface-1);color:var(--text-1)}
 
 /* ═══════════════════════════════════════════════════════════════════════════

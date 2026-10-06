@@ -30,6 +30,7 @@
 
 import { PAYMENT_METHODS } from "../data/paymentMethods.js";
 import { getRestaurantClockParts } from "./categoryVisibility.js";
+import { isSameBusinessDay } from "./businessDay.js";
 
 /** Order statuses that mean "still in flight". Mirrors the kitchen board. */
 export const ACTIVE_STATUSES = ["received", "preparing", "ready"];
@@ -38,12 +39,36 @@ export const ACTIVE_STATUSES = ["received", "preparing", "ready"];
 export const ALL_STATUSES = ["received", "preparing", "ready", "delivered", "canceled"];
 
 /**
- * Same calendar day as `reference`, in the device's local time — identical
- * to the comparison the Overview has used since Phase 18.
+ * Does this moment fall in the restaurant's CURRENT trading day?
+ *
+ * ── Phase 110.2 — why this changed ───────────────────────────────────────
+ * This compared device-local calendar dates: getFullYear/getMonth/getDate on
+ * the browser's own clock. Two consequences, both wrong for a venue:
+ *
+ *   1. A laptop in another timezone reported a different "today" than the
+ *      restaurant was actually trading, so Orders Today and Revenue Today
+ *      could include or omit orders depending on where the manager sat.
+ *   2. Midnight split a live shift. A venue serving until 02:00 saw its
+ *      takings cut in half at 00:00 — the figures reset in the middle of
+ *      service, which is exactly when they are being watched.
+ *
+ * It also disagreed with the hourly chart in this very file:
+ * summarizeRevenueByHour already buckets by getOrderHourInZone, i.e. the
+ * RESTAURANT's clock. So one card could be built from two different days.
+ *
+ * The rule is not invented here. businessDay.js already defines it (Phase
+ * 96) and Kitchen's Recently Canceled already uses it: the trading day runs
+ * from 04:00 restaurant-local, with the configured timezone falling back to
+ * Asia/Amman. This simply applies the same definition to the Overview.
+ *
+ * `timeZone` is optional so existing callers keep working; without it the
+ * old device-local comparison is used, which is what any caller that has no
+ * restaurant context should get rather than a silent Asia/Amman assumption.
  */
-export function isSameDay(iso, reference = new Date()) {
+export function isSameDay(iso, reference = new Date(), timeZone) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return false;
+  if (timeZone) return isSameBusinessDay(timeZone, date, reference);
   return (
     date.getFullYear() === reference.getFullYear() &&
     date.getMonth() === reference.getMonth() &&
@@ -51,9 +76,12 @@ export function isSameDay(iso, reference = new Date()) {
   );
 }
 
-/** Today's slice of an order list. */
-export function filterToday(orders, reference = new Date()) {
-  return (orders || []).filter((o) => isSameDay(o.createdAt, reference));
+/**
+ * Today's slice of an order list, in the restaurant's business day when a
+ * timezone is supplied.
+ */
+export function filterToday(orders, reference = new Date(), timeZone) {
+  return (orders || []).filter((o) => isSameDay(o.createdAt, reference, timeZone));
 }
 
 /**

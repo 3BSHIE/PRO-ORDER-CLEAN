@@ -50,6 +50,27 @@ export function formatResultCount(t, n, query) {
   return template.replace("{n}", n).replace("{q}", query);
 }
 /**
+ * "1 review" / "12 reviews"  ·  "تقييم واحد" / "التقييمات: 12"
+ *
+ * Phase 110.2. The Feedback summary used a single "{n} reviews" string with a
+ * plain substitution, so one review read "1 reviews" in English. Arabic had
+ * the mirror problem: "{n} تقييم" is only correct for some values of n.
+ *
+ * Same sidestep as the three helpers above — English takes an ordinary
+ * singular/plural pair, Arabic puts the number after a fixed noun phrase so
+ * one string is grammatical for every n. Zero takes the plural form in both,
+ * which is correct for each ("0 reviews" / "التقييمات: 0").
+ *
+ * @param {(key:string, fallback?:string)=>string} t
+ * @param {number} n
+ */
+export function formatReviewCount(t, n) {
+  return n === 1
+    ? t("feedback.reviewCountOne", "1 review")
+    : t("feedback.reviewCountOther", "{n} reviews").replace("{n}", n);
+}
+
+/**
  * "24 tables" / "1 table"  ·  "الطاولات: 24" / "طاولة واحدة"
  * filtered: "3 of 24 tables"  ·  "3 من أصل 24 طاولة"
  *
