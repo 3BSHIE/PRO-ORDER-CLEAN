@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -1158,6 +1158,32 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
      because a guest should not see an empty heading, but a manager still has
      to be able to position a block before filling it. The bodies rendered
      below are the real (possibly empty) ones. */
+  /* ── Phase 108.1 §2/§3 — two customization concepts, not three ──────────
+
+     Paid add-ons and choice groups were two ways to author the same thing:
+     an extra the guest picks and pays for. A choice group already expresses
+     everything a paid add-on could (bilingual names, a price delta per
+     option, availability) AND adds the rules add-ons never had, so the
+     standalone add-ons editor was a second, weaker authoring path.
+
+     Passing an EMPTY add-ons array is the whole removal: buildCustomization-
+     Sections only emits an add-ons section when there are add-ons to show, so
+     the section simply stops being produced. Nothing is deleted.
+
+     §37/§38 — WHAT HAPPENS TO EXISTING DATA. paidAddOns is NOT an editor-only
+     concept: menuPricing.js prices it, cartValidation.js validates cart lines
+     against it, choiceRules.js reads it and ten seeded products carry real
+     add-ons. So the data is left exactly where it is. `paidAddOns` stays in
+     this component's state, stays in draftSignature, and is written back
+     unchanged by Save — a legacy product edited today keeps every add-on it
+     had, and the guest sheet keeps rendering and pricing them as before.
+
+     What is removed is only the ADMIN authoring surface, which is what §3
+     asks for. No conversion is attempted: rewriting add-ons into a choice
+     group would change which code path prices them for products that are
+     live, and §37 rules out irreversible assumptions. A manager who still
+     has legacy add-ons sees them named in a read-only notice below (§40), so
+     nothing is hidden, and new products author extras as choice groups. */
   const editorSections = useMemo(
     () =>
       buildCustomizationSections(
@@ -1167,7 +1193,7 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           choices,
           addOnsSortOrder,
         },
-        [{ id: "__section_placeholder__" }]
+        []
       ),
     [removalsSortOrder, choices, addOnsSortOrder]
   );
@@ -1280,13 +1306,17 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
 
           return (
           <Card key={group.id} className={`mm-group-card ${gErr.max || gErr.options ? "mm-group-card--invalid" : ""}`}>
-            <div className="mm-row-2">
+            {/* §7/§12 — the group name is the group's identity, so it gets a
+                row of its own with both languages side by side and a divider
+                beneath it separating identity from options. */}
+            <div className="mm-bi-row mm-bi-row--group">
               <LocalizedField
                 id={groupNameFieldId(group.id)}
                 label={t("admin.groupName", "Group name")}
                 value={group.name}
                 error={optionsErrorText}
                 compact
+                inline
                 onChange={(next) => {
                   handleUpdateChoiceGroup(group.id, { name: next });
                   revalidateGroup({ ...group, name: next });
@@ -1352,10 +1382,14 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                 const optPriceError = !!optionPriceErrors[optionErrorKey(group.id, opt.id)];
                 return (
                 <div className="mm-option-row" key={opt.id}>
+                  {/* §8/§9 — inline, so these two language rows become grid
+                      items of .mm-option-row and the price can be ordered
+                      BETWEEN them. */}
                   <LocalizedField
                     value={opt.name}
                     placeholder={t("admin.optionName", "Option name")}
                     compact
+                    inline
                     onChange={(next) => {
                       handleUpdateOption(group.id, opt.id, { name: next });
                       /* Naming a blank option is what turns an empty group
@@ -1398,13 +1432,28 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                   {/* §9 — sold out is a state, not a deletion. The option keeps
                       its name, price and id so it can come back tomorrow, and
                       the guest still sees it listed rather than wondering where
-                      it went. Text carries the state, colour only reinforces
-                      it (§39). */}
+                      it went.
+
+                      Phase 108.1 §18/§20 — this was never a decorative badge:
+                      it is the ONLY control that marks an option sold out, a
+                      real button with aria-pressed and a handler that writes
+                      isAvailable. Deleting it would have deleted the feature,
+                      which §19 forbids. So the CHIP goes and the CONTROL
+                      stays, as the subtle icon toggle §20 prefers: same
+                      button, same aria-pressed, same handler, same stored
+                      field. The status stays readable in words through the
+                      accessible name below, so nothing depends on the icon
+                      or on colour alone (§48). */}
                   <button
                     type="button"
-                    className={`mm-opt-avail ${
+                    className={`mm-opt-avail mm-opt-avail--icon ${
                       opt.isAvailable === false ? "mm-opt-avail--off" : "mm-opt-avail--on"
                     }`}
+                    title={
+                      opt.isAvailable === false
+                        ? t("choice.soldOut", "Sold out")
+                        : t("admin.available", "Available")
+                    }
                     aria-pressed={opt.isAvailable !== false}
                     aria-label={`${getLocalizedText(opt.name, language) || t("admin.optionName", "Option name")} — ${
                       opt.isAvailable === false
@@ -1426,8 +1475,8 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
                     }}
                   >
                     {opt.isAvailable === false
-                      ? t("choice.soldOut", "Sold out")
-                      : t("admin.available", "Available")}
+                      ? <EyeOff size={15} strokeWidth={2.2} aria-hidden="true" />
+                      : <Eye size={15} strokeWidth={2.2} aria-hidden="true" />}
                   </button>
                   <button
                     type="button"
@@ -1752,6 +1801,26 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
             {t("admin.customizationOrderHint", "Guests see these sections in this order.")}
           </p>
         </div>
+
+        {/* §37/§40 — a product that still carries legacy paid add-ons says so,
+            by name. The data is preserved and still priced by the guest sheet;
+            it simply has no authoring surface here any more. Rendered only
+            when such data actually exists, so the normal product shows
+            nothing at all and no dead space is left behind (§3). */}
+        {paidAddOns.length > 0 && (
+          <p className="mm-legacy-note" role="note">
+            {t(
+              "admin.legacyAddOnsNote",
+              "This product still uses the older paid add-ons: {list}. They keep working for guests and are saved unchanged. New extras should be added as a choice group."
+            ).replace(
+              "{list}",
+              paidAddOns
+                .map((a) => getLocalizedText(a.name, language).trim())
+                .filter(Boolean)
+                .join(", ")
+            )}
+          </p>
+        )}
 
         <div className="mm-cz-list">
           {editorSections.map((sec, index) => (

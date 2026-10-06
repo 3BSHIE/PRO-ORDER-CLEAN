@@ -56,6 +56,12 @@ export default function LocalizedField({
   rows = 3,
   placeholder = "",
   compact = false,
+  /* Phase 108.1 §7/§8 — `inline` makes this field render as display:contents
+     so its two language rows become direct items of the CALLER's grid. That
+     is what lets a choice-group name sit EN | AR on one line, and an option
+     row sit EN | price | AR with the price genuinely between the two
+     languages rather than after them. */
+  inline = false,
   id,
 }) {
   const { t } = useLanguage();
@@ -65,7 +71,7 @@ export default function LocalizedField({
   }
 
   return (
-    <div className={`lfield ${compact ? "lfield--compact" : ""} ${error ? "lfield--error" : ""}`}>
+    <div className={`lfield ${compact ? "lfield--compact" : ""} ${inline ? "lfield--inline" : ""} ${error ? "lfield--error" : ""}`}>
       {label && (
         <span className="field__label lfield__label">
           {label}
@@ -79,7 +85,14 @@ export default function LocalizedField({
            is short so the row stays one line on a phone. */
         const aria = `${label || ""} — ${LANGUAGE_NAME[code]}`.trim();
         return (
-          <div className="lfield__row" key={code}>
+          /* Phase 108.1 §5 — the row carries its own language class so the
+             stylesheet can give it that language's own direction. The marker
+             then lands on the side that language reads FROM: EN on the left
+             with the box to its right, ع on the right with the box to its
+             left. Setting direction explicitly per row is also what keeps
+             this stable when the whole Admin UI is Arabic (§31) — a logical
+             rule would flip with the page and undo the distinction. */
+          <div className={`lfield__row lfield__row--${code}`} key={code}>
             <label className="lfield__chip" htmlFor={inputId} title={LANGUAGE_NAME[code]}>
               {LANGUAGE_CHIP[code]}
             </label>

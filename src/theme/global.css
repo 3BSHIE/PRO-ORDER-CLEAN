@@ -9739,3 +9739,99 @@ button{font-family:var(--font-body)}
 .modal--editor .mm-option-row .mm-option-row__price{
   direction:ltr;unicode-bidi:isolate}
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 108.1 — CUSTOMIZATIONS + BILINGUAL DIRECTION
+   Scoped to .lfield / .mm-* inside the editor; shared Input, Button, Card and
+   every other screen are untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §5/§31/§32 — each language row reads from its own side ──────────────
+   The marker used to sit on the LEFT for both languages, so the row said
+   nothing about direction. Giving each row its OWN direction puts the chip
+   where that language starts: EN on the left with the box to its right, ع on
+   the right with the box to its left. Set explicitly rather than logically,
+   so an Arabic Admin UI cannot flip it back and destroy the distinction. */
+.lfield__row{direction:ltr}
+.lfield__row--ar{direction:rtl}
+/* text-align:start then resolves per row: left for EN, right for Arabic. */
+.lfield__input{text-align:start}
+
+/* ── §7/§8 — inline mode ────────────────────────────────────────────────
+   display:contents dissolves the wrapper so the two language rows become
+   direct items of the caller grid; the label, hint and error stay full-width
+   so they still read as belonging to the whole field. */
+.lfield--inline{display:contents}
+.lfield--inline > .lfield__label,
+.lfield--inline > .field__hint{grid-column:1 / -1}
+
+/* ── §7/§12/§16 — group identity row, then a divider, then options ────── */
+.mm-bi-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 12px;align-items:start}
+.mm-bi-row--group{padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:10px}
+
+/* ── §8/§9/§17 — the option row: EN | price | AR | avail | delete ───────
+   Grid + order, because the price input is a SIBLING of the two language
+   rows in the DOM and §9 wants it between them visually. Tab order still
+   follows the DOM (EN, AR, price), which keeps typing both names together
+   natural; the visual centre is presentation only. */
+.modal--editor .mm-option-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto auto;
+  align-items:center;gap:8px;
+  padding:8px 0;border-bottom:1px solid var(--border)}
+.modal--editor .mm-options-list > .mm-option-row:last-child{border-bottom:none}
+.modal--editor .mm-option-row .lfield__row--en{order:1}
+.modal--editor .mm-option-row .mm-option-row__price{order:2}
+.modal--editor .mm-option-row .lfield__row--ar{order:3}
+.modal--editor .mm-option-row .mm-opt-avail{order:4}
+.modal--editor .mm-option-row .mm-icon-btn{order:5}
+.modal--editor .mm-option-row .mm-option-row__error{order:6;grid-column:1 / -1;margin:0}
+
+/* ── §10 — the price reads as a price, not a third name box ────────────── */
+/* The tint is mixed from --text-1 rather than taken from a surface token:
+   --surface-3 happened to resolve to the SAME value as an input background in
+   the Light theme, so the field was distinguishable only by its dashed border.
+   5% of the text colour darkens it on paper and lightens it on charcoal, so it
+   separates from the name boxes in BOTH themes (§33). */
+.modal--editor .mm-option-row__price{
+  width:94px;flex:none;text-align:center;
+  background:color-mix(in srgb,var(--text-1) 7%,transparent);
+  border:1px dashed var(--border-strong);
+  font-variant-numeric:tabular-nums;font-weight:600;
+  direction:ltr;unicode-bidi:isolate}
+
+/* ── §18/§20 — the availability control, chip removed, button kept ─────── */
+.mm-opt-avail--icon{
+  width:32px;height:32px;flex:none;padding:0;
+  display:grid;place-items:center;border-radius:var(--r-sm);
+  background:transparent;border:1px solid var(--border);
+  font-size:0;letter-spacing:0}
+.mm-opt-avail--icon.mm-opt-avail--on{color:var(--text-3)}
+.mm-opt-avail--icon.mm-opt-avail--off{color:var(--preparing);border-color:rgba(245,158,75,.42)}
+
+/* ── §40 — the legacy add-ons note ─────────────────────────────────────── */
+.mm-legacy-note{
+  margin:0 0 12px;padding:9px 11px;border-radius:var(--r-sm);
+  background:var(--preparing-soft);border:1px solid rgba(245,158,75,.28);
+  font-size:11.5px;line-height:1.55;color:var(--text-2)}
+
+/* ── §29/§30 — phones stack, and the price keeps a usable size ─────────── */
+@media(max-width:700px){
+  .mm-bi-row{grid-template-columns:minmax(0,1fr)}
+  .modal--editor .mm-option-row{
+    grid-template-columns:minmax(0,1fr) auto auto}
+  .modal--editor .mm-option-row .lfield__row--en{order:1;grid-column:1 / -1}
+  .modal--editor .mm-option-row .mm-option-row__price{order:2;grid-column:1}
+  .modal--editor .mm-option-row .lfield__row--ar{order:3;grid-column:1 / -1}
+  .modal--editor .mm-option-row .mm-opt-avail{order:4}
+  .modal--editor .mm-option-row .mm-icon-btn{order:5}
+}
+
+
+/* The Light theme sets .input backgrounds with :root[data-appearance="light"]
+   .input — specificity (0,2,1), which outranks the rule above and put the
+   price box back on the same fill as the name boxes. Matched here at (0,3,1)
+   so the tint survives in Light too. */
+:root[data-appearance="light"] .modal--editor .mm-option-row__price{
+  background:color-mix(in srgb,var(--text-1) 7%,transparent)}
+
