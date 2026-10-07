@@ -573,6 +573,22 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             Nothing else about the header changes, and every other .anim-rise
             in this file is untouched (§19). */}
         <header className="menu-header anim-identity-in">
+          {/* Phase 110.3 — the page had seven h2s and no h1, so assistive
+              technology was handed six sibling sections with nothing above
+              them to say which page they belonged to.
+
+              Hidden rather than visible, and the visible "Menu" bar below is
+              NOT promoted, for one reason: that bar is the list’s label and
+              it becomes "3 results for …" the moment the guest searches. A
+              page title that changes as you type is not a page title. This
+              one always says what the page is.
+
+              .sr-only is the existing clip-rect utility, so it stays in the
+              accessibility tree and takes no space — no aria-hidden, no
+              display:none, nothing focusable. It sits above the branch that
+              swaps in the closed/unavailable notices, so the page keeps its
+              title in every state. */}
+          <h1 className="sr-only">{t("customer.menuWord", "Menu")}</h1>
           {/* Phase 45 — the restaurant is now the headline. It was an 11px
               uppercase eyebrow above a 26px greeting, which made the software's
               copy louder than the venue the guest is sitting in.

@@ -4,6 +4,7 @@ import Card from "../../../components/ui/Card.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import StarRating from "../../../components/ui/StarRating.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
+import { formatDateTime } from "../../../i18n/dateFormat.js";
 import { useOrderFeedback } from "../../../lib/useFeedback.js";
 import { createFeedback, MAX_COMMENT_LENGTH } from "../../../lib/feedbackData.js";
 import { orderBelongsToSession } from "../../../lib/customerIdentity.js";
@@ -31,7 +32,7 @@ import { orderBelongsToSession } from "../../../lib/customerIdentity.js";
  *   session — current customer session, for the ownership check
  */
 export default function OrderFeedback({ order, session }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const restaurantSlug = order?.restaurantSlug;
   const { feedback, refresh } = useOrderFeedback(restaurantSlug, order?.orderId);
 
@@ -104,7 +105,7 @@ export default function OrderFeedback({ order, session }) {
                 ? t("feedback.thankYou", "Thank you for your feedback.")
                 : t("feedback.alreadySubmitted", "Already submitted")}
             </h3>
-            <p className="fb-card__sub">{formatSubmittedAt(feedback.createdAt)}</p>
+            <p className="fb-card__sub">{formatDateTime(feedback.createdAt, language)}</p>
           </div>
         </div>
 
@@ -237,18 +238,4 @@ export default function OrderFeedback({ order, session }) {
       </Button>
     </Card>
   );
-}
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function formatSubmittedAt(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return "";
-  }
 }

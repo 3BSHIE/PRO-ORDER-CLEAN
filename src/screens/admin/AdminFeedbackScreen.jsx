@@ -8,6 +8,7 @@ import { useFeedback } from "../../lib/useFeedback.js";
 import { summarizeFeedback } from "../../lib/feedbackData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatReviewCount } from "../../i18n/counts.js";
+import { dateLocale, formatTimeOfDay } from "../../i18n/dateFormat.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -213,7 +214,7 @@ export default function AdminFeedbackScreen({ restaurant, session, onSignOut, on
 
 /* ── One feedback record ─────────────────────────────────────────────────── */
 function FeedbackRow({ entry }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   /* Trimmed once so a name of "" or "   " takes the no-name path (§17). */
   const customerName = entry.customerName?.trim();
 
@@ -326,29 +327,11 @@ function FeedbackRow({ entry }) {
           </>
         )}
         <span className="fb-row__ctx-dot">&middot;</span>
-        <span className="fb-row__time">{formatTimestamp(entry.createdAt)}</span>
+        <span className="fb-row__time">{formatTimeOfDay(entry.createdAt, language)}</span>
       </div>
     </Card>
   );
 }
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-/* Phase 94 §5 — TIME ONLY.
-   This used to render "8:42 PM, Sep 12" on every card. Under a date heading
-   that repeats the same date on every review beneath it, which is noise: the
-   heading already answers "which day", so the card only has to answer "when
-   that day". */
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 /* ── Phase 94 §4/§80 — date grouping ──────────────────────────────────────
    Groups by LOCAL calendar day, keyed on the local Y-M-D rather than on a
    slice of the ISO string: the stored timestamp is UTC, so slicing it would
@@ -395,8 +378,10 @@ function dayHeading(date, t, language) {
   try {
     /* Phase 94 §80 — the APP language, not the browser locale. Passing
        undefined localised the heading to whatever the device was set to, so
-       an Arabic interface still printed "Sep 8, 2026". */
-    return date.toLocaleDateString(language === "ar" ? "ar" : "en", { day: "numeric", month: "short", year: "numeric" });
+       an Arabic interface still printed "Sep 8, 2026". Phase 110.3 moved the
+       tag itself into dateFormat.js, which is now the only place that maps a
+       language to a locale. */
+    return date.toLocaleDateString(dateLocale(language), { day: "numeric", month: "short", year: "numeric" });
   } catch {
     return date.toISOString().slice(0, 10);
   }

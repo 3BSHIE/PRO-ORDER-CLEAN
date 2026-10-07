@@ -19,6 +19,7 @@ import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useOrderFeedback } from "../../lib/useFeedback.js";
 import { getCustomerOrders } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatDateTime } from "../../i18n/dateFormat.js";
 import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
 
@@ -288,7 +289,7 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
 
 /* ── Single order summary card ───────────────────────────────────────────── */
 function OrderCard({ order, onTrackOrder }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isCanceled = order.status === "canceled";
   const itemCount = order.items.reduce((sum, line) => sum + (line.quantity || 0), 0);
 
@@ -308,7 +309,7 @@ function OrderCard({ order, onTrackOrder }) {
       <div className="order-card__top">
         <div>
           <p className="order-card__id">{order.orderId}</p>
-          <p className="order-card__time">{formatTimestamp(order.createdAt)}</p>
+          <p className="order-card__time">{formatDateTime(order.createdAt, language)}</p>
         </div>
         <Badge tone={STATUS_BADGE_TONE[order.status] || "neutral"} dot>
           {t(`status.${order.status}`, STATUS_LABEL[order.status] || order.status)}
@@ -472,17 +473,3 @@ function EmptyOrdersView({ onBackToMenu }) {
 }
 
 /* ── Invalid QR view ─────────────────────────────────────────────────────── */
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}

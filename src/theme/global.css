@@ -7088,6 +7088,13 @@ button{font-family:var(--font-body)}
    OrderDetailsPanel). */
 .odetails__history{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
 .odetails__history-title{
+  /* Phase 110.3 — stated, not inherited. This was an h4, which no element
+     rule touches, so it picked up the body font from <body>. As an h3 it
+     matches `h1,h2,h3`, which would have swapped in the display font; the
+     other three properties that rule sets (weight, margin, letter-spacing)
+     were already overridden here. Measured identical before and after:
+     11px / 700 / 0.77px / DM Sans. */
+  font-family:var(--font-body);
   font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--text-3);margin:0 0 10px}
 .odetails__history-list{list-style:none;margin:0;padding:0;

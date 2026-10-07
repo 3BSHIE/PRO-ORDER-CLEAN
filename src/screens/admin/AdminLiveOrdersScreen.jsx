@@ -8,6 +8,7 @@ import Modal   from "../../components/ui/Modal.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import { getCustomerOrders, updateCustomerOrderStatus, updateCustomerOrderPaymentStatus } from "../../lib/customerOrders.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatDateTime } from "../../i18n/dateFormat.js";
 /* Phase 97.8 §8 — both definitions moved to the shared lib so Overview and
    this screen can never disagree about whether a ticket is late. */
 import { elapsedMinutes, isOrderDelayed as isDelayed } from "../../lib/operationalAttention.js";
@@ -637,7 +638,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
 
 /* ── One live order card (collapsed summary + expandable details) ───────── */
 function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isPaid = order.paymentStatus === "paid";
   const paymentLabel = isPaid
     ? t("payment.paid", "Paid")
@@ -749,7 +750,7 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
               </span>
             )}
           </span>
-          <span className="ad-live-card__time">{formatTimestamp(order.createdAt)}</span>
+          <span className="ad-live-card__time">{formatDateTime(order.createdAt, language)}</span>
           </span>
         </div>
 
@@ -1027,16 +1028,3 @@ function formatElapsed(t, mins) {
    critical, Phase 71) untouched: §11 asks for that logic to stay separate,
    and Admin only needs the one restrained amber step. */
 /* The rule itself now lives in lib/operationalAttention.js. */
-
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}

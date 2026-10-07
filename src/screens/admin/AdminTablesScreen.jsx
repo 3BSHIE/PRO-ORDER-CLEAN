@@ -19,6 +19,12 @@ import {
   regenerateNfcToken,
 } from "../../lib/tableData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatDateTime } from "../../i18n/dateFormat.js";
+
+/* The technical rows under a table preview pad the hour ("04:23", not
+   "4:23"). Phase 110.3 moved the locale into the shared helper and left
+   this shape exactly as it was, so the rendering is unchanged. */
+const TECH_STAMP = { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
 import { formatTableCount } from "../../i18n/counts.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 
@@ -97,7 +103,7 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
   /* Phase 69 — the printed stand carries the restaurant identity the guest
      sees: the settings name, logo and accent, not the static record. */
   const { settings } = useSettingsData(restaurant.slug);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   /* Phase 58 — view-only list controls. Held in component state and never
      persisted: a search string is a momentary intent, not a setting, and
@@ -800,11 +806,11 @@ export default function AdminTablesScreen({ restaurant, session, onSignOut, onNa
               )}
               <div className="tb-tech__row">
                 <span className="tb-tech__label">{t("admin.created", "Created")}</span>
-                <span className="tb-tech__value">{formatTimestamp(previewLive.createdAt)}</span>
+                <span className="tb-tech__value">{formatDateTime(previewLive.createdAt, language, TECH_STAMP)}</span>
               </div>
               <div className="tb-tech__row">
                 <span className="tb-tech__label">{t("admin.updatedLabel", "Updated")}</span>
-                <span className="tb-tech__value">{formatTimestamp(previewLive.updatedAt)}</span>
+                <span className="tb-tech__value">{formatDateTime(previewLive.updatedAt, language, TECH_STAMP)}</span>
               </div>
             </div>
           </details>
@@ -1093,14 +1099,4 @@ function TableEditorModal({ table, onSave, onClose }) {
       </label>
     </Modal>
   );
-}
-
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }

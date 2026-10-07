@@ -25,6 +25,7 @@ import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { resolveRestaurantDisplayName } from "../../lib/restaurantName.js";
 import CustomerFooter     from "./components/CustomerFooter.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatDateTime } from "../../i18n/dateFormat.js";
 import { fmtPrice } from "../../lib/format.js";
 
 /* Phase 88 §6 — one concise sentence for the real current status.
@@ -346,7 +347,7 @@ function TrackingShell({ orderId, onBackToMenu, restaurantSlug, table, session }
 
 /* ── Main tracking view ──────────────────────────────────────────────────── */
 function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isCanceled = order.status === "canceled";
   const statusLabel = t(`status.${order.status}`, null) || order.status;
   const statusMsg = TRACKING_MSG_KEY[order.status]
@@ -365,6 +366,15 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
        page load. No splash and no loader sit between the two screens; the
        order is already in hand when this renders. */
     <div className="track track--enter">
+      {/* Phase 110.3 — the page title. Tracking opened with a screen-reader
+          h2 ("Order details") and then jumped to an h4, so there was no
+          level 1 anywhere and a hole in the outline.
+
+          Hidden rather than visible: the visible identity block below is the
+          restaurant’s name, not the page’s, and the approved decision was
+          explicitly no new visible customer copy. The wording is the
+          existing orders.orderTracking string, already translated. */}
+      <h1 className="sr-only">{t("orders.orderTracking", "Order tracking")}</h1>
       {/* ── 1. compact restaurant / order context (§3) ──────────────────
           Everything identifying the order, in one block, once. The old
           screen spread the same four facts over four separate lines and
@@ -467,9 +477,15 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
       >
         {order.statusHistory?.length > 0 && (
           <div className="odetails__history">
-            <h4 className="odetails__history-title">
+            {/* Phase 110.3 — h3, not h4. This block is a child of
+                OrderDetailsPanel, whose heading is the sr-only h2 above it,
+                so h4 skipped a level for no structural reason. The class
+                carries every visual property, and the one the h1/h2/h3 rule
+                would otherwise have supplied — the display font — is now
+                stated on the class itself, so this renders identically. */}
+            <h3 className="odetails__history-title">
               {t("orders.orderUpdates", "Order updates")}
-            </h4>
+            </h3>
             <ul className="odetails__history-list">
               {order.statusHistory.map((entry, i) => (
                 <li key={i} className="odetails__history-item">
@@ -479,7 +495,7 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
                       ? t(STATUS_HISTORY_LABEL_KEY[entry.status], entry.label || entry.status)
                       : entry.label || entry.status}
                   </span>
-                  <span className="odetails__history-time">{formatTimestamp(entry.at)}</span>
+                  <span className="odetails__history-time">{formatDateTime(entry.at, language)}</span>
                 </li>
               ))}
             </ul>
@@ -556,7 +572,11 @@ function OrderNotFoundView({ onBackToMenu }) {
       <span className="confirm-missing__icon">
         <PackageSearch size={30} strokeWidth={1.7} />
       </span>
-      <h2 className="confirm-missing__title">{t("orders.orderNotFound", "Order not found")}</h2>
+      {/* Phase 110.3 — this branch renders instead of the tracking view, not
+          beside it, so its visible title is the page title. .confirm-missing__title
+          sets its own font, size, weight and margin, and h1 and h2 share the
+          same element rule, so nothing moves. */}
+      <h1 className="confirm-missing__title">{t("orders.orderNotFound", "Order not found")}</h1>
       <p className="confirm-missing__sub">
         {t("orders.orderNotFoundMsg", "We couldn't find this order. It may have been cleared, or the link may be incorrect.")}
       </p>
@@ -568,17 +588,3 @@ function OrderNotFoundView({ onBackToMenu }) {
 }
 
 /* ── Invalid QR view ─────────────────────────────────────────────────────── */
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}

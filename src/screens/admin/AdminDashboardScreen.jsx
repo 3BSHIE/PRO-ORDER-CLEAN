@@ -25,6 +25,7 @@ import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { buildAttentionItems } from "../../lib/operationalAttention.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import { formatDateTime } from "../../i18n/dateFormat.js";
 import { fmtPrice } from "../../lib/format.js";
 import {
   filterToday,
@@ -118,7 +119,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
   const [toastMessage, setToastMessage] = useState("");
   /* Which drill-down is open, by card key; null = none. */
   const [openDetail, setOpenDetail] = useState(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const refresh = useCallback(() => {
     setAllOrders(getCustomerOrders());
@@ -665,7 +666,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
                   </Badge>
                 </div>
                 <div className="ad-order__bottom">
-                  <span className="ad-order__time">{formatTimestamp(order.createdAt)}</span>
+                  <span className="ad-order__time">{formatDateTime(order.createdAt, language)}</span>
                   <span className="ad-order__payment">
                     {paymentMethodLabel} &middot; {paymentLabel}
                   </span>
@@ -684,18 +685,4 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       />
     </AdminLayout>
   );
-}
-
-/* ── Helpers ─────────────────────────────────────────────────────────────── */
-function formatTimestamp(iso) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
