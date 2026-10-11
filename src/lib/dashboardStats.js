@@ -30,7 +30,7 @@
 
 import { PAYMENT_METHODS } from "../data/paymentMethods.js";
 import { getRestaurantClockParts } from "./categoryVisibility.js";
-import { isSameBusinessDay } from "./businessDay.js";
+import { getBusinessDayKey, isSameBusinessDay } from "./businessDay.js";
 
 /** Order statuses that mean "still in flight". Mirrors the kitchen board. */
 export const ACTIVE_STATUSES = ["received", "preparing", "ready"];
@@ -353,4 +353,218 @@ export function revenueMethodShares(revenue) {
     ...method,
     share: collected > 0 ? (Number(method.amount) || 0) / collected : 0,
   }));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 111.0 — the selected-period analytics
+
+   Four more readers over an ALREADY-SCOPED list, written to the same rule
+   the three above follow: a canceled order contributes nothing to money or
+   to items sold. That is what lets every figure in Revenue Analytics —
+   headline, chart, payments, top items, peak times and the breakdown —
+   come from one filtered list and stay incapable of disagreeing.
+
+   None of these knows what a period IS. revenuePeriods.js decides which
+   orders are in scope; these only summarise whatever they are handed, which
+   is why DAY, WEEK and MONTH need no separate code paths here.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The best-selling products in a scoped list.
+ *
+ * ── WHAT A LINE CONTRIBUTES ─────────────────────────────────────────────
+ *   qty     line.quantity
+ *   revenue line.lineTotal — unitPrice × quantity, where unitPrice is the
+ *           base price plus every selected choice and paid add-on. That is
+ *           the product's own line arithmetic (customerCart.js), so an item
+ *           sold with extras is credited with what the guest actually paid
+ *           for it rather than with its menu price.
+ *
+ *   This is LINE revenue, so the five rows sum to item takings and not to
+ *   the section's Total Revenue: the service charge is an order-level
+ *   amount and belongs to no single dish. The column is labelled Revenue
+ *   against the items it describes, and nothing claims the two reconcile.
+ *
+ * ── IDENTITY ────────────────────────────────────────────────────────────
+ *   Grouped by itemId, the stable product id, so two orders of the same
+ *   dish with different customizations are one row. The displayed name is
+ *   the line's own resolved snapshot (Phase 97.7 §23) — the same string
+ *   Kitchen, Live Orders and the receipt show.
+ *
+ * ── ORDERING ────────────────────────────────────────────────────────────
+ *   Quantity first, as §15 asks. Ties break on revenue, then on name, so
+ *   the list is fully deterministic: two dishes that sold 12 each never
+ *   swap places between two four-second polls.
+ *
+ * @param {Array<object>} orders — already scoped
+ * @param {number} [limit]
+ * @returns {Array<{itemId:string, name:string, qty:number, revenue:number}>}
+ */
+export function summarizeTopItems(orders, limit = 5) {
+  const byItem = new Map();
+
+  for (const order of orders || []) {
+    if (order.status === "canceled") continue;
+    for (const line of order.items || []) {
+      const itemId = line?.itemId || line?.id;
+      if (!itemId) continue;
+      const qty = Number(line.quantity) || 0;
+      const revenue = Number(line.lineTotal) || 0;
+      const existing = byItem.get(itemId);
+      if (existing) {
+        existing.qty += qty;
+        existing.revenue += revenue;
+      } else {
+        byItem.set(itemId, {
+          itemId,
+          name: typeof line.name === "string" ? line.name : itemId,
+          qty,
+          revenue,
+        });
+      }
+    }
+  }
+
+  return [...byItem.values()]
+    .map((row) => ({ ...row, revenue: round3(row.revenue) }))
+    .filter((row) => row.qty > 0)
+    .sort((a, b) =>
+      b.qty - a.qty ||
+      b.revenue - a.revenue ||
+      a.name.localeCompare(b.name)
+    )
+    .slice(0, limit);
+}
+
+/**
+ * The busiest hours in a scoped list, by ORDER COUNT.
+ *
+ * Counting orders, not money: "when is the kitchen under pressure" is a
+ * different question from "when did we take the most", and the chart above
+ * already answers the second one. An hour of many small orders is the one
+ * that needs staff.
+ *
+ * Hours come from getOrderHourInZone — the restaurant's clock, never the
+ * viewer's — so this stays truthful for a manager checking in from abroad.
+ * An order whose timestamp cannot be placed is skipped rather than being
+ * booked into hour 0.
+ *
+ * Ties break on the earlier hour, so the list is deterministic.
+ *
+ * @param {Array<object>} orders — already scoped
+ * @param {string} timeZone
+ * @param {number} [limit]
+ * @returns {Array<{hour:number, orders:number}>}
+ */
+export function summarizePeakTimes(orders, timeZone, limit = 3) {
+  const counts = new Array(HOURS_IN_DAY).fill(0);
+
+  for (const order of orders || []) {
+    if (order.status === "canceled") continue;
+    const hour = getOrderHourInZone(order.createdAt, timeZone);
+    if (hour === null) continue;
+    counts[hour] += 1;
+  }
+
+  return counts
+    .map((count, hour) => ({ hour, orders: count }))
+    .filter((row) => row.orders > 0)
+    .sort((a, b) => b.orders - a.orders || a.hour - b.hour)
+    .slice(0, limit);
+}
+
+/**
+ * Revenue per business day, for the WEEK and MONTH charts.
+ *
+ * The day axis is supplied by the caller (revenuePeriods.listRangeKeys), not
+ * derived from the data, for the reason the hourly chart fixes 24 buckets: a
+ * quiet Tuesday is information, and an axis that grew and shrank with the
+ * first and last order would move the same bar between two refreshes.
+ *
+ * Shares summarizeRevenueByHour's guarantee — canceled excluded, everything
+ * else contributes its order total — so sum(buckets) === the headline total
+ * for the same list.
+ *
+ * @param {Array<object>} orders — already scoped
+ * @param {string} timeZone
+ * @param {Array<string>} dayKeys — business-day keys, in order
+ * @returns {{buckets:Array<{key:string,total:number,orders:number}>,
+ *            total:number, peak:number, peakKey:string|null, unplaced:number}}
+ */
+export function summarizeRevenueByDayKey(orders, timeZone, dayKeys) {
+  const index = new Map();
+  const buckets = (dayKeys || []).map((key) => {
+    const bucket = { key, total: 0, orders: 0 };
+    index.set(key, bucket);
+    return bucket;
+  });
+
+  let total = 0;
+  let unplaced = 0;
+
+  for (const order of orders || []) {
+    if (order.status === "canceled") continue;
+    const amount = Number(order.total) || 0;
+    total += amount;
+
+    const key = getBusinessDayKey(timeZone, order.createdAt);
+    const bucket = key ? index.get(key) : null;
+    if (!bucket) {
+      /* In practice unreachable: the caller filtered this list by the same
+         key. Reported rather than dropped, exactly as the hourly chart does,
+         so a chart can never quietly sum to less than its own headline. */
+      unplaced += amount;
+      continue;
+    }
+    bucket.total += amount;
+    bucket.orders += 1;
+  }
+
+  let peak = 0;
+  let peakKey = null;
+  for (const bucket of buckets) {
+    bucket.total = round3(bucket.total);
+    if (bucket.total > peak) {
+      peak = bucket.total;
+      peakKey = bucket.key;
+    }
+  }
+
+  return { buckets, total: round3(total), peak, peakKey, unplaced: round3(unplaced) };
+}
+
+/**
+ * Orders and revenue per status, for the breakdown's Order Breakdown.
+ *
+ * Statuses are ALL_STATUSES — the product's own list, in its own order. No
+ * status is invented and none is merged.
+ *
+ * Canceled carries `revenue: null`, not 0. Zero would be a claim that those
+ * orders earned nothing; null says they are not counted as revenue at all,
+ * which is the actual rule, and lets the row print a dash instead of a
+ * figure that invites the question "why is it zero".
+ *
+ * @param {Array<object>} orders — already scoped
+ * @returns {Array<{status:string, orders:number, revenue:number|null}>}
+ */
+export function summarizeStatusRevenue(orders) {
+  const rows = new Map(
+    ALL_STATUSES.map((status) => [status, { status, orders: 0, revenue: 0 }])
+  );
+
+  for (const order of orders || []) {
+    const row = rows.get(order.status);
+    if (!row) continue;
+    row.orders += 1;
+    if (order.status !== "canceled") row.revenue += Number(order.total) || 0;
+  }
+
+  return ALL_STATUSES.map((status) => {
+    const row = rows.get(status);
+    return {
+      status,
+      orders: row.orders,
+      revenue: status === "canceled" ? null : round3(row.revenue),
+    };
+  });
 }

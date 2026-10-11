@@ -31,7 +31,19 @@ import {
   filterToday,
   summarizeRevenue,
   summarizeOrderStatuses,
+  summarizeTopItems,
+  summarizePeakTimes,
+  summarizeStatusRevenue,
 } from "../../lib/dashboardStats.js";
+import {
+  currentAnchor,
+  normalizeAnchor,
+  shiftAnchor,
+  getPeriodRange,
+  isCurrentPeriod,
+  filterOrdersToPeriod,
+  formatPeriodLabel,
+} from "../../lib/revenuePeriods.js";
 
 const RECENT_ORDERS_LIMIT = 8;
 
@@ -188,6 +200,79 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      drill-downs. */
   const todayRevenue = useMemo(() => summarizeRevenue(ordersToday), [ordersToday]);
   const todayStatuses = useMemo(() => summarizeOrderStatuses(ordersToday), [ordersToday]);
+
+  /* ── Phase 111.0 — the Revenue Analytics lens ───────────────────────
+     Held here rather than inside the section because the Revenue Details
+     overlay must show the SAME period the section is showing (§25), and
+     two components reading one piece of state is the only arrangement
+     where they cannot disagree.
+
+     `periodAnchor` is null until the manager navigates, and null means
+     "follow the restaurant's current period". That is what keeps the
+     section live on today across midnight and the 04:00 rollover without
+     a timer, and it is why stepping forward onto the current period puts
+     it back to null rather than pinning a date that is about to age. */
+  const [periodType, setPeriodType] = useState("day");
+  const [periodAnchor, setPeriodAnchor] = useState(null);
+
+  const effectiveAnchor =
+    periodAnchor ?? currentAnchor(settings.timeZone, periodType);
+  const periodRange = useMemo(
+    () => getPeriodRange(effectiveAnchor, periodType),
+    [effectiveAnchor, periodType]
+  );
+
+  /* ONE filtered list, and everything the section and the overlay show is
+     read off it (§37). Nothing downstream re-filters, so no two figures
+     can end up describing different ranges. */
+  const periodOrders = useMemo(
+    () => filterOrdersToPeriod(restaurantOrders, settings.timeZone, periodRange),
+    [restaurantOrders, settings.timeZone, periodRange]
+  );
+  const periodRevenue = useMemo(() => summarizeRevenue(periodOrders), [periodOrders]);
+  const periodTopItems = useMemo(() => summarizeTopItems(periodOrders), [periodOrders]);
+  const periodPeakTimes = useMemo(
+    () => summarizePeakTimes(periodOrders, settings.timeZone),
+    [periodOrders, settings.timeZone]
+  );
+  const periodStatusRows = useMemo(
+    () => summarizeStatusRevenue(periodOrders),
+    [periodOrders]
+  );
+
+  const period = useMemo(
+    () => ({
+      type: periodType,
+      range: periodRange,
+      label: formatPeriodLabel(periodRange, language),
+      atCurrent: isCurrentPeriod(effectiveAnchor, periodType, settings.timeZone),
+    }),
+    [periodType, periodRange, language, effectiveAnchor, settings.timeZone]
+  );
+
+  /* Changing lens keeps the window the manager is looking at: a past day
+     widens into the week that contains it rather than jumping back to
+     now, which is what makes the two steppers feel like one card being
+     re-read. Following-current stays following-current. */
+  const handlePeriodType = useCallback((nextType) => {
+    setPeriodType(nextType);
+    setPeriodAnchor((current) =>
+      current === null ? null : normalizeAnchor(current, nextType)
+    );
+  }, []);
+
+  const handlePeriodStep = useCallback(
+    (delta) => {
+      const from = periodAnchor ?? currentAnchor(settings.timeZone, periodType);
+      const next = shiftAnchor(from, periodType, delta);
+      /* Landing back on the current period resumes live-follow instead of
+         pinning a date that stops being "today" in a few hours. */
+      setPeriodAnchor(
+        isCurrentPeriod(next, periodType, settings.timeZone) ? null : next
+      );
+    },
+    [periodAnchor, periodType, settings.timeZone]
+  );
 
   /* All-time — drives the five status cards and Active Orders, matching the
      pre-existing behaviour of those cards. */
@@ -540,9 +625,14 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           `ordersToday` is handed over alongside the summary so the chart and
           the total are built from one list rather than two filters. */}
       <RevenueAnalytics
-        revenue={todayRevenue}
-        orders={ordersToday}
+        revenue={periodRevenue}
+        orders={periodOrders}
+        topItems={periodTopItems}
+        peakTimes={periodPeakTimes}
         timeZone={settings.timeZone}
+        period={period}
+        onPeriodType={handlePeriodType}
+        onPeriodStep={handlePeriodStep}
         onOpenDetail={() => setOpenDetail("revenueToday")}
       />
 
@@ -615,7 +705,11 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
           updating as the 4s poll picks up new orders and payment changes. */}
       <DashboardDrillDown
         detailKey={openDetail}
-        revenue={todayRevenue}
+        revenue={periodRevenue}
+        topItems={periodTopItems}
+        peakTimes={periodPeakTimes}
+        statusRows={periodStatusRows}
+        periodLabel={period.label}
         onClose={() => setOpenDetail(null)}
         onNavigate={onNavigate}
       />

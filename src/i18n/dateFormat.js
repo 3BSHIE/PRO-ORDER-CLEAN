@@ -90,3 +90,39 @@ export function formatDateTime(value, language, options = DATE_TIME) {
 export function formatTimeOfDay(value, language) {
   return formatDateTime(value, language, { hour: "numeric", minute: "2-digit" });
 }
+
+/**
+ * One clock hour as the range it covers — "8 – 9 PM" / "8–9 م".
+ *
+ * Phase 111.0, for Peak Times. An hour bucket labelled "8 PM" is ambiguous
+ * about whether it means the hour starting or ending there; naming both ends
+ * removes the question.
+ *
+ * Built with Intl's own formatRange rather than two formatted hours joined by
+ * a dash, because that is what collapses "8 PM – 9 PM" to "8 – 9 PM" while
+ * still printing "11 PM – 12 AM" where the meridiem actually changes, and it
+ * gets the Arabic shape right without any string surgery.
+ *
+ * The dates are UTC-constructed and formatted in UTC: only the hour number
+ * matters here, and the caller has already resolved it on the restaurant's
+ * clock (getOrderHourInZone). Any other timeZone would shift it again.
+ *
+ * @param {number} hour — 0–23, already on the restaurant's clock
+ * @param {"en"|"ar"} language
+ * @returns {string}
+ */
+export function formatHourRange(hour, language) {
+  if (!Number.isFinite(hour)) return "";
+  const start = new Date(Date.UTC(2000, 0, 1, ((hour % 24) + 24) % 24));
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const options = { hour: "numeric", timeZone: "UTC" };
+  try {
+    const formatter = new Intl.DateTimeFormat(dateLocale(language), options);
+    if (typeof formatter.formatRange === "function") {
+      return formatter.formatRange(start, end);
+    }
+    return formatter.format(start) + " – " + formatter.format(end);
+  } catch {
+    return "";
+  }
+}

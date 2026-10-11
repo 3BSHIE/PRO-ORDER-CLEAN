@@ -6,26 +6,39 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import {
   summarizeRevenueByHour,
+  summarizeRevenueByDayKey,
   averageOrderValue,
   revenueMethodShares,
 } from "../../lib/dashboardStats.js";
+import { listRangeKeys, formatDayKeyLabel } from "../../lib/revenuePeriods.js";
+import { formatHourRange } from "../../i18n/dateFormat.js";
+import { PeriodTypeStepper, PeriodNavigator } from "./RevenuePeriodControls.jsx";
+import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   RevenueAnalytics — Phase 100.1, recomposed in Phase 100.2
+   RevenueAnalytics — Phase 100.1, recomposed in 100.2, given a lens in 111.0
 
-   Phase 100.2 is a VISUAL phase. Not one number, denominator, filter or
-   rounding rule changed: the same three helpers over the same today-scoped
-   order list produce the same figures as before. What changed is the
-   composition — five zones on their own sub-surfaces instead of four stacked
-   bands — plus a ring in place of the flat distribution line, a peak-aware
-   chart, and status mini-cards.
+   Phase 111.0 keeps the section exactly where it was: same card, same five
+   zones, same tokens, same typography, same responsive thresholds. What
+   changed is that it no longer only knows about today.
 
-   ── WHAT IS STILL DELIBERATELY ABSENT ────────────────────────────────────
-     • Week / Month selectors. The order store keeps no history.
-     • Trend arrows, "vs yesterday", growth percentages.
-     • An "Other" payment bucket. Method rows come from revenue.byMethod,
-       which lists a method when it is enabled OR has real records, so money
-       can never be hidden and nothing is invented to fill a third tile.
+   ── WHAT THE PERIOD IS, AND WHAT IT IS NOT ───────────────────────────────
+   Selecting Week or Month changes the RANGE, never the financial meaning.
+   Total Revenue is still every non-canceled order's total, Collected is
+   still the paid part of it, and Average Order Value is still that total
+   over the orders that produced it. The same summarizeRevenue() that has
+   always fed this section now receives a different slice of the same list.
+
+   Phase 100.2's note said week and month selectors were absent because "the
+   order store keeps no history". It does keep one — orders accumulate in
+   localStorage and are never pruned — so the honest reason was that nothing
+   had asked for the lens yet. A period with no orders now says so, which is
+   itself information, rather than being hidden behind a disabled control.
+
+   ── STILL DELIBERATELY ABSENT (§50) ──────────────────────────────────────
+     • "vs yesterday", growth percentages, trend arrows. Those are
+       comparisons, and comparisons belong to the future Reports work.
+     • An "Other" payment bucket, for the reason Phase 100.1 gave.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* Short forms for the compact surfaces; the full names do not fit. A method
@@ -76,11 +89,11 @@ function hourLabel(hour) {
  * Cash / Card distribution as a ring.
  *
  * ── WHY A RING, AND WHY SVG HERE BUT NOT FOR THE CHART ───────────────────
- *   The chart is 24 bars whose heights must stay truthful at any width, and
- *   CSS percentages do that with no viewBox to fight. A ring is one fixed
- *   square of artwork whose proportions never change, which is exactly the
- *   case SVG is good at: two stroke-dasharray arcs on one circle, no path
- *   maths, no library, and it scales cleanly to any size.
+ *   The chart is a set of bars whose heights must stay truthful at any
+ *   width, and CSS percentages do that with no viewBox to fight. A ring is
+ *   one fixed square of artwork whose proportions never change, which is
+ *   exactly the case SVG is good at: two stroke-dasharray arcs on one
+ *   circle, no path maths, no library, and it scales cleanly to any size.
  *
  * ── ACCESSIBILITY ────────────────────────────────────────────────────────
  *   The ring is aria-hidden. Every value it encodes — method, amount and
@@ -157,85 +170,168 @@ function PaymentRing({ methods, collected, t }) {
 }
 
 /**
- * Hourly revenue, drawn as CSS bars rather than an SVG path.
+ * One bar chart, fed either hours or days.
  *
- * Unchanged from Phase 100.1 in both data and technique — bars because
- * hourly revenue is a set of discrete sums and a line would draw values that
- * were never earned, CSS because a percentage height in a flex row cannot
- * overflow its container and keeps the axis as real text in both themes.
+ * ── WHY ONE COMPONENT FOR ALL THREE LENSES ───────────────────────────────
+ *   A day of hours and a month of dates are the same drawing: N discrete
+ *   sums, each a percentage of the tallest. Writing it twice would be two
+ *   places for the peak rule or the 3% floor to drift apart. The caller
+ *   supplies the columns and the axis ticks; this only draws them.
  *
- * Phase 100.2 adds only emphasis: the peak hour is marked so the busiest
- * stretch is findable at a glance instead of having to be compared by eye.
+ *   Still bars and still CSS, unchanged from Phase 100.1 in technique: bars
+ *   because these are discrete sums and a line would draw values that were
+ *   never earned, CSS because a percentage height in a flex row cannot
+ *   overflow its container and keeps the axis as real text in both themes.
  *
- * Reading it without a mouse (§5/§17): the peak is printed above the chart as
- * text, each column carries an ordinary title for desktop hover, and the
- * whole chart has a role="img" summary.
+ * @param {Array<{id:string|number,total:number,title:string,peak:boolean}>} columns
+ * @param {number} peak — the tallest total, for scaling
+ * @param {Array<string>} ticks — the handful of labels printed under the bars
+ * @param {string} label — the chart's accessible name
  */
-function HourlyRevenueChart({ buckets, peak, peakHour, t }) {
+function RevenueBarChart({ columns, peak, ticks, label }) {
   return (
-    <div
-      className="ad-chart"
-      role="img"
-      aria-label={t("admin.revenueThroughoutToday", "Revenue Throughout Today")}
-    >
+    <div className="ad-chart" role="img" aria-label={label}>
       <div className="ad-chart__grid" aria-hidden="true">
         <span /><span /><span /><span />
       </div>
 
       <div className="ad-chart__bars">
-        {buckets.map((bucket) => {
+        {columns.map((column) => {
           /* peak is 0 only when the caller has already switched to the empty
-             state; the guard keeps this component safe on its own. An hour
+             state; the guard keeps this component safe on its own. A column
              with takings always gets at least 3% so the smallest real amount
              stays visible rather than rounding away to nothing. */
-          const ratio = peak > 0 ? bucket.total / peak : 0;
-          const height = bucket.total > 0 ? `${Math.max(3, ratio * 100)}%` : "0%";
-          const isPeak = bucket.total > 0 && bucket.hour === peakHour;
+          const ratio = peak > 0 ? column.total / peak : 0;
+          const height = column.total > 0 ? `${Math.max(3, ratio * 100)}%` : "0%";
           return (
-            <span
-              key={bucket.hour}
-              className="ad-chart__col"
-              title={`${hourLabel(bucket.hour)}:00 — ${fmtPrice(bucket.total)}`}
-            >
+            <span key={column.id} className="ad-chart__col" title={column.title}>
               <span
                 className="ad-chart__bar"
                 style={{ height }}
-                data-empty={bucket.total > 0 ? undefined : "true"}
-                data-peak={isPeak ? "true" : undefined}
+                data-empty={column.total > 0 ? undefined : "true"}
+                data-peak={column.peak ? "true" : undefined}
               />
             </span>
           );
         })}
       </div>
 
-      {/* Four ticks, not twenty-four: enough to locate a bar in time without
-          becoming a wall of numbers at 390px. */}
       <div className="ad-chart__axis" aria-hidden="true">
-        <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+        {ticks.map((tick, i) => (
+          <span key={`${tick}-${i}`}>{tick}</span>
+        ))}
       </div>
     </div>
   );
 }
 
 /**
- * Props — unchanged from Phase 100.1.
- *   revenue      — summarizeRevenue() over today's orders
- *   orders       — that SAME today-scoped list, for the hourly buckets
- *   timeZone     — the restaurant's IANA zone
- *   onOpenDetail — opens the existing Revenue Today drill-down
+ * The few axis labels a month gets.
+ *
+ * Twenty-eight to thirty-one dates will not fit under the bars at any width
+ * this product supports, and a wall of numbers is not an axis. Five ticks —
+ * the 1st, three evenly spaced dates and the last — are enough to locate a
+ * bar in the month, which is all the axis has to do.
  */
-export default function RevenueAnalytics({ revenue, orders, timeZone, onOpenDetail }) {
-  const { t } = useLanguage();
+function monthTicks(dayKeys, type, language) {
+  if (dayKeys.length <= 8) {
+    return dayKeys.map((key) => formatDayKeyLabel(key, type, language));
+  }
+  const last = dayKeys.length - 1;
+  const picks = [0, Math.round(last * 0.25), Math.round(last * 0.5), Math.round(last * 0.75), last];
+  return [...new Set(picks)].map((i) => formatDayKeyLabel(dayKeys[i], type, language));
+}
 
-  const hourly = useMemo(
-    () => summarizeRevenueByHour(orders || [], timeZone),
-    [orders, timeZone]
+/**
+ * Props
+ *   revenue       — summarizeRevenue() over the SELECTED period's orders
+ *   orders        — that same scoped list, for the chart buckets
+ *   topItems      — summarizeTopItems() over it
+ *   peakTimes     — summarizePeakTimes() over it
+ *   timeZone      — the restaurant's IANA zone
+ *   period        — { type, range, label, atCurrent }
+ *   onPeriodType  — (nextType) => void
+ *   onPeriodStep  — (delta) => void
+ *   onOpenDetail  — opens the Revenue Details overlay on the same period
+ */
+export default function RevenueAnalytics({
+  revenue, orders, topItems, peakTimes, timeZone,
+  period, onPeriodType, onPeriodStep, onOpenDetail,
+}) {
+  const { t, language } = useLanguage();
+  const isDay = period.type === "day";
+
+  /* The day lens keeps the 24 fixed hourly buckets Phase 100.1 argued for;
+     week and month bucket by business day over the keys the period itself
+     defines, so a quiet Tuesday still occupies its place on the axis. */
+  const dayKeys = useMemo(
+    () => (isDay ? [] : listRangeKeys(period.range)),
+    [isDay, period.range]
   );
+  const hourly = useMemo(
+    () => (isDay ? summarizeRevenueByHour(orders || [], timeZone) : null),
+    [isDay, orders, timeZone]
+  );
+  const daily = useMemo(
+    () => (isDay ? null : summarizeRevenueByDayKey(orders || [], timeZone, dayKeys)),
+    [isDay, orders, timeZone, dayKeys]
+  );
+
+  const chart = isDay ? hourly : daily;
   const aov = averageOrderValue(revenue);
   const methods = revenueMethodShares(revenue);
 
   const hasRevenue = revenue.total > 0;
   const hasCollected = revenue.collected > 0;
+
+  /* Columns and ticks, resolved once per render for whichever lens is on. */
+  const columns = useMemo(() => {
+    if (isDay) {
+      return (hourly?.buckets || []).map((bucket) => ({
+        id: bucket.hour,
+        total: bucket.total,
+        peak: bucket.total > 0 && bucket.hour === hourly.peakHour,
+        title: `${hourLabel(bucket.hour)}:00 — ${fmtPrice(bucket.total)}`,
+      }));
+    }
+    return (daily?.buckets || []).map((bucket) => ({
+      id: bucket.key,
+      total: bucket.total,
+      peak: bucket.total > 0 && bucket.key === daily.peakKey,
+      title: `${formatDayKeyLabel(bucket.key, period.type, language)} — ${fmtPrice(bucket.total)}`,
+    }));
+  }, [isDay, hourly, daily, period.type, language]);
+
+  const ticks = useMemo(() => {
+    if (isDay) return ["00", "06", "12", "18", "23"];
+    return monthTicks(dayKeys, period.type, language);
+  }, [isDay, dayKeys, period.type, language]);
+
+  const chartTitle = isDay
+    ? t("admin.revenueByHour", "Revenue by hour")
+    : t("admin.revenueByDay", "Revenue by day");
+
+  /* The peak readout above the chart, in the unit the lens is drawn in. */
+  const peakLabel = isDay
+    ? (hourly?.peakHour !== null && hourly?.peakHour !== undefined
+        ? formatHourRange(hourly.peakHour, language)
+        : null)
+    : (daily?.peakKey
+        ? formatDayKeyLabel(daily.peakKey, period.type, language)
+        : null);
+
+  /* ── The morph (§9/§35) ────────────────────────────────────────────────
+     One key over the whole data area, built from the SELECTION and not from
+     the data. Changing lens or window remounts these children, which replays
+     their entrance animation; the four-second order poll changes values
+     underneath without touching the key, so live updates stay silent and
+     only a deliberate period change is announced visually.
+
+     The container — card, header and controls — is outside the keyed region
+     and never remounts, which is what keeps the section spatially stable
+     while its contents change. Reduced motion is handled globally: the
+     stylesheet collapses every animation to 0.001s. */
+  const morphKey = `${period.type}:${period.range.startKey}`;
 
   return (
     <section className="ad-rev anim-rise" aria-labelledby="ad-rev-title">
@@ -245,9 +341,16 @@ export default function RevenueAnalytics({ revenue, orders, timeZone, onOpenDeta
           <h2 className="ad-rev__title" id="ad-rev-title">
             {t("admin.revenueAnalytics", "Revenue Analytics")}
           </h2>
-          {/* The period is stated, not chosen: Today is the only scope this
-              section can compute honestly. */}
-          <p className="ad-rev__context">{t("admin.filterToday", "Today")}</p>
+          {/* Two steppers where the static "TODAY" caption used to sit: the
+              lens, then the window it is pointed at. */}
+          <div className="ad-rev__periods">
+            <PeriodTypeStepper type={period.type} onChange={onPeriodType} />
+            <PeriodNavigator
+              label={period.label}
+              atCurrent={period.atCurrent}
+              onStep={onPeriodStep}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -260,144 +363,153 @@ export default function RevenueAnalytics({ revenue, orders, timeZone, onOpenDeta
         </button>
       </header>
 
-      {/* ── B + C. Primary summary and chart ──────────────────────────── */}
-      <div className="ad-rev__top">
-        <div className="ad-rev__summary">
-          <span className="ad-rev__label">
-            {t("admin.totalRevenue", "Total Revenue")}
-          </span>
-          <span className="ad-rev__total">{fmtPrice(revenue.total)}</span>
-
-          {/* Two supporting metrics, not five. Both are an exact count or an
-              exactly-defined ratio over the same orders the total covers. */}
-          <div className="ad-rev__minis">
-            <div className="ad-rev__mini">
-              <span className="ad-rev__mini-icon" aria-hidden="true">
-                <Receipt size={13} strokeWidth={1.9} />
-              </span>
-              <span className="ad-rev__mini-text">
-                <span className="ad-rev__mini-label">
-                  {t("admin.paidOrdersCount", "Paid orders")}
-                </span>
-                <span className="ad-rev__mini-value">{revenue.paidCount}</span>
-              </span>
-            </div>
-            <div className="ad-rev__mini">
-              <span className="ad-rev__mini-icon" aria-hidden="true">
-                <Calculator size={13} strokeWidth={1.9} />
-              </span>
-              <span className="ad-rev__mini-text">
-                <span className="ad-rev__mini-label">
-                  {t("admin.averageOrderValue", "Average order value")}
-                </span>
-                <span className="ad-rev__mini-value">
-                  {aov === null ? "—" : fmtPrice(aov)}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="ad-rev__panel">
-          <div className="ad-rev__panel-head">
-            <span className="ad-rev__panel-title">
-              {t("admin.revenueThroughoutToday", "Revenue Throughout Today")}
-            </span>
-            {hasRevenue && hourly.peakHour !== null && (
-              <span className="ad-rev__peak">
-                <TrendingUp size={12} strokeWidth={2} aria-hidden="true" />
-                {t("admin.peakHour", "Peak")} {hourLabel(hourly.peakHour)}:00
-                <strong>{fmtPrice(hourly.peak)}</strong>
-              </span>
-            )}
-          </div>
-
-          {hasRevenue ? (
-            <HourlyRevenueChart
-              buckets={hourly.buckets}
-              peak={hourly.peak}
-              peakHour={hourly.peakHour}
-              t={t}
-            />
-          ) : (
-            <p className="ad-rev__empty">
-              {t("admin.noRevenueToday", "No revenue recorded today yet.")}
-            </p>
-          )}
-
-          {/* Only ever shown if money genuinely could not be placed on the
-              clock. Silence here means the chart sums to the total above. */}
-          {hourly.unplaced > 0 && (
-            <p className="ad-rev__note">
-              {t("admin.revenueUnplaced", "Not shown on the chart:")}{" "}
-              {fmtPrice(hourly.unplaced)}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ── D + E. Payment methods and revenue status ─────────────────── */}
-      <div className="ad-rev__bottom">
-        <div className="ad-rev__panel">
-          <div className="ad-rev__panel-head">
-            <span className="ad-rev__panel-title">
-              {t("admin.paymentMethodsSection", "Payment Methods")}
-            </span>
-          </div>
-
-          <div className="ad-rev__pay-body">
-            <PaymentRing methods={methods} collected={revenue.collected} t={t} />
-
-            {/* The ring is decorative; this legend is where the values live. */}
-            <ul className="ad-rev__legend">
-              {methods.map((method) => {
-                const Icon = METHOD_ICON[method.id] || Wallet;
-                const tone = METHOD_TONE[method.id] || "other";
-                return (
-                  <li className="ad-rev__legend-row" key={method.id}>
-                    <span
-                      className={`ad-rev__dot ad-rev__dot--${tone}`}
-                      aria-hidden="true"
-                    />
-                    <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
-                    <span className="ad-rev__legend-label">
-                      {shortLabel(t, method.id)}
-                    </span>
-                    <span className="ad-rev__legend-share">
-                      {hasCollected ? `${Math.round(method.share * 100)}%` : "—"}
-                    </span>
-                    <span className="ad-rev__legend-value">
-                      {fmtPrice(method.amount)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-
-        {/* Collected + Pending = Total, as three mini cards. Each carries a
-            restrained semantic rail rather than a filled surface, so the
-            block stays quiet beside the chart. */}
-        <div className="ad-rev__status">
-          <div className="ad-rev__stat ad-rev__stat--collected">
-            <span className="ad-rev__stat-label">
-              {t("admin.collected", "Collected")}
-            </span>
-            <span className="ad-rev__stat-value">{fmtPrice(revenue.collected)}</span>
-          </div>
-          <div className="ad-rev__stat ad-rev__stat--pending">
-            <span className="ad-rev__stat-label">
-              {t("payment.pendingAtTable", "Pending at table")}
-            </span>
-            <span className="ad-rev__stat-value">{fmtPrice(revenue.pending)}</span>
-          </div>
-          <div className="ad-rev__stat ad-rev__stat--total">
-            <span className="ad-rev__stat-label">
+      <div className="ad-rev__data" key={morphKey}>
+        {/* ── B + C. Primary summary and chart ────────────────────────── */}
+        <div className="ad-rev__top">
+          <div className="ad-rev__summary">
+            <span className="ad-rev__label">
               {t("admin.totalRevenue", "Total Revenue")}
             </span>
-            <span className="ad-rev__stat-value">{fmtPrice(revenue.total)}</span>
+            <span className="ad-rev__total">{fmtPrice(revenue.total)}</span>
+
+            {/* Two supporting metrics, not five. Both are an exact count or an
+                exactly-defined ratio over the same orders the total covers. */}
+            <div className="ad-rev__minis">
+              <div className="ad-rev__mini">
+                <span className="ad-rev__mini-icon" aria-hidden="true">
+                  <Receipt size={13} strokeWidth={1.9} />
+                </span>
+                <span className="ad-rev__mini-text">
+                  <span className="ad-rev__mini-label">
+                    {t("admin.paidOrdersCount", "Paid orders")}
+                  </span>
+                  <span className="ad-rev__mini-value">{revenue.paidCount}</span>
+                </span>
+              </div>
+              <div className="ad-rev__mini">
+                <span className="ad-rev__mini-icon" aria-hidden="true">
+                  <Calculator size={13} strokeWidth={1.9} />
+                </span>
+                <span className="ad-rev__mini-text">
+                  <span className="ad-rev__mini-label">
+                    {t("admin.averageOrderValue", "Average order value")}
+                  </span>
+                  <span className="ad-rev__mini-value">
+                    {aov === null ? "—" : fmtPrice(aov)}
+                  </span>
+                </span>
+              </div>
+            </div>
           </div>
+
+          <div className="ad-rev__panel">
+            <div className="ad-rev__panel-head">
+              <span className="ad-rev__panel-title">{chartTitle}</span>
+              {hasRevenue && peakLabel && (
+                <span className="ad-rev__peak">
+                  <TrendingUp size={12} strokeWidth={2} aria-hidden="true" />
+                  {t("admin.peakHour", "Peak")} {peakLabel}
+                  <strong>{fmtPrice(chart.peak)}</strong>
+                </span>
+              )}
+            </div>
+
+            {hasRevenue ? (
+              <RevenueBarChart
+                columns={columns}
+                peak={chart.peak}
+                ticks={ticks}
+                label={chartTitle}
+              />
+            ) : (
+              <p className="ad-rev__empty">
+                {t("admin.noRevenueInPeriod", "No revenue recorded in this period yet.")}
+              </p>
+            )}
+
+            {/* Only ever shown if money genuinely could not be placed on the
+                clock. Silence here means the chart sums to the total above. */}
+            {chart.unplaced > 0 && (
+              <p className="ad-rev__note">
+                {t("admin.revenueUnplaced", "Not shown on the chart:")}{" "}
+                {fmtPrice(chart.unplaced)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── D + E. Payment methods and revenue status ───────────────── */}
+        <div className="ad-rev__bottom">
+          <div className="ad-rev__panel">
+            <div className="ad-rev__panel-head">
+              <span className="ad-rev__panel-title">
+                {t("admin.paymentMethodsSection", "Payment Methods")}
+              </span>
+            </div>
+
+            <div className="ad-rev__pay-body">
+              <PaymentRing methods={methods} collected={revenue.collected} t={t} />
+
+              {/* The ring is decorative; this legend is where the values live. */}
+              <ul className="ad-rev__legend">
+                {methods.map((method) => {
+                  const Icon = METHOD_ICON[method.id] || Wallet;
+                  const tone = METHOD_TONE[method.id] || "other";
+                  return (
+                    <li className="ad-rev__legend-row" key={method.id}>
+                      <span
+                        className={`ad-rev__dot ad-rev__dot--${tone}`}
+                        aria-hidden="true"
+                      />
+                      <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
+                      <span className="ad-rev__legend-label">
+                        {shortLabel(t, method.id)}
+                      </span>
+                      <span className="ad-rev__legend-share">
+                        {hasCollected ? `${Math.round(method.share * 100)}%` : "—"}
+                      </span>
+                      <span className="ad-rev__legend-value">
+                        {fmtPrice(method.amount)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+
+          {/* Collected + Pending = Total, as three mini cards. Each carries a
+              restrained semantic rail rather than a filled surface, so the
+              block stays quiet beside the chart. */}
+          <div className="ad-rev__status">
+            <div className="ad-rev__stat ad-rev__stat--collected">
+              <span className="ad-rev__stat-label">
+                {t("admin.collected", "Collected")}
+              </span>
+              <span className="ad-rev__stat-value">{fmtPrice(revenue.collected)}</span>
+            </div>
+            <div className="ad-rev__stat ad-rev__stat--pending">
+              <span className="ad-rev__stat-label">
+                {t("payment.pendingAtTable", "Pending at table")}
+              </span>
+              <span className="ad-rev__stat-value">{fmtPrice(revenue.pending)}</span>
+            </div>
+            <div className="ad-rev__stat ad-rev__stat--total">
+              <span className="ad-rev__stat-label">
+                {t("admin.totalRevenue", "Total Revenue")}
+              </span>
+              <span className="ad-rev__stat-value">{fmtPrice(revenue.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── F. What sold, and when (§15/§18) ─────────────────────────
+            One final row that answers the two questions the money above
+            raises — which dishes earned it, and when the pressure was. Both
+            are compact tables that take the height of their rows. */}
+        <div className="ad-rev__mini-row">
+          <TopItemsPanel rows={topItems} />
+          <PeakTimesPanel rows={peakTimes} />
         </div>
       </div>
     </section>

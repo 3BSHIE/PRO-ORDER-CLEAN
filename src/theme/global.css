@@ -9030,6 +9030,216 @@ button{font-family:var(--font-body)}
   .ad-rev__status{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
+/* ══ Phase 111.0 — THE LENS, THE MINI TABLES, THE BREAKDOWN ══════════════
+
+   Additive. Every rule below is a new class: the card, the five zones, the
+   ring, the chart and the status ledger above are untouched, which is what
+   keeps the section recognisably the one Phase 100.2 approved.
+
+   ── The two steppers ────────────────────────────────────────────────────
+   They sit where the static "TODAY" caption was, so the header gains a
+   control without gaining a row. Both are the same object — arrow, readout,
+   arrow — because they do the same kind of job; the type one is smaller and
+   uppercase so the pair reads as lens-then-window rather than as two equal
+   dropdowns. */
+.ad-rev__periods{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}
+.ad-period{
+  display:inline-flex;align-items:center;gap:2px;
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  background:var(--surface-2);
+  /* Isolated so an Arabic date or a range label can never be re-ordered by
+     the surrounding paragraph direction; the label is a unit. */
+  unicode-bidi:isolate}
+.ad-period__arrow{
+  flex:none;display:grid;place-items:center;
+  /* 32px of box, 44px of touch. The hit area grows VERTICALLY only: the
+     stepper is the only thing on its line, so height is free, while a
+     horizontally overflowing target would reach past its own button and
+     steal the neighbouring arrow’s taps. Measured during Phase 111.0 QA —
+     a 44px-wide overlay on a 30px button put ~7px of "previous" on top of
+     "next" and made a tap near the inner edge step the wrong way (§48). */
+  position:relative;width:32px;height:32px;
+  border:none;background:none;padding:0;cursor:pointer;
+  color:var(--text-2);border-radius:var(--r-sm);
+  transition:color .16s var(--ease),background .16s var(--ease)}
+.ad-period__arrow::after{
+  content:"";position:absolute;top:50%;left:0;right:0;
+  height:44px;transform:translateY(-50%)}
+.ad-period__arrow:hover:not(:disabled){color:var(--gold-ink);background:var(--surface-3)}
+.ad-period__arrow:focus-visible{outline:2px solid var(--gold);outline-offset:-1px}
+/* Restrained (§7): dimmed and inert, never a red or a struck-through state.
+   There is simply nothing further that way yet. */
+.ad-period__arrow:disabled{opacity:.3;cursor:default}
+[dir="rtl"] .ad-period__arrow svg{transform:scaleX(-1)}
+
+.ad-period__label{
+  min-width:0;padding:0 2px;
+  font-size:12.5px;font-weight:600;color:var(--text-1);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.ad-period__label--type{
+  font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-2);min-width:52px;text-align:center}
+
+/* ── The morph (§9/§35) ──────────────────────────────────────────────────
+   One short entrance on the data area, replayed by React remounting it when
+   the selection changes. Opacity plus four pixels: enough to read as "these
+   are different numbers now", far too little to read as a page load. The
+   card, its header and both steppers are outside this element and never
+   move, which is the spatial stability §35 asks for.
+
+   The global prefers-reduced-motion rule collapses this to 0.001s along with
+   every other animation in the stylesheet, so there is nothing to repeat
+   here. */
+@keyframes revmorph{
+  from{opacity:0;transform:translateY(4px)}
+  to{opacity:1;transform:none}
+}
+.ad-rev__data{animation:revmorph .22s var(--ease) both}
+
+/* ── Top Selling Items + Peak Times (§20) ────────────────────────────────
+   One final row inside the card. Items is wider because it carries three
+   columns and the only column that can be long; Peak Times is two short
+   ones. They stack below the tablet split, exactly as the rows above do. */
+.ad-rev__mini-row{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
+
+.ad-mini{padding-bottom:14px}
+.ad-mini__table{
+  width:100%;border-collapse:collapse;
+  font-variant-numeric:tabular-nums}
+.ad-mini__table th,
+.ad-mini__table td{padding:5px 0;text-align:start;vertical-align:middle}
+.ad-mini__table thead th{
+  padding-bottom:7px;
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3);
+  border-bottom:1px solid var(--border)}
+.ad-mini__table tbody tr + tr th,
+.ad-mini__table tbody tr + tr td{border-top:1px solid var(--border)}
+/* The name is the one thing allowed to truncate (§21): a dish can be called
+   anything, while a quantity and a price must stay whole. */
+.ad-mini__name{
+  font-size:12.5px;font-weight:500;color:var(--text-1);
+  max-width:0;width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-mini__num{
+  text-align:end !important;white-space:nowrap;
+  font-size:12.5px;font-weight:600;color:var(--text-2);
+  padding-inline-start:12px !important}
+.ad-mini__money{color:var(--text-1)}
+.ad-mini__empty{
+  margin:0;padding:10px 0 2px;font-size:12px;color:var(--text-3)}
+
+/* ══ Revenue Details — the redesigned overlay ════════════════════════════
+   The old content was one giant total, the same method rows the card had
+   just shown, and a full-width gold CTA. The density problem was structural
+   rather than a matter of padding: it reserved the most space for the thing
+   the reader already knew. */
+.dd-period{
+  margin:0 0 14px;
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3)}
+.dd2{display:flex;flex-direction:column;gap:18px}
+
+/* Five figures, one line each, in as many columns as fit. */
+.dd2-summary{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.dd2-metric{
+  min-width:0;padding:9px 11px;
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface-2)}
+.dd2-metric--strong{
+  background:var(--surface-3);border-color:var(--border-strong);
+  grid-column:1 / -1}
+.dd2-metric__label{
+  display:block;font-size:10.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd2-metric__value{
+  display:block;margin:3px 0 0;
+  font-size:15px;font-weight:700;color:var(--text-1);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.dd2-metric--strong .dd2-metric__value{font-size:19px}
+
+.dd2-block{min-width:0}
+.dd2-block__title{
+  margin:0 0 8px;
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3)}
+.dd2-table{
+  width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.dd2-table th,
+.dd2-table td{padding:7px 0;text-align:start;vertical-align:middle}
+.dd2-table thead th{
+  padding-bottom:7px;
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3);border-bottom:1px solid var(--border)}
+.dd2-table tbody tr + tr th,
+.dd2-table tbody tr + tr td{border-top:1px solid var(--border)}
+.dd2-label{
+  font-size:12.5px;font-weight:500;color:var(--text-1);
+  max-width:0;width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd2-num{
+  text-align:end !important;white-space:nowrap;
+  font-size:12.5px;font-weight:600;color:var(--text-2);
+  padding-inline-start:12px !important}
+.dd2-money{color:var(--text-1)}
+/* A status with no orders is still worth listing — "no cancellations" is
+   information — but it should not compete with the rows that have data. */
+.dd2-table tbody tr[data-zero="true"] th,
+.dd2-table tbody tr[data-zero="true"] td{color:var(--text-3);font-weight:500}
+
+/* The two panels keep their own surface here so they read as the same
+   objects the section shows, not as more tables in a list. */
+.dd2-minis{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+
+/* ── Secondary actions (§32) ─────────────────────────────────────────────
+   Ordinary bordered buttons on one line. The old gold full-width CTA was
+   the loudest thing in a financial overlay whose job is reading. */
+.dd2-actions{display:flex;flex-wrap:wrap;gap:8px}
+.dd2-action{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:36px;padding:0 12px;
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  background:none;color:var(--text-2);cursor:pointer;
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  transition:color .16s var(--ease),border-color .16s var(--ease)}
+.dd2-action:hover{color:var(--gold-ink);border-color:var(--gold-line)}
+.dd2-action:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.dd2-action__count{
+  display:inline-grid;place-items:center;min-width:19px;height:19px;
+  padding:0 5px;border-radius:999px;
+  background:var(--surface-3);color:var(--text-1);
+  font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ── Wide composition ────────────────────────────────────────────────────
+   The same thresholds the rows above use, so the new row joins the existing
+   layout rather than introducing a third set of breakpoints. 60/40 at the
+   tablet split and a little wider for Items on a desktop, where a long dish
+   name has somewhere to go. */
+@media(min-width:760px) and (max-width:1023.98px){
+  .ad-rev__mini-row{grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px}
+}
+@media(min-width:1200px){
+  .ad-rev__mini-row{grid-template-columns:minmax(0,3fr) minmax(0,2fr);
+    gap:22px;margin-top:22px}
+}
+@media(min-width:560px){
+  .dd2-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dd2-metric--strong{grid-column:1 / -1}
+  .dd2-minis{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+}
+/* At 390 and below the steppers get the full width of the header rather
+   than being squeezed beside the title's trailing space. */
+@media(max-width:479.98px){
+  .ad-rev__periods{width:100%}
+  .ad-period{flex:1 1 auto;justify-content:space-between}
+  .ad-period--type{flex:0 0 auto}
+}
+
+
 /* ── Availability toggle (§10/§11) ───────────────────────────────────────
    ONE control, shared by the Menu and Categories rows. It is the primary
    operational action for a session that may only change availability, so it
