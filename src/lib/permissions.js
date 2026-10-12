@@ -157,6 +157,14 @@ const ROLE_PERMISSION_SETS = Object.fromEntries(
  */
 export const PAGE_PERMISSION = {
   overview: P.OVERVIEW_VIEW,
+  /* Phase 111.1 — the Revenue Report shows Overview's own figures for a
+     chosen period and nothing else, so it takes Overview's permission
+     rather than a new one. Both roles that can read Revenue Analytics can
+     therefore open, print and share the report, and a role that cannot
+     see Overview cannot reach it. Deliberately absent from
+     ADMIN_NAV_ITEMS: it is opened from the Revenue Report card, not from
+     the sidebar, and it is not a page a session should resume into. */
+  revenueReport: P.OVERVIEW_VIEW,
   liveOrders: P.ORDERS_VIEW,
   staffCalls: P.STAFF_CALLS_VIEW,
   menu: P.MENU_VIEW,

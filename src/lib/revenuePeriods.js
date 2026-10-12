@@ -265,3 +265,54 @@ export function formatDayKeyLabel(key, type, language) {
   if (type === "month") return String(date.getUTCDate());
   return date.toLocaleDateString(dateLocale(language), { weekday: "short", timeZone: "UTC" });
 }
+
+/* ── Calendar support (Phase 111.1) ──────────────────────────────────────
+   The picker needs three more pure functions over the same keys. Nothing
+   below knows about timezones either: a key is already a trading date, so a
+   grid of keys is a grid of trading dates. */
+
+/**
+ * The six-week grid a month is drawn on, as business-day keys.
+ *
+ * Always 42 cells, always starting on a Sunday, with the neighbouring
+ * months' days filling the edges. Fixed length on purpose: a grid that grew
+ * to six rows only in some months would change the popover's height as the
+ * reader paged through it.
+ *
+ * @param {string} key — any key inside the month
+ * @returns {Array<string>} 42 keys
+ */
+export function monthGridKeys(key) {
+  const first = startOfMonthKey(key);
+  const start = startOfWeekKey(first);
+  return Array.from({ length: 42 }, (unused, i) => addDays(start, i));
+}
+
+/** { year, month (1–12), day } for a key, as numbers. */
+export function keyParts(key) {
+  const [year, month, day] = String(key || "").split("-").map(Number);
+  return { year, month, day };
+}
+
+/** The key for a calendar position, with no timezone involved. */
+export function makeKey(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : utcDateToKey(date);
+}
+
+/** Localised month names for the month picker, in the app language. */
+export function monthNames(language, style = "short") {
+  const locale = dateLocale(language);
+  return Array.from({ length: 12 }, (unused, m) =>
+    new Date(Date.UTC(2021, m, 1)).toLocaleDateString(locale, { month: style, timeZone: "UTC" })
+  );
+}
+
+/** Localised one-letter-ish weekday headers, Sunday first. */
+export function weekdayNames(language) {
+  const locale = dateLocale(language);
+  /* 2021-08-01 was a Sunday, which is this product's first day of the week. */
+  return Array.from({ length: 7 }, (unused, i) =>
+    new Date(Date.UTC(2021, 7, 1 + i)).toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" })
+  );
+}

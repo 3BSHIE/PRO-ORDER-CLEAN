@@ -568,3 +568,94 @@ export function summarizeStatusRevenue(orders) {
     };
   });
 }
+
+/**
+ * The payment picture as a whole: what was collected, by method, PLUS what
+ * is still owed at the table — Phase 111.1.
+ *
+ * ── WHY THIS IS NOT revenueMethodShares ─────────────────────────────────
+ * revenueMethodShares answers "of the money we have taken, how was it
+ * taken?", and shares against COLLECTED for that reason. It stays exactly
+ * as it is, because the Payment Breakdown table is explicitly a breakdown
+ * of collected revenue and relabelling it would change what a figure a
+ * manager has been reading for several phases means.
+ *
+ * This answers a different question — "where does the period's whole total
+ * stand?" — so it shares against TOTAL and adds the outstanding slice. The
+ * two cannot disagree, because both read the same summarizeRevenue output.
+ *
+ * ── WHY PENDING IS ONE SLICE AND NOT TWO ────────────────────────────────
+ * An unpaid order does carry a chosen method: the guest picks Cash or Card
+ * at checkout and the order is written with paymentStatus
+ * "pending_at_table" (customerOrders.js). Splitting the outstanding amount
+ * by that intention would print "Cash" twice with two different meanings —
+ * money in the till and money someone intends to hand over — which is
+ * exactly the mislabelling to avoid. What is true of all of it is that it
+ * is pending at the table, which is also the name the data itself uses.
+ *
+ * ── THE ARITHMETIC ──────────────────────────────────────────────────────
+ * collected(by method) + pending === total, guaranteed by summarizeRevenue
+ * putting every non-canceled order in exactly one bucket, so the shares sum
+ * to 1 without being normalised. Zero total yields share 0 everywhere
+ * rather than a division by zero.
+ *
+ * @param {object} revenue — summarizeRevenue() output
+ * @returns {Array<{id:string, kind:"collected"|"pending", amount:number,
+ *                  count:number, share:number}>}
+ */
+export function revenueDistribution(revenue) {
+  const total = Number(revenue?.total) || 0;
+  const shareOf = (amount) => (total > 0 ? (Number(amount) || 0) / total : 0);
+
+  const rows = (revenue?.byMethod || []).map((method) => ({
+    id: method.id,
+    kind: "collected",
+    amount: method.amount,
+    count: method.count,
+    share: shareOf(method.amount),
+  }));
+
+  /* Always present, even at zero: an enabled method with no takings is
+     shown as zero for the same reason — silence and zero are different
+     facts, and a period with nothing outstanding is worth stating. */
+  rows.push({
+    id: "pending_at_table",
+    kind: "pending",
+    amount: Number(revenue?.pending) || 0,
+    count: Number(revenue?.pendingCount) || 0,
+    share: shareOf(revenue?.pending),
+  });
+
+  return withWholePercents(rows);
+}
+
+/**
+ * Integer percentages that add up to 100.
+ *
+ * Rounding each share on its own is what produces 40% + 26% + 35% = 101%,
+ * and a financial chart whose legend does not add up invites the reader to
+ * distrust the figures beside it. Largest remainder: floor everything, then
+ * hand the leftover points to the rows that were rounded down hardest.
+ *
+ * `share` is left untouched — the ring is drawn from the exact fraction, so
+ * the arcs stay true while only the printed labels are reconciled.
+ */
+function withWholePercents(rows) {
+  const exact = rows.map((row) => (Number(row.share) || 0) * 100);
+  const sum = exact.reduce((a, b) => a + b, 0);
+  /* Nothing to distribute: an empty period shows a dash, not 0%. */
+  if (sum <= 0) return rows.map((row) => ({ ...row, percent: 0 }));
+
+  const floors = exact.map((value) => Math.floor(value));
+  let remaining = Math.round(sum) - floors.reduce((a, b) => a + b, 0);
+  const order = exact
+    .map((value, i) => ({ i, remainder: value - floors[i] }))
+    .sort((a, b) => b.remainder - a.remainder || a.i - b.i);
+
+  const percents = [...floors];
+  for (let k = 0; k < order.length && remaining > 0; k += 1) {
+    percents[order[k].i] += 1;
+    remaining -= 1;
+  }
+  return rows.map((row, i) => ({ ...row, percent: percents[i] }));
+}

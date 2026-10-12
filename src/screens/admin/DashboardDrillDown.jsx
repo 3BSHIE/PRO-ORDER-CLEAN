@@ -2,7 +2,7 @@ import { ClipboardList, Wallet } from "lucide-react";
 import Modal from "../../components/ui/Modal.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
-import { averageOrderValue, revenueMethodShares } from "../../lib/dashboardStats.js";
+import { averageOrderValue, revenueDistribution } from "../../lib/dashboardStats.js";
 import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
 
 /* Payment method labels resolve from the same stable ids the rest of the app
@@ -80,12 +80,18 @@ export default function DashboardDrillDown({
   if (detailKey !== "revenueToday") return null;
 
   const aov = averageOrderValue(revenue);
-  /* No filtering here: summarizeRevenue already decides which methods exist
-     — enabled, or disabled but with real records — so a method that was
-     offered and simply not used still shows as zero, and money booked
-     against an unknown id can never be hidden. */
-  const methods = revenueMethodShares(revenue);
-  const hasCollected = revenue.collected > 0;
+  /* Phase 111.1 — the SAME distribution the ring draws and the report
+     prints: collected by method plus what is still owed, shared against
+     Total Revenue. It used to share against Collected, which meant the
+     overlay and the chart that opened it answered the same question with
+     two different denominators. One basis across all three surfaces (§7.6).
+
+     No filtering here either: summarizeRevenue already decides which
+     methods exist — enabled, or disabled but with real records — so a
+     method that was offered and simply not used still shows as zero, and
+     money booked against an unknown id can never be hidden. */
+  const slices = revenueDistribution(revenue);
+  const hasRevenue = revenue.total > 0;
 
   /* Leaves the modal and lands on the matching Live Orders view. Closing
      first keeps the dialog from being left open behind the screen it
@@ -136,7 +142,7 @@ export default function DashboardDrillDown({
             with no visible reason. */}
         <section className="dd2-block">
           <h4 className="dd2-block__title">
-            {t("admin.paymentBreakdown", "Payment Breakdown")}
+            {t("admin.paymentDistribution", "Payment Distribution")}
           </h4>
           <table className="dd2-table">
             <thead>
@@ -148,21 +154,33 @@ export default function DashboardDrillDown({
               </tr>
             </thead>
             <tbody>
-              {methods.map((method) => (
-                <tr key={method.id}>
+              {slices.map((slice) => (
+                <tr key={slice.id}>
                   <th scope="row" className="dd2-label">
-                    {t(
-                      METHOD_LABEL_KEY[method.id],
-                      METHOD_LABEL_FALLBACK[method.id] || method.id
-                    )}
+                    {slice.kind === "pending"
+                      ? t("payment.pendingAtTable", "Pending at table")
+                      : t(
+                          METHOD_LABEL_KEY[slice.id],
+                          METHOD_LABEL_FALLBACK[slice.id] || slice.id
+                        )}
                   </th>
-                  <td className="dd2-num">{method.count}</td>
-                  <td className="dd2-num dd2-money">{fmtPrice(method.amount)}</td>
+                  <td className="dd2-num">{slice.count}</td>
+                  <td className="dd2-num dd2-money">{fmtPrice(slice.amount)}</td>
                   <td className="dd2-num">
-                    {hasCollected ? `${Math.round(method.share * 100)}%` : "—"}
+                    {hasRevenue ? `${slice.percent}%` : "—"}
                   </td>
                 </tr>
               ))}
+              {/* The row that makes the basis unmistakable: these shares are
+                  of Total Revenue, and they add up to it. */}
+              <tr className="dd2-total-row">
+                <th scope="row" className="dd2-label">
+                  {t("admin.totalRevenue", "Total Revenue")}
+                </th>
+                <td className="dd2-num">{revenue.countedOrders}</td>
+                <td className="dd2-num dd2-money">{fmtPrice(revenue.total)}</td>
+                <td className="dd2-num">{hasRevenue ? "100%" : "—"}</td>
+              </tr>
             </tbody>
           </table>
         </section>

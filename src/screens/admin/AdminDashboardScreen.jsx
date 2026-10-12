@@ -240,14 +240,24 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
     [periodOrders]
   );
 
+  /* The restaurant's current trading date, which the calendar needs to know
+     where "today" is and which cells are in the future. Recomputed with the
+     orders so it follows the 04:00 rollover without a timer of its own. */
+  const todayKey = useMemo(
+    () => currentAnchor(settings.timeZone, "day"),
+    [settings.timeZone, restaurantOrders]
+  );
+
   const period = useMemo(
     () => ({
       type: periodType,
       range: periodRange,
       label: formatPeriodLabel(periodRange, language),
       atCurrent: isCurrentPeriod(effectiveAnchor, periodType, settings.timeZone),
+      anchor: effectiveAnchor,
+      todayKey,
     }),
-    [periodType, periodRange, language, effectiveAnchor, settings.timeZone]
+    [periodType, periodRange, language, effectiveAnchor, settings.timeZone, todayKey]
   );
 
   /* Changing lens keeps the window the manager is looking at: a past day
@@ -260,6 +270,35 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       current === null ? null : normalizeAnchor(current, nextType)
     );
   }, []);
+
+  /* The calendar hands back a DAY key whichever lens is on; normalising it
+     is what turns "some Tuesday" into the week or month that contains it
+     (§14.4). Landing on the current period resumes live-follow, exactly as
+     stepping onto it does. */
+  const handlePickDate = useCallback(
+    (dayKey) => {
+      const next = normalizeAnchor(dayKey, periodType);
+      setPeriodAnchor(
+        isCurrentPeriod(next, periodType, settings.timeZone) ? null : next
+      );
+    },
+    [periodType, settings.timeZone]
+  );
+
+  /* Phase 111.1 — the report snapshot is taken HERE, at the press, and
+     never recomputed: the period, the already-filtered order list and the
+     generation instant are frozen together so the report cannot drift
+     while it is being read or printed. */
+  const handleOpenReport = useCallback(() => {
+    onNavigate("revenueReport", {
+      report: {
+        orders: periodOrders,
+        range: periodRange,
+        timeZone: settings.timeZone,
+        generatedAt: new Date(),
+      },
+    });
+  }, [onNavigate, periodOrders, periodRange, settings.timeZone]);
 
   const handlePeriodStep = useCallback(
     (delta) => {
@@ -633,6 +672,8 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         period={period}
         onPeriodType={handlePeriodType}
         onPeriodStep={handlePeriodStep}
+        onPickDate={handlePickDate}
+        onOpenReport={handleOpenReport}
         onOpenDetail={() => setOpenDetail("revenueToday")}
       />
 

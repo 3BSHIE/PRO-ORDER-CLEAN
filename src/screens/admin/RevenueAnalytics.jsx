@@ -8,12 +8,14 @@ import {
   summarizeRevenueByHour,
   summarizeRevenueByDayKey,
   averageOrderValue,
-  revenueMethodShares,
+  revenueDistribution,
 } from "../../lib/dashboardStats.js";
+import RollingValue from "../../components/ui/RollingValue.jsx";
 import { listRangeKeys, formatDayKeyLabel } from "../../lib/revenuePeriods.js";
 import { formatHourRange } from "../../i18n/dateFormat.js";
 import { PeriodTypeStepper, PeriodNavigator } from "./RevenuePeriodControls.jsx";
 import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
+import RevenueReportCard from "./RevenueReportCard.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RevenueAnalytics — Phase 100.1, recomposed in 100.2, given a lens in 111.0
@@ -46,6 +48,9 @@ import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
 const METHOD_SHORT_KEY = {
   cash_at_table: "payment.cashShort",
   card_at_table: "payment.cardShort",
+  /* Phase 111.1 — the outstanding slice is not a payment method, but it is
+     a legend row, so it needs the same short treatment as the two above. */
+  pending_at_table: "payment.pendingAtTable",
 };
 const METHOD_LABEL_KEY = {
   cash_at_table: "payment.cashAtTable",
@@ -63,6 +68,10 @@ const METHOD_ICON = {
 const METHOD_TONE = {
   cash_at_table: "cash",
   card_at_table: "card",
+  /* Phase 111.1 — the outstanding slice. Amber rather than another gold:
+     it is the one part of the ring that is NOT money in hand, and the
+     product already uses this tone for "in progress" elsewhere. */
+  pending_at_table: "pending",
 };
 
 /* ── Ring geometry ────────────────────────────────────────────────────────
@@ -86,7 +95,15 @@ function hourLabel(hour) {
 }
 
 /**
- * Cash / Card distribution as a ring.
+ * The period's money as a ring: collected by method, plus what is still
+ * owed at the table.
+ *
+ * ── WHY PENDING IS IN HERE (Phase 111.1) ─────────────────────────────────
+ *   The ring used to draw collected revenue only, which meant a period
+ *   where half the tables had not paid yet looked exactly like a period
+ *   where everything was settled — the chart was a full circle either way.
+ *   Drawing all three slices against Total Revenue makes the outstanding
+ *   share visible at the size it actually is.
  *
  * ── WHY A RING, AND WHY SVG HERE BUT NOT FOR THE CHART ───────────────────
  *   The chart is a set of bars whose heights must stay truthful at any
@@ -105,8 +122,8 @@ function hourLabel(hour) {
  *   No NaN reaches an attribute, because share is already guarded to 0 by
  *   revenueMethodShares.
  */
-function PaymentRing({ methods, collected, t }) {
-  const visible = methods.filter((method) => method.amount > 0);
+function PaymentRing({ slices, total, t }) {
+  const visible = slices.filter((slice) => slice.amount > 0);
   const gap = visible.length > 1 ? RING_GAP : 0;
 
   let cursor = 0;
@@ -161,9 +178,9 @@ function PaymentRing({ methods, collected, t }) {
 
       <div className="ad-ring__center">
         <span className="ad-ring__center-label">
-          {t("admin.collected", "Collected")}
+          {t("admin.totalRevenue", "Total Revenue")}
         </span>
-        <span className="ad-ring__center-value">{fmtPrice(collected)}</span>
+        <RollingValue className="ad-ring__center-value" value={fmtPrice(total)} />
       </div>
     </div>
   );
@@ -249,14 +266,16 @@ function monthTicks(dayKeys, type, language) {
  *   topItems      — summarizeTopItems() over it
  *   peakTimes     — summarizePeakTimes() over it
  *   timeZone      — the restaurant's IANA zone
- *   period        — { type, range, label, atCurrent }
+ *   period        — { type, range, label, atCurrent, anchor, todayKey }
  *   onPeriodType  — (nextType) => void
  *   onPeriodStep  — (delta) => void
+ *   onPickDate    — (dayKey) => void, from the calendar popover
  *   onOpenDetail  — opens the Revenue Details overlay on the same period
+ *   onOpenReport  — opens the Revenue Report page on the same period
  */
 export default function RevenueAnalytics({
   revenue, orders, topItems, peakTimes, timeZone,
-  period, onPeriodType, onPeriodStep, onOpenDetail,
+  period, onPeriodType, onPeriodStep, onPickDate, onOpenDetail, onOpenReport,
 }) {
   const { t, language } = useLanguage();
   const isDay = period.type === "day";
@@ -279,10 +298,9 @@ export default function RevenueAnalytics({
 
   const chart = isDay ? hourly : daily;
   const aov = averageOrderValue(revenue);
-  const methods = revenueMethodShares(revenue);
+  const slices = revenueDistribution(revenue);
 
   const hasRevenue = revenue.total > 0;
-  const hasCollected = revenue.collected > 0;
 
   /* Columns and ticks, resolved once per render for whichever lens is on. */
   const columns = useMemo(() => {
@@ -320,18 +338,17 @@ export default function RevenueAnalytics({
         ? formatDayKeyLabel(daily.peakKey, period.type, language)
         : null);
 
-  /* ── The morph (§9/§35) ────────────────────────────────────────────────
-     One key over the whole data area, built from the SELECTION and not from
-     the data. Changing lens or window remounts these children, which replays
-     their entrance animation; the four-second order poll changes values
-     underneath without touching the key, so live updates stay silent and
-     only a deliberate period change is announced visually.
+  /* ── Motion (Phase 111.1) ──────────────────────────────────────────────
+     Nothing here is keyed any more. Phase 111.0 remounted this whole data
+     area on every period change, which animated the card rather than the
+     information and read as a replacement.
 
-     The container — card, header and controls — is outside the keyed region
-     and never remounts, which is what keeps the section spatially stable
-     while its contents change. Reduced motion is handled globally: the
-     stylesheet collapses every animation to 0.001s. */
-  const morphKey = `${period.type}:${period.range.startKey}`;
+     Now the components stay mounted for the life of the section and only
+     what changed moves: RollingValue swaps a figure in place, the bars
+     transition their heights, and the ring transitions its arcs. The poll
+     is silent for free — an unchanged value is not a change — and reduced
+     motion is handled globally, where the stylesheet collapses every
+     animation and transition to 0.001s. */
 
   return (
     <section className="ad-rev anim-rise" aria-labelledby="ad-rev-title">
@@ -349,6 +366,10 @@ export default function RevenueAnalytics({
               label={period.label}
               atCurrent={period.atCurrent}
               onStep={onPeriodStep}
+              type={period.type}
+              anchor={period.anchor}
+              todayKey={period.todayKey}
+              onPickDate={onPickDate}
             />
           </div>
         </div>
@@ -363,14 +384,14 @@ export default function RevenueAnalytics({
         </button>
       </header>
 
-      <div className="ad-rev__data" key={morphKey}>
+      <div className="ad-rev__data">
         {/* ── B + C. Primary summary and chart ────────────────────────── */}
         <div className="ad-rev__top">
           <div className="ad-rev__summary">
             <span className="ad-rev__label">
               {t("admin.totalRevenue", "Total Revenue")}
             </span>
-            <span className="ad-rev__total">{fmtPrice(revenue.total)}</span>
+            <RollingValue className="ad-rev__total" value={fmtPrice(revenue.total)} />
 
             {/* Two supporting metrics, not five. Both are an exact count or an
                 exactly-defined ratio over the same orders the total covers. */}
@@ -383,7 +404,7 @@ export default function RevenueAnalytics({
                   <span className="ad-rev__mini-label">
                     {t("admin.paidOrdersCount", "Paid orders")}
                   </span>
-                  <span className="ad-rev__mini-value">{revenue.paidCount}</span>
+                  <RollingValue className="ad-rev__mini-value" value={String(revenue.paidCount)} />
                 </span>
               </div>
               <div className="ad-rev__mini">
@@ -394,9 +415,10 @@ export default function RevenueAnalytics({
                   <span className="ad-rev__mini-label">
                     {t("admin.averageOrderValue", "Average order value")}
                   </span>
-                  <span className="ad-rev__mini-value">
-                    {aov === null ? "—" : fmtPrice(aov)}
-                  </span>
+                  <RollingValue
+                    className="ad-rev__mini-value"
+                    value={aov === null ? "—" : fmtPrice(aov)}
+                  />
                 </span>
               </div>
             </div>
@@ -409,7 +431,7 @@ export default function RevenueAnalytics({
                 <span className="ad-rev__peak">
                   <TrendingUp size={12} strokeWidth={2} aria-hidden="true" />
                   {t("admin.peakHour", "Peak")} {peakLabel}
-                  <strong>{fmtPrice(chart.peak)}</strong>
+                  <strong><RollingValue value={fmtPrice(chart.peak)} /></strong>
                 </span>
               )}
             </div>
@@ -448,29 +470,32 @@ export default function RevenueAnalytics({
             </div>
 
             <div className="ad-rev__pay-body">
-              <PaymentRing methods={methods} collected={revenue.collected} t={t} />
+              <PaymentRing slices={slices} total={revenue.total} t={t} />
 
               {/* The ring is decorative; this legend is where the values live. */}
               <ul className="ad-rev__legend">
-                {methods.map((method) => {
-                  const Icon = METHOD_ICON[method.id] || Wallet;
-                  const tone = METHOD_TONE[method.id] || "other";
+                {slices.map((slice) => {
+                  const Icon = METHOD_ICON[slice.id] || Wallet;
+                  const tone = METHOD_TONE[slice.id] || "other";
                   return (
-                    <li className="ad-rev__legend-row" key={method.id}>
+                    <li className="ad-rev__legend-row" key={slice.id}>
                       <span
                         className={`ad-rev__dot ad-rev__dot--${tone}`}
                         aria-hidden="true"
                       />
                       <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
                       <span className="ad-rev__legend-label">
-                        {shortLabel(t, method.id)}
+                        {shortLabel(t, slice.id)}
                       </span>
                       <span className="ad-rev__legend-share">
-                        {hasCollected ? `${Math.round(method.share * 100)}%` : "—"}
+                        <RollingValue
+                          value={hasRevenue ? `${slice.percent}%` : "—"}
+                        />
                       </span>
-                      <span className="ad-rev__legend-value">
-                        {fmtPrice(method.amount)}
-                      </span>
+                      <RollingValue
+                        className="ad-rev__legend-value"
+                        value={fmtPrice(slice.amount)}
+                      />
                     </li>
                   );
                 })}
@@ -486,19 +511,19 @@ export default function RevenueAnalytics({
               <span className="ad-rev__stat-label">
                 {t("admin.collected", "Collected")}
               </span>
-              <span className="ad-rev__stat-value">{fmtPrice(revenue.collected)}</span>
+              <RollingValue className="ad-rev__stat-value" value={fmtPrice(revenue.collected)} />
             </div>
             <div className="ad-rev__stat ad-rev__stat--pending">
               <span className="ad-rev__stat-label">
                 {t("payment.pendingAtTable", "Pending at table")}
               </span>
-              <span className="ad-rev__stat-value">{fmtPrice(revenue.pending)}</span>
+              <RollingValue className="ad-rev__stat-value" value={fmtPrice(revenue.pending)} />
             </div>
             <div className="ad-rev__stat ad-rev__stat--total">
               <span className="ad-rev__stat-label">
                 {t("admin.totalRevenue", "Total Revenue")}
               </span>
-              <span className="ad-rev__stat-value">{fmtPrice(revenue.total)}</span>
+              <RollingValue className="ad-rev__stat-value" value={fmtPrice(revenue.total)} />
             </div>
           </div>
         </div>
@@ -510,6 +535,7 @@ export default function RevenueAnalytics({
         <div className="ad-rev__mini-row">
           <TopItemsPanel rows={topItems} />
           <PeakTimesPanel rows={peakTimes} />
+          <RevenueReportCard onOpen={onOpenReport} />
         </div>
       </div>
     </section>

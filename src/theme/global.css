@@ -9091,11 +9091,10 @@ button{font-family:var(--font-body)}
    The global prefers-reduced-motion rule collapses this to 0.001s along with
    every other animation in the stylesheet, so there is nothing to repeat
    here. */
-@keyframes revmorph{
-  from{opacity:0;transform:translateY(4px)}
-  to{opacity:1;transform:none}
-}
-.ad-rev__data{animation:revmorph .22s var(--ease) both}
+/* Phase 111.1 — the keyed-container entrance is gone. It animated the CARD
+   on every period change; the values, bars and arcs now carry their own
+   motion instead (see the Match & Move block below), and this element is
+   back to being a plain layout wrapper. */
 
 /* ── Top Selling Items + Peak Times (§20) ────────────────────────────────
    One final row inside the card. Items is wider because it carries three
@@ -9237,6 +9236,363 @@ button{font-family:var(--font-body)}
   .ad-rev__periods{width:100%}
   .ad-period{flex:1 1 auto;justify-content:space-between}
   .ad-period--type{flex:0 0 auto}
+}
+
+
+/* ══ Phase 111.1 — MATCH & MOVE, THE CALENDAR, THE REPORT ════════════════
+
+   Phase 111.0's period change was one animation on a keyed container: the
+   whole data area unmounted and re-entered, which animated the CARD rather
+   than the information in it. Everything below replaces that with motion
+   that belongs to the values themselves, so the card never moves.
+
+   Reduced motion needs no special case anywhere in this block: the global
+   rule near the top of this file already collapses every animation and
+   transition to 0.001s. */
+
+/* ── A value that changes in place ──────────────────────────────────────
+   The incoming figure is in flow and therefore owns the element's size; the
+   outgoing copy is taken out of flow for the ~300ms it is still visible, so
+   two numbers are never laid out at once and the row cannot jump. Both are
+   tabular-nums wherever they are used, so digits do not reflow either. */
+.rollval{
+  position:relative;display:inline-block;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.rollval__in{display:inline-block;animation:rollin .28s var(--ease) both}
+.rollval__out{
+  position:absolute;inset-inline-start:0;top:0;
+  display:inline-block;pointer-events:none;
+  animation:rollout .28s var(--ease) both}
+@keyframes rollin{
+  from{opacity:0;transform:translateY(60%)}
+  to{opacity:1;transform:none}
+}
+@keyframes rollout{
+  from{opacity:1;transform:none}
+  to{opacity:0;transform:translateY(-60%)}
+}
+
+/* ── Bars morph instead of being replaced ───────────────────────────────
+   Within one lens the bar for a given hour or date keeps its React key, so
+   this transition is the whole morph: the same element simply grows or
+   shrinks, anchored at the baseline where it already sits.
+
+   Across lenses the keys change, so the bars are new elements — those rise
+   from the baseline instead, which is the entrance §5.2 asks for. scaleY
+   rather than height so the rise costs no layout. */
+.ad-chart__bar{
+  transition:height .4s var(--ease);
+  animation:barrise .4s var(--ease) both;
+  transform-origin:bottom}
+@keyframes barrise{
+  from{transform:scaleY(0)}
+  to{transform:scaleY(1)}
+}
+
+/* The ring's arcs interpolate for the same reason: the segment for Cash is
+   the same circle element from one period to the next, so only its dash
+   geometry has to travel. */
+.ad-ring__seg{
+  transition:stroke-dasharray .4s var(--ease), stroke-dashoffset .4s var(--ease)}
+
+/* The outstanding slice. Amber, because it is the part of the ring that is
+   not money in hand — the same tone the product uses for work in progress. */
+.ad-rev__dot--pending{background:var(--preparing)}
+.ad-ring__seg--pending{stroke:var(--preparing)}
+
+/* ── The period label became a control ──────────────────────────────────
+   Same metrics as the span it replaces, so the header composition is
+   untouched; the calendar glyph is the only addition. */
+.ad-period__label--pick{
+  display:inline-flex;align-items:center;gap:6px;
+  border:none;background:none;cursor:pointer;
+  font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text-1);
+  padding:5px 4px;border-radius:var(--r-sm);
+  transition:color .16s var(--ease),background .16s var(--ease)}
+.ad-period__label--pick:hover{color:var(--gold-ink);background:var(--surface-3)}
+.ad-period__label--pick:focus-visible{outline:2px solid var(--gold);outline-offset:-1px}
+.ad-period__label--pick svg{flex:none;color:var(--text-3)}
+
+/* ── Calendar popover ───────────────────────────────────────────────────
+   Anchored to the range stepper, which is position:relative for it. It sits
+   above the card rather than inside its flow, so the card cannot clip it,
+   and it is right-aligned in LTR / left-aligned in RTL by logical property
+   so the mirror is automatic. */
+.ad-period--range{position:relative}
+.ad-cal{
+  position:absolute;top:calc(100% + 6px);inset-inline-start:0;z-index:60;
+  width:252px;padding:10px;
+  background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:var(--r-md);box-shadow:var(--shadow);
+  animation:calin .14s var(--ease) both}
+@keyframes calin{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:none}
+}
+.ad-cal__head{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  margin-bottom:8px}
+.ad-cal__title{
+  flex:1;text-align:center;min-width:0;
+  font-size:12.5px;font-weight:600;color:var(--text-1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-cal__nav{
+  flex:none;display:grid;place-items:center;width:28px;height:28px;
+  border:none;background:none;padding:0;cursor:pointer;
+  color:var(--text-2);border-radius:var(--r-sm);
+  transition:color .16s var(--ease),background .16s var(--ease)}
+.ad-cal__nav:hover:not(:disabled){color:var(--gold-ink);background:var(--surface-2)}
+.ad-cal__nav:focus-visible{outline:2px solid var(--gold);outline-offset:-1px}
+.ad-cal__nav:disabled{opacity:.3;cursor:default}
+[dir="rtl"] .ad-cal__nav svg{transform:scaleX(-1)}
+
+.ad-cal__weekdays,
+.ad-cal__grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.ad-cal__weekdays{margin-bottom:4px}
+.ad-cal__weekdays span{
+  text-align:center;font-size:9.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-cal__day,
+.ad-cal__month{
+  min-height:30px;padding:0;border:1px solid transparent;border-radius:var(--r-sm);
+  background:none;color:var(--text-1);cursor:pointer;
+  font-family:inherit;font-size:12px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  transition:background .14s var(--ease),color .14s var(--ease),
+             border-color .14s var(--ease)}
+.ad-cal__month{min-height:34px;font-size:12.5px}
+.ad-cal__months{display:grid;gap:4px}
+.ad-cal__day:hover:not(:disabled),
+.ad-cal__month:hover:not(:disabled){background:var(--surface-2)}
+.ad-cal__day:focus-visible,
+.ad-cal__month:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+/* A day from the neighbouring month is present for grid shape, not for
+   reading — it stays selectable, because a week can legitimately cross a
+   month boundary. */
+.ad-cal__day[data-outside="true"]{color:var(--text-3);opacity:.55}
+.ad-cal__day[data-today="true"]{border-color:var(--gold-line)}
+/* Unmistakable (§14.7), and it marks the whole week under the Week lens
+   because every day of that week carries the attribute. */
+.ad-cal__day[data-selected="true"],
+.ad-cal__month[data-selected="true"]{
+  background:var(--gold);color:var(--on-primary);border-color:var(--gold);opacity:1}
+.ad-cal__day:disabled,
+.ad-cal__month:disabled{opacity:.28;cursor:default}
+.ad-cal__hint{
+  margin:8px 0 0;font-size:10.5px;color:var(--text-3);text-align:center}
+.ad-cal__today{
+  width:100%;margin-top:8px;min-height:30px;
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  background:none;color:var(--text-2);cursor:pointer;
+  font-family:inherit;font-size:11.5px;font-weight:600;
+  transition:color .16s var(--ease),border-color .16s var(--ease)}
+.ad-cal__today:hover{color:var(--gold-ink);border-color:var(--gold-line)}
+.ad-cal__today:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* ── The Revenue Report card ────────────────────────────────────────────
+   Every colour here is --gold and its derivations, which theme.js writes
+   from settings.primaryColor — so this is the restaurant's colour, not a
+   house gold, and a venue configured green gets a green card with no code
+   change. --gold-ink is the contrast-clamped derivation (Phase 97.1), which
+   is why text uses it and only the filled button uses the raw colour. */
+.ad-report-card{
+  justify-content:space-between;gap:10px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--gold) 9%,var(--surface-2)),
+    var(--surface-2));
+  border-color:var(--gold-line)}
+.ad-report-card__head{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.ad-report-card__icon{
+  flex:none;display:grid;place-items:center;width:28px;height:28px;
+  border-radius:var(--r-sm);
+  background:var(--gold-soft);color:var(--gold-ink)}
+.ad-report-card__title{color:var(--gold-ink)}
+.ad-report-card__text{
+  margin:0;font-size:12px;line-height:1.5;color:var(--text-2)}
+.ad-report-card__btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;min-height:40px;margin-top:auto;
+  border:none;border-radius:var(--r-md);cursor:pointer;
+  background:var(--gold);color:var(--on-primary);
+  font-family:var(--font-body);font-size:13px;font-weight:700;
+  transition:filter .16s var(--ease)}
+.ad-report-card__btn:hover{filter:brightness(1.07)}
+.ad-report-card__btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+[dir="rtl"] .ad-report-card__btn svg{transform:scaleX(-1)}
+
+/* ══ The Revenue Report page ═════════════════════════════════════════════
+   Designed for A4 first and shown on screen second, so what the reader
+   checks in the browser is what the printer produces. */
+.rep-shell{display:flex;flex-direction:column;gap:14px;padding-bottom:30px}
+.rep-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;flex-wrap:wrap}
+.rep-toolbar__right{display:flex;gap:8px;flex-wrap:wrap}
+.rep-action{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:36px;padding:0 12px;
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  background:none;color:var(--text-2);cursor:pointer;
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  transition:color .16s var(--ease),border-color .16s var(--ease)}
+.rep-action:hover{color:var(--gold-ink);border-color:var(--gold-line)}
+.rep-action:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+[dir="rtl"] .rep-action svg{transform:scaleX(-1)}
+.rep-hint{margin:0;font-size:11.5px;color:var(--text-3)}
+.rep-missing{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+
+.rep-doc{display:flex;flex-direction:column;align-items:center;gap:18px}
+
+/* One A4 page. Fixed width so the on-screen preview is the printed measure;
+   min-height rather than height so an unusually dense period grows into a
+   scrollable page on screen instead of silently clipping — the print check
+   then shows it honestly rather than hiding the overflow. */
+.rep-page{
+  box-sizing:border-box;
+  width:210mm;min-height:297mm;padding:12mm 12mm 10mm;
+  background:#ffffff;color:#1a1a1a;
+  font-family:var(--font-body),system-ui,sans-serif;font-size:9.5pt;line-height:1.45;
+  box-shadow:0 2px 18px rgba(0,0,0,.28)}
+
+.rep-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:10mm;padding-bottom:4mm;margin-bottom:5mm;
+  border-bottom:2px solid #1a1a1a}
+.rep-head__brand{display:flex;align-items:center;gap:4mm;min-width:0}
+.rep-head__logo{
+  width:16mm;height:16mm;object-fit:contain;flex:none}
+.rep-head__names{min-width:0}
+.rep-head__restaurant{
+  margin:0;font-family:var(--font-display),serif;
+  font-size:16pt;font-weight:700;line-height:1.15;color:#1a1a1a;
+  overflow-wrap:anywhere}
+.rep-head__title{
+  margin:1mm 0 0;font-size:10pt;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:#6b6453}
+.rep-head__meta{
+  flex:none;margin:0;display:grid;grid-template-columns:auto auto;
+  gap:1mm 4mm;font-size:8pt}
+.rep-head__meta > div{display:contents}
+.rep-head__meta dt{color:#6b6453;white-space:nowrap}
+.rep-head__meta dd{margin:0;font-weight:600;text-align:end;white-space:nowrap}
+
+.rep-h2{
+  margin:0 0 2mm;font-size:9pt;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:#6b6453}
+
+.rep-figures{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:2mm;margin-bottom:5mm}
+.rep-figure{
+  border:1px solid #d9d4c6;border-radius:2mm;padding:2.5mm 3mm;min-width:0}
+.rep-figure--lead{grid-column:1 / -1;background:#faf8f2}
+.rep-figure__label{
+  display:block;font-size:7.5pt;color:#6b6453;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-figure__value{
+  display:block;margin-top:.8mm;font-size:12pt;font-weight:700;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-figure--lead .rep-figure__value{font-size:17pt}
+
+.rep-cols{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6mm;margin-bottom:5mm}
+.rep-block{min-width:0}
+
+.rep-table{
+  width:100%;border-collapse:collapse;font-size:8.5pt;
+  font-variant-numeric:tabular-nums}
+.rep-table th,
+.rep-table td{padding:1.4mm 0;text-align:start;vertical-align:top}
+.rep-table thead th{
+  font-size:7.5pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:#6b6453;border-bottom:1px solid #1a1a1a}
+.rep-table tbody tr + tr th,
+.rep-table tbody tr + tr td{border-top:1px solid #e6e2d6}
+.rep-table th[scope="row"]{font-weight:500}
+.rep-num{text-align:end !important;white-space:nowrap;padding-inline-start:3mm !important}
+.rep-name{
+  max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-table__total th,
+.rep-table__total td{
+  border-top:1.5px solid #1a1a1a !important;font-weight:700}
+.rep-note,
+.rep-empty{margin:2mm 0 0;font-size:7.5pt;color:#6b6453}
+
+.rep-chart{
+  display:flex;align-items:flex-end;gap:1px;height:22mm;
+  padding:0 1mm;margin-bottom:1.5mm;
+  border-bottom:1px solid #1a1a1a}
+.rep-chart__col{flex:1 1 0;min-width:0;display:flex;align-items:flex-end;height:100%}
+.rep-chart__bar{
+  width:100%;background:#4a4336;border-radius:.6mm .6mm 0 0;min-height:0}
+.rep-chart__caption{
+  margin:0 0 5mm;font-size:7.5pt;color:#6b6453}
+
+.rep-foot{
+  display:flex;align-items:baseline;justify-content:space-between;gap:6mm;
+  margin-top:auto;padding-top:3mm;border-top:1px solid #d9d4c6;
+  font-size:7pt;color:#6b6453}
+.rep-foot__brand{font-weight:700;letter-spacing:.08em;white-space:nowrap}
+
+/* The page is a column so the footer can sit at the bottom of the sheet. */
+.rep-page{display:flex;flex-direction:column}
+
+/* ── Printing the report ────────────────────────────────────────────────
+   The same isolation technique the table stand uses: hide the chrome, strip
+   the shell back to a plain box, and let the two pages be the document.
+   Scoped by .rep-doc existing, so this cannot affect any other print. */
+@media print{
+  body:has(.rep-doc) .topbar,
+  body:has(.rep-doc) .ad-sidebar,
+  body:has(.rep-doc) .demo-switcher,
+  body:has(.rep-doc) .toast-wrap,
+  body:has(.rep-doc) .sc-alert,
+  body:has(.rep-doc) .rep-toolbar,
+  body:has(.rep-doc) .rep-hint{display:none !important}
+
+  body:has(.rep-doc) .container--admin{
+    padding:0 !important;margin:0 !important;max-width:none !important;width:auto !important}
+  body:has(.rep-doc) .rep-shell{display:block !important;padding:0 !important;gap:0 !important}
+  body:has(.rep-doc) .rep-doc{display:block !important;gap:0 !important}
+
+  body:has(.rep-doc){background:#fff !important}
+
+  .rep-page{
+    width:auto !important;min-height:0 !important;height:auto !important;
+    padding:0 !important;box-shadow:none !important;
+    /* Each page is its own sheet; the last must not force a break after it
+       or the browser emits a third, blank page. */
+    page-break-after:always;break-after:page}
+  .rep-page:last-child{page-break-after:auto;break-after:auto}
+  .rep-page,.rep-page *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  @page{size:A4;margin:12mm}
+}
+
+/* ── Three cards in the bottom row ──────────────────────────────────────
+   Phase 111.0 split this row 3:2. With the report card added it becomes
+   three columns on a desktop wide enough to keep them readable, and falls
+   back to the previous two-up and then to a stack. The report card is last
+   in source order, so every fallback keeps it at the end. */
+@media(min-width:1200px){
+  .ad-rev__mini-row{grid-template-columns:minmax(0,4fr) minmax(0,3fr) minmax(0,3fr)}
+}
+@media(min-width:760px) and (max-width:1023.98px){
+  .ad-rev__mini-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .ad-report-card{grid-column:1 / -1}
+}
+
+/* On a phone the popover must not run off the edge; it takes the stepper's
+   width and the grid tightens rather than scrolling sideways. */
+@media(max-width:479.98px){
+  .ad-cal{width:min(252px, calc(100vw - 40px))}
+  .rep-page{width:100%;min-height:0;padding:14px}
+  .rep-figures{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rep-cols{grid-template-columns:minmax(0,1fr);gap:5mm}
+  .rep-head{flex-direction:column;gap:4mm}
+  .rep-head__meta dd{text-align:start}
 }
 
 
@@ -10214,3 +10570,10 @@ button{font-family:var(--font-body)}
    disabled and error treatments are untouched. */
 .ad-settings__section .mm-select{border-radius:var(--r-md)}
 
+
+/* Phase 111.1 — the breakdown's payment table now ends on Total Revenue, so
+   the basis of its Share column is stated rather than implied. */
+.dd2-total-row th,
+.dd2-total-row td{
+  border-top:1.5px solid var(--border-strong) !important;
+  color:var(--text-1);font-weight:700}
