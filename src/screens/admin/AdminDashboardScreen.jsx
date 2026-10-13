@@ -44,6 +44,12 @@ import {
   filterOrdersToPeriod,
   formatPeriodLabel,
 } from "../../lib/revenuePeriods.js";
+import {
+  buildComparison,
+  previousRange as previousRangeOf,
+  historyStartKey,
+  rangeCoverage,
+} from "../../lib/revenueComparison.js";
 import { useQaRevenuePreview } from "../../dev/useQaRevenuePreview.js";
 
 const RECENT_ORDERS_LIMIT = 8;
@@ -251,6 +257,39 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
     () => filterOrdersToPeriod(analyticsOrders, settings.timeZone, periodRange),
     [analyticsOrders, settings.timeZone, periodRange]
   );
+  /* ── The period before this one (Phase 111.4) ────────────────────────
+     Derived from the same anchor arithmetic the arrows use, so "previous"
+     means the previous business day, the preceding Sunday–Saturday week or
+     the preceding calendar month — never a rolling window — and filtered
+     from the same list, so both sides of every delta come from one dataset.
+
+     History has an edge: the earliest order this browser holds. A previous
+     period that ends before it is reported as unavailable rather than as a
+     quiet period, because those are different facts. */
+  const priorRange = useMemo(() => previousRangeOf(periodRange), [periodRange]);
+  const priorOrders = useMemo(
+    () => filterOrdersToPeriod(analyticsOrders, settings.timeZone, priorRange),
+    [analyticsOrders, settings.timeZone, priorRange]
+  );
+  const historyStart = useMemo(
+    () => historyStartKey(analyticsOrders, settings.timeZone),
+    [analyticsOrders, settings.timeZone]
+  );
+  const priorCoverage = useMemo(
+    () => rangeCoverage(priorRange, historyStart),
+    [priorRange, historyStart]
+  );
+  const comparison = useMemo(
+    () => buildComparison({
+      currentOrders: periodOrders,
+      previousOrders: priorOrders,
+      range: periodRange,
+      priorRange,
+      coverage: priorCoverage,
+    }),
+    [periodOrders, priorOrders, periodRange, priorRange, priorCoverage]
+  );
+
   const periodRevenue = useMemo(() => summarizeRevenue(periodOrders), [periodOrders]);
   const periodTopItems = useMemo(() => summarizeTopItems(periodOrders), [periodOrders]);
   const periodPeakTimes = useMemo(
@@ -316,6 +355,13 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
       report: {
         orders: periodOrders,
         range: periodRange,
+        /* Phase 111.4 — the comparison's source records are frozen in the
+           same breath as the current period's. Freezing only one side would
+           leave the poll free to move the baseline under a report that is
+           already open, and the two pages would stop agreeing. */
+        previousOrders: priorOrders,
+        previousRange: priorRange,
+        previousCoverage: priorCoverage,
         timeZone: settings.timeZone,
         generatedAt: new Date(),
         /* Travels with the snapshot so both printed pages can carry the
@@ -324,7 +370,10 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         qaPreview: qaPreview.active,
       },
     });
-  }, [onNavigate, periodOrders, periodRange, settings.timeZone, qaPreview.active]);
+  }, [
+    onNavigate, periodOrders, periodRange, priorOrders, priorRange,
+    priorCoverage, settings.timeZone, qaPreview.active,
+  ]);
 
   const handlePeriodStep = useCallback(
     (delta) => {
@@ -778,6 +827,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         peakTimes={periodPeakTimes}
         statusRows={periodStatusRows}
         periodLabel={period.label}
+        comparison={comparison}
         qaPreview={qaPreview.active}
         onClose={() => setOpenDetail(null)}
         onNavigate={onNavigate}

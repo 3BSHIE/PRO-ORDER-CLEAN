@@ -1,8 +1,12 @@
+import { useEffect, useState } from "react";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { translate } from "../../i18n/translate.js";
 import { fmtPrice } from "../../lib/format.js";
 import { formatPeriodLabel, formatDayKeyLabel, keyParts } from "../../lib/revenuePeriods.js";
 import { formatHourRange } from "../../i18n/dateFormat.js";
 import { isSafeImageUrl } from "../../lib/safeImage.js";
+import { describeMetric } from "../../lib/revenueComparison.js";
+import { brandMarkDataUrl } from "../../lib/reportBrand.js";
 import { QaPaperNotice, QaPaperWatermark } from "../../dev/QaPreviewBadge.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -44,29 +48,176 @@ function formatInRestaurantZone(date, timeZone, locale, options) {
   }
 }
 
-/** A compact bar strip: the period's shape, not a second interactive chart. */
-function ReportChart({ model, language }) {
-  const buckets = model.chartKind === "hour"
-    ? model.chart.buckets.map((b) => ({ id: b.hour, total: b.total }))
-    : model.chart.buckets.map((b) => ({ id: b.key, total: b.total }));
-  const peak = model.chart.peak || 0;
+/**
+ * A value axis a reader can actually measure a bar against.
+ *
+ * ── WHY THE TOP IS NOT THE PEAK ──────────────────────────────────────────
+ * Scaling bars to the tallest bar makes the chart's shape right and its
+ * values unreadable: the top of the plot is some arbitrary 198.000, and a
+ * tick there would be a number nobody chose. The axis therefore runs to a
+ * ROUND number at or above the peak, picked from the 1 / 2 / 2.5 / 5 ladder
+ * at the right order of magnitude, and the bars are scaled against that. The
+ * shape is unchanged — every bar shrinks by the same factor — and now every
+ * gridline is a figure worth printing.
+ *
+ * Four intervals is the target: enough to read a bar to a quarter of the
+ * range, few enough that five labels fit beside a 22mm plot at 6.5pt.
+ *
+ * @param {number} max — the tallest bucket in the period
+ * @returns {{top:number, ticks:Array<number>, decimals:number}}
+ */
+export function niceScale(max, targetIntervals = 4) {
+  const peak = Number(max) || 0;
+  if (peak <= 0) return { top: 0, ticks: [0], decimals: 0 };
+
+  const rough = peak / targetIntervals;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const normalized = rough / magnitude;
+  const step =
+    (normalized <= 1 ? 1
+      : normalized <= 2 ? 2
+        : normalized <= 2.5 ? 2.5
+          : normalized <= 5 ? 5
+            : 10) * magnitude;
+
+  /* Round up to the next whole step so the tallest bar never pokes above the
+     top gridline, and so the top tick is a number from the same ladder. */
+  const top = Math.ceil(peak / step - 1e-9) * step;
+  const ticks = [];
+  for (let i = 0; i * step <= top + step * 1e-9; i += 1) ticks.push(i * step);
+
+  /* A step of 0.25 needs two decimals; a step of 250 needs none. Decided by
+     the step rather than by the values, so every tick is printed alike. */
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
+  return { top, ticks, decimals };
+}
+
+/** Western digits on both pages, exactly as fmtPrice prints its figures. */
+function tickLabel(value, decimals) {
+  return (Number(value) || 0).toFixed(decimals);
+}
+
+const DELTA_ICON = { up: ArrowUp, down: ArrowDown, flat: Minus };
+
+/**
+ * One metric's movement, printed under the figure it belongs to.
+ *
+ * ── GREY IS A MEANING, NOT AN ABSENCE ────────────────────────────────────
+ * Up is green and down is red for revenue, orders and average order value.
+ * Pending keeps its arrow and loses its colour: more money still owed at the
+ * table is not an achievement, and colouring it green would be the report
+ * telling the owner something it does not know.
+ *
+ * ── AND IT HAS TO SURVIVE A BLACK AND WHITE PRINTER ──────────────────────
+ * Every state is carried by text as well as by colour: a signed percentage,
+ * a signed amount, or a word. The arrow and the tint are the quick read; the
+ * sign is the record.
+ */
+function ReportDelta({ metric, kind, money, T }) {
+  if (!metric) return null;
+  const Icon = DELTA_ICON[metric.direction] || Minus;
+  const { main, absolute } = describeMetric(metric, {
+    kind,
+    money,
+    labels: {
+      new: T("admin.comparisonNew", "New"),
+      unchanged: T("admin.comparisonUnchanged", "Unchanged"),
+      noBaseline: T("admin.comparisonNoBaseline", "No baseline"),
+    },
+  });
 
   return (
-    <div className="rep-chart" aria-hidden="true">
-      {buckets.map((bucket) => (
-        <span className="rep-chart__col" key={bucket.id}>
+    <span className={`rep-delta rep-delta--${metric.tone}`}>
+      <Icon size={9} strokeWidth={2.6} aria-hidden="true" />
+      <span className="rep-delta__main" dir="ltr">{main}</span>
+      {absolute && <span className="rep-delta__abs" dir="ltr">{absolute}</span>}
+    </span>
+  );
+}
+
+/** A compact bar strip: the period's shape, not a second interactive chart. */
+function ReportChart({ model, currency }) {
+  const buckets = model.chartKind === "hour"
+    ? model.chart.buckets.map((b) => ({ id: b.hour, total: b.total, peak: b.hour === model.chart.peakHour }))
+    : model.chart.buckets.map((b) => ({ id: b.key, total: b.total, peak: b.key === model.chart.peakKey }));
+  const { top, ticks, decimals } = niceScale(model.chart.peak || 0);
+
+  return (
+    <div className="rep-chart-wrap">
+      {/* Each label is placed at the height its own value represents — the
+          same fraction of the plot the bars are drawn to — so a label, the
+          gridline beside it and a bar reaching it all mean one thing. */}
+      <div className="rep-chart-scale" aria-hidden="true">
+        {ticks.map((tick, i) => (
           <span
-            className="rep-chart__bar"
-            style={{ height: bucket.total > 0 ? `${Math.max(4, (bucket.total / peak) * 100)}%` : "0%" }}
-          />
-        </span>
-      ))}
+            className="rep-chart-scale__tick"
+            key={tick}
+            style={{ bottom: `${(i / Math.max(1, ticks.length - 1)) * 100}%` }}
+          >
+            {tickLabel(tick, decimals)}
+          </span>
+        ))}
+      </div>
+
+      <div className="rep-chart" aria-hidden="true">
+        <div className="rep-chart__grid">
+          {ticks.map((tick) => <span key={tick} />)}
+        </div>
+        <div className="rep-chart__bars">
+          {buckets.map((bucket) => (
+            <span className="rep-chart__col" key={bucket.id}>
+              <span
+                className={`rep-chart__bar${bucket.peak && bucket.total > 0 ? " rep-chart__bar--peak" : ""}`}
+                /* Against the axis top, not the peak, so a bar's height and
+                   the gridline beside it mean the same thing. The 2% floor
+                   keeps a very small takings visible without lifting it to a
+                   value it did not earn. */
+                style={{ height: bucket.total > 0 && top > 0 ? `${Math.max(2, (bucket.total / top) * 100)}%` : "0%" }}
+              />
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <span className="rep-chart-unit" aria-hidden="true">{currency}</span>
     </div>
   );
 }
 
+/**
+ * The PRO·ORDER lockup in the footer.
+ *
+ * ── WHOSE DOCUMENT IS THIS ───────────────────────────────────────────────
+ * The restaurant's. Its name is the masthead at 16pt; this is 7pt at the
+ * bottom of the page, which is the whole of the hierarchy argument. But a
+ * financial document should say what produced it, so it says so once, in the
+ * reader's language, with the real mark rather than a typographic stand-in.
+ *
+ * The mark arrives asynchronously because it is recoloured through a canvas
+ * (see reportBrand.js). Until it does — and if it never does — the
+ * attribution prints on its own rather than leaving a broken image behind.
+ */
+function ReportBrandLockup({ accent, T }) {
+  const [mark, setMark] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    brandMarkDataUrl(accent).then((url) => { if (!cancelled) setMark(url); });
+    return () => { cancelled = true; };
+  }, [accent]);
+
+  return (
+    <span className="rep-foot__lockup">
+      {mark && <img className="rep-foot__mark" src={mark} alt="" />}
+      <span className="rep-foot__by">
+        {T("admin.reportGeneratedByBrand", "Generated by PRO·ORDER")}
+      </span>
+    </span>
+  );
+}
+
 export default function RevenueReportPage({
-  language, model, restaurantName, logoUrl, currency, qaPreview,
+  language, model, restaurantName, logoUrl, currency, qaPreview, accent,
 }) {
   /* DEV ONLY, and folded away entirely in a production build. A synthetic
      financial document must not be able to pass as a real one, so the page
@@ -104,8 +255,35 @@ export default function RevenueReportPage({
   const hasLogo = isSafeImageUrl(logoUrl);
   const money = (n) => fmtPrice(n);
 
+  /* ── Previous period (Phase 111.4) ───────────────────────────────────
+     The comparison was computed once, over the lists frozen with this
+     snapshot. This page only decides how to say it. */
+  const comparison = model.comparison;
+  const metrics = comparison?.metrics || {};
+  const vsLabel = T(
+    model.range.type === "day" ? "admin.vsPreviousDay"
+      : model.range.type === "week" ? "admin.vsPreviousWeek"
+        : "admin.vsPreviousMonth",
+    model.range.type === "day" ? "vs previous day"
+      : model.range.type === "week" ? "vs previous week" : "vs previous month"
+  );
+  const priorLabel = comparison?.priorRange
+    ? formatPeriodLabel(comparison.priorRange, language)
+    : null;
+  const delta = (id, kind) => (
+    <ReportDelta metric={metrics[id]} kind={kind} money={money} T={T} />
+  );
+
   return (
-    <section className="rep-page" lang={language} dir={isArabic ? "rtl" : "ltr"}>
+    <section
+      className="rep-page"
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      /* The restaurant's own colour, already moved far enough to stay
+         readable on white. A variable rather than a class, because the
+         value belongs to the restaurant and not to the stylesheet. */
+      style={accent ? { "--rep-accent": accent } : undefined}
+    >
       {isQa && <QaPaperWatermark />}
 
       {/* ── A. Identity ──────────────────────────────────────────────── */}
@@ -135,24 +313,49 @@ export default function RevenueReportPage({
         <div className="rep-figure rep-figure--lead">
           <span className="rep-figure__label">{T("admin.totalRevenue", "Total Revenue")}</span>
           <span className="rep-figure__value">{money(model.revenue.total)}</span>
+          {delta("total", "money")}
         </div>
         <div className="rep-figure">
           <span className="rep-figure__label">{T("admin.collected", "Collected")}</span>
           <span className="rep-figure__value">{money(model.revenue.collected)}</span>
+          {delta("collected", "money")}
         </div>
         <div className="rep-figure">
           <span className="rep-figure__label">{T("payment.pendingAtTable", "Pending at table")}</span>
           <span className="rep-figure__value">{money(model.revenue.pending)}</span>
+          {delta("pending", "money")}
         </div>
         <div className="rep-figure">
           <span className="rep-figure__label">{T("admin.averageOrderValue", "Average order value")}</span>
           <span className="rep-figure__value">{model.aov === null ? "—" : money(model.aov)}</span>
+          {delta("aov", "money")}
         </div>
         <div className="rep-figure">
           <span className="rep-figure__label">{T("admin.countedOrders", "Counted orders")}</span>
           <span className="rep-figure__value">{model.countedOrders}</span>
+          {delta("countedOrders", "count")}
         </div>
       </div>
+
+      {/* What every delta above is measured against, said once. The period
+          is named, not implied: "vs previous week" is a claim, and the
+          reader is entitled to know which week. */}
+      <p className="rep-vs">
+        <span className="rep-vs__label">{vsLabel}</span>
+        {priorLabel && comparison.coverage !== "none" && (
+          <span className="rep-vs__period">{priorLabel}</span>
+        )}
+        {comparison?.coverage === "none" && (
+          <span className="rep-vs__note">
+            {T("admin.comparisonUnavailable", "No recorded orders before this period, so there is nothing to compare against.")}
+          </span>
+        )}
+        {comparison?.coverage === "partial" && (
+          <span className="rep-vs__note">
+            {T("admin.comparisonPartial", "Records begin inside the previous period, so that comparison is based on partial history.")}
+          </span>
+        )}
+      </p>
 
       <div className="rep-cols">
         {/* ── D. Payment distribution ────────────────────────────────── */}
@@ -227,7 +430,7 @@ export default function RevenueReportPage({
       </h2>
       {model.revenue.total > 0 ? (
         <>
-          <ReportChart model={model} language={language} />
+          <ReportChart model={model} currency={currency} />
           <p className="rep-chart__caption">
             {T("admin.peakHour", "Peak")}
             {": "}
@@ -299,8 +502,10 @@ export default function RevenueReportPage({
         {/* Stated rather than left to be discovered: the item table adds up to
             item takings, while Total Revenue is order totals and carries the
             service charge, so the two are not meant to match. */}
-        <span>{T("admin.reportItemNote", "Item revenue is line revenue and excludes order-level service charge.")}</span>
-        <span className="rep-foot__brand">PRO·ORDER</span>
+        <span className="rep-foot__note">
+          {T("admin.reportItemNote", "Item revenue is line revenue and excludes order-level service charge.")}
+        </span>
+        <ReportBrandLockup accent={accent} T={T} />
       </footer>
     </section>
   );

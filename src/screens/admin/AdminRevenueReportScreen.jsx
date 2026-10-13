@@ -9,6 +9,7 @@ import { formatPeriodLabel } from "../../lib/revenuePeriods.js";
 import { fmtPrice, SUPPORTED_CURRENCY } from "../../lib/format.js";
 import { downloadReportPdf, buildReportFilename } from "../../lib/reportPdf.js";
 import { translate } from "../../i18n/translate.js";
+import { reportAccentColor } from "../../lib/reportBrand.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminRevenueReportScreen — Phase 111.1
@@ -54,6 +55,15 @@ export default function AdminRevenueReportScreen({
   );
 
   const restaurantName = (settings.name || "").trim() || restaurant.name;
+
+  /* Phase 111.4 — the restaurant's configured primary, moved only as far as
+     it must be to stay readable on white paper. Resolved here, once, and
+     handed to both pages as a value: the report is printed, so it cannot
+     inherit a theme variable that only exists on a lit screen. */
+  const accent = useMemo(
+    () => reportAccentColor(settings.primaryColor),
+    [settings.primaryColor]
+  );
 
   /* Frozen into the snapshot when View Report was pressed, so a report built
      from the fixture stays marked as one for as long as it is open — and the
@@ -215,6 +225,7 @@ export default function AdminRevenueReportScreen({
             logoUrl={settings.logoUrl}
             currency={SUPPORTED_CURRENCY}
             qaPreview={qaPreview}
+            accent={accent}
           />
           <RevenueReportPage
             language="ar"
@@ -223,6 +234,7 @@ export default function AdminRevenueReportScreen({
             logoUrl={settings.logoUrl}
             currency={SUPPORTED_CURRENCY}
             qaPreview={qaPreview}
+            accent={accent}
           />
         </div>
       </div>

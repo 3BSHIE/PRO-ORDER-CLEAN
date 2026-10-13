@@ -1,8 +1,9 @@
-import { ClipboardList, Wallet } from "lucide-react";
+import { ClipboardList, Wallet, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import Modal from "../../components/ui/Modal.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import { averageOrderValue, revenueDistribution } from "../../lib/dashboardStats.js";
+import { describeMetric } from "../../lib/revenueComparison.js";
 import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
 import { QaPreviewBadge } from "../../dev/QaPreviewBadge.jsx";
 
@@ -27,6 +28,49 @@ const STATUS_FALLBACK = {
   delivered: "Delivered",
   canceled: "Canceled",
 };
+
+const DELTA_ICON = { up: ArrowUp, down: ArrowDown, flat: Minus };
+
+/**
+ * One metric's movement, as a subordinate line under the figure it belongs
+ * to (Phase 111.4).
+ *
+ * ── WHY IT LIVES INSIDE THE CARD ─────────────────────────────────────────
+ * A second block of five comparisons would be a second dashboard, and the
+ * geometry Phase 111.2 settled — one full-width total over a balanced 2×2 —
+ * is what makes this overlay readable. The delta is therefore a third line
+ * in a card that already had two, which keeps every card the same height and
+ * the grid exactly as it was.
+ *
+ * Colour says it quickly, text says it exactly: an arrow and a tint for the
+ * glance, a signed percentage and a signed amount for the record. Pending
+ * keeps the arrow and stays grey, because more money still owed at the table
+ * is not good news dressed in green.
+ */
+function DeltaRow({ metric, kind, t }) {
+  if (!metric) return null;
+  const Icon = DELTA_ICON[metric.direction] || Minus;
+  const described = describeMetric(metric, {
+    kind,
+    money: fmtPrice,
+    labels: {
+      new: t("admin.comparisonNew", "New"),
+      unchanged: t("admin.comparisonUnchanged", "Unchanged"),
+      noBaseline: t("admin.comparisonNoBaseline", "No baseline"),
+    },
+  });
+  if (!described) return null;
+
+  return (
+    <span className={`dd2-delta dd2-delta--${described.tone}`}>
+      <Icon size={11} strokeWidth={2.6} aria-hidden="true" />
+      <span className="dd2-delta__main" dir="ltr">{described.main}</span>
+      {described.absolute && (
+        <span className="dd2-delta__abs" dir="ltr">{described.absolute}</span>
+      )}
+    </span>
+  );
+}
 
 /**
  * DashboardDrillDown — Revenue Details.
@@ -71,13 +115,14 @@ const STATUS_FALLBACK = {
  *   peakTimes   — summarizePeakTimes() over the same list
  *   statusRows  — summarizeStatusRevenue() over the same list
  *   periodLabel — the formatted period, as the section prints it
+ *   comparison  — buildComparison() against the preceding period (111.4)
  *   qaPreview   — DEV ONLY: true when these figures came from the QA fixture
  *   onClose     — () => void
  *   onNavigate  — (adminPage, options?) => void
  */
 export default function DashboardDrillDown({
-  detailKey, revenue, topItems, peakTimes, statusRows, periodLabel, qaPreview,
-  onClose, onNavigate,
+  detailKey, revenue, topItems, peakTimes, statusRows, periodLabel, comparison,
+  qaPreview, onClose, onNavigate,
 }) {
   const { t } = useLanguage();
   if (detailKey !== "revenueToday") return null;
@@ -107,13 +152,26 @@ export default function DashboardDrillDown({
   /* Five figures, each one line. The old layout gave Total Revenue a box of
      its own the height of three rows; these all carry the same weight
      because the question here is composition, not headline. */
+  /* Each card is compared with its OWN counterpart, which is why the metric
+     id is carried here rather than inferred: this overlay prints Paid orders,
+     and paid orders are not counted orders — one is the subset that has
+     settled, the other is everything revenue was built from. Comparing one
+     against the other's history would be a quietly wrong number. */
   const summary = [
-    { key: "total", label: t("admin.totalRevenue", "Total Revenue"), value: fmtPrice(revenue.total), strong: true },
-    { key: "collected", label: t("admin.collected", "Collected"), value: fmtPrice(revenue.collected) },
-    { key: "pending", label: t("payment.pendingAtTable", "Pending at table"), value: fmtPrice(revenue.pending) },
-    { key: "paid", label: t("admin.paidOrdersCount", "Paid orders"), value: String(revenue.paidCount) },
-    { key: "aov", label: t("admin.averageOrderValue", "Average order value"), value: aov === null ? "—" : fmtPrice(aov) },
+    { key: "total", metric: "total", kind: "money", label: t("admin.totalRevenue", "Total Revenue"), value: fmtPrice(revenue.total), strong: true },
+    { key: "collected", metric: "collected", kind: "money", label: t("admin.collected", "Collected"), value: fmtPrice(revenue.collected) },
+    { key: "pending", metric: "pending", kind: "money", label: t("payment.pendingAtTable", "Pending at table"), value: fmtPrice(revenue.pending) },
+    { key: "paid", metric: "paidCount", kind: "count", label: t("admin.paidOrdersCount", "Paid orders"), value: String(revenue.paidCount) },
+    { key: "aov", metric: "aov", kind: "money", label: t("admin.averageOrderValue", "Average order value"), value: aov === null ? "—" : fmtPrice(aov) },
   ];
+
+  const periodType = comparison?.type || "day";
+  const vsLabel = t(
+    periodType === "day" ? "admin.vsPreviousDay"
+      : periodType === "week" ? "admin.vsPreviousWeek" : "admin.vsPreviousMonth",
+    periodType === "day" ? "vs previous day"
+      : periodType === "week" ? "vs previous week" : "vs previous month"
+  );
 
   return (
     <Modal
@@ -132,6 +190,22 @@ export default function DashboardDrillDown({
       </p>
 
       <div className="dd2">
+        {comparison && (
+          <p className="dd2-vs">
+            <span className="dd2-vs__label">{vsLabel}</span>
+            {comparison.coverage === "none" && (
+              <span className="dd2-vs__note">
+                {t("admin.comparisonUnavailable", "No recorded orders before this period, so there is nothing to compare against.")}
+              </span>
+            )}
+            {comparison.coverage === "partial" && (
+              <span className="dd2-vs__note">
+                {t("admin.comparisonPartial", "Records begin inside the previous period, so that comparison is based on partial history.")}
+              </span>
+            )}
+          </p>
+        )}
+
         <dl className="dd2-summary">
           {summary.map((row) => (
             <div
@@ -140,6 +214,15 @@ export default function DashboardDrillDown({
             >
               <dt className="dd2-metric__label">{row.label}</dt>
               <dd className="dd2-metric__value">{row.value}</dd>
+              {comparison && (
+                <dd className="dd2-metric__delta">
+                  <DeltaRow
+                    metric={comparison.metrics[row.metric]}
+                    kind={row.kind}
+                    t={t}
+                  />
+                </dd>
+              )}
             </div>
           ))}
         </dl>

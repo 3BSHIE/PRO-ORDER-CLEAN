@@ -9187,6 +9187,34 @@ button{font-family:var(--font-body)}
 .dd2-metric--strong .dd2-metric__value{font-size:19px}
 
 .dd2-block{min-width:0}
+
+/* ── Phase 111.4 — the same comparison, in the overlay ───────────────────
+   A third line inside each card rather than a second block of figures: the
+   2x2 geometry Phase 111.2 settled is what makes this overlay readable, and
+   every card gains the same line, so the rows stay the same height. */
+.dd2-vs{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--text-3)}
+.dd2-vs__note{
+  text-transform:none;letter-spacing:0;font-weight:500;font-style:italic;
+  min-width:0}
+[dir="rtl"] .dd2-vs{letter-spacing:normal}
+
+.dd2-metric__delta{margin:5px 0 0}
+.dd2-delta{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;line-height:1.25;font-variant-numeric:tabular-nums}
+.dd2-delta svg{flex:none}
+.dd2-delta__main{font-weight:700;white-space:nowrap}
+.dd2-delta__abs{font-weight:600;color:var(--text-3);white-space:nowrap}
+.dd2-delta--positive{color:var(--ready)}
+.dd2-delta--negative{color:var(--canceled)}
+.dd2-delta--neutral{color:var(--text-3)}
+/* An increase in money still owed is not good news, so pending keeps the
+   arrow and loses the colour. */
+.dd2-delta--neutral .dd2-delta__abs{color:var(--text-3)}
+
 .dd2-block__title{
   margin:0 0 8px;
   font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
@@ -9506,14 +9534,14 @@ button{font-family:var(--font-body)}
 .rep-head__meta dd{margin:0;font-weight:600;text-align:end;white-space:nowrap}
 
 .rep-h2{
-  margin:0 0 2mm;font-size:9pt;font-weight:700;letter-spacing:.07em;
+  margin:0 0 1.5mm;font-size:9pt;font-weight:700;letter-spacing:.07em;
   text-transform:uppercase;color:#6b6453}
 
 .rep-figures{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:2mm;margin-bottom:5mm}
+  gap:2mm;margin-bottom:3mm}
 .rep-figure{
-  border:1px solid #d9d4c6;border-radius:2mm;padding:2.5mm 3mm;min-width:0}
+  border:1px solid #d9d4c6;border-radius:2mm;padding:2mm 3mm;min-width:0}
 .rep-figure--lead{grid-column:1 / -1;background:#faf8f2}
 .rep-figure__label{
   display:block;font-size:7.5pt;color:#6b6453;
@@ -9525,7 +9553,7 @@ button{font-family:var(--font-body)}
 
 .rep-cols{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:6mm;margin-bottom:5mm}
+  gap:6mm;margin-bottom:2mm}
 .rep-block{min-width:0}
 
 .rep-table{
@@ -9549,14 +9577,14 @@ button{font-family:var(--font-body)}
 .rep-empty{margin:2mm 0 0;font-size:7.5pt;color:#6b6453}
 
 .rep-chart{
-  display:flex;align-items:flex-end;gap:1px;height:22mm;
+  display:flex;align-items:flex-end;gap:1px;height:19mm;
   padding:0 1mm;margin-bottom:1.5mm;
   border-bottom:1px solid #1a1a1a}
 .rep-chart__col{flex:1 1 0;min-width:0;display:flex;align-items:flex-end;height:100%}
 .rep-chart__bar{
   width:100%;background:#4a4336;border-radius:.6mm .6mm 0 0;min-height:0}
 .rep-chart__caption{
-  margin:0 0 5mm;font-size:7.5pt;color:#6b6453}
+  margin:0 0 2mm;font-size:7.5pt;color:#6b6453}
 
 .rep-foot{
   display:flex;align-items:baseline;justify-content:space-between;gap:6mm;
@@ -9566,6 +9594,108 @@ button{font-family:var(--font-body)}
 
 /* The page is a column so the footer can sit at the bottom of the sheet. */
 .rep-page{display:flex;flex-direction:column}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 111.4 — the report grows up
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Arabic joining in the EXPORTED PDF ──────────────────────────────────
+   Arabic is cursive. letter-spacing pulls its letters apart, and although
+   Chrome still shapes them correctly on screen, html2canvas — which is how
+   Save as PDF paints the page — redraws spaced text one character at a time
+   and loses the joining with it: ALMLKHS ALMALI arrives as disconnected
+   stumps, the definite article's alif apparently missing.
+
+   Every letter-spaced rule on this page that can hold Arabic therefore drops
+   its tracking on the Arabic page only. The English page keeps its exactly.
+   Scoped to .rep-* and to [lang="ar"], so no other Arabic in the product is
+   touched. */
+[lang="ar"] .rep-head__title,
+[lang="ar"] .rep-h2,
+[lang="ar"] .rep-table thead th,
+[lang="ar"] .rep-vs__label,
+[lang="ar"] .rep-foot__by{letter-spacing:normal}
+
+/* ── The restaurant's colour, four times, quietly ─────────────────────────
+   --rep-accent arrives from the page element as a value, already moved far
+   enough from the restaurant's primary to hold 4.5:1 on white (see
+   reportBrand.js). The fallback is the page's own neutral ink, so a missing
+   accent degrades to the document as it was. */
+.rep-h2{display:flex;align-items:center;gap:1.8mm}
+.rep-h2::before{
+  content:"";flex:none;width:1.6mm;height:1.6mm;border-radius:.3mm;
+  background:var(--rep-accent,#6b6453)}
+.rep-figure--lead{
+  border-inline-start:1.1mm solid var(--rep-accent,#d9d4c6)}
+.rep-chart__bar--peak{background:var(--rep-accent,#4a4336)}
+
+/* ── Previous-period deltas ──────────────────────────────────────────────
+   Green up, red down, grey for pending and for anything with no baseline —
+   and a signed number beside every one of them, because this page is
+   printed as often in black and white as in colour. The hues are the light
+   theme's semantic pair, stated literally: the report is white paper in both
+   appearances and cannot read a theme variable. */
+.rep-delta{
+  display:flex;align-items:center;gap:1mm;margin-top:1mm;
+  font-size:7pt;line-height:1.25;min-width:0}
+.rep-delta svg{flex:none}
+.rep-delta__main{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep-delta__abs{
+  color:#6b6453;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-delta--positive{color:#0b6b40}
+.rep-delta--negative{color:#b52020}
+.rep-delta--neutral{color:#6b6453}
+.rep-figure--lead .rep-delta{font-size:8pt;margin-top:1.6mm}
+
+/* What those deltas are measured against, said once, immediately under the
+   figures they belong to. */
+.rep-vs{
+  display:flex;align-items:baseline;gap:2.5mm;flex-wrap:wrap;
+  margin:-2.5mm 0 3.5mm;font-size:7.5pt;color:#6b6453}
+.rep-vs__label{font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.rep-vs__period{font-weight:600;color:#1a1a1a}
+.rep-vs__note{font-style:italic;min-width:0}
+
+/* ── The chart's value axis ──────────────────────────────────────────────
+   Ticks are positioned from the BOTTOM as a percentage, the same percentage
+   the bars are drawn to, so a label and the gridline beside it mean the same
+   thing however many ticks the scale produced. */
+.rep-chart-wrap{
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:0 1.8mm;margin-bottom:1.5mm}
+.rep-chart-scale{
+  position:relative;height:19mm;min-width:8mm;
+  border-bottom:1px solid transparent}
+.rep-chart-scale__tick{
+  position:absolute;inset-inline-end:0;transform:translateY(50%);
+  font-size:6.5pt;line-height:1;color:#6b6453;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.rep-chart-unit{
+  grid-column:1;text-align:end;padding-top:1.2mm;
+  font-size:6.5pt;font-weight:700;letter-spacing:.04em;color:#6b6453}
+.rep-chart{position:relative;margin-bottom:0}
+.rep-chart__grid{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  justify-content:space-between}
+.rep-chart__grid span{display:block;height:0;border-top:1px solid #ece8dc}
+.rep-chart__bars{
+  position:relative;display:flex;align-items:flex-end;gap:1px;
+  height:100%;width:100%}
+
+/* ── Who made this document ──────────────────────────────────────────────
+   7pt at the foot of the page, against a 16pt restaurant name at the top:
+   the hierarchy is the whole argument. The mark is the shipped master,
+   recoloured through a canvas rather than a CSS mask so that it survives
+   rasterisation (see reportBrand.js). */
+.rep-foot{flex-wrap:wrap}
+.rep-foot__note{min-width:0;flex:1 1 60%}
+.rep-foot__lockup{flex:none;display:flex;align-items:center;gap:1.8mm}
+.rep-foot__mark{display:block;height:5mm;width:auto}
+.rep-foot__by{
+  font-weight:700;letter-spacing:.04em;white-space:nowrap;
+  color:var(--rep-accent,#6b6453)}
 
 /* ── Printing the report ────────────────────────────────────────────────
    The same isolation technique the table stand uses: hide the chrome, strip

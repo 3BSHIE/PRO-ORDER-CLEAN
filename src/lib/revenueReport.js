@@ -9,6 +9,7 @@ import {
   revenueDistribution,
 } from "./dashboardStats.js";
 import { listRangeKeys } from "./revenuePeriods.js";
+import { buildComparison } from "./revenueComparison.js";
 
 /**
  * revenueReport — Phase 111.1
@@ -37,11 +38,18 @@ import { listRangeKeys } from "./revenuePeriods.js";
  * @param {object} snapshot
  * @param {Array<object>} snapshot.orders — already scoped to the period
  * @param {object} snapshot.range — from revenuePeriods.getPeriodRange
+ * @param {Array<object>} [snapshot.previousOrders] — the preceding period's,
+ *   frozen at the same instant (Phase 111.4)
+ * @param {object} [snapshot.previousRange]
+ * @param {string} [snapshot.previousCoverage] — "full" | "partial" | "none"
  * @param {string} snapshot.timeZone
  * @param {Date}   snapshot.generatedAt
  * @returns {object} the complete report model
  */
-export function buildRevenueReport({ orders, range, timeZone, generatedAt }) {
+export function buildRevenueReport({
+  orders, range, previousOrders, previousRange, previousCoverage,
+  timeZone, generatedAt,
+}) {
   const list = orders || [];
   const revenue = summarizeRevenue(list);
   const isDay = range?.type === "day";
@@ -76,6 +84,17 @@ export function buildRevenueReport({ orders, range, timeZone, generatedAt }) {
     chart,
     chartKind: isDay ? "hour" : "day",
     dayKeys,
+
+    /* Phase 111.4 — the same engine the Breakdown overlay reads, over the
+       lists that were frozen together. The report does not decide what
+       "previous" means any more than it decides what a business day is. */
+    comparison: buildComparison({
+      currentOrders: list,
+      previousOrders: previousOrders || [],
+      range,
+      priorRange: previousRange || null,
+      coverage: previousCoverage || "none",
+    }),
   };
 }
 
