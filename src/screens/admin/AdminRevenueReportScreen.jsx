@@ -55,6 +55,12 @@ export default function AdminRevenueReportScreen({
 
   const restaurantName = (settings.name || "").trim() || restaurant.name;
 
+  /* Frozen into the snapshot when View Report was pressed, so a report built
+     from the fixture stays marked as one for as long as it is open — and the
+     marker is inside the document, which is what prints and what the PDF
+     rasterises. Can only ever be true in a development build. */
+  const qaPreview = import.meta.env.DEV && report?.qaPreview === true;
+
   /* A snapshot is required: reaching this screen without one means the page
      was restored or linked to directly, and an empty report would be worse
      than an honest way back. */
@@ -208,6 +214,7 @@ export default function AdminRevenueReportScreen({
             restaurantName={restaurantName}
             logoUrl={settings.logoUrl}
             currency={SUPPORTED_CURRENCY}
+            qaPreview={qaPreview}
           />
           <RevenueReportPage
             language="ar"
@@ -215,6 +222,7 @@ export default function AdminRevenueReportScreen({
             restaurantName={restaurantName}
             logoUrl={settings.logoUrl}
             currency={SUPPORTED_CURRENCY}
+            qaPreview={qaPreview}
           />
         </div>
       </div>

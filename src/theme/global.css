@@ -8756,6 +8756,19 @@ button{font-family:var(--font-body)}
   display:flex;align-items:flex-start;justify-content:space-between;
   gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .ad-rev__heading{min-width:0}
+/* The title keeps a row of its own so anything that has to sit BESIDE it —
+   today, only the development QA marker — shares its baseline instead of
+   pushing the period steppers down. With nothing beside it, a one-child
+   flex row draws exactly as the bare heading did. */
+.ad-rev__title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+/* Likewise the right-hand side: one group, so a second control can join
+   View breakdown without disturbing the header's space-between. */
+/* flex:0 1 auto rather than flex:none, so at 320px the group takes the
+   width it is given and wraps its buttons onto a second line instead of
+   pushing the header wider than the card. */
+.ad-rev__head-actions{
+  flex:0 1 auto;display:flex;align-items:center;justify-content:flex-end;
+  gap:8px;flex-wrap:wrap}
 .ad-rev__title{
   font-family:var(--font-display);font-size:19px;font-weight:600;
   color:var(--text-1);margin:0;letter-spacing:-.01em}

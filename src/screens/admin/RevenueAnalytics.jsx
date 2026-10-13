@@ -16,6 +16,7 @@ import { formatHourRange } from "../../i18n/dateFormat.js";
 import { PeriodTypeStepper, PeriodNavigator } from "./RevenuePeriodControls.jsx";
 import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
 import RevenueReportCard from "./RevenueReportCard.jsx";
+import { QaPreviewBadge, QaPreviewToggle } from "../../dev/QaPreviewBadge.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RevenueAnalytics — Phase 100.1, recomposed in 100.2, given a lens in 111.0
@@ -272,10 +273,14 @@ function monthTicks(dayKeys, type, language) {
  *   onPickDate    — (dayKey) => void, from the calendar popover
  *   onOpenDetail  — opens the Revenue Details overlay on the same period
  *   onOpenReport  — opens the Revenue Report page on the same period
+ *   qaPreview     — DEV ONLY: { available, active, setActive } from
+ *                   useQaRevenuePreview. Absent in a production build, where
+ *                   the two guards below fold to false and vanish.
  */
 export default function RevenueAnalytics({
   revenue, orders, topItems, peakTimes, timeZone,
   period, onPeriodType, onPeriodStep, onPickDate, onOpenDetail, onOpenReport,
+  qaPreview,
 }) {
   const { t, language } = useLanguage();
   const isDay = period.type === "day";
@@ -355,9 +360,15 @@ export default function RevenueAnalytics({
       {/* ── A. Header ─────────────────────────────────────────────────── */}
       <header className="ad-rev__head">
         <div className="ad-rev__heading">
-          <h2 className="ad-rev__title" id="ad-rev-title">
-            {t("admin.revenueAnalytics", "Revenue Analytics")}
-          </h2>
+          <div className="ad-rev__title-row">
+            <h2 className="ad-rev__title" id="ad-rev-title">
+              {t("admin.revenueAnalytics", "Revenue Analytics")}
+            </h2>
+            {/* The figures below are the fixture's, not the restaurant's, and
+                this is where that has to be said — beside the title, before
+                any number is read. */}
+            {import.meta.env.DEV && qaPreview?.active && <QaPreviewBadge />}
+          </div>
           {/* Two steppers where the static "TODAY" caption used to sit: the
               lens, then the window it is pointed at. */}
           <div className="ad-rev__periods">
@@ -373,15 +384,20 @@ export default function RevenueAnalytics({
             />
           </div>
         </div>
-        <button
-          type="button"
-          className="ad-rev__detail"
-          onClick={onOpenDetail}
-          aria-haspopup="dialog"
-        >
-          {t("admin.viewBreakdown", "View breakdown")}
-          <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
-        </button>
+        <div className="ad-rev__head-actions">
+          {import.meta.env.DEV && qaPreview?.available && (
+            <QaPreviewToggle active={qaPreview.active} onChange={qaPreview.setActive} />
+          )}
+          <button
+            type="button"
+            className="ad-rev__detail"
+            onClick={onOpenDetail}
+            aria-haspopup="dialog"
+          >
+            {t("admin.viewBreakdown", "View breakdown")}
+            <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       <div className="ad-rev__data">

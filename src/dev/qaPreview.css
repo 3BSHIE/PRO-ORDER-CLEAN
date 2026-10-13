@@ -1,0 +1,95 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   qaPreview.css — Phase 111.3  ·  DEVELOPMENT ONLY
+
+   Deliberately NOT in src/theme/global.css. The whole QA harness lives in
+   src/dev/, stylesheet included, so the product's one stylesheet carries no
+   trace of it and the harness can be deleted in a single directory.
+
+   Imported by QaPreviewBadge.jsx, which is only ever referenced from inside
+   an `import.meta.env.DEV` branch.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── The screen badge ────────────────────────────────────────────────────
+   Amber, not red: this is a notice, not a failure. Loud enough that nobody
+   reads the figures beside it as takings, quiet enough to sit next to a
+   section title without shouting over it. */
+.qa-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 8px;border-radius:999px;
+  font-family:var(--font-body),system-ui,sans-serif;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  white-space:nowrap;vertical-align:middle}
+
+.qa-badge--screen{
+  background:color-mix(in srgb,var(--preparing) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--preparing) 45%,transparent);
+  color:var(--preparing)}
+
+/* The report's own ground is white paper in both themes, so the paper
+   variant states its colours literally rather than reading theme tokens. */
+.qa-badge--paper{
+  background:#fdf3e3;border:1px solid #c98a2e;color:#8a5a12;
+  font-size:8pt;letter-spacing:.08em}
+
+.qa-badge__sep{opacity:.55;font-weight:400}
+
+/* Arabic is cursive, and letter-spacing pulls its joined letters apart.
+   Chrome still shapes them correctly on screen, but html2canvas — which is
+   how the report becomes a PDF — redraws spaced text character by character
+   and loses the joining, so "بيانات تجريبية" arrives in the file as
+   disconnected stumps. The English half keeps its tracking; the Arabic half
+   is left at normal so the marker is legible in the PDF as well as on the
+   page. */
+.qa-badge [lang="ar"]{letter-spacing:normal}
+
+/* ── The dev switch ──────────────────────────────────────────────────── */
+.qa-toggle{
+  flex:none;display:inline-flex;align-items:center;gap:5px;
+  padding:7px 11px;border-radius:var(--r-sm);
+  background:none;cursor:pointer;
+  font-family:var(--font-body),system-ui,sans-serif;
+  font-size:12px;font-weight:600;
+  border:1px dashed color-mix(in srgb,var(--preparing) 50%,transparent);
+  color:var(--text-3);
+  transition:color .18s var(--ease),border-color .18s var(--ease)}
+.qa-toggle:hover{color:var(--preparing);
+  border-color:color-mix(in srgb,var(--preparing) 80%,transparent)}
+.qa-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.qa-toggle--on{
+  border-style:solid;
+  border-color:color-mix(in srgb,var(--preparing) 60%,transparent);
+  color:var(--preparing)}
+
+/* ── On the report ───────────────────────────────────────────────────────
+   Two markers per page, because one of them must survive anything: a strip
+   under the masthead that is read, and a watermark across the body that is
+   seen even in a thumbnail or a photograph of the sheet. */
+.qa-paper-note{
+  display:flex;align-items:center;gap:3mm;flex-wrap:wrap;
+  margin:0 0 4mm;padding:2.5mm 3mm;
+  border:1px solid #c98a2e;border-inline-start-width:1.2mm;
+  background:#fffaf1;color:#6d4a14;
+  font-size:8pt;line-height:1.4}
+.qa-paper-note__text{font-weight:600}
+
+/* position:relative is applied through :has() so the product's .rep-page
+   rule is left exactly as it is. */
+.rep-page:has(.qa-watermark){position:relative}
+.qa-watermark{
+  position:absolute;inset:0;z-index:0;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;pointer-events:none}
+.qa-watermark span{
+  transform:rotate(-30deg);
+  font-family:var(--font-display),serif;
+  font-size:58pt;font-weight:700;letter-spacing:.1em;white-space:nowrap;
+  /* Pale enough to read the table through, dark enough to be unmistakable
+     on a printed sheet. */
+  color:rgba(176,96,18,.11)}
+
+/* The content sits above the watermark; without this the pale wash would
+   land on top of the figures instead of behind them. */
+.rep-page:has(.qa-watermark) > *:not(.qa-watermark){position:relative;z-index:1}
+
+/* ── The breakdown overlay ──────────────────────────────────────────── */
+.qa-badge--overlay{margin-inline-start:8px}

@@ -44,6 +44,7 @@ import {
   filterOrdersToPeriod,
   formatPeriodLabel,
 } from "../../lib/revenuePeriods.js";
+import { useQaRevenuePreview } from "../../dev/useQaRevenuePreview.js";
 
 const RECENT_ORDERS_LIMIT = 8;
 
@@ -212,6 +213,27 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      section live on today across midnight and the 04:00 rollover without
      a timer, and it is why stepping forward onto the current period puts
      it back to null rather than pinning a date that is about to age. */
+  /* ── Phase 111.3 — the QA preview switch (development builds only) ──
+     Revenue Analytics, the Breakdown and the Report can be pointed at a
+     deterministic fixture so they can be reviewed with real shape in them.
+     The hook folds away entirely in a production build.
+
+     The substitution happens at exactly ONE place, below, and only for the
+     period list the revenue section reads. Everything else on this screen
+     — the four KPI cards, Needs Attention, the status cards, Recent
+     Orders — keeps reading restaurantOrders, which is the restaurant's own
+     data. No provider is swapped and nothing is written. */
+  const qaPreview = useQaRevenuePreview({
+    restaurantSlug: restaurant.slug,
+    restaurantName: restaurant.name,
+    timeZone: settings.timeZone,
+    serviceChargePercent: restaurant.serviceChargePercent,
+  });
+  const analyticsOrders =
+    qaPreview.active && qaPreview.orders.length > 0
+      ? qaPreview.orders
+      : restaurantOrders;
+
   const [periodType, setPeriodType] = useState("day");
   const [periodAnchor, setPeriodAnchor] = useState(null);
 
@@ -226,8 +248,8 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
      read off it (§37). Nothing downstream re-filters, so no two figures
      can end up describing different ranges. */
   const periodOrders = useMemo(
-    () => filterOrdersToPeriod(restaurantOrders, settings.timeZone, periodRange),
-    [restaurantOrders, settings.timeZone, periodRange]
+    () => filterOrdersToPeriod(analyticsOrders, settings.timeZone, periodRange),
+    [analyticsOrders, settings.timeZone, periodRange]
   );
   const periodRevenue = useMemo(() => summarizeRevenue(periodOrders), [periodOrders]);
   const periodTopItems = useMemo(() => summarizeTopItems(periodOrders), [periodOrders]);
@@ -296,9 +318,13 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         range: periodRange,
         timeZone: settings.timeZone,
         generatedAt: new Date(),
+        /* Travels with the snapshot so both printed pages can carry the
+           sample notice; a synthetic financial PDF must never be able to
+           pass as a real one. */
+        qaPreview: qaPreview.active,
       },
     });
-  }, [onNavigate, periodOrders, periodRange, settings.timeZone]);
+  }, [onNavigate, periodOrders, periodRange, settings.timeZone, qaPreview.active]);
 
   const handlePeriodStep = useCallback(
     (delta) => {
@@ -674,6 +700,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         onPeriodStep={handlePeriodStep}
         onPickDate={handlePickDate}
         onOpenReport={handleOpenReport}
+        qaPreview={qaPreview}
         onOpenDetail={() => setOpenDetail("revenueToday")}
       />
 
@@ -751,6 +778,7 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
         peakTimes={periodPeakTimes}
         statusRows={periodStatusRows}
         periodLabel={period.label}
+        qaPreview={qaPreview.active}
         onClose={() => setOpenDetail(null)}
         onNavigate={onNavigate}
       />

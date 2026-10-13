@@ -3,6 +3,7 @@ import { fmtPrice } from "../../lib/format.js";
 import { formatPeriodLabel, formatDayKeyLabel, keyParts } from "../../lib/revenuePeriods.js";
 import { formatHourRange } from "../../i18n/dateFormat.js";
 import { isSafeImageUrl } from "../../lib/safeImage.js";
+import { QaPaperNotice, QaPaperWatermark } from "../../dev/QaPreviewBadge.jsx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RevenueReportPage — Phase 111.1
@@ -65,8 +66,13 @@ function ReportChart({ model, language }) {
 }
 
 export default function RevenueReportPage({
-  language, model, restaurantName, logoUrl, currency,
+  language, model, restaurantName, logoUrl, currency, qaPreview,
 }) {
+  /* DEV ONLY, and folded away entirely in a production build. A synthetic
+     financial document must not be able to pass as a real one, so the page
+     is marked twice: a wash across the sheet and a sentence under the
+     masthead, both inside the printed area. */
+  const isQa = import.meta.env.DEV && qaPreview === true;
   const isArabic = language === "ar";
   const T = (key, fallback) => translate(language, key, fallback);
   const locale = isArabic ? "ar" : "en";
@@ -100,6 +106,8 @@ export default function RevenueReportPage({
 
   return (
     <section className="rep-page" lang={language} dir={isArabic ? "rtl" : "ltr"}>
+      {isQa && <QaPaperWatermark />}
+
       {/* ── A. Identity ──────────────────────────────────────────────── */}
       <header className="rep-head">
         <div className="rep-head__brand">
@@ -118,6 +126,8 @@ export default function RevenueReportPage({
           <div><dt>{T("admin.reportCurrency", "Currency")}</dt><dd>{currency}</dd></div>
         </dl>
       </header>
+
+      {isQa && <QaPaperNotice language={language} />}
 
       {/* ── B. Financial summary ─────────────────────────────────────── */}
       <h2 className="rep-h2">{T("admin.reportFinancialSummary", "Financial Summary")}</h2>

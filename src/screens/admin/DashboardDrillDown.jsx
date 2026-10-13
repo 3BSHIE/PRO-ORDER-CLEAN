@@ -4,6 +4,7 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import { averageOrderValue, revenueDistribution } from "../../lib/dashboardStats.js";
 import { TopItemsPanel, PeakTimesPanel } from "./RevenueMiniTables.jsx";
+import { QaPreviewBadge } from "../../dev/QaPreviewBadge.jsx";
 
 /* Payment method labels resolve from the same stable ids the rest of the app
    uses, so a method reads identically here, on the kitchen board, and on the
@@ -70,11 +71,13 @@ const STATUS_FALLBACK = {
  *   peakTimes   — summarizePeakTimes() over the same list
  *   statusRows  — summarizeStatusRevenue() over the same list
  *   periodLabel — the formatted period, as the section prints it
+ *   qaPreview   — DEV ONLY: true when these figures came from the QA fixture
  *   onClose     — () => void
  *   onNavigate  — (adminPage, options?) => void
  */
 export default function DashboardDrillDown({
-  detailKey, revenue, topItems, peakTimes, statusRows, periodLabel, onClose, onNavigate,
+  detailKey, revenue, topItems, peakTimes, statusRows, periodLabel, qaPreview,
+  onClose, onNavigate,
 }) {
   const { t } = useLanguage();
   if (detailKey !== "revenueToday") return null;
@@ -118,8 +121,15 @@ export default function DashboardDrillDown({
       onClose={onClose}
       title={t("admin.revenueDetails", "Revenue Details")}
     >
-      {/* The period this overlay describes, inherited from the section. */}
-      <p className="dd-period">{periodLabel}</p>
+      {/* The period this overlay describes, inherited from the section —
+          and, when the section is on the fixture, the same notice it
+          carries, because this overlay is read on its own. */}
+      <p className="dd-period">
+        {periodLabel}
+        {import.meta.env.DEV && qaPreview && (
+          <QaPreviewBadge className="qa-badge--overlay" />
+        )}
+      </p>
 
       <div className="dd2">
         <dl className="dd2-summary">
