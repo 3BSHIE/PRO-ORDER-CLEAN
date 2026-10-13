@@ -48,6 +48,12 @@ export const PERMISSIONS = {
   STAFF_CALLS_VIEW: "staffCalls.view",
   STAFF_CALLS_RESOLVE: "staffCalls.resolve",
 
+  /* Phase 112.0 — taking an order on a guest's behalf, and grouping orders
+     into one bill. Both are front-of-house work, so both sit in the shared
+     operational set below rather than being granted to one role. */
+  STAFF_ORDERS_CREATE: "staffOrders.create",
+  BILLS_MANAGE: "bills.manage",
+
   BUSY_MODE_VIEW: "busyMode.view",
   BUSY_MODE_CHANGE: "busyMode.change",
 
@@ -91,6 +97,9 @@ const OPERATIONAL_PERMISSIONS = [
 
   P.STAFF_CALLS_VIEW,
   P.STAFF_CALLS_RESOLVE,
+
+  P.STAFF_ORDERS_CREATE,
+  P.BILLS_MANAGE,
 
   /* Overview's operational controls. Previously Busy Mode let Admin edit the
      prep minutes while Cashier only got the toggle, and Accepting Orders was
@@ -166,6 +175,11 @@ export const PAGE_PERMISSION = {
      the sidebar, and it is not a page a session should resume into. */
   revenueReport: P.OVERVIEW_VIEW,
   liveOrders: P.ORDERS_VIEW,
+  /* Phase 112.0 — reached from the sidebar's ordering section with a table
+     or the direct context, never resumed into on its own: like the Revenue
+     Report it is deliberately absent from ADMIN_NAV_ITEMS, so a refreshed
+     session lands back on Overview rather than on an empty workspace. */
+  staffOrdering: P.STAFF_ORDERS_CREATE,
   staffCalls: P.STAFF_CALLS_VIEW,
   menu: P.MENU_VIEW,
   categories: P.CATEGORIES_VIEW,

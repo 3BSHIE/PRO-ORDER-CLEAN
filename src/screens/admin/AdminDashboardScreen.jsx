@@ -871,7 +871,14 @@ export default function AdminDashboardScreen({ restaurant, session, onSignOut, o
                   <div className="ad-order__info">
                     <p className="ad-order__id">{order.orderId}</p>
                     <p className="ad-order__meta">
-                      {t("customer.yourTable", "Table")} #{order.tableNumber} &middot; {order.customerName}
+                      {/* Phase 112.0 — no table and no invented guest name:
+                          a staff order names its channel instead. */}
+                      {order.tableId
+                        ? `${t("customer.yourTable", "Table")} #${order.tableNumber}`
+                        : t("staffOrder.directOrder", "Direct Order")}
+                      {order.customerName
+                        ? ` · ${order.customerName}`
+                        : ` · ${t("staffOrder.staffBadge", "Staff")}`}
                     </p>
                   </div>
                   <Badge tone={STATUS_BADGE_TONE[order.status] || "neutral"} dot>

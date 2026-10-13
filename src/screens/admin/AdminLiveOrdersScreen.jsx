@@ -20,6 +20,24 @@ import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
    helper and two existing keys rather than adding anything (§32). */
 import { formatItemCount } from "../../i18n/counts.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
+import { isDirectOrder, isStaffOrder, formatTableNumber } from "../../lib/staffOrdering.js";
+import CombinedBillCard from "./CombinedBillCard.jsx";
+import { settleOrdersAsPaid } from "../../lib/customerOrders.js";
+import { can, PERMISSIONS } from "../../lib/permissions.js";
+import { PAYMENT_METHODS } from "../../data/paymentMethods.js";
+import {
+  BILL_STATUS,
+  getBillingGroups,
+  reconcileGroups,
+  createBillingGroup,
+  addOrdersToGroup,
+  removeOrdersFromGroup,
+  separateGroup,
+  mergeGroups,
+  settleGroup,
+  groupTotal,
+  isEligibleForBilling,
+} from "../../lib/billingGroups.js";
 
 const STATUS_LABEL = {
   received: "Received", preparing: "Preparing", ready: "Ready",
@@ -195,9 +213,25 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      shape and same reasoning as pendingCancelOrder above. */
   const [pendingPaidOrder, setPendingPaidOrder] = useState(null);
 
+  /* ── Phase 112.0 — combined bills ───────────────────────────────────
+     Billing groups are read beside the orders and reconciled against them on
+     every refresh, which is what keeps a canceled or separately-settled
+     order from lingering inside a bill. */
+  const canBill = can(session, PERMISSIONS.BILLS_MANAGE);
+  const [groups, setGroups] = useState(() => getBillingGroups(restaurant.slug));
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [expandedBillId, setExpandedBillId] = useState(null);
+  const [billBusy, setBillBusy] = useState(false);
+  const [pendingSettle, setPendingSettle] = useState(null); // { group, amount }
+  const [settleMethodId, setSettleMethodId] = useState("cash_at_table");
+
   const refresh = useCallback(() => {
-    setAllOrders(getCustomerOrders());
-  }, []);
+    const orders = getCustomerOrders();
+    setAllOrders(orders);
+    reconcileGroups(restaurant.slug, orders);
+    setGroups(getBillingGroups(restaurant.slug));
+  }, [restaurant.slug]);
 
   useEffect(() => {
     refresh();
@@ -289,6 +323,47 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), // newest first
     [restaurantOrders, activeFilter, settings.timeZone]
+  );
+
+  /* Orders that belong to a bill are shown INSIDE that bill's card, so the
+     flat list does not list them a second time. The bill card carries their
+     ids on its face, so nothing becomes harder to find. */
+  const groupedOrderIds = useMemo(() => {
+    const ids = new Set();
+    for (const group of groups) for (const id of group.orderIds) ids.add(id);
+    return ids;
+  }, [groups]);
+
+  const ungroupedOrders = useMemo(
+    () => filteredOrders.filter((o) => !groupedOrderIds.has(o.orderId)),
+    [filteredOrders, groupedOrderIds]
+  );
+
+  /* A bill is shown when any of its members passes the current filter, so
+     the status tabs keep meaning something for grouped orders too. */
+  const visibleGroups = useMemo(() => {
+    const predicate = FILTER_PREDICATE[activeFilter];
+    const byId = new Map(restaurantOrders.map((o) => [o.orderId, o]));
+    return groups
+      .filter((group) => {
+        if (!predicate) return true;
+        return group.orderIds.some((id) => {
+          const order = byId.get(id);
+          return order ? predicate(order, settings.timeZone) : false;
+        });
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [groups, restaurantOrders, activeFilter, settings.timeZone]);
+
+  /* An unpaid order at a real table, not already in a bill. The same rule
+     the data layer enforces — asked here only to decide what to offer. */
+  const selectableOrders = useMemo(
+    () => restaurantOrders.filter((o) => isEligibleForBilling(o, restaurant.slug)),
+    [restaurantOrders, restaurant.slug, groups]
+  );
+  const selectableIds = useMemo(
+    () => new Set(selectableOrders.map((o) => o.orderId)),
+    [selectableOrders]
   );
 
   const activeFilterTab = FILTER_TABS.find((tab) => tab.key === activeFilter);
@@ -391,6 +466,128 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     setPendingCancelOrder(null);
   }
 
+  /* ── Phase 112.0 — the billing actions ──────────────────────────────
+     Each one writes through the billingGroups module and then re-reads, so
+     the screen never holds a group state the store does not. billBusy is the
+     same single-flight guard the order actions use. */
+  function applyBillResult(result, okMessage) {
+    setBillBusy(false);
+    setGroups(getBillingGroups(restaurant.slug));
+    if (result?.ok) {
+      setToastMessage(
+        result.dissolved
+          ? t("bill.dissolved", "Only one order remained, so the bill was dissolved.")
+          : okMessage
+      );
+    } else {
+      setToastMessage(
+        result?.reason === "ineligible"
+          ? t("bill.ineligible", "One of those orders can no longer be combined.")
+          : result?.reason === "needsTwo"
+            ? t("bill.needsTwo", "A combined bill needs at least two orders.")
+            : t("bill.failed", "That change could not be applied. The orders may have changed.")
+      );
+    }
+    setToastVisible(true);
+  }
+
+  function toggleSelected(orderId) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }
+
+  function handleCombineSelected() {
+    if (billBusy || selectedIds.size < 2) return;
+    setBillBusy(true);
+    const result = createBillingGroup(restaurant.slug, [...selectedIds], session);
+    applyBillResult(result, t("bill.created", "Combined bill created"));
+    if (result?.ok) {
+      setSelecting(false);
+      setSelectedIds(new Set());
+      setExpandedBillId(result.group.id);
+    }
+  }
+
+  function handleAddToBill(groupId, orderId) {
+    if (billBusy) return;
+    setBillBusy(true);
+    applyBillResult(
+      addOrdersToGroup(restaurant.slug, groupId, [orderId]),
+      t("bill.updated", "Combined bill updated")
+    );
+  }
+
+  function handleRemoveFromBill(groupId, orderId) {
+    if (billBusy) return;
+    setBillBusy(true);
+    applyBillResult(
+      removeOrdersFromGroup(restaurant.slug, groupId, [orderId]),
+      t("bill.updated", "Combined bill updated")
+    );
+  }
+
+  function handleSeparateBill(groupId) {
+    if (billBusy) return;
+    setBillBusy(true);
+    applyBillResult(
+      separateGroup(restaurant.slug, groupId),
+      t("bill.separated", "Combined bill separated")
+    );
+  }
+
+  function handleMergeBills(targetId, sourceId) {
+    if (billBusy) return;
+    setBillBusy(true);
+    applyBillResult(
+      mergeGroups(restaurant.slug, targetId, sourceId),
+      t("bill.merged", "Combined bills merged")
+    );
+  }
+
+  /* Settlement is two steps for the same reason marking one order paid is:
+     there is no un-pay in this product. Step one asks and names the amount;
+     step two writes the orders first and records the settlement only if that
+     succeeded, so a refused payment leaves the bill open and unchanged. */
+  function handleRequestSettle(group) {
+    if (billBusy) return;
+    setSettleMethodId("cash_at_table");
+    setPendingSettle({ group, amount: groupTotal(group, restaurantOrders) });
+  }
+
+  function handleConfirmSettle() {
+    const pending = pendingSettle;
+    setPendingSettle(null);
+    if (!pending || billBusy) return;
+    setBillBusy(true);
+
+    const method = PAYMENT_METHODS.find((m) => m.id === settleMethodId) || PAYMENT_METHODS[0];
+    const paid = settleOrdersAsPaid(pending.group.orderIds, {
+      id: method.id,
+      label: method.label,
+      type: method.id,
+    });
+
+    if (!paid.ok) {
+      setBillBusy(false);
+      refresh();
+      setToastMessage(t("bill.failed", "That change could not be applied. The orders may have changed."));
+      setToastVisible(true);
+      return;
+    }
+
+    const result = settleGroup(restaurant.slug, pending.group.id, {
+      method: { id: method.id, label: method.label },
+      amount: pending.amount,
+      session,
+    });
+    setAllOrders(getCustomerOrders());
+    applyBillResult(result, t("bill.settled", "Combined bill settled"));
+  }
+
   /* Phase 50 - is the order awaiting cancel confirmation already paid?
      Read from the order snapshot, so the dialog always reflects the real
      payment state rather than anything assumed at click time. */
@@ -456,11 +653,95 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         })}
       </div>
 
-      {filteredOrders.length === 0 ? (
+      {/* Phase 112.0 — combining is a mode, not a mode switch for the whole
+          page: the list keeps its filters, its cards and its actions, and
+          gains a checkbox on the orders that are actually eligible. */}
+      {canBill && (
+        <div className="ad-billbar">
+          {selecting ? (
+            <>
+              <p className="ad-billbar__hint">
+                {t("bill.selectHint", "Select two or more unpaid orders from the same table.")}
+              </p>
+              <span className="ad-billbar__spacer" />
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={selectedIds.size < 2 || billBusy}
+                onClick={handleCombineSelected}
+              >
+                {t("bill.combineSelected", "Combine {n} orders").replace("{n}", String(selectedIds.size))}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setSelecting(false); setSelectedIds(new Set()); }}
+              >
+                {t("bill.cancelSelection", "Cancel")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="ad-billbar__hint">{t("bill.localOnly", "Combined bills are stored on this device only.")}</p>
+              <span className="ad-billbar__spacer" />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectableOrders.length < 2}
+                onClick={() => setSelecting(true)}
+              >
+                {t("bill.combine", "Combine bills")}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {visibleGroups.length > 0 && (
+        <div className="ad-bills anim-rise" style={{ animationDelay: "100ms" }}>
+          {visibleGroups.map((group) => {
+            const open = group.status === BILL_STATUS.OPEN;
+            return (
+              <CombinedBillCard
+                key={group.id}
+                group={group}
+                orders={restaurantOrders}
+                expanded={expandedBillId === group.id}
+                onToggle={() =>
+                  setExpandedBillId((prev) => (prev === group.id ? null : group.id))
+                }
+                busy={billBusy}
+                addableOrders={
+                  open
+                    ? selectableOrders.filter((o) => o.tableId === group.tableId)
+                    : []
+                }
+                mergeTargets={
+                  open
+                    ? groups.filter(
+                        (other) =>
+                          other.id !== group.id &&
+                          other.status === BILL_STATUS.OPEN &&
+                          other.tableId === group.tableId
+                      )
+                    : []
+                }
+                onAddOrder={open && canBill ? (orderId) => handleAddToBill(group.id, orderId) : undefined}
+                onRemoveOrder={open && canBill ? (orderId) => handleRemoveFromBill(group.id, orderId) : undefined}
+                onSeparate={open && canBill ? () => handleSeparateBill(group.id) : undefined}
+                onMerge={open && canBill ? (sourceId) => handleMergeBills(group.id, sourceId) : undefined}
+                onSettle={open && canBill ? () => handleRequestSettle(group) : undefined}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {ungroupedOrders.length === 0 && visibleGroups.length === 0 ? (
         <EmptyOrdersView filterKey={activeFilter} filterLabel={activeFilterLabel} isAll={activeFilter === "all"} />
       ) : (
         <div className="ad-live-orders anim-rise" style={{ animationDelay: "120ms" }}>
-          {filteredOrders.map((order) => (
+          {ungroupedOrders.map((order) => (
             <LiveOrderCard
               key={order.orderId}
               order={order}
@@ -473,10 +754,66 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               onMarkDelivered={() => handleMarkDelivered(order)}
               onCancelOrder={() => handleRequestCancel(order)}
               onMarkAsPaid={() => handleRequestMarkAsPaid(order)}
+              selectable={selecting && selectableIds.has(order.orderId)}
+              selected={selectedIds.has(order.orderId)}
+              onSelectToggle={() => toggleSelected(order.orderId)}
             />
           ))}
         </div>
       )}
+
+      {/* The settlement dialog. Full payment only — there is no amount field
+          and no way to pay part of a bill, by design. */}
+      <Modal
+        open={!!pendingSettle}
+        onClose={() => setPendingSettle(null)}
+        title={t("bill.confirmPaidTitle", "Mark this combined bill as paid?")}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingSettle(null)}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button variant="primary" onClick={handleConfirmSettle} disabled={billBusy}>
+              {t("bill.markPaid", "Mark bill as paid")}
+            </Button>
+          </>
+        }
+      >
+        <p className="ad-paid-modal__msg">
+          {t("bill.confirmPaidMsg", "Every order in this bill will be recorded as paid, with the method you choose.")}
+        </p>
+        {pendingSettle && (
+          <>
+            <div className="ad-paid-modal__row">
+              <span className="ad-paid-modal__label">{t("bill.orders", "Orders")}</span>
+              <span className="ad-paid-modal__value">{pendingSettle.group.orderIds.join(" · ")}</span>
+            </div>
+            <div className="ad-paid-modal__row">
+              <span className="ad-paid-modal__label">{t("common.total", "Total")}</span>
+              <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                {fmtPrice(pendingSettle.amount)}
+              </span>
+            </div>
+            <fieldset className="so-methods">
+              <legend className="so-methods__legend">
+                {t("payment.paymentMethod", "Payment method")}
+              </legend>
+              {PAYMENT_METHODS.filter((m) => m.enabled).map((method) => (
+                <label className="so-method" key={method.id}>
+                  <input
+                    type="radio"
+                    name="bill-method"
+                    value={method.id}
+                    checked={settleMethodId === method.id}
+                    onChange={() => setSettleMethodId(method.id)}
+                  />
+                  <span>{resolveMethodLabel(t, { id: method.id, label: method.label })}</span>
+                </label>
+              ))}
+            </fieldset>
+          </>
+        )}
+      </Modal>
 
       {/* Phase 50 - the cancel confirmation is now payment-aware.
 
@@ -542,7 +879,11 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               </div>
               <div className="ad-paid-modal__row">
                 <span>{t("customer.yourTable", "Table")}</span>
-                <span className="ad-paid-modal__value ad-paid-modal__value--num">#{pendingCancelOrder.tableNumber}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                  {isDirectOrder(pendingCancelOrder)
+                    ? t("staffOrder.directOrder", "Direct Order")
+                    : `#${formatTableNumber(pendingCancelOrder.tableNumber)}`}
+                </span>
               </div>
               {pendingCancelOrder.customerName && (
                 <div className="ad-paid-modal__row">
@@ -605,7 +946,11 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
             </div>
             <div className="ad-paid-modal__row">
               <span>{t("customer.yourTable", "Table")}</span>
-              <span className="ad-paid-modal__value ad-paid-modal__value--num">#{pendingPaidOrder.tableNumber}</span>
+              <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                {isDirectOrder(pendingPaidOrder)
+                  ? t("staffOrder.directOrder", "Direct Order")
+                  : `#${formatTableNumber(pendingPaidOrder.tableNumber)}`}
+              </span>
             </div>
             {pendingPaidOrder.customerName && (
               <div className="ad-paid-modal__row">
@@ -637,7 +982,12 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
 }
 
 /* ── One live order card (collapsed summary + expandable details) ───────── */
-function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew }) {
+function LiveOrderCard({
+  order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew,
+  /* Phase 112.0 — present only while the operator is choosing orders to
+     combine, and only on orders that are genuinely eligible. */
+  selectable = false, selected = false, onSelectToggle,
+}) {
   const { t, language } = useLanguage();
   const isPaid = order.paymentStatus === "paid";
   const paymentLabel = isPaid
@@ -687,11 +1037,31 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
             dangling "ORD-0003 ·". The human reference is never removed and no
             internal id is exposed. */}
         <div className="ad-live-card__summary-left">
+          {selectable && (
+            <label className="ad-pick" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={onSelectToggle}
+                aria-label={order.orderId}
+              />
+            </label>
+          )}
+          {/* Phase 112.0 — a direct order has no table, and says so rather
+              than printing the word Table above an empty space. */}
           <p className="ad-live-card__table">
-            <span className="ad-live-card__table-word">
-              {t("customer.yourTable", "Table")}
-            </span>
-            <span className="ad-live-card__table-num">{order.tableNumber}</span>
+            {isDirectOrder(order) ? (
+              <span className="ad-live-card__table-word">
+                {t("staffOrder.directOrder", "Direct Order")}
+              </span>
+            ) : (
+              <>
+                <span className="ad-live-card__table-word">
+                  {t("customer.yourTable", "Table")}
+                </span>
+                <span className="ad-live-card__table-num">{order.tableNumber}</span>
+              </>
+            )}
           </p>
           <p className="ad-live-card__ref">
             <span className="ad-live-card__ref-id">{order.orderId}</span>
@@ -699,6 +1069,14 @@ function LiveOrderCard({ order, expanded, onToggle, isUpdating, onMarkDelivered,
               <>
                 <span className="ad-live-card__ref-sep" aria-hidden="true"> · </span>
                 <span className="ad-live-card__ref-name">{customerName}</span>
+              </>
+            )}
+            {/* Who placed it. No name is invented for a staff order; the
+                channel is the attribution. */}
+            {isStaffOrder(order) && (
+              <>
+                <span className="ad-live-card__ref-sep" aria-hidden="true"> · </span>
+                <span className="ad-src">{t("staffOrder.staffBadge", "Staff")}</span>
               </>
             )}
           </p>

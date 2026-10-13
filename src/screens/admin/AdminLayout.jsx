@@ -17,12 +17,13 @@ import Button  from "../../components/ui/Button.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
-import { canViewPage } from "../../lib/permissions.js";
+import { canViewPage, can, PERMISSIONS } from "../../lib/permissions.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
 import { playAlertSound } from "../../lib/alertSound.js";
 import StaffCallAlert from "./StaffCallAlert.jsx";
+import StaffOrderingNav from "./StaffOrderingNav.jsx";
 import ErrorBoundary from "../../components/system/ErrorBoundary.jsx";
 
 /* Phase 91.2 §7 — ROLE_LABEL / ROLE_LABEL_KEY are gone along with the badge
@@ -115,7 +116,13 @@ const NAV_ITEM_KEY = {
  * itself stays /admin/:restaurantSlug, this is in-page navigation only.
  * Coming-soon items never call onNavigate; they just show a toast.
  */
-export default function AdminLayout({ restaurant, session, onSignOut, activeKey, onNavigate, children }) {
+export default function AdminLayout({
+  restaurant, session, onSignOut, activeKey, onNavigate, children,
+  /* Phase 112.0 — which ordering context the sidebar should show as
+     selected. Only Staff Ordering passes it; every other screen leaves the
+     section with nothing highlighted. */
+  staffOrderingContext = null,
+}) {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const { t } = useLanguage();
@@ -360,6 +367,17 @@ export default function AdminLayout({ restaurant, session, onSignOut, activeKey,
               );
             })}
           </nav>
+
+          {/* Phase 112.0 — ordering, for the roles that take orders. Gated on
+              the capability rather than on the role, like every other door in
+              this shell: a session without it simply has no section here. */}
+          {can(session, PERMISSIONS.STAFF_ORDERS_CREATE) && (
+            <StaffOrderingNav
+              restaurantSlug={restaurant.slug}
+              activeContext={activeKey === "staffOrdering" ? staffOrderingContext : null}
+              onSelect={(contextId) => onNavigate("staffOrdering", { staffContext: contextId })}
+            />
+          )}
         </aside>
 
       <main className="container container--admin ad-shell__main">

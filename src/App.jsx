@@ -18,6 +18,7 @@ import AdminCategoriesScreen              from "./screens/admin/AdminCategoriesS
 import AdminMenuItemsScreen               from "./screens/admin/AdminMenuItemsScreen.jsx";
 import AdminTablesScreen                  from "./screens/admin/AdminTablesScreen.jsx";
 import AdminRevenueReportScreen from "./screens/admin/AdminRevenueReportScreen.jsx";
+import StaffOrderingScreen                from "./screens/admin/StaffOrderingScreen.jsx";
 import AdminSettingsScreen                from "./screens/admin/AdminSettingsScreen.jsx";
 import AdminFeedbackScreen                from "./screens/admin/AdminFeedbackScreen.jsx";
 import { canViewPage }                    from "./lib/permissions.js";
@@ -250,6 +251,10 @@ function AdminRoute() {
      same reason the Live Orders filter is: the dashboard unmounts when the
      admin page changes, so what it captured has to outlive it. */
   const [reportSnapshot, setReportSnapshot] = useState(null);
+  /* Phase 112.0 — which table (or the direct context) Staff Ordering is
+     working in. Held here for the same reason as the two above: the sidebar
+     that chose it is re-created when the page changes. */
+  const [staffContext, setStaffContext] = useState(null);
 
   /* Every admin screen and the sidebar navigate through this. The second
      argument is optional: plain navigation (a nav click, the drill-down's
@@ -273,6 +278,7 @@ function AdminRoute() {
          cleared on every other navigation so a stale snapshot can never be
          shown under a later period. */
       setReportSnapshot(options?.report ?? null);
+      setStaffContext(options?.staffContext ?? null);
       setAdminPage(page);
       /* Phase 62 — inside the guard's success path on purpose. A destination
          the Phase 60 dialog is still holding has not been visited, so
@@ -401,6 +407,18 @@ function AdminRoute() {
         session={session}
         onSignOut={handleSignOut}
         onNavigate={navigateAdmin}
+      />
+    );
+  }
+
+  if (adminPage === "staffOrdering" && isAuthorizedForPage) {
+    return (
+      <StaffOrderingScreen
+        restaurant={restaurant}
+        session={session}
+        onSignOut={handleSignOut}
+        onNavigate={navigateAdmin}
+        context={staffContext}
       />
     );
   }

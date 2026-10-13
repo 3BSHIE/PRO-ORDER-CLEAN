@@ -667,7 +667,9 @@ function CancellationAlerts({ records, timeZone, onAcknowledge }) {
                     reinforcement rather than the message itself (§37). */}
                 <span className="kb-cancel__flag">{t("status.canceled", "Canceled")}</span>
                 <span className="kb-cancel__table">
-                  {t("customer.yourTable", "Table")} {record.tableNumber}
+                  {record.tableNumber === null || record.tableNumber === undefined
+                    ? t("staffOrder.directOrder", "Direct Order")
+                    : `${t("customer.yourTable", "Table")} ${record.tableNumber}`}
                 </span>
               </p>
               <p className="kb-cancel__meta">
@@ -731,7 +733,9 @@ function RecentlyCanceledModal({ records, timeZone, onClose }) {
           <div className="kb-history__row" key={record.orderId}>
             <div className="kb-history__head">
               <span className="kb-history__table">
-                {t("customer.yourTable", "Table")} {record.tableNumber}
+                {record.tableNumber === null || record.tableNumber === undefined
+                  ? t("staffOrder.directOrder", "Direct Order")
+                  : `${t("customer.yourTable", "Table")} ${record.tableNumber}`}
               </span>
               <span className="kb-history__time">{formatClock(record.canceledAt, timeZone)}</span>
             </div>
@@ -775,8 +779,13 @@ function KitchenOrderCard({ order, now, isUpdating, onAdvance, enterKind }) {
           {/* §3 — the table is the headline. A cook reads this from the pass,
               several feet away, and everything else on the ticket is detail
               they only need once they have found the right ticket. */}
+          {/* Phase 112.0 — the headline a cook reads from the pass. An order
+              with no table is named by what it is, never "Table" followed by
+              nothing. */}
           <p className="kb-card__table">
-            {t("customer.yourTable", "Table")} {order.tableNumber}
+            {order.tableId
+              ? `${t("customer.yourTable", "Table")} ${order.tableNumber}`
+              : t("staffOrder.directOrder", "Direct Order")}
           </p>
           <p className="kb-card__id">{order.orderId}</p>
         </div>

@@ -260,6 +260,195 @@ export function createCustomerOrder({
   return order;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 112.0 — orders created by staff
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Create an order on a customer's behalf, from the Admin/Cashier interface.
+ *
+ * ── WHY IT LIVES BESIDE createCustomerOrder ─────────────────────────────
+ * Same store, same id sequence, same shape. A staff order is a real order —
+ * Kitchen, Live Orders, the revenue summaries and the business-day rules all
+ * read it exactly as they read a guest's — so giving it a second creation
+ * path would be two order models pretending to be one. What differs is
+ * recorded as DATA on the order, not as a different kind of record:
+ *
+ *   source      who placed it. Absent on every pre-112.0 order, which is
+ *               why isStaffOrder() treats "missing" as the guest channel.
+ *   orderType   "table" or "direct". A direct order has tableId null and
+ *               tableNumber null — not a placeholder table, not "Table 00".
+ *   qrToken     null, and customerIdentityKey null. This is what makes
+ *               customer-session isolation structural rather than a policy:
+ *               orderBelongsToSession() requires a matching qrToken AND a
+ *               non-empty identity key, so a staff order cannot appear in
+ *               any guest's My Orders however the table is shared.
+ *
+ * No customer name is invented. The UI names the channel instead.
+ *
+ * @param {object} params
+ * @param {object} params.restaurant — { id, slug, name, serviceChargePercent }
+ * @param {object|null} params.table — { id, tableNumber } or null for direct
+ * @param {object} params.staff — { staffId, name, role }
+ * @param {Array<object>} params.cartItems
+ * @param {number} params.subtotal
+ * @param {number} params.serviceCharge
+ * @param {number} params.total
+ * @param {object} params.paymentMethod — { paymentMethodId, paymentMethodLabel, paymentMethodType, selectedAt }
+ * @param {number} [params.estimatedPrepMinutes]
+ * @returns {object} the created order
+ */
+export function createStaffOrder({
+  restaurant,
+  table,
+  staff,
+  cartItems,
+  subtotal,
+  serviceCharge,
+  total,
+  paymentMethod,
+  estimatedPrepMinutes,
+}) {
+  /* The same backstop the guest flow uses, with the staff identity folded in
+     so two cashiers submitting identical carts for the same table within the
+     window still produce two orders — they are two real orders. */
+  const signature = [
+    "staff",
+    staff?.staffId || "",
+    buildOrderSignature({
+      restaurant,
+      table: table || null,
+      customerName: "",
+      cartItems,
+      total,
+      paymentMethod,
+    }),
+  ].join("|");
+
+  const existing = findRecentDuplicate(signature, Date.now());
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const orderId = nextOrderId();
+
+  const order = {
+    orderId,
+    restaurantId: restaurant.id,
+    restaurantSlug: restaurant.slug,
+    restaurantName: restaurant.name,
+    /* Null, not a stand-in. Every reader that shows a table has been taught
+       to show the order's channel instead when there is none. */
+    tableId: table?.id ?? null,
+    tableNumber: table?.tableNumber ?? null,
+    qrToken: null,
+    customerName: null,
+    customerIdentityKey: null,
+    orderType: table ? "table" : "direct",
+    source: {
+      channel: "staff",
+      staffId: staff?.staffId || null,
+      staffName: staff?.name || null,
+      role: staff?.role || null,
+    },
+    status: "received",
+    statusHistory: [{ status: "received", at: now, label: "Order received" }],
+    items: cartItems,
+    subtotal,
+    serviceChargePercent: restaurant.serviceChargePercent || 0,
+    serviceCharge,
+    total,
+    estimatedPrepMinutes: Number.isInteger(estimatedPrepMinutes) ? estimatedPrepMinutes : null,
+    paymentMethod: {
+      id: paymentMethod.paymentMethodId,
+      label: paymentMethod.paymentMethodLabel,
+      type: paymentMethod.paymentMethodType,
+      selectedAt: paymentMethod.selectedAt,
+    },
+    paymentStatus: resolvePaymentStatus(paymentMethod.paymentMethodId),
+    createdAt: now,
+    updatedAt: now,
+    __signature: signature,
+  };
+
+  saveCustomerOrders([...getCustomerOrders(), order]);
+  return order;
+}
+
+/**
+ * Settle several orders together, as one combined bill.
+ *
+ * ── WHY THIS IS ONE FUNCTION AND NOT A LOOP IN THE SCREEN ────────────────
+ * A combined bill is paid or it is not. Reading the list once, checking every
+ * member, then writing them in a single save means a settlement cannot land
+ * half-applied because a re-render interrupted a loop. It is not a
+ * transaction — a browser cannot give us one — but it is the closest thing
+ * available, and it is the seam a backend transaction will replace.
+ *
+ * Every member must still be unpaid and uncanceled. If any is not, nothing is
+ * written and the caller is told which ones failed, because a bill that
+ * silently settles three of four orders is worse than one that refuses.
+ *
+ * The method is written onto each order because that is what was actually
+ * collected: the guest chose Cash at checkout but handed over a card, and the
+ * payment breakdown should say card.
+ *
+ * @param {Array<string>} orderIds
+ * @param {{id:string,label:string,type:string}} method
+ * @returns {{ok:boolean, settled:Array<object>, blocked:Array<string>}}
+ */
+export function settleOrdersAsPaid(orderIds, method) {
+  const ids = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
+  if (ids.length === 0) return { ok: false, settled: [], blocked: [] };
+
+  const orders = getCustomerOrders();
+  const blocked = [];
+  const targets = [];
+
+  for (const id of ids) {
+    const order = orders.find((o) => o.orderId === id);
+    if (!order) { blocked.push(id); continue; }
+    if (order.status === "canceled" || order.paymentStatus === "paid") {
+      blocked.push(id);
+      continue;
+    }
+    targets.push(order);
+  }
+
+  if (blocked.length > 0 || targets.length === 0) {
+    return { ok: false, settled: [], blocked };
+  }
+
+  const now = new Date().toISOString();
+  const settledIds = new Set(targets.map((o) => o.orderId));
+  const settled = [];
+
+  const next = orders.map((order) => {
+    if (!settledIds.has(order.orderId)) return order;
+    const updated = {
+      ...order,
+      paymentStatus: "paid",
+      paymentMethod: method
+        ? {
+            ...(order.paymentMethod || {}),
+            id: method.id,
+            label: method.label,
+            type: method.type || method.id,
+          }
+        : order.paymentMethod,
+      updatedAt: now,
+      paymentHistory: [
+        ...(order.paymentHistory || []),
+        { paymentStatus: "paid", at: now, method: method?.id || null },
+      ],
+    };
+    settled.push(updated);
+    return updated;
+  });
+
+  saveCustomerOrders(next);
+  return { ok: true, settled, blocked: [] };
+}
+
 /**
  * Update an order's status, appending a new statusHistory entry.
  * (Not used by the customer flow yet — this phase only creates "received"

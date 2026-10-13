@@ -32,6 +32,7 @@ import { usePrepTime } from "../../lib/usePrepTime.js";
 import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { isCategoryVisibleNow } from "../../lib/categoryVisibility.js";
 import { fmtPrice } from "../../lib/format.js";
+import { buildCartLine } from "../../lib/cartLine.js";
 
 /* ── Price formatter ─────────────────────────────────────────────────────── */
 
@@ -426,32 +427,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   /* Real add-to-cart: builds the structured cart item, merges/saves it,
      closes the modal, and shows a confirmation toast. */
   const handleAddToCart = useCallback((item, quantity, notes, selections) => {
-    const { selectedRemovals, selectedChoices, selectedPaidAddOns } = selections;
-
-    const choicesPrice = selectedChoices.reduce((sum, c) => sum + (c.price || 0), 0);
-    const addOnsPrice  = selectedPaidAddOns.reduce((sum, a) => sum + (a.price || 0), 0);
-    const unitPrice    = item.price + choicesPrice + addOnsPrice;
-    const lineTotal    = parseFloat((unitPrice * quantity).toFixed(3));
-
-    const nextCart = addCartItem({
-      itemId: item.id,
-      categoryId: item.categoryId,
-      /* Phase 97.7 §23 — the line snapshots RESOLVED TEXT. Every operational
-         reader of a cart/order line (Kitchen, Admin Live Orders, Cashier,
-         Tracking) treats these as plain strings, so the localized value is
-         resolved here rather than travelling any further. */
-      name: getLocalizedText(item.name, language),
-      description: getLocalizedText(item.description, language),
-      imageUrl: item.imageUrl,
-      basePrice: item.price,
-      unitPrice,
-      quantity,
-      lineTotal,
-      selectedRemovals,
-      selectedChoices,
-      selectedPaidAddOns,
-      notes: notes || "",
-    });
+    /* Phase 112.0 — the line is built by lib/cartLine.js, which Staff
+       Ordering also calls. Same arithmetic, same snapshot fields, one
+       implementation; this screen's behaviour is unchanged. */
+    const nextCart = addCartItem(
+      buildCartLine({ item, quantity, notes, selections, language })
+    );
 
     setCart(nextCart);
     setSelectedItem(null);
@@ -827,7 +808,10 @@ function revealChip(el) {
 }
 
 /* ── Grouped view (All, no search) ─────────────────────────────────────── */
-function GroupedView({ items, categories, onOpen }) {
+/* Phase 112.0 — exported so Staff Ordering renders the SAME product cards
+   the guest sees. Nothing about this component changed; a second
+   implementation of the menu is what the export exists to prevent. */
+export function GroupedView({ items, categories, onOpen }) {
   const { t, language } = useLanguage();
   return (
     <>
@@ -859,7 +843,8 @@ function GroupedView({ items, categories, onOpen }) {
 }
 
 /* ── Flat item grid ─────────────────────────────────────────────────────── */
-function ItemGrid({ items, onOpen }) {
+/* Phase 112.0 — exported for Staff Ordering, unchanged otherwise. */
+export function ItemGrid({ items, onOpen }) {
   return (
     <div className="menu-grid">
       {items.map((item) => (
