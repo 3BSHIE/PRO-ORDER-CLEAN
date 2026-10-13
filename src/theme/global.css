@@ -8872,11 +8872,36 @@ button{font-family:var(--font-body)}
    a mirrored time axis is a harder thing for a reader to undo than a
    left-to-right one is to read. Only the chart is pinned; every label around
    it still flows with the page. */
+/* ── Phase 111.5 — the value axis ────────────────────────────────────────
+   A gutter column beside the plot, auto-sized to the widest tick so a large
+   peak cannot clip and a small one cannot waste the chart's width. The whole
+   block stays LTR in Arabic, exactly as the plot already did, so the time
+   labels and the numbers read in the same direction. */
+.ad-chart-wrap{
+  --ad-chart-axis:18px;
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:0 8px;direction:ltr}
+/* No height of its own: it stretches to the chart beside it, whose height a
+   media query changes at 1200px. One source of truth for the plot box. */
+.ad-chart-scale{position:relative;text-align:right}
+.ad-chart-scale__sizer{
+  display:block;visibility:hidden;height:0;overflow:hidden;
+  font-size:9.5px;font-variant-numeric:tabular-nums}
+.ad-chart-scale__tick{
+  position:absolute;right:0;transform:translateY(50%);
+  font-size:9.5px;line-height:1;color:var(--text-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Named once, at the foot of the column of numbers it belongs to, on the
+   same line as the time labels. */
+.ad-chart-scale__unit{
+  position:absolute;right:0;bottom:0;line-height:18px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--text-3)}
+
 .ad-chart{
   position:relative;direction:ltr;
-  height:132px;padding-bottom:18px}
+  height:132px;padding-bottom:var(--ad-chart-axis,18px)}
 .ad-chart__grid{
-  position:absolute;inset:0 0 18px;
+  position:absolute;inset:0 0 var(--ad-chart-axis,18px);
   display:flex;flex-direction:column;justify-content:space-between;
   pointer-events:none}
 .ad-chart__grid span{display:block;height:1px;background:var(--border)}
@@ -9614,6 +9639,7 @@ button{font-family:var(--font-body)}
 [lang="ar"] .rep-head__title,
 [lang="ar"] .rep-h2,
 [lang="ar"] .rep-table thead th,
+[lang="ar"] .rep-chart__xtick,
 [lang="ar"] .rep-vs__label,
 [lang="ar"] .rep-foot__by{letter-spacing:normal}
 
@@ -9662,27 +9688,49 @@ button{font-family:var(--font-body)}
    Ticks are positioned from the BOTTOM as a percentage, the same percentage
    the bars are drawn to, so a label and the gridline beside it mean the same
    thing however many ticks the scale produced. */
+/* ── Phase 111.5 — the plot and its two axes ─────────────────────────────
+   The chart's height is now split explicitly: a plot the bars and the value
+   ticks share, and a band beneath it for the time labels. Both are declared
+   once, here, so the left-hand numbers and the bars can never be measured
+   against different boxes. */
 .rep-chart-wrap{
+  --rep-plot:16mm;--rep-xaxis:3.4mm;
   display:grid;grid-template-columns:auto minmax(0,1fr);
   gap:0 1.8mm;margin-bottom:1.5mm}
-.rep-chart-scale{
-  position:relative;height:19mm;min-width:8mm;
-  border-bottom:1px solid transparent}
+.rep-chart-scale{position:relative;height:var(--rep-plot);min-width:8mm}
 .rep-chart-scale__tick{
   position:absolute;inset-inline-end:0;transform:translateY(50%);
   font-size:6.5pt;line-height:1;color:#6b6453;white-space:nowrap;
   font-variant-numeric:tabular-nums}
 .rep-chart-unit{
-  grid-column:1;text-align:end;padding-top:1.2mm;
+  position:absolute;inset-inline-end:0;top:100%;margin-top:1.1mm;
   font-size:6.5pt;font-weight:700;letter-spacing:.04em;color:#6b6453}
-.rep-chart{position:relative;margin-bottom:0}
+/* The baseline is drawn by the grid's own last line now, so the plot box has
+   no border of its own and the scale beside it needs no compensation. */
+.rep-chart{
+  position:relative;margin-bottom:0;border-bottom:none;
+  height:calc(var(--rep-plot) + var(--rep-xaxis));
+  padding:0 1mm var(--rep-xaxis)}
 .rep-chart__grid{
-  position:absolute;inset:0;display:flex;flex-direction:column;
-  justify-content:space-between}
+  position:absolute;inset:0 1mm var(--rep-xaxis);
+  display:flex;flex-direction:column;justify-content:space-between}
 .rep-chart__grid span{display:block;height:0;border-top:1px solid #ece8dc}
+.rep-chart__grid span:last-child{border-top-color:#1a1a1a}
 .rep-chart__bars{
   position:relative;display:flex;align-items:flex-end;gap:1px;
   height:100%;width:100%}
+
+/* ── The time axis ───────────────────────────────────────────────────────
+   Each label is centred on the bucket it names: the band spans exactly the
+   bars' box, and inset-inline-start turns an index into a position that
+   mirrors with the bars on the Arabic page. */
+.rep-chart__xaxis{
+  position:absolute;inset-inline:1mm;bottom:0;height:var(--rep-xaxis)}
+.rep-chart__xtick{
+  position:absolute;top:1mm;transform:translateX(-50%);
+  font-size:6.5pt;line-height:1;color:#6b6453;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+[dir="rtl"] .rep-chart__xtick{transform:translateX(50%)}
 
 /* ── Who made this document ──────────────────────────────────────────────
    7pt at the foot of the page, against a 16pt restaurant name at the top:

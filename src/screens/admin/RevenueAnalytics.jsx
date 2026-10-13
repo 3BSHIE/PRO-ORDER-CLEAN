@@ -3,7 +3,8 @@ import {
   ChevronRight, Banknote, CreditCard, Wallet, TrendingUp, Receipt, Calculator,
 } from "lucide-react";
 import { useLanguage } from "../../i18n/useLanguage.js";
-import { fmtPrice } from "../../lib/format.js";
+import { fmtPrice, SUPPORTED_CURRENCY } from "../../lib/format.js";
+import { niceScale, formatTick } from "../../lib/chartScale.js";
 import {
   summarizeRevenueByHour,
   summarizeRevenueByDayKey,
@@ -196,6 +197,18 @@ function PaymentRing({ slices, total, t }) {
  *   places for the peak rule or the 3% floor to drift apart. The caller
  *   supplies the columns and the axis ticks; this only draws them.
  *
+ * ── WHAT PHASE 111.5 ADDED, AND WHAT IT DID NOT ──────────────────────────
+ *   A value axis, and nothing else. Same card, same bars, same colours, same
+ *   hover, same time labels, same transitions.
+ *
+ *   The bars used to be drawn as a percentage of the TALLEST bar, which made
+ *   the shape right and the amounts unknowable: the top of the plot was
+ *   whatever the busiest hour happened to earn. They are now drawn against
+ *   the same rounded top the gridlines are labelled with — the report's
+ *   scale, from lib/chartScale.js, so the printed chart and this one measure
+ *   money the same way. Every bar changes by one shared factor, so the chart
+ *   the owner approved is the chart that is still here.
+ *
  *   Still bars and still CSS, unchanged from Phase 100.1 in technique: bars
  *   because these are discrete sums and a line would draw values that were
  *   never earned, CSS because a percentage height in a flex row cannot
@@ -207,37 +220,77 @@ function PaymentRing({ slices, total, t }) {
  * @param {string} label — the chart's accessible name
  */
 function RevenueBarChart({ columns, peak, ticks, label }) {
+  const scale = niceScale(peak || 0);
+
   return (
-    <div className="ad-chart" role="img" aria-label={label}>
-      <div className="ad-chart__grid" aria-hidden="true">
-        <span /><span /><span /><span />
-      </div>
-
-      <div className="ad-chart__bars">
-        {columns.map((column) => {
-          /* peak is 0 only when the caller has already switched to the empty
-             state; the guard keeps this component safe on its own. A column
-             with takings always gets at least 3% so the smallest real amount
-             stays visible rather than rounding away to nothing. */
-          const ratio = peak > 0 ? column.total / peak : 0;
-          const height = column.total > 0 ? `${Math.max(3, ratio * 100)}%` : "0%";
-          return (
-            <span key={column.id} className="ad-chart__col" title={column.title}>
-              <span
-                className="ad-chart__bar"
-                style={{ height }}
-                data-empty={column.total > 0 ? undefined : "true"}
-                data-peak={column.peak ? "true" : undefined}
-              />
-            </span>
-          );
-        })}
-      </div>
-
-      <div className="ad-chart__axis" aria-hidden="true">
-        {ticks.map((tick, i) => (
-          <span key={`${tick}-${i}`}>{tick}</span>
+    <div className="ad-chart-wrap">
+      {/* The gutter. Each number sits on its own gridline — positioned by the
+          same fraction the bars are drawn to — and the currency is named once
+          at the foot of the column instead of on every tick. */}
+      <div className="ad-chart-scale" aria-hidden="true">
+        {/* Every tick is absolutely positioned, so one invisible copy of the
+            widest label is what gives the gutter its width — exact in any
+            font, at any peak, without guessing at character widths. */}
+        <span className="ad-chart-scale__sizer">
+          {scale.ticks.reduce((widest, tick) => {
+            const text = formatTick(tick, scale.decimals);
+            return text.length > widest.length ? text : widest;
+          }, "")}
+        </span>
+        {scale.ticks.map((tick, i) => (
+          <span
+            className="ad-chart-scale__tick"
+            key={tick}
+            /* The column is as tall as the whole chart so the currency can
+               sit in the time-label band, so a tick's position is measured
+               from the top of that band upward: the axis height, plus its
+               share of what is left. */
+            style={{
+              bottom: `calc(var(--ad-chart-axis) + ${
+                (i / Math.max(1, scale.ticks.length - 1))
+              } * (100% - var(--ad-chart-axis)))`,
+            }}
+          >
+            {formatTick(tick, scale.decimals)}
+          </span>
         ))}
+        <span className="ad-chart-scale__unit">{SUPPORTED_CURRENCY}</span>
+      </div>
+
+      <div className="ad-chart" role="img" aria-label={label}>
+        {/* One line per tick, so a gridline is always a number the reader can
+            see rather than a decorative quarter. */}
+        <div className="ad-chart__grid" aria-hidden="true">
+          {scale.ticks.map((tick) => <span key={tick} />)}
+        </div>
+
+        <div className="ad-chart__bars">
+          {columns.map((column) => {
+            /* scale.top is 0 only when the caller has already switched to the
+               empty state; the guard keeps this component safe on its own. A
+               column with takings always gets at least 3% so the smallest
+               real amount stays visible rather than rounding away to
+               nothing. */
+            const ratio = scale.top > 0 ? column.total / scale.top : 0;
+            const height = column.total > 0 ? `${Math.max(3, ratio * 100)}%` : "0%";
+            return (
+              <span key={column.id} className="ad-chart__col" title={column.title}>
+                <span
+                  className="ad-chart__bar"
+                  style={{ height }}
+                  data-empty={column.total > 0 ? undefined : "true"}
+                  data-peak={column.peak ? "true" : undefined}
+                />
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="ad-chart__axis" aria-hidden="true">
+          {ticks.map((tick, i) => (
+            <span key={`${tick}-${i}`}>{tick}</span>
+          ))}
+        </div>
       </div>
     </div>
   );

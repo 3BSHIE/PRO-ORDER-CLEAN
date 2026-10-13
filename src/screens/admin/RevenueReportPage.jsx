@@ -6,6 +6,7 @@ import { formatPeriodLabel, formatDayKeyLabel, keyParts } from "../../lib/revenu
 import { formatHourRange } from "../../i18n/dateFormat.js";
 import { isSafeImageUrl } from "../../lib/safeImage.js";
 import { describeMetric } from "../../lib/revenueComparison.js";
+import { niceScale, formatTick } from "../../lib/chartScale.js";
 import { brandMarkDataUrl } from "../../lib/reportBrand.js";
 import { QaPaperNotice, QaPaperWatermark } from "../../dev/QaPreviewBadge.jsx";
 
@@ -48,54 +49,7 @@ function formatInRestaurantZone(date, timeZone, locale, options) {
   }
 }
 
-/**
- * A value axis a reader can actually measure a bar against.
- *
- * ── WHY THE TOP IS NOT THE PEAK ──────────────────────────────────────────
- * Scaling bars to the tallest bar makes the chart's shape right and its
- * values unreadable: the top of the plot is some arbitrary 198.000, and a
- * tick there would be a number nobody chose. The axis therefore runs to a
- * ROUND number at or above the peak, picked from the 1 / 2 / 2.5 / 5 ladder
- * at the right order of magnitude, and the bars are scaled against that. The
- * shape is unchanged — every bar shrinks by the same factor — and now every
- * gridline is a figure worth printing.
- *
- * Four intervals is the target: enough to read a bar to a quarter of the
- * range, few enough that five labels fit beside a 22mm plot at 6.5pt.
- *
- * @param {number} max — the tallest bucket in the period
- * @returns {{top:number, ticks:Array<number>, decimals:number}}
- */
-export function niceScale(max, targetIntervals = 4) {
-  const peak = Number(max) || 0;
-  if (peak <= 0) return { top: 0, ticks: [0], decimals: 0 };
 
-  const rough = peak / targetIntervals;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
-  const normalized = rough / magnitude;
-  const step =
-    (normalized <= 1 ? 1
-      : normalized <= 2 ? 2
-        : normalized <= 2.5 ? 2.5
-          : normalized <= 5 ? 5
-            : 10) * magnitude;
-
-  /* Round up to the next whole step so the tallest bar never pokes above the
-     top gridline, and so the top tick is a number from the same ladder. */
-  const top = Math.ceil(peak / step - 1e-9) * step;
-  const ticks = [];
-  for (let i = 0; i * step <= top + step * 1e-9; i += 1) ticks.push(i * step);
-
-  /* A step of 0.25 needs two decimals; a step of 250 needs none. Decided by
-     the step rather than by the values, so every tick is printed alike. */
-  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
-  return { top, ticks, decimals };
-}
-
-/** Western digits on both pages, exactly as fmtPrice prints its figures. */
-function tickLabel(value, decimals) {
-  return (Number(value) || 0).toFixed(decimals);
-}
 
 const DELTA_ICON = { up: ArrowUp, down: ArrowDown, flat: Minus };
 
@@ -135,12 +89,63 @@ function ReportDelta({ metric, kind, money, T }) {
   );
 }
 
+/**
+ * The labels under the plot, mapped to bucket INDICES rather than spread
+ * across the card.
+ *
+ * ── WHY INDICES AND NOT EVEN SPACING ─────────────────────────────────────
+ * A label is a claim about a bar. Distributing five captions evenly across
+ * the chart's width would put "12" wherever the twelfth of the width falls,
+ * which is only the twelfth bucket by coincidence — and never is, once the
+ * plot carries side padding or a month has 31 days. Each tick therefore
+ * names the bucket it sits on and is centred on that bucket's own column.
+ *
+ *   day    five sparse hours — 00, 06, 12, 18, 23 — over all 24 bars
+ *   week   all seven days, Sunday to Saturday, from the buckets' own keys
+ *   month  the 1st, 7th, 14th, 21st, 28th and the real last day when it is
+ *          clear of the 28th, so February is not given a 30th
+ *
+ * Nothing here chooses buckets; it only reads the ones the model already
+ * built, so a label cannot describe a bar that is not there.
+ */
+function xAxisTicks(model, buckets, language) {
+  const count = buckets.length;
+  if (count === 0) return [];
+
+  if (model.chartKind === "hour") {
+    return [0, 6, 12, 18, 23]
+      .filter((hour) => hour < count)
+      .map((hour) => ({ index: hour, label: String(hour).padStart(2, "0") }));
+  }
+
+  if (model.range.type === "week") {
+    return buckets.map((bucket, index) => ({
+      index,
+      label: formatDayKeyLabel(bucket.id, "week", language),
+    }));
+  }
+
+  /* The last day earns a tick only when it is at least two days clear of the
+     28th; on a 29-day February it would otherwise sit on top of it. */
+  const days = [1, 7, 14, 21, 28];
+  if (count - 28 >= 2) days.push(count);
+  return days
+    .filter((day) => day <= count)
+    .map((day) => ({
+      index: day - 1,
+      /* Read back off the bucket's own key rather than printed from the
+         loop counter, so the number under a bar is that bar's date. */
+      label: String(keyParts(buckets[day - 1].id).day),
+    }));
+}
+
 /** A compact bar strip: the period's shape, not a second interactive chart. */
-function ReportChart({ model, currency }) {
+function ReportChart({ model, currency, language }) {
   const buckets = model.chartKind === "hour"
     ? model.chart.buckets.map((b) => ({ id: b.hour, total: b.total, peak: b.hour === model.chart.peakHour }))
     : model.chart.buckets.map((b) => ({ id: b.key, total: b.total, peak: b.key === model.chart.peakKey }));
   const { top, ticks, decimals } = niceScale(model.chart.peak || 0);
+  const xTicks = xAxisTicks(model, buckets, language);
 
   return (
     <div className="rep-chart-wrap">
@@ -154,15 +159,33 @@ function ReportChart({ model, currency }) {
             key={tick}
             style={{ bottom: `${(i / Math.max(1, ticks.length - 1)) * 100}%` }}
           >
-            {tickLabel(tick, decimals)}
+            {formatTick(tick, decimals)}
           </span>
         ))}
+        {/* In the axis band rather than under it: the currency names the
+            column of numbers above it and costs the page no height. */}
+        <span className="rep-chart-unit">{currency}</span>
       </div>
 
       <div className="rep-chart" aria-hidden="true">
         <div className="rep-chart__grid">
           {ticks.map((tick) => <span key={tick} />)}
         </div>
+        {/* Positioned on the bucket's own centre. inset-inline-start mirrors
+            with the bars on the Arabic page, so the chronology never reverses
+            away from its labels. */}
+        <div className="rep-chart__xaxis" aria-hidden="true">
+          {xTicks.map((tick) => (
+            <span
+              className="rep-chart__xtick"
+              key={tick.index}
+              style={{ insetInlineStart: `${((tick.index + 0.5) / buckets.length) * 100}%` }}
+            >
+              {tick.label}
+            </span>
+          ))}
+        </div>
+
         <div className="rep-chart__bars">
           {buckets.map((bucket) => (
             <span className="rep-chart__col" key={bucket.id}>
@@ -179,7 +202,6 @@ function ReportChart({ model, currency }) {
         </div>
       </div>
 
-      <span className="rep-chart-unit" aria-hidden="true">{currency}</span>
     </div>
   );
 }
@@ -430,7 +452,7 @@ export default function RevenueReportPage({
       </h2>
       {model.revenue.total > 0 ? (
         <>
-          <ReportChart model={model} currency={currency} />
+          <ReportChart model={model} currency={currency} language={language} />
           <p className="rep-chart__caption">
             {T("admin.peakHour", "Peak")}
             {": "}
