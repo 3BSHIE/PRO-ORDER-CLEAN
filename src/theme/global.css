@@ -9142,10 +9142,22 @@ button{font-family:var(--font-body)}
 .dd2{display:flex;flex-direction:column;gap:18px}
 
 /* Five figures, one line each, in as many columns as fit. */
+/* Phase 111.2 — TWO columns at every width, never three.
+
+   The five figures are one primary total and four supporting ones, so a
+   three-column grid could only ever produce 1 + 3 + 1: a full row, then a
+   single orphan under it. Two columns make the same five read as a
+   deliberate composition — the total across the top, then a 2x2 block —
+   and every supporting card ends up the same width as its neighbour with
+   shared edges down the middle.
+
+   Grid rows stretch by default, so the two cards in a row are also the
+   same height whatever their labels wrap to. */
 .dd2-summary{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
 .dd2-metric{
-  min-width:0;padding:9px 11px;
+  min-width:0;padding:11px 12px;
+  display:flex;flex-direction:column;justify-content:center;
   border:1px solid var(--border);border-radius:var(--r-md);
   background:var(--surface-2)}
 .dd2-metric--strong{
@@ -9192,12 +9204,14 @@ button{font-family:var(--font-body)}
 
 /* The two panels keep their own surface here so they read as the same
    objects the section shows, not as more tables in a list. */
-.dd2-minis{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+/* The same 10px the metric grid uses, so the vertical rhythm down the
+   overlay does not change value from one block to the next. */
+.dd2-minis{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
 
 /* ── Secondary actions (§32) ─────────────────────────────────────────────
    Ordinary bordered buttons on one line. The old gold full-width CTA was
    the loudest thing in a financial overlay whose job is reading. */
-.dd2-actions{display:flex;flex-wrap:wrap;gap:8px}
+.dd2-actions{display:flex;flex-wrap:wrap;gap:10px}
 .dd2-action{
   display:inline-flex;align-items:center;gap:6px;
   min-height:36px;padding:0 12px;
@@ -9226,8 +9240,9 @@ button{font-family:var(--font-body)}
     gap:22px;margin-top:22px}
 }
 @media(min-width:560px){
-  .dd2-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .dd2-metric--strong{grid-column:1 / -1}
+  /* Phase 111.2 — was repeat(3), which is what produced the orphaned
+     fifth card. The 2x2 holds at every width; only the two panels below
+     it go side by side. */
   .dd2-minis{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
 }
 /* At 390 and below the steppers get the full width of the header rather
@@ -10577,3 +10592,34 @@ button{font-family:var(--font-body)}
 .dd2-total-row td{
   border-top:1.5px solid var(--border-strong) !important;
   color:var(--text-1);font-weight:700}
+
+/* ── Phase 111.2 — Save as PDF ──────────────────────────────────────────
+   The export paints the very pages on screen, so the only thing that has to
+   change for the capture is the lift they are given against the dark admin
+   background: a drop shadow belongs to a page floating in an app, not to a
+   sheet of A4. */
+.rep-page--capturing{box-shadow:none !important}
+
+@keyframes repspin{to{transform:rotate(360deg)}}
+.rep-action__spin{animation:repspin .9s linear infinite}
+.rep-action:disabled{opacity:.65;cursor:default}
+.rep-action:disabled:hover{color:var(--text-2);border-color:var(--border)}
+
+/* Stated inline, next to the control that failed, and it stays until the
+   reader tries again — the report itself is untouched behind it. */
+.rep-error{
+  display:flex;align-items:center;gap:7px;margin:0;
+  padding:9px 12px;border-radius:var(--r-sm);
+  background:color-mix(in srgb,var(--canceled) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--canceled) 35%,transparent);
+  color:var(--canceled);font-size:12px;font-weight:600}
+.rep-error svg{flex:none}
+
+/* Phase 111.2 — at the narrowest width the 2x2 costs a label rather than a
+   number: measured at 320px, "Average order value" ellipsised while every
+   value stayed whole, and the Arabic labels are longer still. One column
+   there, which §2.7 prefers to clipping. 360px and up keeps the 2x2 — it
+   was measured clean. */
+@media(max-width:379.98px){
+  .dd2-summary{grid-template-columns:minmax(0,1fr)}
+}

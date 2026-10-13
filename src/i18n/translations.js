@@ -389,6 +389,11 @@ export const translations = {
       viewReport: "View Report",
       printReport: "Print",
       savePdf: "Save as PDF",
+      /* Phase 111.2 — Save as PDF downloads a file now, so it has a working
+         state and a failure state of its own. savePdfHint above described
+         the old print-dialog route and is no longer used. */
+      savingPdf: "Preparing PDF…",
+      savePdfFailed: "The PDF could not be created. Please try again.",
       savePdfHint: "Opens your browser's print dialog — choose \"Save as PDF\" as the destination.",
       shareReport: "Share",
       shareCopied: "Summary copied",
@@ -1451,6 +1456,8 @@ export const translations = {
       viewReport: "عرض التقرير",
       printReport: "طباعة",
       savePdf: "حفظ كـ PDF",
+      savingPdf: "جارٍ تجهيز الـ PDF…",
+      savePdfFailed: "تعذّر إنشاء ملف PDF. يرجى المحاولة مرة أخرى.",
       savePdfHint: "يفتح نافذة الطباعة في المتصفّح — اختر \"حفظ كـ PDF\" كوجهة للطباعة.",
       shareReport: "مشاركة",
       shareCopied: "تمّ نسخ الملخّص",

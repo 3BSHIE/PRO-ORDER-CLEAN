@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, Printer, FileDown, Share2, Check } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, Printer, FileDown, Share2, Check, Loader2, AlertTriangle } from "lucide-react";
 import AdminLayout from "./AdminLayout.jsx";
 import RevenueReportPage from "./RevenueReportPage.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
@@ -7,6 +7,7 @@ import { useSettingsData } from "../../lib/useSettingsData.js";
 import { buildRevenueReport, reportShareText } from "../../lib/revenueReport.js";
 import { formatPeriodLabel } from "../../lib/revenuePeriods.js";
 import { fmtPrice, SUPPORTED_CURRENCY } from "../../lib/format.js";
+import { downloadReportPdf, buildReportFilename } from "../../lib/reportPdf.js";
 import { translate } from "../../i18n/translate.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -39,6 +40,11 @@ export default function AdminRevenueReportScreen({
   const { t, language } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
   const [shareState, setShareState] = useState("idle");
+  /* "idle" | "working" | "error". The ref is how the exporter reaches the
+     very elements on screen rather than re-rendering a second copy of the
+     report — same DOM, same snapshot, same Arabic. */
+  const [pdfState, setPdfState] = useState("idle");
+  const docRef = useRef(null);
 
   /* Built once per snapshot. `report` is a new object only when the reader
      opens the screen again, so this memo is what makes the page stable. */
@@ -74,12 +80,35 @@ export default function AdminRevenueReportScreen({
     );
   }
 
-  /* Print and "Save as PDF" are the same browser dialog, and the labels say
-     so rather than implying a file appears on its own (§12.2): the PDF
-     button's hint names the destination the reader has to pick. Using the
-     browser's own print path is also what keeps Arabic correctly shaped and
-     the text selectable — rasterising the page to an image would lose both. */
+  /* Print is untouched by Phase 111.2: the browser's own dialog, producing
+     the two-page output that was reviewed and accepted. */
   const handlePrint = () => window.print();
+
+  /* Save as PDF no longer borrows that dialog. It paints the two pages that
+     are on screen and hands the reader a file.
+
+     Guarded on `working` rather than disabled-only, so a double click or an
+     impatient second press cannot start a second render and download the
+     report twice. Nothing about the page moves while it runs — no overlay,
+     no scroll jump — because the export reads the DOM it is already
+     sitting in. */
+  const handleSavePdf = async () => {
+    if (pdfState === "working") return;
+    const pages = docRef.current
+      ? [...docRef.current.querySelectorAll(".rep-page")]
+      : [];
+    if (pages.length === 0) { setPdfState("error"); return; }
+
+    setPdfState("working");
+    try {
+      await downloadReportPdf(pages, buildReportFilename(restaurantName, model.range));
+      setPdfState("idle");
+    } catch {
+      /* No silent fall back to the print dialog, and no claim that a file
+         arrived: the message stays until the reader tries again. */
+      setPdfState("error");
+    }
+  };
 
   const handleShare = async () => {
     const strings = {
@@ -139,11 +168,16 @@ export default function AdminRevenueReportScreen({
             <button
               type="button"
               className="rep-action"
-              onClick={handlePrint}
-              title={t("admin.savePdfHint", "Opens your browser's print dialog — choose \"Save as PDF\" as the destination.")}
+              onClick={handleSavePdf}
+              disabled={pdfState === "working"}
+              aria-busy={pdfState === "working"}
             >
-              <FileDown size={14} strokeWidth={2.2} aria-hidden="true" />
-              {t("admin.savePdf", "Save as PDF")}
+              {pdfState === "working"
+                ? <Loader2 className="rep-action__spin" size={14} strokeWidth={2.2} aria-hidden="true" />
+                : <FileDown size={14} strokeWidth={2.2} aria-hidden="true" />}
+              {pdfState === "working"
+                ? t("admin.savingPdf", "Preparing PDF…")
+                : t("admin.savePdf", "Save as PDF")}
             </button>
             <button type="button" className="rep-action" onClick={handleShare}>
               {shareState === "copied"
@@ -160,7 +194,14 @@ export default function AdminRevenueReportScreen({
           {t("admin.reportBilingualHint", "This report prints as two A4 pages: English, then Arabic.")}
         </p>
 
-        <div className="rep-doc">
+        {pdfState === "error" && (
+          <p className="rep-error" role="alert">
+            <AlertTriangle size={14} strokeWidth={2.2} aria-hidden="true" />
+            {t("admin.savePdfFailed", "The PDF could not be created. Please try again.")}
+          </p>
+        )}
+
+        <div className="rep-doc" ref={docRef}>
           <RevenueReportPage
             language="en"
             model={model}
