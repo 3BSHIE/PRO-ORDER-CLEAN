@@ -27,6 +27,28 @@
  * @param {unknown} raw
  * @returns {boolean}
  */
+/* ── Phase 112.2 — resolved sources ──────────────────────────────────────
+   isSafeImageUrl above answers "may I attempt this URL the restaurant typed",
+   and its refusal of data: is deliberate: a pasted data URL is untrusted
+   content of unknown type.
+
+   An uploaded logo is a different thing. It was decoded in this browser from
+   a file the owner chose, re-encoded by our own canvas, and stored as a data
+   URL because that is the only representation that survives a refresh AND
+   works inside html2canvas and print. So there is a second question — "may I
+   render this RESOLVED source" — whose answer additionally admits the raster
+   data URLs this product produces, and still never admits image/svg+xml,
+   which is a scriptable document rather than a picture. */
+const RASTER_DATA_URL = /^data:image\/(png|jpeg|jpg|webp|gif|avif);base64,[A-Za-z0-9+/=\s]+$/i;
+
+/** Is this something we produced or validated, and safe to put in src? */
+export function isSafeImageSrc(raw) {
+  if (typeof raw !== "string" || raw.trim() === "") return false;
+  const value = raw.trim();
+  if (RASTER_DATA_URL.test(value)) return true;
+  return isSafeImageUrl(value);
+}
+
 export function isSafeImageUrl(raw) {
   if (typeof raw !== "string" || raw.trim() === "") return false;
   try {

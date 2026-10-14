@@ -14,7 +14,9 @@ import { resolveTableAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
 import { saveCustomerSession } from "../../lib/customerSession.js";
 import CustomerLoadingScreen from "./components/CustomerLoadingScreen.jsx";
-import RestaurantInfo, { isSafeImageUrl } from "./components/RestaurantInfo.jsx";
+import RestaurantInfo from "./components/RestaurantInfo.jsx";
+import { isSafeImageSrc } from "../../lib/safeImage.js";
+import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
 
 /* How long the landing composition is given to leave before the Menu route is
    pushed. Must stay in step with the .cx-landing--leaving transitions in
@@ -190,10 +192,12 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const logoUrl = (restaurant.logoUrl || "").trim();
+  /* Phase 112.2 — see CustomerLoadingScreen: resolve, then validate. */
+  const resolvedLogo = useRestaurantLogoSrc(logoUrl);
   /* §5 — http(s) only, and a logo that fails to load is dropped rather than
      leaving a broken-image icon on the venue's first impression. The fallback
      is the restaurant's NAME, never the PRO·ORDER logo. */
-  const showLogo = isSafeImageUrl(logoUrl) && !logoFailed;
+  const showLogo = isSafeImageSrc(resolvedLogo) && !logoFailed;
 
   const nameError = validateName(name, t);
   const canStart = nameError === null;
@@ -272,7 +276,7 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
         {showLogo && (
           <img
             className="cx-landing__logo"
-            src={logoUrl}
+            src={resolvedLogo}
             alt=""
             onError={() => setLogoFailed(true)}
           />

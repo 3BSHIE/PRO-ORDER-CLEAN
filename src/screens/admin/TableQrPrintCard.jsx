@@ -2,6 +2,8 @@ import { QRCodeSVG } from "qrcode.react";
 import Logo from "../../components/brand/Logo.jsx";
 import { translations } from "../../i18n/translations.js";
 import { isValidHexColor, relativeLuminance, resolveHeadingFont } from "../../lib/theme.js";
+import { isSafeImageSrc } from "../../lib/safeImage.js";
+import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
 
 /**
  * TableQrPrintCard — Phase 69. One A6 face of a physical table stand.
@@ -90,6 +92,10 @@ export default function TableQrPrintCard({ restaurant, settings, table, qrUrl, l
   const isArabic = language === "ar";
   const restaurantName = (settings?.name || "").trim() || restaurant.name;
   const logoUrl = (settings?.logoUrl || "").trim();
+  /* Phase 112.2 — an uploaded logo is an asset reference; resolving it here
+     means the printed stand carries the same image the screen does. A data
+     URL prints and rasterises correctly, which a blob: handle would not. */
+  const resolvedLogo = useRestaurantLogoSrc(logoUrl);
   const accent = printAccent(settings?.primaryColor);
   const headingFont = resolveHeadingFont(settings?.headingFont);
 
@@ -100,8 +106,8 @@ export default function TableQrPrintCard({ restaurant, settings, table, qrUrl, l
       <div className="qr-stand__top">
         {/* No logo, no placeholder: a restaurant without one gets a stronger
             name-only treatment rather than an empty box on a printed card. */}
-        {logoUrl && (
-          <img className="qr-stand__logo" src={logoUrl} alt="" aria-hidden="true" />
+        {isSafeImageSrc(resolvedLogo) && (
+          <img className="qr-stand__logo" src={resolvedLogo} alt="" aria-hidden="true" />
         )}
         <h1
           className="qr-stand__restaurant"

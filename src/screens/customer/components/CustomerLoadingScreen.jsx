@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import BrandLoadingMark from "./BrandLoadingMark.jsx";
-import { isSafeImageUrl } from "./RestaurantInfo.jsx";
+import { isSafeImageSrc } from "../../../lib/safeImage.js";
+import { useRestaurantLogoSrc } from "../../../lib/restaurantLogoAssets.js";
 
 /**
  * CustomerLoadingScreen — Phase 83. The Customer main/system loading state.
@@ -41,13 +42,16 @@ export default function CustomerLoadingScreen({ restaurant, settling = false, me
 
   const name = (restaurant?.name || "").trim();
   const logoUrl = (restaurant?.logoUrl || "").trim();
+  /* Phase 112.2 — an uploaded logo is an asset reference, so it is resolved
+     before it is judged or rendered. A typed URL passes through unchanged. */
+  const resolvedLogo = useRestaurantLogoSrc(logoUrl);
   /* §5 — the same guard Restaurant Info uses: only http(s) images, and an
      image that fails to load is dropped rather than leaving the browser's
      broken-image glyph on the venue's first impression. A restaurant with no
      usable logo falls back to its NAME, which is still its own identity —
      never to the PRO·ORDER logo, which would put the platform's mark where
      the venue's should be. */
-  const showLogo = isSafeImageUrl(logoUrl) && !logoFailed;
+  const showLogo = isSafeImageSrc(resolvedLogo) && !logoFailed;
 
   return (
     <div
@@ -62,7 +66,7 @@ export default function CustomerLoadingScreen({ restaurant, settling = false, me
         {showLogo && (
           <img
             className="cx-loading__logo"
-            src={logoUrl}
+            src={resolvedLogo}
             alt=""
             onError={() => setLogoFailed(true)}
           />

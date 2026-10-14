@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { isSafeImageUrl } from "../../../lib/safeImage.js";
+import RestaurantLogo from "../../../components/brand/RestaurantLogo.jsx";
 
 /**
  * RestaurantIdentity — Phase 45.
@@ -53,26 +52,16 @@ export default function RestaurantIdentity({ name, logoUrl, variant = "hero" }) 
      working one would keep showing the fallback until the component
      unmounted. Storing WHICH url failed makes the state self-clearing — a new
      logoUrl no longer matches, so the image is attempted again (test case E). */
-  const [failedUrl, setFailedUrl] = useState(null);
-
   if (!name) return null;
 
-  const showLogo = isSafeImageUrl(logoUrl) && failedUrl !== logoUrl;
-
+  /* Phase 112.2 — the validation, the asset resolution and the broken-image
+     fallback all moved into RestaurantLogo, which every other surface now
+     uses too. It renders nothing when there is no usable logo, which is
+     exactly the name-only DOM this component has always produced in that
+     case: no layout, spacing or typography changed. */
   return (
     <div className={`rest-identity rest-identity--${variant}`}>
-      {showLogo && (
-        /* Decorative: the name sits right beside it, so an alt would make a
-           screen reader announce the restaurant twice. Unchanged (§10) — and
-           it stays correct in the fallback, where the name simply becomes the
-           only thing there is to read. */
-        <img
-          className="rest-identity__logo"
-          src={logoUrl}
-          alt=""
-          onError={() => setFailedUrl(logoUrl)}
-        />
-      )}
+      <RestaurantLogo src={logoUrl} className="rest-identity__logo" />
       <span className="rest-identity__name">{name}</span>
     </div>
   );

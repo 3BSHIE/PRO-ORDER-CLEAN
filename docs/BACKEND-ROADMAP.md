@@ -1,12 +1,13 @@
 # PRO·ORDER — Backend roadmap and deferred requirements
 
-Written in Phase 112.0 (Staff Ordering, Direct Orders, Combined Bills) and
-updated in Phase 112.1 (contextual combining, cross-table bills).
+Written in Phase 112.0 (Staff Ordering, Direct Orders, Combined Bills),
+updated in Phase 112.1 (contextual combining, cross-table bills) and in
+Phase 112.2 (restaurant logo upload and storage).
 
 This file records what the current frontend-only architecture **cannot**
 honestly provide, so that nothing in the product pretends otherwise and
-nothing on this list is quietly forgotten. Both items below are **approved
-future requirements**, not suggestions.
+nothing on this list is quietly forgotten. Every item below is an **approved
+future requirement**, not a suggestion.
 
 ---
 
@@ -20,11 +21,20 @@ Everything PRO·ORDER knows lives in the browser:
 | Billing groups (combined bills) | `pro_order_billing_groups:<slug>` | same |
 | Staff draft carts | `pro_order_staff_draft:<slug>:<staffId>:<contextId>` | same |
 | Customer cart / session | sessionStorage | one tab |
+| Uploaded restaurant logo (the image) | IndexedDB `pro_order_assets` → store `logos` | one browser |
+| Which image is the logo (the reference) | `asset:<id>` in `settings.logoUrl` | one browser |
 
 That means: **two devices do not see the same data.** A cashier on a phone
-and an admin on a laptop each have their own orders, their own bills and
-their own drafts. Nothing in the UI claims otherwise, and nothing should be
-added that implies it until the items below are built.
+and an admin on a laptop each have their own orders, their own bills, their
+own drafts — and their own uploaded logo. Nothing in the UI claims
+otherwise, and nothing should be added that implies it until the items below
+are built.
+
+An uploaded logo is stored **locally only**. Uploading it on the office
+laptop does not put it on the manager's phone, on the kitchen display, or on
+any guest's device; those surfaces show the restaurant's name alone until
+the same browser holds the image, or until item C below is built. This is
+not synchronisation and must never be described as such.
 
 ---
 
@@ -128,6 +138,87 @@ table as a `position:relative` square, and `global.css` defines
 `.so-tablebtn__badge` — a corner badge at the top inline-end of the button —
 which **nothing renders today**. Adding the feature later is markup inside
 that button plus a presence source; it is not a redesign of the sidebar.
+
+---
+
+## C. Server-side image upload and storage — DEFERRED (added in Phase 112.2)
+
+**Status: local to one browser. No upload, no server, no sharing.**
+
+Phase 112.2 lets a restaurant choose its logo from its own device instead of
+having to host the file somewhere and paste a URL. What it does **not** do is
+move that file anywhere. The image is validated and optimised in the browser,
+written to this browser's IndexedDB asset store, and referenced from
+`settings.logoUrl` as `asset:<id>`. A typed `http(s)` URL is still stored
+and rendered exactly as before, and is never converted or migrated.
+
+**What that costs today, stated plainly:**
+
+- The logo appears **only in the browser that uploaded it.** Every other
+  device — a second admin, the kitchen display, a guest's phone — shows the
+  restaurant's name alone, because `asset:<id>` resolves to nothing there.
+  That is a missing image, not a sync delay.
+- Clearing site data removes the image. The reference survives in settings
+  and resolves to nothing, so the surfaces fall back to name-only rather
+  than showing a broken image.
+- A printed QR stand or an exported PDF carries the logo only when it is
+  produced on the browser that holds it.
+- Storage is a browser quota, not a budget. A refused write is reported to
+  the operator as a failure and the previously saved logo is left in place;
+  the product never reports a save that did not happen.
+
+A real implementation needs:
+
+- **An upload endpoint with authorization.** Only a session holding
+  `settings.manage` (see `src/lib/permissions.js`) may replace a
+  restaurant's logo, and the server must enforce that rather than trusting
+  the client, exactly as item A requires for bills.
+- **Server-side validation, not client-side validation repeated.** The
+  browser already refuses anything that is not a decodable PNG / JPEG /
+  WebP within the size limit (`processLogoFile()` in
+  `src/lib/restaurantLogoAssets.js`). The server must re-derive the real
+  type from the bytes, cap the size and the dimensions, and refuse SVG and
+  any other scriptable format — `isSafeImageSrc()` deliberately rejects
+  `image/svg+xml` for the same reason and that decision must hold on the
+  server too.
+- **Server-side optimisation and derivative sizes.** The client currently
+  produces one optimised raster bounded to 512px on its longest edge, keeps
+  transparency, preserves the aspect ratio and **never upscales** — a 60px
+  logo stays 60px. A server should keep those three rules and may add
+  responsive derivatives (sidebar, header, print) so the 16mm QR-stand logo
+  is not the same payload as the 24px topbar one.
+- **Stable, opaque asset references.** `settings.logoUrl` already holds a
+  reference rather than image bytes, which is the shape a server-backed
+  store wants: the field becomes a server asset id or URL and every
+  rendering surface — all of which now go through `<RestaurantLogo>` — keeps
+  working without change.
+- **Cross-device availability.** The image must be fetchable by every device
+  that renders the restaurant: staff, kitchen, customer, and the print and
+  PDF paths. This is the item that makes a logo uploaded in the office
+  appear on the floor, and nothing before it does.
+- **Replacement and deletion.** Replacing a logo must leave exactly one
+  image in force and release the one it replaced; deleting the logo must
+  clear the reference and release the bytes. The client does this only for
+  assets it created in the same visit and only once a save or a discard has
+  established which image is in force — a server needs the same
+  "reference first, bytes second" ordering, so a half-finished upload never
+  removes a logo that is still in use.
+- **Caching and invalidation.** A content-addressed or versioned URL, so a
+  replaced logo is not served from a cache after the change.
+- **Backward compatibility.** Existing `http(s)` logo URLs must keep working
+  untouched. There is no migration, and a destructive one must not be
+  introduced: a restaurant that pasted a URL in 2025 should still see that
+  URL in the field.
+- **The same treatment for the other images.** Cover images and product
+  images are still URL-only and were deliberately left alone by Phase 112.2.
+  They are the obvious next users of this endpoint, and they are a separate,
+  explicit piece of work — a cover image is a photograph with crop and focal
+  behaviour of its own, not a logo.
+
+**Not in scope and not implied:** this item is about the restaurant's own
+logo (and later its cover and product images). The PRO·ORDER brand mark is a
+shipped application asset, is not uploadable, and is not affected by any of
+the above.
 
 ---
 

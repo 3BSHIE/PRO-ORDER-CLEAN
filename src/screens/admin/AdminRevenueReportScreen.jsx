@@ -10,6 +10,7 @@ import { fmtPrice, SUPPORTED_CURRENCY } from "../../lib/format.js";
 import { downloadReportPdf, buildReportFilename } from "../../lib/reportPdf.js";
 import { translate } from "../../i18n/translate.js";
 import { reportAccentColor } from "../../lib/reportBrand.js";
+import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    AdminRevenueReportScreen — Phase 111.1
@@ -64,6 +65,11 @@ export default function AdminRevenueReportScreen({
     () => reportAccentColor(settings.primaryColor),
     [settings.primaryColor]
   );
+
+  /* Phase 112.2 — an uploaded logo is an asset reference, and html2canvas
+     cannot fetch one. Resolved here, once, so both pages and the PDF carry
+     the same image; a typed http(s) URL passes through exactly as before. */
+  const logoSrc = useRestaurantLogoSrc(settings.logoUrl);
 
   /* Frozen into the snapshot when View Report was pressed, so a report built
      from the fixture stays marked as one for as long as it is open — and the
@@ -222,7 +228,7 @@ export default function AdminRevenueReportScreen({
             language="en"
             model={model}
             restaurantName={restaurantName}
-            logoUrl={settings.logoUrl}
+            logoUrl={logoSrc}
             currency={SUPPORTED_CURRENCY}
             qaPreview={qaPreview}
             accent={accent}
@@ -231,7 +237,7 @@ export default function AdminRevenueReportScreen({
             language="ar"
             model={model}
             restaurantName={restaurantName}
-            logoUrl={settings.logoUrl}
+            logoUrl={logoSrc}
             currency={SUPPORTED_CURRENCY}
             qaPreview={qaPreview}
             accent={accent}

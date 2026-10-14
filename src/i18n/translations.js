@@ -648,6 +648,21 @@ export const translations = {
       settingsSubtitle: "Customize your restaurant's identity, business details, and customer options.",
       general: "General",
       restaurantNameLabel: "Restaurant Name",
+      /* Phase 112.2 — uploading the restaurant's own logo. "Restaurant Logo"
+         names the field; the URL below it keeps its old label, because a
+         restaurant already using a hosted URL should still recognise it. */
+      restaurantLogo: "Restaurant Logo",
+      uploadLogo: "Upload Restaurant Logo",
+      removeLogo: "Remove logo",
+      logoHint: "PNG, JPG or WebP. Transparent backgrounds are kept.",
+      logoUploadedNote: "An uploaded image is in use",
+      logoUploadedHint: "Remove the uploaded logo to use a hosted URL instead.",
+      /* One message per refusal reason: a rejected file says which rule it
+         broke, never just that something went wrong. */
+      logoTypeError: "Choose a PNG, JPG or WebP image.",
+      logoSizeError: "That image is too large. Choose one under 6 MB.",
+      logoDecodeError: "That file could not be read as an image.",
+      logoStorageError: "The logo could not be stored on this device. The previous logo is unchanged.",
       logoUrl: "Restaurant Logo URL",
       coverImageUrl: "Cover Image URL",
       restaurantDescription: "Restaurant Description",
@@ -1758,6 +1773,17 @@ export const translations = {
       settingsSubtitle: "خصّص هوية مطعمك، وتفاصيله التجارية، وخيارات العملاء.",
       general: "عام",
       restaurantNameLabel: "اسم المطعم",
+      /* Phase 112.2 — رفع شعار المطعم */
+      restaurantLogo: "شعار المطعم",
+      uploadLogo: "رفع شعار المطعم",
+      removeLogo: "إزالة الشعار",
+      logoHint: "PNG أو JPG أو WebP. تُحفظ الخلفيات الشفافة كما هي.",
+      logoUploadedNote: "يُستخدم شعار مرفوع",
+      logoUploadedHint: "أزِل الشعار المرفوع لاستخدام رابط مستضاف بدلاً منه.",
+      logoTypeError: "اختر صورة بصيغة PNG أو JPG أو WebP.",
+      logoSizeError: "هذه الصورة كبيرة جدًا. اختر صورة أقل من 6 ميجابايت.",
+      logoDecodeError: "لم تتم قراءة هذا الملف كصورة.",
+      logoStorageError: "لم يتم تخزين الشعار على هذا الجهاز، والشعار السابق لم يتغيّر.",
       logoUrl: "رابط شعار المطعم",
       coverImageUrl: "رابط صورة الغلاف",
       restaurantDescription: "وصف المطعم",

@@ -4,7 +4,7 @@ import { translate } from "../../i18n/translate.js";
 import { fmtPrice } from "../../lib/format.js";
 import { formatPeriodLabel, formatDayKeyLabel, keyParts } from "../../lib/revenuePeriods.js";
 import { formatHourRange } from "../../i18n/dateFormat.js";
-import { isSafeImageUrl } from "../../lib/safeImage.js";
+import { isSafeImageSrc } from "../../lib/safeImage.js";
 import { describeMetric } from "../../lib/revenueComparison.js";
 import { niceScale, formatTick } from "../../lib/chartScale.js";
 import { brandMarkDataUrl } from "../../lib/reportBrand.js";
@@ -274,7 +274,9 @@ export default function RevenueReportPage({
     );
   };
 
-  const hasLogo = isSafeImageUrl(logoUrl);
+  /* Phase 112.2 — the caller resolves an uploaded asset to a data URL, which
+     is what html2canvas can actually paint. */
+  const hasLogo = isSafeImageSrc(logoUrl);
   const money = (n) => fmtPrice(n);
 
   /* ── Previous period (Phase 111.4) ───────────────────────────────────

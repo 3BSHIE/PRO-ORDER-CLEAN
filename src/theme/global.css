@@ -1744,25 +1744,48 @@ button{font-family:var(--font-body)}
     max-width:1320px;margin:0 auto;padding:0 20px}
   .ad-shell__main{flex:1 1 auto;min-width:0;max-width:none;margin:0;padding:0}
 
-  /* ── Phase 112.1 — a stationary frame ───────────────────────────────
-     The sidebar itself no longer scrolls. It is a fixed-height flex column
-     whose identity and Direct Order button never move; only the two regions
-     that can genuinely outgrow their space — the navigation and the table
-     keypad — scroll, and only when they have to. min-height:0 on the column
-     is what allows a flex child to shrink below its content and scroll at
-     all; without it the sidebar would simply grow and push the page. */
+  /* ── Phase 112.2 §A — the sidebar's layout contract ──────────────────
+     Read top to bottom the sidebar is: identity, Operations, the Staff
+     Ordering heading, Direct Order, then the table grid. The first four are
+     STATIONARY and sized by their own content. The table grid is the single
+     elastic region, and the only thing in here that scrolls.
+
+     That is stated entirely in flex terms, which is what makes overlap
+     structurally impossible rather than merely unlikely:
+
+       • the navigation takes its NATURAL height (flex:0 0 auto), so its
+         links can never spill over the section beneath them. Phase 112.1
+         let it shrink to a 44px floor while its content overflowed
+         visibly, and that overflow WAS the reported overlap;
+       • the ordering section claims whatever is left (flex:1 1 auto) and
+         passes it to the grid, so the grid's height is whatever the
+         viewport actually has rather than a number chosen here.
+
+     Nothing below uses a fixed height, a negative margin, absolute
+     positioning or z-index to achieve this. No region is ever painted over
+     another, so their stacking order is never load-bearing.
+
+     overflow-y:auto on the frame is the honest last resort, not the
+     mechanism. When the stationary regions alone are taller than the
+     viewport — a very short window, or a future build with many more
+     Operations links — the sidebar scrolls so that nothing becomes
+     unreachable. At any ordinary height it never appears, and it replaces
+     the Phase 112.1 max-height:499.98px special case, which hid the same
+     situation behind a breakpoint instead of answering it. */
   .ad-sidebar{
     flex:none;width:228px;max-width:none;margin:0;padding:22px 0 20px;
     position:sticky;top:61px;align-self:flex-start;
-    height:calc(100vh - 61px);overflow:hidden;
+    height:calc(100vh - 61px);
+    /* A visible thin scrollbar, deliberately: on the rare screen where the
+       frame does scroll, a hidden one would make the lower section look
+       simply absent. */
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
     display:flex;flex-direction:column;min-height:0}
-  .ad-sidebar::-webkit-scrollbar{display:none}
   .ad-sidebar__identity{flex:none}
-  /* Scrolls only when the links outgrow the space; flex-shrink lets it give
-     way to the ordering section rather than squeezing it off-screen. */
-  .ad-sidebar__nav{
-    flex:1 1 auto;min-height:44px;overflow-y:auto;overscroll-behavior:contain;
-    scrollbar-width:thin}
+  /* Natural height, stationary, and NOT its own scroller: every Operations
+     link is reached by reading down the sidebar, never by discovering a
+     second scrollbar nested inside it. */
+  .ad-sidebar__nav{flex:0 0 auto}
 
   .ad-sidebar__identity{
     margin-bottom:16px;padding:0 10px 16px;
@@ -2612,7 +2635,10 @@ button{font-family:var(--font-body)}
   border:1px solid color-mix(in srgb,var(--preview-primary,#d4a94e) 40%,var(--border-strong))}
 .ad-brand-preview__divider{width:1px;align-self:stretch;background:rgba(255,255,255,.14)}
 .ad-brand-preview__restaurant{display:flex;align-items:center;gap:10px;min-width:0}
-.ad-brand-preview__logo{width:32px;height:32px;border-radius:8px;object-fit:cover;flex:none}
+/* Phase 112.2 §D — contained like every other restaurant logo, so the
+   preview shows the guest's view rather than a differently-cropped one. */
+.ad-brand-preview__logo{
+  height:32px;width:auto;max-width:72px;border-radius:8px;flex:none}
 .ad-brand-preview__name{
   font-family:var(--font-display);font-size:15px;font-weight:700;
   /* Phase 110.2 — the name takes the preview's INK, not the raw brand
@@ -3624,8 +3650,12 @@ button{font-family:var(--font-body)}
    screen and uses the restaurant's own heading font and accent from Phase 31,
    so a venue's theme choice is what the guest actually notices first. */
 .customer-theme .rest-identity--hero{gap:12px}
+/* Phase 112.2 §D — height-driven and contained, not a cropped square. The
+   height is unchanged at 44px, so the header's rhythm is exactly as before
+   for the square logos this was designed around; a wide wordmark now simply
+   gets the width it needs instead of having its ends cut off. */
 .customer-theme .rest-identity--hero .rest-identity__logo{
-  width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
+  height:44px;width:auto;max-width:132px;border-radius:10px;flex:none}
 .customer-theme .rest-identity--hero .rest-identity__name{
   font-family:var(--font-display);
   font-size:clamp(24px,5.4vw,34px);font-weight:700;line-height:1.15;
@@ -3638,8 +3668,10 @@ button{font-family:var(--font-body)}
    Small enough not to compete with the page's own title, present enough that
    the guest always knows whose ordering experience they are in. */
 .customer-theme .rest-identity--compact{gap:8px;max-width:52vw}
+/* Phase 112.2 §D — as above. The cap is tighter here because this one sits
+   in a topbar beside controls and must not crowd them out. */
 .customer-theme .rest-identity--compact .rest-identity__logo{
-  width:24px;height:24px;border-radius:6px;object-fit:cover;flex:none}
+  height:24px;width:auto;max-width:72px;border-radius:6px;flex:none}
 .customer-theme .rest-identity--compact .rest-identity__name{
   font-family:var(--font-display);
   font-size:14px;font-weight:700;letter-spacing:.01em;color:var(--gold-ink);
@@ -9769,10 +9801,12 @@ button{font-family:var(--font-body)}
    sticky behaviour and its scrolling. Nothing above it moves. */
 .so-nav{
   margin-top:16px;padding:14px 10px 0;border-top:1px solid var(--border);
-  /* Phase 112.1 — a column whose keypad scrolls instead of the sidebar
-     around it. It never shrinks below its own min-content (heading, Direct
-     Order, one row of tables), so nothing here can be clipped off a short
-     screen; the navigation above gives way first. */
+  /* A column whose keypad scrolls instead of the sidebar around it: the
+     heading and Direct Order are fixed, the grid below them takes the rest.
+     Phase 112.2 moved the sizing of this column into the desktop sidebar
+     contract further down, where the whole top-to-bottom arrangement is
+     stated in one place; on the narrow strip this is simply a stacked block
+     and the grid keeps its own height cap. */
   display:flex;flex-direction:column}
 .so-nav__title,
 .so-direct{flex:none}
@@ -11199,13 +11233,141 @@ button{font-family:var(--font-body)}
   border:1px solid var(--border);background:var(--surface-2);
   color:var(--text-3);font-size:12.5px}
 
-/* ── Phase 112.1 — the one case where the frame gives way ────────────────
-   Below about 500px of viewport height the navigation has already shrunk to
-   its floor and the ordering section is at its min-content, so there is
-   nothing left to give. Clipping would put Direct Order or a table out of
-   reach with no way to get to it; a scrollbar on the frame is the lesser
-   evil, and only here. Every realistic laptop (≥520px tall) keeps the
-   stationary sidebar the owner asked for. */
-@media(min-width:1024px) and (max-height:499.98px){
-  .ad-sidebar{overflow-y:auto}
+/* ═══════════════════════════════════════════════════════════════════════
+   Phase 112.2 — The sidebar's elastic region, and the restaurant logo
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── §A — the ordering section is what absorbs the slack ─────────────────
+   The Phase 112.1 height breakpoint that used to live here is gone: the
+   frame now carries overflow-y:auto unconditionally (see the contract in
+   the desktop sidebar block above), so a short window is handled by the
+   same rule as a tall one rather than by a special case.
+
+   These two rules complete that contract. They sit here, after the base
+   .so-tables, because overriding its height cap at equal specificity needs
+   to come later in the cascade — and because this is where the rest of
+   Phase 112.2 reads. */
+@media(min-width:1024px){
+  /* Takes every pixel the stationary regions above did not use — and gives
+     them up again when there are none.
+
+     min-height:0 is doing the real work. A grid's min-content height is the
+     height of its rows, because rows do not reflow vertically, so a section
+     left at min-height:auto cannot shrink below a 100-table keypad: it would
+     keep its full height and push the whole frame into a scroll instead of
+     letting the keypad scroll inside itself. That was measured at 1280x620
+     with 15 tables — 143px of frame overflow with the grid not scrolling at
+     all — and this is the line that fixes it. The floor that keeps the
+     keypad usable belongs on the grid, not here. */
+  .so-nav{flex:1 1 auto;min-height:0}
+  /* The identity block's 16px of padding plus 16px of margin were set when
+     it held a single line of text. It can now hold a 40px mark beside that
+     text (§C), and at 1280x620 the old spacing was the three pixels that
+     tipped the whole frame into a scrollbar. Tightened, not shrunk: the
+     logo keeps its size and the block keeps a clear separation. */
+  .ad-sidebar__identity{margin-bottom:12px;padding-bottom:12px}
+  /* The grid fills the section and scrolls inside itself. max-height:none
+     removes the 260px cap the narrow layout still needs: on desktop the
+     available space IS the height, so a 3-table restaurant shows a two-row
+     keypad and a 100-table restaurant shows a tall scroller, with no number
+     written down here for either. min-height:48px, inherited from the base
+     rule, is the floor — one row of tables stays visible, and only once even
+     that will not fit does the frame scroll, which is recoverable in a way a
+     clipped Direct Order button would not be. */
+  .so-tables{max-height:none}
+}
+
+/* ── §C/§D — one restaurant logo, one set of rules ───────────────────────
+   Every surface that shows the restaurant's own logo renders it through
+   <RestaurantLogo>, which puts this class on the image. Before this phase
+   each surface wrote its own <img> and its own CSS and they disagreed: the
+   customer header cropped with object-fit:cover, the admin sidebar had no
+   sizing at all — which is exactly why an uploaded logo appeared there at
+   its full natural size — and the print surfaces each had a third answer.
+
+   A logo is not a photograph. Cropping one cuts into a mark the restaurant
+   paid for, and stretching one misrepresents it, so every instance contains
+   and keeps its aspect ratio.
+
+   No width or height here on purpose: the SIZE belongs to the surface — a
+   sidebar logo and a welcome-screen logo are different sizes deliberately —
+   while the fitting, which must be identical everywhere, belongs here. */
+.rest-logo{
+  display:block;flex:none;max-width:100%;
+  object-fit:contain;object-position:center}
+
+/* The lockup: logo BESIDE the name, never above it, on every surface rather
+   than only the customer ones. Admin and Kitchen were relying on inline
+   layout inside their own flex rows, which left the image on the text
+   baseline at whatever size it happened to be. */
+.rest-identity{display:flex;align-items:center;gap:8px;min-width:0}
+
+/* ── §C — the admin sidebar identity ─────────────────────────────────────
+   Height-driven rather than a square: the height is what has to be
+   consistent with the name beside it, and letting the width follow the
+   image is what keeps a wide wordmark legible and a tall crest unstretched.
+   The max-width is the guard that matters — the sidebar stays exactly
+   228px, so an extreme aspect ratio is bounded rather than pushing the
+   name out of the column. */
+.ad-sidebar__identity .rest-identity{gap:10px}
+/* Bounds, not dimensions: the image keeps its own proportions and the box
+   hugs it, so a 3:1 wordmark renders 72x24 rather than sitting letterboxed
+   inside a 72x40 block with dead space above and below the mark. */
+.ad-sidebar__identity .rest-identity__logo{
+  width:auto;height:auto;max-height:40px;max-width:72px;border-radius:8px}
+/* Two lines at most, then ellipsis: a long venue name is readable without
+   the identity block growing tall enough to eat the navigation below it. */
+.ad-sidebar__identity .rest-identity__name{
+  font-family:var(--font-display);font-size:14px;font-weight:700;
+  line-height:1.25;color:var(--text-1);min-width:0;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden}
+
+/* ── §D — Kitchen ────────────────────────────────────────────────────────
+   The board's topbar and the login card use the same compact variant, and
+   neither is inside .customer-theme, so neither had any logo sizing. Sized
+   against the 20px PRO·ORDER mark beside it on the board: the restaurant's
+   logo is the larger of the two, which is the same relationship Admin
+   states in its own header. */
+.kb-identity .rest-identity__logo,
+.kitchen-login__rest .rest-identity__logo{
+  width:auto;height:auto;max-height:26px;max-width:56px;border-radius:6px}
+/* The login card centres its lockup and the uppercase tracking that styles
+   the name there must not be inherited by the logo's box. */
+.kitchen-login__rest .rest-identity{justify-content:center}
+
+/* ── §B — uploading a logo, in Restaurant Settings ───────────────────────
+   The control reads as one field: what the logo is now, and the two things
+   that can be done to it. The preview is a fixed box because it is a
+   viewport onto an image of unknown proportions — the logo inside it is
+   contained, never cropped, so a very wide or very tall file is shown
+   honestly at the size it will actually appear. */
+.st-logo__row{display:flex;align-items:center;gap:12px;min-width:0}
+.st-logo__preview{
+  flex:none;width:72px;height:56px;border-radius:var(--r-md);
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);background:var(--surface-2);
+  color:var(--text-3);
+  /* A chequerboard, so a transparent PNG reads as transparent rather than
+     as a logo with a grey background baked in. */
+  background-image:
+    linear-gradient(45deg,var(--surface-3) 25%,transparent 25%,transparent 75%,var(--surface-3) 75%),
+    linear-gradient(45deg,var(--surface-3) 25%,transparent 25%,transparent 75%,var(--surface-3) 75%);
+  background-size:12px 12px;background-position:0 0,6px 6px}
+.st-logo__img{max-width:64px;max-height:48px;width:auto;height:auto}
+.st-logo__actions{
+  position:relative;
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  min-width:0}
+/* The native file input is driven by the Button beside it so the control
+   matches every other button on this page. It is moved out of sight rather
+   than display:none'd — a hidden input cannot be focused, and keyboard
+   users would lose the control entirely. */
+.st-logo__file{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+/* Both actions stay on one line in the narrow settings column; a long
+   Arabic label wraps the pair instead of overflowing it. */
+@media(max-width:400px){
+  .st-logo__row{flex-wrap:wrap}
 }

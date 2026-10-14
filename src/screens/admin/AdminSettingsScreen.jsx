@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import { Settings as SettingsIcon, Save, ImagePlus } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Input   from "../../components/ui/Input.jsx";
@@ -24,6 +24,14 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { resolveEnabledLanguages, coerceDefaultLanguage } from "../../i18n/language.js";
 import { SUPPORTED_CURRENCY } from "../../lib/format.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
+import RestaurantLogo from "../../components/brand/RestaurantLogo.jsx";
+import {
+  processLogoFile,
+  saveLogoAsset,
+  deleteLogoAsset,
+  isLogoAssetRef,
+  ACCEPTED_LOGO_TYPES,
+} from "../../lib/restaurantLogoAssets.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -198,11 +206,39 @@ function settingsFingerprint(settings) {
   }));
 }
 
+/* Phase 112.2 — one localized message per refusal reason, so an owner whose
+   file was rejected is told which rule it broke. */
+const LOGO_ERROR_COPY = {
+  "unsupported-type": ["admin.logoTypeError", "Choose a PNG, JPG or WebP image."],
+  "too-large": ["admin.logoSizeError", "That image is too large. Choose one under 6 MB."],
+  "not-an-image": ["admin.logoDecodeError", "That file could not be read as an image."],
+  "storage-failed": ["admin.logoStorageError", "The logo could not be stored on this device. The previous logo is unchanged."],
+};
+
+const LOGO_ERROR_FALLBACK = "not-an-image";
+
 export default function AdminSettingsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { settings } = useSettingsData(restaurant.slug);
   const { t } = useLanguage();
 
   const [draft, setDraft] = useState(settings);
+
+  /* ── Phase 112.2 §B — uploading the restaurant's own logo ──────────────
+     The IMAGE is written to this device's asset store the moment it is
+     chosen, because an asset is not a setting: it is a file this browser now
+     holds. What Save commits is the SETTING that points at it, so this
+     screen's lifecycle is untouched — picking a file makes the draft dirty,
+     Discard restores the previously saved logoUrl, and the unsaved-changes
+     guard behaves exactly as it does for a renamed restaurant.
+
+     Assets this screen created are remembered so that once the outcome is
+     known — saved or discarded — the ones nothing points at can be released.
+     Only refs created here, in this visit, are ever eligible: never another
+     restaurant's, and never the one the persisted settings use. */
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState(null);
+  const logoFileRef = useRef(null);
+  const createdLogoRefs = useRef([]);
 
   /* ── Phase 96.1 §4 — Kitchen alert sounds join the Settings lifecycle ───
      Phase 96 left these apply-on-change, writing to storage the instant a
@@ -428,6 +464,12 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     setStaffAlertDraft(staffAlertSettings);
     setLastSoundPurpose(null);
     setError(null);
+    /* Phase 112.2 — setDraft(settings) above has already restored the saved
+       logoUrl, which is what "discard" means here. Any image uploaded during
+       this visit that the saved settings do not point at is now unreachable,
+       so it is released rather than left occupying the device's storage. */
+    releaseUnusedLogos(settings.logoUrl);
+    setLogoError(null);
     if (pending) pending();
   }
 
@@ -504,6 +546,50 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     });
   }
 
+  /* Phase 112.2 — drops every asset this visit created except the one that is
+     now in force. Deliberately fire-and-forget: a logo the owner can no
+     longer reach is not worth blocking a navigation or a toast on, and a
+     failed cleanup costs some bytes rather than any correctness. */
+  function releaseUnusedLogos(keepRef) {
+    const orphans = createdLogoRefs.current.filter((ref) => ref !== keepRef);
+    createdLogoRefs.current = isLogoAssetRef(keepRef) ? [keepRef] : [];
+    for (const ref of orphans) deleteLogoAsset(ref);
+  }
+
+  async function handleLogoFile(event) {
+    const file = event.target.files?.[0];
+    /* Cleared straight away so re-picking the SAME file still fires a change
+       event; a browser will not re-fire for an unchanged input value. */
+    event.target.value = "";
+    if (!file) return;
+
+    setLogoError(null);
+    setLogoBusy(true);
+    try {
+      /* Validate and optimise first, store second: nothing reaches the device
+         until we know it really is a decodable image of a supported type. */
+      const asset = await processLogoFile(file);
+      const ref = await saveLogoAsset(asset, restaurant.slug);
+      createdLogoRefs.current.push(ref);
+      setField("logoUrl", ref);
+    } catch (err) {
+      /* The draft is left exactly as it was, so a rejected file cannot
+         disturb the logo already in place — saved or in progress. */
+      const [key, fallback] =
+        LOGO_ERROR_COPY[err?.message] || LOGO_ERROR_COPY[LOGO_ERROR_FALLBACK];
+      setLogoError(t(key, fallback));
+    } finally {
+      if (mountedRef.current) setLogoBusy(false);
+    }
+  }
+
+  /* Clears the SETTING only. The stored image survives until a Save or a
+     Discard establishes that nothing points at it any more. */
+  function handleRemoveLogo() {
+    setLogoError(null);
+    setField("logoUrl", "");
+  }
+
   async function handleSaveAll() {
     if (savingRef.current) return;
 
@@ -560,6 +646,9 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       };
       const saved = await updateSettings(restaurant.slug, finalized);
       setDraft(saved);
+      /* Phase 112.2 — the persisted record is the authority on which image is
+         the logo, so replaced uploads are released only now, against it. */
+      releaseUnusedLogos(saved.logoUrl);
       /* The sounds commit in the same action. Separate key, same Save. */
       if (alertsDirty) {
         updateKitchenAlertSettings(restaurant.slug, {
@@ -665,8 +754,61 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <div className="st-split__col">
               <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
                 placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} />
-              <Input label={t("admin.logoUrl", "Restaurant Logo URL")} value={draft.logoUrl}
-                placeholder="https://…" onChange={(e) => setField("logoUrl", e.target.value)} />
+              {/* Phase 112.2 §B — a restaurant's logo lives on the owner's
+                  phone or laptop, not at a public URL they can paste, so
+                  uploading is the primary control. The URL field stays
+                  beneath it for a restaurant that does host one, and for the
+                  ones already using it: their stored value is untouched. */}
+              <div className="field st-logo">
+                <span className="field__label">{t("admin.restaurantLogo", "Restaurant Logo")}</span>
+                <div className="st-logo__row">
+                  <div className="st-logo__preview">
+                    {/* Bounded box, contain-fitted: the draft logo is shown
+                        at the real proportions it will keep everywhere. */}
+                    <RestaurantLogo src={draft.logoUrl} className="st-logo__img" />
+                    {!draft.logoUrl && (
+                      <ImagePlus size={18} strokeWidth={1.7} aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="st-logo__actions">
+                    {/* The native picker is driven by the button beside it so
+                        the control matches every other button on this page;
+                        it stays in the DOM and focusable rather than hidden
+                        from assistive technology. */}
+                    <input
+                      ref={logoFileRef}
+                      type="file"
+                      className="st-logo__file"
+                      accept={ACCEPTED_LOGO_TYPES.join(",")}
+                      aria-label={t("admin.uploadLogo", "Upload Restaurant Logo")}
+                      onChange={handleLogoFile}
+                    />
+                    <Button variant="outline" size="sm" icon={ImagePlus} disabled={logoBusy}
+                      onClick={() => logoFileRef.current?.click()}>
+                      {logoBusy ? t("common.saving", "Saving…") : t("admin.uploadLogo", "Upload Restaurant Logo")}
+                    </Button>
+                    {draft.logoUrl && (
+                      <Button variant="ghost" size="sm" disabled={logoBusy}
+                        onClick={handleRemoveLogo}>
+                        {t("admin.removeLogo", "Remove logo")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {logoError
+                  ? <span className="field__hint field__hint--error" role="alert">{logoError}</span>
+                  : <span className="field__hint">{t("admin.logoHint", "PNG, JPG or WebP. Transparent backgrounds are kept.")}</span>}
+              </div>
+              <Input label={t("admin.logoUrl", "Restaurant Logo URL")}
+                value={isLogoAssetRef(draft.logoUrl) ? "" : draft.logoUrl}
+                disabled={isLogoAssetRef(draft.logoUrl)}
+                placeholder={isLogoAssetRef(draft.logoUrl)
+                  ? t("admin.logoUploadedNote", "An uploaded image is in use")
+                  : "https://…"}
+                hint={isLogoAssetRef(draft.logoUrl)
+                  ? t("admin.logoUploadedHint", "Remove the uploaded logo to use a hosted URL instead.")
+                  : undefined}
+                onChange={(e) => setField("logoUrl", e.target.value)} />
               <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
                 placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
             </div>
@@ -948,7 +1090,9 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <Logo variant="icon" size="sm" />
             <div className="ad-brand-preview__divider" />
             <div className="ad-brand-preview__restaurant">
-              {draft.logoUrl && <img src={draft.logoUrl} alt="" className="ad-brand-preview__logo" />}
+              {/* Phase 112.2 — through the shared component, so an uploaded
+                  logo previews here the way it will appear to guests. */}
+              <RestaurantLogo src={draft.logoUrl} className="ad-brand-preview__logo" />
               <span className="ad-brand-preview__name">{previewName}</span>
             </div>
           </div>
