@@ -335,7 +335,11 @@ button{font-family:var(--font-body)}
    y=492 at 375px. The restaurant identity now carries the top line and the
    greeting folded into the meta, so the guest reaches food sooner without the
    header feeling crowded. */
-.menu-header{padding:18px 0 14px}
+/* Phase 112.2a §4 — 18/14 -> 14/12. The identity above grew by ~6px and the
+   support lines tightened by ~2px; giving four of those back here is what
+   keeps the header the same height as before rather than pushing the first
+   food card further down the page. */
+.menu-header{padding:14px 0 12px}
 /* Phase 97.2 §1 — the guest's own name is the personal half of this line;
    "Hi," is only grammar. So the prefix steps BACK and the name steps
    FORWARD, and it does that on size and weight in NEUTRAL ink — never on
@@ -343,7 +347,12 @@ button{font-family:var(--font-body)}
    sticky bar directly above, and a second Primary line underneath competes
    for the same rank instead of sitting below it. No badge, no card, no
    headline sizing: one notch up, not a hero. */
-.menu-header__meta{font-size:12.5px;color:var(--text-3);margin:8px 0 0}
+/* Phase 112.2a §4 — the greeting and the prompt become ONE supporting block
+   under a now-clearly-dominant identity, rather than two separate lines of
+   similar weight trailing it. Closing the gap above (8px -> 6px) and between
+   them (see .menu-header__prompt) is the whole change: both keep their own
+   words, their own sizes and their own behaviour. */
+.menu-header__meta{font-size:12.5px;color:var(--text-3);margin:6px 0 0}
 .menu-header__meta i{font-style:normal;font-size:17px;font-weight:700;
   color:var(--text-1);letter-spacing:-.01em}
 
@@ -3649,16 +3658,23 @@ button{font-family:var(--font-body)}
 /* Hero — Welcome and the Menu header. The name is the largest text on the
    screen and uses the restaurant's own heading font and accent from Phase 31,
    so a venue's theme choice is what the guest actually notices first. */
-.customer-theme .rest-identity--hero{gap:12px}
-/* Phase 112.2 §D — height-driven and contained, not a cropped square. The
-   height is unchanged at 44px, so the header's rhythm is exactly as before
-   for the square logos this was designed around; a wide wordmark now simply
-   gets the width it needs instead of having its ends cut off. */
+.customer-theme .rest-identity--hero{gap:clamp(12px,3.4vw,16px)}
+/* Phase 112.2 §D — height-driven and contained, not a cropped square: a wide
+   wordmark gets the width it needs instead of having its ends cut off.
+
+   Phase 112.2a §4 — and bigger. At a flat 44px beside a 24px name the venue
+   was the smallest confident thing on its own menu, which is the opposite of
+   the hierarchy this header is supposed to state. Both now scale with the
+   viewport so the gain is largest exactly where it was weakest — a phone —
+   while the desktop ceiling stays modest enough to keep the header compact.
+   The max-width rises with the height so the logo-to-name proportion and the
+   room a wordmark has are both unchanged. */
 .customer-theme .rest-identity--hero .rest-identity__logo{
-  height:44px;width:auto;max-width:132px;border-radius:10px;flex:none}
+  height:clamp(48px,12.5vw,60px);width:auto;max-width:clamp(144px,37vw,180px);
+  border-radius:10px;flex:none}
 .customer-theme .rest-identity--hero .rest-identity__name{
   font-family:var(--font-display);
-  font-size:clamp(24px,5.4vw,34px);font-weight:700;line-height:1.15;
+  font-size:clamp(27px,7.2vw,38px);font-weight:700;line-height:1.15;
   color:var(--gold-ink);
   /* Long names wrap onto a second line rather than overflowing or being
      clipped; min-width:0 lets the flex child actually shrink to allow it. */
@@ -3667,14 +3683,48 @@ button{font-family:var(--font-body)}
 /* Compact — deeper screens, sitting in a topbar slot beside a back button.
    Small enough not to compete with the page's own title, present enough that
    the guest always knows whose ordering experience they are in. */
-.customer-theme .rest-identity--compact{gap:8px;max-width:52vw}
-/* Phase 112.2 §D — as above. The cap is tighter here because this one sits
-   in a topbar beside controls and must not crowd them out. */
+.customer-theme .rest-identity--compact{gap:9px;max-width:54vw}
+/* Phase 112.2 §D — as above. Phase 112.2a §3 — one measured notch up (24->28,
+   14->15), deliberately smaller than the gain the hero and the entry screen
+   get: this variant sits in a topbar beside Call Staff, My Orders and the
+   language control, and the brief is to make the venue present here, not to
+   make the bar bulky. The cap stays tight for the same reason. */
 .customer-theme .rest-identity--compact .rest-identity__logo{
-  height:24px;width:auto;max-width:72px;border-radius:6px;flex:none}
+  height:28px;width:auto;max-width:80px;border-radius:6px;flex:none}
+/* Phase 112.2a §3 — and inside the one bar where the identity really is
+   squeezed, the LOGO gives way before the name does.
+
+   Cart and Tracking carry a back control, an action cluster, the language
+   switch AND the identity on one line, and the identity is capped at 36vw of
+   whatever is left. A wide wordmark taking the full 80px out of that left
+   "Lumière" with 51px at 390px and nothing at all at 320px: the venue's logo
+   was crowding out the venue's own name. Capping the logo against the
+   viewport instead gives the name back ~24px at 390 and ~40px at 320, and
+   costs a 28px-tall mark nothing a guest could read anyway. Every other
+   surface keeps the shared 80px. */
+.customer-theme .cust-topbar-right .rest-identity--compact .rest-identity__logo{
+  max-width:clamp(40px,12vw,56px)}
+
+/* ── Phase 112.2a §3 — the Restaurant Info sheet ─────────────────────────
+   This one was wrong, and had been since the identity rules were first
+   scoped: the sheet is portaled to <body>, OUTSIDE .customer-theme, so not
+   one of the rules above ever reached it. Its logo fell back to intrinsic
+   size — 348x93 measured at a 390px viewport — and pushed the restaurant's
+   name 47px past the edge of the sheet.
+
+   Stated here, where it actually applies. The sheet is a heading rather than
+   a topbar, so it sits between the compact and hero sizes; bounds rather
+   than dimensions, as everywhere else, so the mark keeps its proportions. */
+.rinfo__body .rest-identity{gap:10px}
+.rinfo__body .rest-identity__logo{
+  width:auto;height:auto;max-height:36px;max-width:116px;border-radius:7px}
+.rinfo__body .rest-identity__name{
+  font-family:var(--font-display);font-size:17px;font-weight:700;
+  letter-spacing:.01em;line-height:1.2;color:var(--gold-ink);
+  min-width:0;overflow-wrap:anywhere}
 .customer-theme .rest-identity--compact .rest-identity__name{
   font-family:var(--font-display);
-  font-size:14px;font-weight:700;letter-spacing:.01em;color:var(--gold-ink);
+  font-size:15px;font-weight:700;letter-spacing:.01em;color:var(--gold-ink);
   /* One line in a topbar — a long name truncates here instead of wrapping
      and pushing the bar taller. */
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -4046,7 +4096,10 @@ button{font-family:var(--font-body)}
   /* Cart and Tracking put the identity in the SAME row as the controls, so
      on a phone it yields more width than on the screens where it sits alone.
      It already truncates with an ellipsis, so this costs no layout. */
-  .cust-topbar-right .rest-identity--compact{max-width:34vw}
+  /* Phase 112.2a §3 — 34vw -> 36vw, so the slightly larger identity keeps the
+     same number of characters before it ellipses rather than buying its size
+     out of the venue's own name. */
+  .cust-topbar-right .rest-identity--compact{max-width:36vw}
   .menu-orders-label{display:none}
   .call-staff--compact{padding:7px;gap:0}
   .call-staff--compact .call-staff__label{display:none}
@@ -5624,12 +5677,15 @@ button{font-family:var(--font-body)}
 .cx-loading__identity{
   display:flex;flex-direction:column;align-items:center;gap:16px;
   animation:cx-enter .3s var(--ease) both}
+/* Phase 112.2a §3 — raised in step with the entry screen it hands over to.
+   It stays the larger of the two, which is the order these two screens are
+   seen in and the reason the handover reads as settling rather than growing. */
 .cx-loading__logo{
-  height:clamp(92px,24vw,132px);width:auto;max-width:72vw;
+  height:clamp(108px,28vw,152px);width:auto;max-width:72vw;
   object-fit:contain;display:block;border-radius:var(--r-md)}
 .cx-loading__name{
   font-family:var(--font-display);
-  font-size:clamp(34px,9vw,48px);line-height:1.12;
+  font-size:clamp(38px,10vw,54px);line-height:1.12;
   margin:0;color:var(--text-1);max-width:16ch;
   text-wrap:balance}
 .cx-loading__mark{
@@ -5699,13 +5755,17 @@ button{font-family:var(--font-body)}
    already 44x44, so it must not also be stretched. */
 .rinfo-btn--icon::before{content:none}
 
+/* Phase 112.2a §5 — the venue's first impression, enlarged by about a fifth
+   at every width. The pair keeps its proportions: both the logo and the name
+   move by the same ratio, so the composition is the approved one at a larger
+   scale rather than a differently-balanced one. */
 .cx-landing__logo{
-  height:clamp(80px,21vw,116px);width:auto;max-width:70vw;
+  height:clamp(96px,25vw,140px);width:auto;max-width:70vw;
   border-radius:var(--r-md);
   object-fit:contain;display:block}
 .cx-landing__name{
   font-family:var(--font-display);
-  font-size:clamp(32px,8.6vw,44px);line-height:1.12;
+  font-size:clamp(36px,9.6vw,50px);line-height:1.12;
   margin:0;color:var(--text-1);max-width:15ch;
   text-wrap:balance}
 .cx-landing__description{
@@ -5879,8 +5939,22 @@ button{font-family:var(--font-body)}
     align-items:center;align-content:center;justify-items:center;
     column-gap:clamp(40px,6vw,80px);row-gap:clamp(18px,3vh,30px);
     padding-inline:clamp(32px,6vw,72px)}
-  .cx-landing__identity{text-align:start;align-items:flex-start;gap:18px}
-  .cx-landing__name{font-size:clamp(38px,3.6vw,52px);max-width:13ch}
+  /* Phase 112.2a §5 — THE CENTRING CORRECTION.
+
+     This rule used to say text-align:start;align-items:flex-start, which is
+     why the name looked shifted left. The logo's width is its own: a wide
+     wordmark renders ~435px, a tall crest ~60px. Flush-left, a short name
+     under a wide logo sat 127px left of that logo's centre (measured), so
+     the two stopped reading as one object — exactly the drift reported.
+
+     The correction is to stop overriding the centred stack the identity
+     already uses everywhere else, NOT to offset the name: with the override
+     gone the logo, the name and the description share one centre line
+     whatever the logo's proportions, at every width and in both directions.
+     The block itself still sits in the left column — justify-items:center on
+     the grid places it — so the two-part desktop landing is unchanged. */
+  .cx-landing__identity{gap:18px}
+  .cx-landing__name{font-size:clamp(42px,4vw,58px);max-width:13ch}
   .cx-landing__description{max-width:38ch}
   /* The identity spans both rows so the right column's two items sit
      together. Left as separate rows with align-items:center they were each
@@ -5903,7 +5977,10 @@ button{font-family:var(--font-body)}
    room, so the identity gives some back rather than pushing the field away. */
 @media(max-height:640px){
   .cx-landing{gap:16px}
-  .cx-landing__logo{height:clamp(52px,13vw,72px)}
+  /* Phase 112.2a §5 — raised with the rest, but still the one place the
+     identity gives room back: a 568px phone with the keyboard open needs the
+     field more than it needs the largest possible logo. */
+  .cx-landing__logo{height:clamp(62px,15.5vw,86px)}
 }
 
 /* ── Compact language switcher (§16) ─────────────────────────────────────
@@ -5973,7 +6050,7 @@ button{font-family:var(--font-body)}
 
 /* ── Greeting helper line (§9) ─────────────────────────────────────────── */
 .menu-header__prompt{
-  margin:2px 0 0;font-size:13.5px;line-height:1.5;color:var(--text-3)}
+  margin:0;font-size:13.5px;line-height:1.5;color:var(--text-3)}
 
 /* ── Footer contact channels (§29–§33) ────────────────────────────────────
    One restrained row that wraps to two lines on small phones. No card, no
@@ -11315,11 +11392,20 @@ button{font-family:var(--font-body)}
    inside a 72x40 block with dead space above and below the mark. */
 .ad-sidebar__identity .rest-identity__logo{
   width:auto;height:auto;max-height:40px;max-width:72px;border-radius:8px}
-/* Two lines at most, then ellipsis: a long venue name is readable without
-   the identity block growing tall enough to eat the navigation below it. */
+/* Phase 112.2a §2 — one notch up from 14px. The venue being managed is the
+   first thing the sidebar says, and at 14px it read as a caption beside its
+   own logo rather than as a name.
+
+   15.5px is chosen to stay UNDER the 40px logo cap on one line and under it
+   on two (2 x 1.3 x 15.5 = 40.3px, which the logo's own box already sets),
+   so the identity block does not grow and the Phase 112.2 layout contract
+   below keeps exactly the headroom it was measured with.
+
+   Two lines at most, then ellipsis: a long venue name stays readable without
+   the block growing tall enough to eat the navigation below it. */
 .ad-sidebar__identity .rest-identity__name{
-  font-family:var(--font-display);font-size:14px;font-weight:700;
-  line-height:1.25;color:var(--text-1);min-width:0;overflow-wrap:anywhere;
+  font-family:var(--font-display);font-size:15.5px;font-weight:700;
+  line-height:1.3;color:var(--text-1);min-width:0;overflow-wrap:anywhere;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
   overflow:hidden}
 
