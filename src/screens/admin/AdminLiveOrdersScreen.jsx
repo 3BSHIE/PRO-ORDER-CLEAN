@@ -23,6 +23,7 @@ import { isSameDay, ACTIVE_STATUSES } from "../../lib/dashboardStats.js";
 import { formatItemCount } from "../../i18n/counts.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { isDirectOrder, isStaffOrder, formatTableNumber } from "../../lib/staffOrdering.js";
+import { resolveMethodLabel } from "../../lib/paymentLabels.js";
 import CombinedBillCard from "./CombinedBillCard.jsx";
 import { settleOrdersAsPaid } from "../../lib/customerOrders.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
@@ -124,11 +125,8 @@ const EMPTY_STATUS_KEY = {
    time, so this screen re-resolves a live translation from the stable id
    instead, with that frozen label as the fallback — same pattern as every
    other screen that displays it. */
-const METHOD_LABEL_KEY = {
-  cash_at_table: "payment.cashAtTable",
-  card_at_table: "payment.cardAtTable",
-  online_payment: "payment.onlinePayment",
-};
+/* Phase 112.1 — moved to lib/paymentLabels.js so the Combined Bill card
+   resolves a method exactly as this screen does. */
 
 /* Phase 101.0 §30 — LEGACY SAFETY.
 
@@ -159,12 +157,7 @@ function tableLabel(t, tables) {
   return `${word} ${tables.map((tb) => formatTableNumber(tb.number)).join(" + ")}`;
 }
 
-function resolveMethodLabel(t, paymentMethod) {
-  const id = paymentMethod?.id;
-  const frozen = paymentMethod?.label;
-  if (id && METHOD_LABEL_KEY[id]) return t(METHOD_LABEL_KEY[id], frozen || id);
-  return frozen || id || "—";
-}
+
 
 /* Valid admin/cashier-initiated transitions this phase allows:
    ready → delivered, and received/preparing/ready → canceled. Nothing else
@@ -528,9 +521,29 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
       setAllOrders((prev) => prev.map((o) => (o.orderId === order.orderId ? updated : o)));
       setToastMessage(t("admin.orderCanceledNote", "Order canceled"));
       setToastVisible(true);
+      /* Phase 112.1 — a canceled order may have been sitting in an open
+         bill, and reconcileGroups is what takes it back out (and dissolves a
+         group left with one member). refresh() is the existing pass that
+         does it; calling it here means the card updates with the
+         cancellation rather than up to four seconds later. Settled bills are
+         never touched by it. */
+      refresh();
     }
     setUpdatingOrderId(null);
   }
+
+  /* Phase 112.1 — the SAME rule the flat list applies, asked on behalf of a
+     member row inside a bill card: a cancelable stage, the session's own
+     cancel permission, and nothing already canceled. Paid or unpaid makes no
+     difference here — the existing dialog is what warns about a paid order,
+     and it is the same dialog. */
+  const canCancelOrder = useCallback(
+    (order) =>
+      !!order &&
+      can(session, PERMISSIONS.ORDERS_CANCEL) &&
+      CANCELABLE_STATUSES.includes(order.status),
+    [session]
+  );
 
   /* Step 2b: user dismissed the modal — nothing changes. */
   function handleDismissCancel() {
@@ -844,6 +857,12 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
                   : undefined}
                 onDragLeaveCard={() => setDropTarget((prev) => (prev === `bill:${group.id}` ? null : prev))}
                 onDropCard={open && canBill ? () => handleDropOnBill(group.id) : undefined}
+                /* Cancelling a constituent is an ORDER action, not a billing
+                   one, so it is offered on both open and settled bills and
+                   routes into the screen's existing confirmation. A settled
+                   bill stays read-only about its own settlement. */
+                canCancelOrder={canCancelOrder}
+                onCancelOrder={(order) => handleRequestCancel(order)}
                 onAddOrder={open && canBill ? (orderId) => handleAddToBill(group.id, orderId) : undefined}
                 onRemoveOrder={open && canBill ? (orderId) => handleRemoveFromBill(group.id, orderId) : undefined}
                 onSeparate={open && canBill ? () => handleSeparateBill(group.id) : undefined}

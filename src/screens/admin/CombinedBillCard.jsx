@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ChevronDown, Layers, Check, Scissors, Merge, Plus, X } from "lucide-react";
+import { ChevronDown, Layers, Check, Scissors, Merge, Plus, X, Ban } from "lucide-react";
 import Badge from "../../components/ui/Badge.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import { formatDateTime } from "../../i18n/dateFormat.js";
 import { formatTableNumber, isStaffOrder } from "../../lib/staffOrdering.js";
+import { resolveMethodLabel } from "../../lib/paymentLabels.js";
 import { BILL_STATUS, groupOrders, groupTotal } from "../../lib/billingGroups.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -55,6 +56,11 @@ export default function CombinedBillCard({
      is what makes it read-only by construction rather than by a flag. */
   onAddOrder,
   onRemoveOrder,
+  /* Phase 112.1 — the screen's own cancellation, offered on member rows so an
+     order inside a bill is as cancelable as one in the list. The card decides
+     nothing: it asks canCancelOrder() and calls onCancelOrder(). */
+  canCancelOrder,
+  onCancelOrder,
   onSeparate,
   onMerge,
   onSettle,
@@ -121,7 +127,7 @@ export default function CombinedBillCard({
               <>
                 <span>
                   {t("payment.paymentMethod", "Payment method")}:{" "}
-                  {group.paymentMethod?.label || "—"}
+                  {resolveMethodLabel(t, group.paymentMethod)}
                 </span>
                 <span>
                   {t("bill.settledOn", "Paid on")}:{" "}
@@ -164,6 +170,19 @@ export default function CombinedBillCard({
                     >
                       <X size={12} strokeWidth={2.2} aria-hidden="true" />
                       {t("bill.removeFromBill", "Remove from bill")}
+                    </button>
+                  )}
+                  {/* Rendered only when the order itself is cancelable, so a
+                      delivered or already-canceled member shows nothing. */}
+                  {onCancelOrder && canCancelOrder?.(order) && (
+                    <button
+                      type="button"
+                      className="so-line__btn so-line__btn--danger"
+                      disabled={busy}
+                      onClick={() => onCancelOrder(order)}
+                    >
+                      <Ban size={12} strokeWidth={2.2} aria-hidden="true" />
+                      {t("admin.cancelOrder", "Cancel Order")}
                     </button>
                   )}
                 </div>
