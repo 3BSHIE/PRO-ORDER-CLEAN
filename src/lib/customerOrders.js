@@ -294,7 +294,10 @@ export function createCustomerOrder({
  * @param {number} params.subtotal
  * @param {number} params.serviceCharge
  * @param {number} params.total
- * @param {object} params.paymentMethod — { paymentMethodId, paymentMethodLabel, paymentMethodType, selectedAt }
+ * @param {object|null} [params.paymentMethod] — omitted by Staff Ordering:
+ *   taking an order is not collecting for it (Phase 112.1). The method is
+ *   recorded when the order is actually settled, alone or inside a combined
+ *   bill, which is also the only moment anyone knows what it will be.
  * @param {number} [params.estimatedPrepMinutes]
  * @returns {object} the created order
  */
@@ -321,7 +324,7 @@ export function createStaffOrder({
       customerName: "",
       cartItems,
       total,
-      paymentMethod,
+      paymentMethod: paymentMethod || null,
     }),
   ].join("|");
 
@@ -358,13 +361,18 @@ export function createStaffOrder({
     serviceCharge,
     total,
     estimatedPrepMinutes: Number.isInteger(estimatedPrepMinutes) ? estimatedPrepMinutes : null,
-    paymentMethod: {
-      id: paymentMethod.paymentMethodId,
-      label: paymentMethod.paymentMethodLabel,
-      type: paymentMethod.paymentMethodType,
-      selectedAt: paymentMethod.selectedAt,
-    },
-    paymentStatus: resolvePaymentStatus(paymentMethod.paymentMethodId),
+    /* Null until settlement. Nothing downstream needs it before then: the
+       revenue summaries only accrue a method on PAID orders, and the Live
+       Orders row already prints "—" for an order that has none. */
+    paymentMethod: paymentMethod
+      ? {
+          id: paymentMethod.paymentMethodId,
+          label: paymentMethod.paymentMethodLabel,
+          type: paymentMethod.paymentMethodType,
+          selectedAt: paymentMethod.selectedAt,
+        }
+      : null,
+    paymentStatus: "pending_at_table",
     createdAt: now,
     updatedAt: now,
     __signature: signature,
@@ -501,7 +509,7 @@ const VALID_PAYMENT_STATUSES = ["pending_at_table", "paid"];
  * @param {string} paymentStatus — must be "pending_at_table" or "paid"
  * @returns {object|null} the updated order, null if not found or paymentStatus invalid
  */
-export function updateCustomerOrderPaymentStatus(orderId, paymentStatus) {
+export function updateCustomerOrderPaymentStatus(orderId, paymentStatus, method) {
   if (!VALID_PAYMENT_STATUSES.includes(paymentStatus)) return null;
 
   const orders = getCustomerOrders();
@@ -521,6 +529,16 @@ export function updateCustomerOrderPaymentStatus(orderId, paymentStatus) {
   const updated = {
     ...current,
     paymentStatus,
+    /* Phase 112.1 — recorded only when the caller supplies one, so every
+       existing call site behaves exactly as it did. */
+    paymentMethod: method
+      ? {
+          ...(current.paymentMethod || {}),
+          id: method.id,
+          label: method.label,
+          type: method.type || method.id,
+        }
+      : current.paymentMethod,
     updatedAt: now,
     /* Lightweight, append-only payment history — mirrors statusHistory's
        shape but stays a separate array so it never gets confused with

@@ -18,7 +18,6 @@ import { buildCartLine, sumLines } from "../../lib/cartLine.js";
 import { validateCart } from "../../lib/cartValidation.js";
 import { createStaffOrder } from "../../lib/customerOrders.js";
 import { fmtPrice } from "../../lib/format.js";
-import { PAYMENT_METHODS } from "../../data/paymentMethods.js";
 import {
   DIRECT_ORDER_CONTEXT,
   isDirectContext,
@@ -59,16 +58,6 @@ import {
    another. Submitting clears exactly the context that was submitted.
    ═══════════════════════════════════════════════════════════════════════ */
 
-const DEFAULT_METHOD_ID = "cash_at_table";
-
-/* The two methods a staff member can actually collect with. Read from the
-   same data file the customer checkout reads, so a method disabled there
-   disappears here too — no second list to keep in step. */
-const METHOD_LABEL_KEY = {
-  cash_at_table: "payment.cashAtTable",
-  card_at_table: "payment.cardAtTable",
-};
-
 export default function StaffOrderingScreen({
   restaurant, session, onSignOut, onNavigate, context,
 }) {
@@ -93,7 +82,6 @@ export default function StaffOrderingScreen({
   const [draft, setDraft] = useState(() => getStaffDraft(restaurant.slug, session, contextId));
   const [selectedItem, setSelectedItem] = useState(null);
   const [editingLine, setEditingLine] = useState(null);
-  const [methodId, setMethodId] = useState(DEFAULT_METHOD_ID);
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { kind:"ok"|"error", orderId?, message? }
@@ -244,7 +232,6 @@ export default function StaffOrderingScreen({
         return;
       }
 
-      const method = PAYMENT_METHODS.find((m) => m.id === methodId) || PAYMENT_METHODS[0];
       const order = createStaffOrder({
         restaurant: {
           id: restaurant.id,
@@ -262,12 +249,9 @@ export default function StaffOrderingScreen({
         subtotal,
         serviceCharge,
         total,
-        paymentMethod: {
-          paymentMethodId: method.id,
-          paymentMethodLabel: method.label,
-          paymentMethodType: method.id,
-          selectedAt: new Date().toISOString(),
-        },
+        /* Phase 112.1 — no method here. Taking an order is not collecting
+           for it: the order is created UNPAID and the method is recorded in
+           Live Orders when someone actually settles it. */
         estimatedPrepMinutes: getEstimatedPrepMinutes(restaurant.slug),
       });
 
@@ -468,25 +452,12 @@ export default function StaffOrderingScreen({
                 </div>
               </dl>
 
-              {/* The method the guest will settle with — the same two the
-                  customer checkout offers, read from the same data. */}
-              <fieldset className="so-methods">
-                <legend className="so-methods__legend">
-                  {t("payment.paymentMethod", "Payment method")}
-                </legend>
-                {PAYMENT_METHODS.filter((m) => m.enabled).map((method) => (
-                  <label className="so-method" key={method.id}>
-                    <input
-                      type="radio"
-                      name="so-method"
-                      value={method.id}
-                      checked={methodId === method.id}
-                      onChange={() => setMethodId(method.id)}
-                    />
-                    <span>{t(METHOD_LABEL_KEY[method.id] || "", method.label)}</span>
-                  </label>
-                ))}
-              </fieldset>
+              {/* Phase 112.1 — the order leaves here unpaid, and says so.
+                  How the guest settles is decided at the table, by whoever
+                  takes the money, in Live Orders. */}
+              <p className="so-unpaid-note">
+                {t("staffOrder.unpaidNote", "This order is created unpaid. Payment is taken later from Live Orders.")}
+              </p>
             </>
           )}
 

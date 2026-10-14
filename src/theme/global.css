@@ -1744,11 +1744,25 @@ button{font-family:var(--font-body)}
     max-width:1320px;margin:0 auto;padding:0 20px}
   .ad-shell__main{flex:1 1 auto;min-width:0;max-width:none;margin:0;padding:0}
 
+  /* ── Phase 112.1 — a stationary frame ───────────────────────────────
+     The sidebar itself no longer scrolls. It is a fixed-height flex column
+     whose identity and Direct Order button never move; only the two regions
+     that can genuinely outgrow their space — the navigation and the table
+     keypad — scroll, and only when they have to. min-height:0 on the column
+     is what allows a flex child to shrink below its content and scroll at
+     all; without it the sidebar would simply grow and push the page. */
   .ad-sidebar{
-    flex:none;width:228px;max-width:none;margin:0;padding:22px 0 28px;
+    flex:none;width:228px;max-width:none;margin:0;padding:22px 0 20px;
     position:sticky;top:61px;align-self:flex-start;
-    max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:none}
+    height:calc(100vh - 61px);overflow:hidden;
+    display:flex;flex-direction:column;min-height:0}
   .ad-sidebar::-webkit-scrollbar{display:none}
+  .ad-sidebar__identity{flex:none}
+  /* Scrolls only when the links outgrow the space; flex-shrink lets it give
+     way to the ordering section rather than squeezing it off-screen. */
+  .ad-sidebar__nav{
+    flex:1 1 auto;min-height:44px;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin}
 
   .ad-sidebar__identity{
     margin-bottom:16px;padding:0 10px 16px;
@@ -9754,7 +9768,14 @@ button{font-family:var(--font-body)}
    Lives inside the existing aside, so it inherits the sidebar's width, its
    sticky behaviour and its scrolling. Nothing above it moves. */
 .so-nav{
-  margin-top:16px;padding:14px 10px 0;border-top:1px solid var(--border)}
+  margin-top:16px;padding:14px 10px 0;border-top:1px solid var(--border);
+  /* Phase 112.1 — a column whose keypad scrolls instead of the sidebar
+     around it. It never shrinks below its own min-content (heading, Direct
+     Order, one row of tables), so nothing here can be clipped off a short
+     screen; the navigation above gives way first. */
+  display:flex;flex-direction:column}
+.so-nav__title,
+.so-direct{flex:none}
 .so-nav__title{
   margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:.1em;
   text-transform:uppercase;color:var(--text-3)}
@@ -9783,8 +9804,11 @@ button{font-family:var(--font-body)}
    grows past the viewport. */
 .so-tables{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));
-  gap:6px;max-height:224px;overflow-y:auto;padding:2px;
-  scrollbar-width:thin}
+  gap:6px;padding:2px;
+  /* Its own region: the wheel and a finger scroll THIS, and the containment
+     stops the gesture escaping into the page when it reaches the end. */
+  flex:1 1 auto;min-height:48px;max-height:260px;overflow-y:auto;
+  overscroll-behavior:contain;scrollbar-width:thin}
 .so-tablebtn{
   position:relative;aspect-ratio:1/1;min-width:0;padding:0;
   display:flex;align-items:center;justify-content:center;
@@ -9985,6 +10009,78 @@ button{font-family:var(--font-body)}
   display:inline-flex;align-items:center;gap:8px;margin-inline-end:10px;
   font-size:12px;color:var(--text-2);cursor:pointer}
 .ad-pick input{accent-color:var(--gold);width:16px;height:16px}
+/* ── Phase 112.1 — contextual combining ─────────────────────────────────
+   A table with more than one unpaid order offers itself, once, in a quiet
+   row above the list. No mode, no checkboxes, no submit. */
+.ad-hints{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.ad-hint{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:var(--r-md);cursor:pointer;
+  border:1px solid var(--gold-line);background:var(--gold-soft);
+  color:var(--text-2);font-family:var(--font-body);font-size:12.5px;
+  transition:border-color .16s var(--ease),background .16s var(--ease)}
+.ad-hint:hover:not(:disabled){border-color:var(--gold);background:var(--surface-3)}
+.ad-hint:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ad-hint:disabled{opacity:.55;cursor:default}
+.ad-hint__table{font-weight:700;color:var(--text-1)}
+.ad-hint__count{color:var(--text-3)}
+.ad-hint__total{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-1)}
+.ad-hint__cta{
+  font-weight:700;color:var(--gold-ink);
+  padding-inline-start:10px;border-inline-start:1px solid var(--gold-line)}
+
+/* The compact per-order action. Quieter than Mark as Paid on purpose: it is
+   a convenience, not the main thing an operator does to an order. */
+.ad-combine-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:38px;padding:0 12px;border-radius:var(--r-sm);cursor:pointer;
+  border:1px dashed var(--border-strong);background:none;color:var(--text-3);
+  font-family:var(--font-body);font-size:12.5px;font-weight:600;
+  transition:color .16s var(--ease),border-color .16s var(--ease)}
+.ad-combine-btn:hover:not(:disabled){color:var(--gold-ink);border-color:var(--gold-line)}
+.ad-combine-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Drag feedback: one card lifts slightly, the target outlines. Nothing
+   moves in the layout, so a drag can never shuffle the list under the
+   pointer. The global reduced-motion rule collapses both transitions. */
+.ad-live-card--dragging{opacity:.55}
+.ad-live-card--drop,
+.ad-bill--drop{
+  outline:2px dashed var(--gold);outline-offset:2px}
+
+/* The "Combine with…" sheet. */
+.ad-picker{display:flex;flex-direction:column;gap:8px}
+.ad-picker__lead{margin:0;font-size:12.5px;color:var(--text-3)}
+.ad-picker__source{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 4px;
+  padding:9px 11px;border-radius:var(--r-md);
+  border:1px solid var(--border);background:var(--surface-2);font-size:12.5px}
+.ad-picker__head{
+  margin:8px 0 0;font-size:10.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text-3)}
+.ad-picker__row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
+  padding:10px 11px;border-radius:var(--r-md);cursor:pointer;text-align:start;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);
+  font-family:var(--font-body);font-size:12.5px;
+  transition:border-color .16s var(--ease),color .16s var(--ease)}
+.ad-picker__row:hover:not(:disabled){border-color:var(--gold-line);color:var(--text-1)}
+.ad-picker__row:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ad-picker__where{font-weight:700;color:var(--text-1)}
+.ad-picker__id{
+  font-variant-numeric:tabular-nums;color:var(--text-3);min-width:0;
+  overflow-wrap:anywhere}
+.ad-picker__amount{
+  margin-inline-start:auto;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--text-1);white-space:nowrap}
+.ad-picker__empty{margin:6px 0 0;font-size:12.5px;color:var(--text-3)}
+
+/* Each member of a mixed bill names its own table. */
+.ad-bill__member-table{
+  font-size:11px;font-weight:700;letter-spacing:.04em;
+  padding:2px 7px;border-radius:999px;white-space:nowrap;
+  background:var(--surface-3);color:var(--text-3)}
+
 .ad-billbar{
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   margin-bottom:14px;padding:10px 12px;border-radius:var(--r-md);
@@ -11102,3 +11198,14 @@ button{font-family:var(--font-body)}
   padding:9px 12px;border-radius:var(--r-md);
   border:1px solid var(--border);background:var(--surface-2);
   color:var(--text-3);font-size:12.5px}
+
+/* ── Phase 112.1 — the one case where the frame gives way ────────────────
+   Below about 500px of viewport height the navigation has already shrunk to
+   its floor and the ordering section is at its min-content, so there is
+   nothing left to give. Clipping would put Direct Order or a table out of
+   reach with no way to get to it; a scrollbar on the frame is the lesser
+   evil, and only here. Every realistic laptop (≥520px tall) keeps the
+   stationary sidebar the owner asked for. */
+@media(min-width:1024px) and (max-height:499.98px){
+  .ad-sidebar{overflow-y:auto}
+}

@@ -41,8 +41,16 @@ const STATUS_TONE = {
 export default function CombinedBillCard({
   group,
   orders,
+  /* Phase 112.1 — derived by the screen from the member orders, so a bill
+     that spans two tables says so rather than borrowing one table's name. */
+  tables = [],
   expanded,
   onToggle,
+  /* An open bill is a drop target for an eligible order card. */
+  dropActive = false,
+  onDragOverCard,
+  onDragLeaveCard,
+  onDropCard,
   /* Every action is optional: a settled bill is handed none of them, which
      is what makes it read-only by construction rather than by a flag. */
   onAddOrder,
@@ -60,10 +68,22 @@ export default function CombinedBillCard({
   const members = groupOrders(group, orders);
   const settled = group.status === BILL_STATUS.SETTLED;
   const total = groupTotal(group, orders);
-  const tableLabel = `${t("customer.yourTable", "Table")} ${formatTableNumber(group.tableNumber)}`;
+  const multiTable = tables.length > 1;
+  const tableLabel = tables.length === 0
+    ? `${t("customer.yourTable", "Table")} ${formatTableNumber(group.tableNumber)}`
+    : `${multiTable ? t("bill.tablesWord", "Tables") : t("customer.yourTable", "Table")} ${
+        tables.map((tb) => formatTableNumber(tb.number)).join(" + ")
+      }`;
 
   return (
-    <article className={`ad-bill${settled ? " ad-bill--settled" : ""}`}>
+    <article
+      className={`ad-bill${settled ? " ad-bill--settled" : ""}${
+        dropActive ? " ad-bill--drop" : ""
+      }`}
+      onDragOver={onDragOverCard ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "link"; onDragOverCard(); } : undefined}
+      onDragLeave={onDragLeaveCard ? () => onDragLeaveCard() : undefined}
+      onDrop={onDragOverCard ? (e) => { e.preventDefault(); onDropCard?.(); } : undefined}
+    >
       <button
         type="button"
         className="ad-bill__head"
@@ -121,6 +141,13 @@ export default function CombinedBillCard({
               <li className="ad-bill__member" key={order.orderId}>
                 <div className="ad-bill__member-head">
                   <span className="ad-bill__member-id">{order.orderId}</span>
+                  {/* The order's OWN table, always — a bill never moves an
+                      order to another table, and this is where that shows. */}
+                  <span className="ad-bill__member-table">
+                    {order.tableId
+                      ? `${t("customer.yourTable", "Table")} ${formatTableNumber(order.tableNumber)}`
+                      : t("staffOrder.directOrder", "Direct Order")}
+                  </span>
                   <Badge tone={STATUS_TONE[order.status] || "neutral"}>
                     {t(`status.${order.status}`, order.status)}
                   </Badge>
@@ -207,6 +234,13 @@ export default function CombinedBillCard({
                   )}
                 </div>
               )}
+
+              {/* Said where a bill actually lives, once per bill, rather
+                  than as a banner over the whole page: these groups are in
+                  this browser and nowhere else (docs/BACKEND-ROADMAP.md). */}
+              <p className="ad-bill__note">
+                {t("bill.localOnly", "Combined bills are stored on this device only.")}
+              </p>
 
               <div className="ad-bill__actions">
                 <button

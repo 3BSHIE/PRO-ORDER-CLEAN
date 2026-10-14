@@ -1,6 +1,7 @@
 # PRO·ORDER — Backend roadmap and deferred requirements
 
-Written in Phase 112.0 (Staff Ordering, Direct Orders, Combined Bills).
+Written in Phase 112.0 (Staff Ordering, Direct Orders, Combined Bills) and
+updated in Phase 112.1 (contextual combining, cross-table bills).
 
 This file records what the current frontend-only architecture **cannot**
 honestly provide, so that nothing in the product pretends otherwise and
@@ -58,7 +59,7 @@ A real implementation needs:
 - **Conflict / version control** — groups need a version or ETag so a stale
   client cannot overwrite a newer bill.
 - **Server-side validation** — every eligibility rule in
-  `src/lib/billingGroups.js` (same table, unpaid, not canceled, one open
+  `src/lib/billingGroups.js` (unpaid, not canceled, has a table, one open
   group per order) must be re-checked server-side.
 - **Real-time or near-real-time synchronisation** — so a bill settled at the
   counter disappears from the floor tablet without a refresh.
@@ -66,8 +67,37 @@ A real implementation needs:
   The group already records `createdBy` / `settledBy` / timestamps; the audit
   trail itself belongs on the server.
 
-Until then the UI says so plainly: *"Combined bills are stored on this device
-only."*
+Until then the UI says so plainly, on every open bill: *"Combined bills are
+stored on this device only."*
+
+### A1. Multi-table billing groups (added in Phase 112.1)
+
+A bill may now span more than one table — two parties who arrived together
+and sat apart settle together — so the backend model must not assume one
+table per group:
+
+- **Groups span tables within one restaurant.** The restaurant is still the
+  hard boundary; the table is not.
+- **Table lineage lives on the ORDERS, not on the group.** `groupTables()`
+  derives the involved tables from the member orders every time, and nothing
+  rewrites an order's table. A server model must keep the same shape: an
+  order taken at Table 03 stays at Table 03 in every report and on its
+  kitchen ticket, whatever it is billed with.
+- **Settlement freezes the lineage.** A settled group stores
+  `tableSnapshot` so a receipt still names the tables it collected from even
+  if a member is canceled afterwards. The server equivalent must be equally
+  immutable.
+- **Cross-table operations need explicit authorization and an audit record.**
+  The client asks the operator to confirm whenever an operation introduces a
+  NEW table into a bill (create, add, merge). The server must verify that
+  such an operation was authorized rather than trusting the client's
+  confirmation, and record who confirmed it.
+- **Transaction safety is unchanged but now matters more:** a cross-table
+  settlement touches orders that two different staff members may be looking
+  at from two different tables.
+- **Legacy compatibility:** groups written before 112.1 carry a single
+  `tableId`/`tableNumber`. They are read correctly as single-table bills and
+  are never rewritten; a migration must preserve that.
 
 ---
 
@@ -110,7 +140,11 @@ that button plus a presence source; it is not a redesign of the sidebar.
   starts an order on a tablet cannot finish it on the till.
 - **Payment methods** remain the two the product already supports (cash and
   card at the table). No gateway, no split tender, no partial payment of a
-  combined bill — by design, in this phase.
+  combined bill — by design.
+- **Staff orders are created unpaid** (Phase 112.1): taking an order is not
+  collecting for it, so no method is recorded until someone settles the
+  order or its bill. A server model should treat `paymentMethod: null` on an
+  unpaid order as normal rather than as missing data.
 - **Refunds do not exist.** Canceling a paid order records the cancellation
   and leaves the settlement intact; the product never claims money was
   returned. Any future refund flow is a new, explicit capability.

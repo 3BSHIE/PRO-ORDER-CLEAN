@@ -12,10 +12,22 @@
  * first.
  *
  * The one deliberate exception is settlement. Once a bill is paid it freezes
- * what was collected — the amount, the method, the moment, the member ids —
- * because a receipt must not change when a menu price does, and a
- * constituent order canceled tomorrow must not make yesterday's money
- * disappear.
+ * what was collected — the amount, the method, the moment, the member ids,
+ * and the tables they came from — because a receipt must not change when a
+ * menu price does, and a constituent order canceled tomorrow must not make
+ * yesterday's money disappear.
+ *
+ * ── TABLES ARE READ FROM THE ORDERS (Phase 112.1) ───────────────────────
+ * A bill may now span more than one table: two parties who arrived together
+ * and sat apart still settle together. So a group no longer has "a table".
+ * Which tables it involves is DERIVED from its member orders, every time, by
+ * groupTables() — and the orders themselves are never touched. An order
+ * taken at Table 03 stays at Table 03 on its kitchen ticket, in its own
+ * record and in every report, however it is billed.
+ *
+ * Groups written before this phase carry a single tableId/tableNumber. They
+ * are still read correctly: those fields are the fallback when a member
+ * order can no longer be found, and nothing rewrites them.
  *
  * ── STORAGE ─────────────────────────────────────────────────────────────
  *   pro_order_billing_groups:<restaurantSlug>
@@ -100,6 +112,11 @@ export function groupForOrder(restaurantSlug, orderId) {
  * not canceled, not already in another open group. Kitchen stage is
  * deliberately absent — a bill is about money, and a delivered order is as
  * payable as one still being prepared.
+ *
+ * Phase 112.1 — WHICH table is no longer one of the rules. Orders from two
+ * tables may be billed together; the operation that mixes them asks the
+ * operator to confirm first (see crossesTables()), which is a question the
+ * UI poses rather than a restriction the data layer imposes.
  */
 export function isEligibleForBilling(order, restaurantSlug, options) {
   const ignoreGroupId = options ? options.ignoreGroupId : undefined;
@@ -130,6 +147,83 @@ export function groupTotal(group, orders) {
     return acc + (Number(order.total) || 0);
   }, 0);
   return parseFloat(sum.toFixed(3));
+}
+
+/**
+ * Every distinct table a group involves, in member order.
+ *
+ * Derived from the orders, because they are the only record of where the
+ * food was actually served. A settled group prefers its own frozen
+ * snapshot: its members may be canceled later, and a receipt should still
+ * name the tables it was collected from.
+ *
+ * @returns {Array<{id:string, number:number|null}>}
+ */
+export function groupTables(group, orders) {
+  if (!group) return [];
+  if (group.status === BILL_STATUS.SETTLED && Array.isArray(group.tableSnapshot)) {
+    return group.tableSnapshot;
+  }
+
+  const byId = new Map((orders || []).map((o) => [o.orderId, o]));
+  const seen = new Map();
+  for (const id of group.orderIds) {
+    const order = byId.get(id);
+    if (!order || !order.tableId) continue;
+    if (!seen.has(order.tableId)) {
+      seen.set(order.tableId, { id: order.tableId, number: order.tableNumber == null ? null : order.tableNumber });
+    }
+  }
+
+  /* A pre-112.1 group whose members have gone missing still knows the one
+     table it was created for. */
+  if (seen.size === 0 && group.tableId) {
+    return [{ id: group.tableId, number: group.tableNumber == null ? null : group.tableNumber }];
+  }
+  return [...seen.values()];
+}
+
+/** Does this group involve more than one table? */
+export function isMultiTable(group, orders) {
+  return groupTables(group, orders).length > 1;
+}
+
+/**
+ * Would this operation bring a NEW table into the bill?
+ *
+ * Asked before combining, before adding and before merging, because the
+ * confirmation the owner wants is about the OPERATION, not about the state
+ * that results: adding a second Table 04 order to a bill that already spans
+ * 03 and 04 introduces nothing new and should not interrupt anyone.
+ *
+ * @param {Array<object>} currentOrders — the orders already in the bill, or
+ *   the first side of a new combination
+ * @param {Array<object>} incomingOrders — the orders being brought in
+ * @returns {{crosses:boolean, tables:Array<{id:string,number:number|null}>}}
+ */
+export function crossesTables(currentOrders, incomingOrders) {
+  const tablesOf = (list) => {
+    const seen = new Map();
+    for (const order of list || []) {
+      if (!order || !order.tableId) continue;
+      if (!seen.has(order.tableId)) {
+        seen.set(order.tableId, { id: order.tableId, number: order.tableNumber == null ? null : order.tableNumber });
+      }
+    }
+    return seen;
+  };
+
+  const current = tablesOf(currentOrders);
+  const incoming = tablesOf(incomingOrders);
+  const combined = new Map([...current, ...incoming]);
+  const addsNewTable = [...incoming.keys()].some((id) => !current.has(id));
+
+  return {
+    /* More than one table in the result, AND this operation is what put a
+       new one there. */
+    crosses: combined.size > 1 && (current.size === 0 || addsNewTable),
+    tables: [...combined.values()],
+  };
 }
 
 /** The member orders of a group, in the order they were added. */
@@ -165,14 +259,15 @@ export function createBillingGroup(restaurantSlug, orderIds, session) {
   if (!members.every((o) => isEligibleForBilling(o, restaurantSlug))) {
     return { ok: false, reason: "ineligible" };
   }
-  const tableId = members[0].tableId;
-  if (!members.every((o) => o.tableId === tableId)) return { ok: false, reason: "mixedTables" };
 
   const now = new Date().toISOString();
   const group = {
     id: nextGroupId(),
     restaurantSlug,
-    tableId,
+    /* Kept for readers written before 112.1 and for the single-table case.
+       groupTables() derives the real answer from the members, and that is
+       what every surface reads. */
+    tableId: members[0].tableId,
     tableNumber: members[0].tableNumber === undefined ? null : members[0].tableNumber,
     orderIds: members.map((o) => o.orderId),
     status: BILL_STATUS.OPEN,
@@ -205,9 +300,6 @@ export function addOrdersToGroup(restaurantSlug, groupId, orderIds) {
   if (additions.length === 0) return { ok: false, reason: "nothingToAdd" };
   if (!additions.every((o) => isEligibleForBilling(o, restaurantSlug))) {
     return { ok: false, reason: "ineligible" };
-  }
-  if (!additions.every((o) => o.tableId === group.tableId)) {
-    return { ok: false, reason: "mixedTables" };
   }
 
   const updated = {
@@ -270,7 +362,9 @@ export function mergeGroups(restaurantSlug, targetId, sourceId) {
   if (target.status !== BILL_STATUS.OPEN || source.status !== BILL_STATUS.OPEN) {
     return { ok: false, reason: "notOpen" };
   }
-  if (target.tableId !== source.tableId) return { ok: false, reason: "mixedTables" };
+  /* Phase 112.1 — two bills at two tables may be merged. The restaurant is
+     still the boundary: groups are stored per restaurant, so two of them
+     cannot meet here at all. */
 
   const merged = {
     ...target,
@@ -296,7 +390,7 @@ export function mergeGroups(restaurantSlug, targetId, sourceId) {
  * The caller writes the orders first (settleOrdersAsPaid) and only calls this
  * when that succeeded, so a refused payment leaves the bill exactly as it was.
  */
-export function settleGroup(restaurantSlug, groupId, { method, amount, session, reference }) {
+export function settleGroup(restaurantSlug, groupId, { method, amount, session, reference, orders }) {
   const groups = getBillingGroups(restaurantSlug);
   const group = groups.find((g) => g.id === groupId);
   if (!group) return { ok: false, reason: "missing" };
@@ -313,6 +407,9 @@ export function settleGroup(restaurantSlug, groupId, { method, amount, session, 
        point of a settlement record. */
     settledAmount: parseFloat((Number(amount) || 0).toFixed(3)),
     settlementReference: reference || null,
+    /* Frozen with the money: which tables this bill collected from, derived
+       now while every member is still present and unchanged. */
+    tableSnapshot: groupTables(group, orders || getCustomerOrders()),
     updatedAt: now,
   };
   saveBillingGroups(restaurantSlug, groups.map((g) => (g.id === groupId ? settled : g)));

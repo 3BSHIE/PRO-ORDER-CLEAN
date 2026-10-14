@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import {
+  ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle, Layers, Link2,
+} from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -36,6 +38,9 @@ import {
   mergeGroups,
   settleGroup,
   groupTotal,
+  groupOrders,
+  groupTables,
+  crossesTables,
   isEligibleForBilling,
 } from "../../lib/billingGroups.js";
 
@@ -139,6 +144,21 @@ const METHOD_LABEL_KEY = {
 
    This is a read-path guard only. Nothing about the payment workflow, the
    stored shape or how new orders are created changes. */
+/**
+ * How a bill names the tables it covers.
+ *
+ * One table reads exactly as it always did; two or more are joined, because
+ * a bill that spans Table 03 and Table 04 must not claim to be either of
+ * them (Phase 112.1).
+ */
+function tableLabel(t, tables) {
+  if (!tables || tables.length === 0) return t("customer.yourTable", "Table");
+  const word = tables.length > 1
+    ? t("bill.tablesWord", "Tables")
+    : t("customer.yourTable", "Table");
+  return `${word} ${tables.map((tb) => formatTableNumber(tb.number)).join(" + ")}`;
+}
+
 function resolveMethodLabel(t, paymentMethod) {
   const id = paymentMethod?.id;
   const frozen = paymentMethod?.label;
@@ -212,6 +232,11 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
   /* Phase 49 — the order awaiting Mark-as-Paid confirmation, or null. Same
      shape and same reasoning as pendingCancelOrder above. */
   const [pendingPaidOrder, setPendingPaidOrder] = useState(null);
+  /* Phase 112.1 — a staff order arrives with no method, because taking an
+     order is not collecting for it. Whoever settles it says how. An order
+     that already carries the guest's choice keeps the confirm-only dialog it
+     has had since Phase 49. */
+  const [singleMethodId, setSingleMethodId] = useState("cash_at_table");
 
   /* ── Phase 112.0 — combined bills ───────────────────────────────────
      Billing groups are read beside the orders and reconciled against them on
@@ -219,8 +244,13 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      order from lingering inside a bill. */
   const canBill = can(session, PERMISSIONS.BILLS_MANAGE);
   const [groups, setGroups] = useState(() => getBillingGroups(restaurant.slug));
-  const [selecting, setSelecting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  /* Phase 112.1 — combining is no longer a MODE. The order being combined
+     from (its picker is open), the drag in flight, and the confirmation a
+     cross-table operation is waiting on. */
+  const [combineFor, setCombineFor] = useState(null);
+  const [dragOrderId, setDragOrderId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [pendingCross, setPendingCross] = useState(null);
   const [expandedBillId, setExpandedBillId] = useState(null);
   const [billBusy, setBillBusy] = useState(false);
   const [pendingSettle, setPendingSettle] = useState(null); // { group, amount }
@@ -366,6 +396,37 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     [selectableOrders]
   );
 
+  /* A table with two or more unpaid, ungrouped orders is an offer worth
+     making. Nothing is combined until someone says so — this only tells the
+     operator that the opportunity exists, where they are already looking. */
+  const combineHints = useMemo(() => {
+    const byTable = new Map();
+    for (const order of selectableOrders) {
+      const list = byTable.get(order.tableId) || [];
+      list.push(order);
+      byTable.set(order.tableId, list);
+    }
+    return [...byTable.entries()]
+      .filter(([, list]) => list.length >= 2)
+      .map(([tableId, list]) => ({
+        tableId,
+        tableNumber: list[0].tableNumber,
+        orders: list,
+        total: parseFloat(list.reduce((sum, o) => sum + (Number(o.total) || 0), 0).toFixed(3)),
+      }))
+      .sort((a, b) => (a.tableNumber || 0) - (b.tableNumber || 0));
+  }, [selectableOrders]);
+
+  /* Everything one order could be joined to: the open bills, and the other
+     eligible orders. Built per picker, so it is always current. */
+  const combineTargetsFor = useCallback(
+    (order) => ({
+      bills: groups.filter((g) => g.status === BILL_STATUS.OPEN),
+      orders: selectableOrders.filter((o) => o.orderId !== order.orderId),
+    }),
+    [groups, selectableOrders]
+  );
+
   const activeFilterTab = FILTER_TABS.find((tab) => tab.key === activeFilter);
   const activeFilterLabel = t(FILTER_TAB_KEY[activeFilter], activeFilterTab?.label || "orders");
 
@@ -404,6 +465,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      open the dialog. Nothing is written at this point. */
   function handleRequestMarkAsPaid(order) {
     if (order.paymentStatus !== "pending_at_table" || order.status === "canceled" || updatingOrderId === order.orderId) return;
+    setSingleMethodId(order.paymentMethod?.id || "cash_at_table");
     setPendingPaidOrder(order);
   }
 
@@ -423,7 +485,16 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     if (order.paymentStatus !== "pending_at_table" || order.status === "canceled") return;
 
     setUpdatingOrderId(order.orderId);
-    const updated = updateCustomerOrderPaymentStatus(order.orderId, "paid");
+    /* The method is written only when the order did not already carry one,
+       so a guest's own choice is never overwritten by this dialog. */
+    const chosen = order.paymentMethod
+      ? null
+      : PAYMENT_METHODS.find((m) => m.id === singleMethodId) || PAYMENT_METHODS[0];
+    const updated = updateCustomerOrderPaymentStatus(
+      order.orderId,
+      "paid",
+      chosen ? { id: chosen.id, label: chosen.label, type: chosen.id } : undefined
+    );
     if (updated) {
       setAllOrders((prev) => prev.map((o) => (o.orderId === order.orderId ? updated : o)));
       setToastMessage(t("payment.paymentMarkedPaidToast", "Payment marked as paid"));
@@ -491,34 +562,62 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
     setToastVisible(true);
   }
 
-  function toggleSelected(orderId) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(orderId)) next.delete(orderId);
-      else next.add(orderId);
-      return next;
+  /* Every combining operation goes through here, which is what makes the
+     cross-table question impossible to bypass — the picker, the table hint
+     and a dropped card all land on this one function.
+
+     The question is about the OPERATION: bringing a table into a bill that
+     did not have it. Adding another Table 04 order to a bill that already
+     spans 03 and 04 introduces nothing new and asks nothing. */
+  function runCombining({ current, incoming, label, perform }) {
+    if (billBusy) return;
+    const { crosses, tables } = crossesTables(current, incoming);
+    const execute = () => {
+      setBillBusy(true);
+      applyBillResult(perform(), label);
+    };
+    if (!crosses) { execute(); return; }
+    setPendingCross({
+      tables,
+      orders: [...current, ...incoming],
+      total: parseFloat(
+        [...current, ...incoming].reduce((sum, o) => sum + (Number(o.total) || 0), 0).toFixed(3)
+      ),
+      run: execute,
     });
   }
 
-  function handleCombineSelected() {
-    if (billBusy || selectedIds.size < 2) return;
-    setBillBusy(true);
-    const result = createBillingGroup(restaurant.slug, [...selectedIds], session);
-    applyBillResult(result, t("bill.created", "Combined bill created"));
-    if (result?.ok) {
-      setSelecting(false);
-      setSelectedIds(new Set());
-      setExpandedBillId(result.group.id);
-    }
+  /* Two standalone orders become a bill. */
+  function combineOrders(orderIds) {
+    const members = orderIds
+      .map((id) => restaurantOrders.find((o) => o.orderId === id))
+      .filter(Boolean);
+    if (members.length < 2) return;
+    setCombineFor(null);
+    runCombining({
+      current: [members[0]],
+      incoming: members.slice(1),
+      label: t("bill.created", "Combined bill created"),
+      perform: () => {
+        const result = createBillingGroup(restaurant.slug, orderIds, session);
+        if (result?.ok) setExpandedBillId(result.group.id);
+        return result;
+      },
+    });
   }
 
+  /* One standalone order joins an existing open bill. */
   function handleAddToBill(groupId, orderId) {
-    if (billBusy) return;
-    setBillBusy(true);
-    applyBillResult(
-      addOrdersToGroup(restaurant.slug, groupId, [orderId]),
-      t("bill.updated", "Combined bill updated")
-    );
+    const group = groups.find((g) => g.id === groupId);
+    const order = restaurantOrders.find((o) => o.orderId === orderId);
+    if (!group || !order) return;
+    setCombineFor(null);
+    runCombining({
+      current: groupOrders(group, restaurantOrders),
+      incoming: [order],
+      label: t("bill.updated", "Combined bill updated"),
+      perform: () => addOrdersToGroup(restaurant.slug, groupId, [orderId]),
+    });
   }
 
   function handleRemoveFromBill(groupId, orderId) {
@@ -540,12 +639,37 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
   }
 
   function handleMergeBills(targetId, sourceId) {
-    if (billBusy) return;
-    setBillBusy(true);
-    applyBillResult(
-      mergeGroups(restaurant.slug, targetId, sourceId),
-      t("bill.merged", "Combined bills merged")
-    );
+    const target = groups.find((g) => g.id === targetId);
+    const source = groups.find((g) => g.id === sourceId);
+    if (!target || !source) return;
+    runCombining({
+      current: groupOrders(target, restaurantOrders),
+      incoming: groupOrders(source, restaurantOrders),
+      label: t("bill.merged", "Combined bills merged"),
+      perform: () => mergeGroups(restaurant.slug, targetId, sourceId),
+    });
+  }
+
+  /* ── Drag and drop (pointer devices) ─────────────────────────────────
+     An enhancement, never the only way: every drop has an identical button
+     behind it in the "Combine with…" picker, and the picker is what a touch
+     screen and a keyboard use. Only eligible unpaid order cards are
+     draggable, and only eligible orders and open bills accept a drop, so a
+     card can never be dragged onto something that would refuse it. */
+  function handleDropOnOrder(targetOrderId) {
+    const sourceId = dragOrderId;
+    setDragOrderId(null);
+    setDropTarget(null);
+    if (!sourceId || sourceId === targetOrderId) return;
+    combineOrders([targetOrderId, sourceId]);
+  }
+
+  function handleDropOnBill(groupId) {
+    const sourceId = dragOrderId;
+    setDragOrderId(null);
+    setDropTarget(null);
+    if (!sourceId) return;
+    handleAddToBill(groupId, sourceId);
   }
 
   /* Settlement is two steps for the same reason marking one order paid is:
@@ -583,9 +707,17 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
       method: { id: method.id, label: method.label },
       amount: pending.amount,
       session,
+      orders: restaurantOrders,
     });
     setAllOrders(getCustomerOrders());
     applyBillResult(result, t("bill.settled", "Combined bill settled"));
+  }
+
+  function handleConfirmCross() {
+    const pending = pendingCross;
+    setPendingCross(null);
+    if (!pending) return;
+    pending.run();
   }
 
   /* Phase 50 - is the order awaiting cancel confirmation already paid?
@@ -653,47 +785,30 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         })}
       </div>
 
-      {/* Phase 112.0 — combining is a mode, not a mode switch for the whole
-          page: the list keeps its filters, its cards and its actions, and
-          gains a checkbox on the orders that are actually eligible. */}
-      {canBill && (
-        <div className="ad-billbar">
-          {selecting ? (
-            <>
-              <p className="ad-billbar__hint">
-                {t("bill.selectHint", "Select two or more unpaid orders from the same table.")}
-              </p>
-              <span className="ad-billbar__spacer" />
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={selectedIds.size < 2 || billBusy}
-                onClick={handleCombineSelected}
-              >
-                {t("bill.combineSelected", "Combine {n} orders").replace("{n}", String(selectedIds.size))}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setSelecting(false); setSelectedIds(new Set()); }}
-              >
-                {t("bill.cancelSelection", "Cancel")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="ad-billbar__hint">{t("bill.localOnly", "Combined bills are stored on this device only.")}</p>
-              <span className="ad-billbar__spacer" />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={selectableOrders.length < 2}
-                onClick={() => setSelecting(true)}
-              >
-                {t("bill.combine", "Combine bills")}
-              </Button>
-            </>
-          )}
+      {/* Phase 112.1 — no mode, no checkboxes, no submit. A table that has
+          more than one unpaid order says so, once, where the operator is
+          already looking, and one press combines them. */}
+      {canBill && combineHints.length > 0 && (
+        <div className="ad-hints anim-rise" style={{ animationDelay: "80ms" }}>
+          {combineHints.map((hint) => (
+            <button
+              type="button"
+              key={hint.tableId}
+              className="ad-hint"
+              disabled={billBusy}
+              onClick={() => combineOrders(hint.orders.map((o) => o.orderId))}
+            >
+              <Layers size={14} strokeWidth={2} aria-hidden="true" />
+              <span className="ad-hint__table">
+                {t("customer.yourTable", "Table")} {formatTableNumber(hint.tableNumber)}
+              </span>
+              <span className="ad-hint__count">
+                {t("bill.unpaidOrders", "{n} unpaid orders").replace("{n}", String(hint.orders.length))}
+              </span>
+              <span className="ad-hint__total">{fmtPrice(hint.total)}</span>
+              <span className="ad-hint__cta">{t("bill.combine", "Combine bills")}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -711,21 +826,24 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
                   setExpandedBillId((prev) => (prev === group.id ? null : group.id))
                 }
                 busy={billBusy}
-                addableOrders={
-                  open
-                    ? selectableOrders.filter((o) => o.tableId === group.tableId)
-                    : []
-                }
+                /* Phase 112.1 — every eligible unpaid order, not just this
+                   bill's table. Crossing tables is allowed; the confirmation
+                   is what guards it, not a filter that hides the option. */
+                addableOrders={open ? selectableOrders : []}
                 mergeTargets={
                   open
                     ? groups.filter(
-                        (other) =>
-                          other.id !== group.id &&
-                          other.status === BILL_STATUS.OPEN &&
-                          other.tableId === group.tableId
+                        (other) => other.id !== group.id && other.status === BILL_STATUS.OPEN
                       )
                     : []
                 }
+                tables={groupTables(group, restaurantOrders)}
+                dropActive={dropTarget === `bill:${group.id}`}
+                onDragOverCard={open && canBill && dragOrderId
+                  ? () => setDropTarget(`bill:${group.id}`)
+                  : undefined}
+                onDragLeaveCard={() => setDropTarget((prev) => (prev === `bill:${group.id}` ? null : prev))}
+                onDropCard={open && canBill ? () => handleDropOnBill(group.id) : undefined}
                 onAddOrder={open && canBill ? (orderId) => handleAddToBill(group.id, orderId) : undefined}
                 onRemoveOrder={open && canBill ? (orderId) => handleRemoveFromBill(group.id, orderId) : undefined}
                 onSeparate={open && canBill ? () => handleSeparateBill(group.id) : undefined}
@@ -754,13 +872,156 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               onMarkDelivered={() => handleMarkDelivered(order)}
               onCancelOrder={() => handleRequestCancel(order)}
               onMarkAsPaid={() => handleRequestMarkAsPaid(order)}
-              selectable={selecting && selectableIds.has(order.orderId)}
-              selected={selectedIds.has(order.orderId)}
-              onSelectToggle={() => toggleSelected(order.orderId)}
+              combinable={canBill && selectableIds.has(order.orderId)}
+              onCombineWith={() => setCombineFor(order)}
+              dragging={dragOrderId === order.orderId}
+              dropActive={dropTarget === `order:${order.orderId}`}
+              onDragStartCard={() => setDragOrderId(order.orderId)}
+              onDragEndCard={() => { setDragOrderId(null); setDropTarget(null); }}
+              onDragOverCard={
+                dragOrderId && dragOrderId !== order.orderId && selectableIds.has(order.orderId)
+                  ? () => setDropTarget(`order:${order.orderId}`)
+                  : undefined
+              }
+              onDragLeaveCard={() =>
+                setDropTarget((prev) => (prev === `order:${order.orderId}` ? null : prev))
+              }
+              onDropCard={() => handleDropOnOrder(order.orderId)}
             />
           ))}
         </div>
       )}
+
+      {/* "Combine with…" — the click/tap path, and the one a keyboard uses.
+          It lists what this order can actually join: the open bills first,
+          then the other unpaid orders, each named with its own table. */}
+      <Modal
+        open={!!combineFor}
+        onClose={() => setCombineFor(null)}
+        title={t("bill.combineWith", "Combine with…")}
+      >
+        {combineFor && (
+          <div className="ad-picker">
+            <p className="ad-picker__lead">
+              {t("bill.combineWithLead", "Choose what to add this order to.")}
+            </p>
+            <p className="ad-picker__source">
+              <span className="ad-picker__id">{combineFor.orderId}</span>
+              <span className="ad-picker__where">
+                {t("customer.yourTable", "Table")} {formatTableNumber(combineFor.tableNumber)}
+              </span>
+              <span className="ad-picker__amount">{fmtPrice(combineFor.total)}</span>
+            </p>
+
+            {(() => {
+              const targets = combineTargetsFor(combineFor);
+              if (targets.bills.length === 0 && targets.orders.length === 0) {
+                return (
+                  <p className="ad-picker__empty">
+                    {t("bill.nothingToCombine", "There is nothing else unpaid to combine this with yet.")}
+                  </p>
+                );
+              }
+              return (
+                <>
+                  {targets.bills.length > 0 && (
+                    <>
+                      <h4 className="ad-picker__head">{t("bill.openBills", "Open bills")}</h4>
+                      {targets.bills.map((group) => (
+                        <button
+                          type="button"
+                          key={group.id}
+                          className="ad-picker__row"
+                          disabled={billBusy}
+                          onClick={() => handleAddToBill(group.id, combineFor.orderId)}
+                        >
+                          <Layers size={14} strokeWidth={2} aria-hidden="true" />
+                          <span className="ad-picker__where">
+                            {tableLabel(t, groupTables(group, restaurantOrders))}
+                          </span>
+                          <span className="ad-picker__id">{group.orderIds.join(" · ")}</span>
+                          <span className="ad-picker__amount">
+                            {fmtPrice(groupTotal(group, restaurantOrders))}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {targets.orders.length > 0 && (
+                    <>
+                      <h4 className="ad-picker__head">{t("bill.otherOrders", "Other unpaid orders")}</h4>
+                      {targets.orders.map((other) => (
+                        <button
+                          type="button"
+                          key={other.orderId}
+                          className="ad-picker__row"
+                          disabled={billBusy}
+                          onClick={() => combineOrders([other.orderId, combineFor.orderId])}
+                        >
+                          <Link2 size={14} strokeWidth={2} aria-hidden="true" />
+                          <span className="ad-picker__where">
+                            {t("customer.yourTable", "Table")} {formatTableNumber(other.tableNumber)}
+                          </span>
+                          <span className="ad-picker__id">{other.orderId}</span>
+                          <span className="ad-picker__amount">{fmtPrice(other.total)}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </Modal>
+
+      {/* Crossing tables is legitimate — two parties who came together and
+          sat apart — and it is also how a mistap becomes someone else's
+          bill. So it is allowed, and it is asked about, every time a new
+          table enters a bill and never when one does not. */}
+      <Modal
+        open={!!pendingCross}
+        onClose={() => setPendingCross(null)}
+        title={t("bill.crossTitle", "Combine orders from different tables?")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingCross(null)}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button onClick={handleConfirmCross} disabled={billBusy}>
+              {t("bill.crossConfirm", "Combine them")}
+            </Button>
+          </>
+        }
+      >
+        {pendingCross && (
+          <>
+            <p className="ad-cancel-modal__msg">
+              {t("bill.crossMsg", "This bill will include orders from more than one table.")}
+            </p>
+            <div className="ad-paid-modal__details">
+              <div className="ad-paid-modal__row">
+                <span>{t("bill.tablesWord", "Tables")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                  {pendingCross.tables.map((tb) => formatTableNumber(tb.number)).join(" + ")}
+                </span>
+              </div>
+              <div className="ad-paid-modal__row">
+                <span>{t("bill.orders", "Orders")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                  {pendingCross.orders.map((o) => o.orderId).join(" · ")}
+                </span>
+              </div>
+              <div className="ad-paid-modal__row">
+                <span>{t("common.total", "Total")}</span>
+                <span className="ad-paid-modal__value ad-paid-modal__value--num">
+                  {fmtPrice(pendingCross.total)}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </Modal>
 
       {/* The settlement dialog. Full payment only — there is no amount field
           and no way to pay part of a bill, by design. */}
@@ -958,12 +1219,34 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
                 <span className="ad-paid-modal__value">{pendingPaidOrder.customerName}</span>
               </div>
             )}
-            <div className="ad-paid-modal__row">
-              <span>{t("payment.paymentMethod", "Payment method")}</span>
-              <span className="ad-paid-modal__value">
-                {resolveMethodLabel(t, pendingPaidOrder.paymentMethod)}
-              </span>
-            </div>
+            {pendingPaidOrder.paymentMethod ? (
+              <div className="ad-paid-modal__row">
+                <span>{t("payment.paymentMethod", "Payment method")}</span>
+                <span className="ad-paid-modal__value">
+                  {resolveMethodLabel(t, pendingPaidOrder.paymentMethod)}
+                </span>
+              </div>
+            ) : (
+              /* No method on the order: this is a staff-created order, and
+                 this dialog is where the collected method is recorded. */
+              <fieldset className="so-methods">
+                <legend className="so-methods__legend">
+                  {t("payment.paymentMethod", "Payment method")}
+                </legend>
+                {PAYMENT_METHODS.filter((m) => m.enabled).map((method) => (
+                  <label className="so-method" key={method.id}>
+                    <input
+                      type="radio"
+                      name="single-method"
+                      value={method.id}
+                      checked={singleMethodId === method.id}
+                      onChange={() => setSingleMethodId(method.id)}
+                    />
+                    <span>{resolveMethodLabel(t, { id: method.id, label: method.label })}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <div className="ad-paid-modal__row ad-paid-modal__row--total">
               <span>{t("common.total", "Total")}</span>
               <span className="ad-paid-modal__value ad-paid-modal__value--num">{fmtPrice(pendingPaidOrder.total)}</span>
@@ -984,9 +1267,12 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
 /* ── One live order card (collapsed summary + expandable details) ───────── */
 function LiveOrderCard({
   order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew,
-  /* Phase 112.0 — present only while the operator is choosing orders to
-     combine, and only on orders that are genuinely eligible. */
-  selectable = false, selected = false, onSelectToggle,
+  /* Phase 112.1 — combining, without a mode. The card is draggable and
+     droppable only while it is genuinely eligible, and the same operation
+     is always one press away in "Combine with…". */
+  combinable = false, onCombineWith,
+  dragging = false, dropActive = false,
+  onDragStartCard, onDragEndCard, onDragOverCard, onDragLeaveCard, onDropCard,
 }) {
   const { t, language } = useLanguage();
   const isPaid = order.paymentStatus === "paid";
@@ -1019,7 +1305,23 @@ function LiveOrderCard({
     <Card
       className={`ad-live-card ${isNew ? "ad-live-card--new" : ""} ${
         delayed ? "ad-live-card--delayed" : ""
+      } ${dragging ? "ad-live-card--dragging" : ""} ${
+        dropActive ? "ad-live-card--drop" : ""
       }`}
+      /* Only an eligible card is draggable, so a drag can never start on
+         something that has nowhere to go. Scrolling is untouched: a drag
+         begins from the card's own drag affordance, not from a long press
+         on the page. */
+      draggable={combinable || undefined}
+      onDragStart={combinable ? (e) => {
+        e.dataTransfer.effectAllowed = "link";
+        try { e.dataTransfer.setData("text/plain", order.orderId); } catch { /* older engines */ }
+        onDragStartCard?.();
+      } : undefined}
+      onDragEnd={combinable ? () => onDragEndCard?.() : undefined}
+      onDragOver={onDragOverCard ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "link"; onDragOverCard(); } : undefined}
+      onDragLeave={onDragLeaveCard ? () => onDragLeaveCard() : undefined}
+      onDrop={onDragOverCard ? (e) => { e.preventDefault(); onDropCard?.(); } : undefined}
     >
       <button
         type="button"
@@ -1037,16 +1339,6 @@ function LiveOrderCard({
             dangling "ORD-0003 ·". The human reference is never removed and no
             internal id is exposed. */}
         <div className="ad-live-card__summary-left">
-          {selectable && (
-            <label className="ad-pick" onClick={(e) => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={onSelectToggle}
-                aria-label={order.orderId}
-              />
-            </label>
-          )}
           {/* Phase 112.0 — a direct order has no table, and says so rather
               than printing the word Table above an empty space. */}
           <p className="ad-live-card__table">
@@ -1223,8 +1515,22 @@ function LiveOrderCard({
               None of the handlers changed. Mark as Paid still routes through
               the Phase 49 confirmation and Cancel still routes through the
               Phase 50 paid warning — this is presentation only. */}
-          {(canDeliver || canCancel || canMarkAsPaid) && (
+          {(canDeliver || canCancel || canMarkAsPaid || combinable) && (
             <div className="ad-live-card__actions ad-live-card__actions--row">
+              {combinable && (
+                <button
+                  type="button"
+                  className="ad-combine-btn"
+                  disabled={isUpdating}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCombineWith?.();
+                  }}
+                >
+                  <Link2 size={13} strokeWidth={2.2} aria-hidden="true" />
+                  {t("bill.combineWith", "Combine with…")}
+                </button>
+              )}
               {canMarkAsPaid && (
                 <Button
                   type="button"
