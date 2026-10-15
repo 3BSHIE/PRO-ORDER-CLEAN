@@ -19,17 +19,35 @@ import { isSafeImageSrc } from "../../lib/safeImage.js";
 import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
 
 /* How long the landing composition is given to leave before the Menu route is
-   pushed. Must stay in step with the .cx-landing--leaving transitions in
-   global.css, whose longest run (identity and table badge) ends at 290ms.
+   pushed, measured from the moment the leaving values are applied — not from
+   the press. Must stay in step with the .cx-landing--leaving transitions in
+   global.css, whose longest run (identity and table badge) now ends at 260ms.
 
-   Phase 83.2 raised this from 280ms. With the Menu's 105ms identity settle on
-   the other side, the whole choreography reads over ~395ms — inside the
-   360–400ms window the owner asked for, and long enough that the movement is
-   noticeable without having to look for it.
+   Phase 83.2 set this to 290ms when the delays in front of those transitions
+   were 30ms longer. Phase 112.2b spends those 30ms on the release stage
+   instead (see below), so the number came down with them: the movement still
+   starts about 30ms after the press and still runs for the same 230ms. With
+   the Menu's 105ms identity settle on the other side the whole choreography
+   reads over ~395ms — inside the 360–400ms window the owner asked for, and
+   long enough that the movement is noticeable without having to look for it.
 
    Skipped entirely under reduced motion: navigation is never held for an
    animation that is not going to run. */
-const EXIT_MS = 290;
+const EXIT_MS = 260;
+
+/* Phase 112.2b — the exit runs in two stages, and this is the first.
+
+   Stage 1 releases the entrance animations WITHOUT changing anything the eye
+   can see; stage 2, two frames later, applies the leaving values so the
+   browser has a settled before-change style to interpolate from. See
+   beginExit() below for why that separation is load-bearing.
+
+   The two frames cost ~33ms at 60Hz, which is paid for out of the leaving
+   transitions' own start delays (60ms -> 30ms for the identity, 105ms -> 75ms
+   for the badge, in global.css). Every duration, distance and the 45ms
+   stagger between identity and badge are untouched, the movement still begins
+   about 30ms after the press, and the whole choreography still lands inside
+   the approved ~395ms: ~33ms release + 260ms exit + 105ms Menu settle. */
 
 /* Name validation — trimmed, 2–30 chars.
    Phase 43 — takes `t` rather than reaching for the language module itself, so
@@ -180,7 +198,8 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
   const [name,    setName]    = useState("");
   const [error,   setError]   = useState(null);
   const [touched, setTouched] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  /* null -> "release" -> "leave". See beginExit(). */
+  const [exitStage, setExitStage] = useState(null);
   const [logoFailed, setLogoFailed] = useState(false);
 
   /* §36 — one press, one session, one navigation. The exit animation opens a
@@ -189,7 +208,17 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
      customer session and push the Menu route twice. */
   const startedRef = useRef(false);
   const timerRef   = useRef(null);
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  /* The composition itself, so the exit can settle its animations and force a
+     style flush on the real subtree rather than guessing at selectors. */
+  const landingRef = useRef(null);
+  /* Both pending frames, so an unmount mid-exit cancels them instead of
+     calling setState on a component that is already gone. */
+  const framesRef  = useRef([]);
+  useEffect(() => () => {
+    clearTimeout(timerRef.current);
+    framesRef.current.forEach(cancelAnimationFrame);
+    framesRef.current = [];
+  }, []);
 
   const logoUrl = (restaurant.logoUrl || "").trim();
   /* Phase 112.2 — see CustomerLoadingScreen: resolve, then validate. */
@@ -220,18 +249,90 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
     const trimmed = name.trim();
 
     /* §12 — reduced motion navigates immediately. Nothing waits on an
-       animation that is not going to run. */
+       animation that is not going to run, and there is no blank interval:
+       this screen unmounts and the Menu renders in the same commit. */
     if (prefersReducedMotion()) { onStart(trimmed); return; }
 
-    /* §25 — the composition leaves, then the route changes. The session is
-       saved by onStart at the END so that a navigation which never happens
-       cannot leave a session behind. */
-    setLeaving(true);
-    timerRef.current = setTimeout(() => onStart(trimmed), EXIT_MS);
+    beginExit(trimmed);
+  }
+
+  /* ── The staged exit (Phase 112.2b) ─────────────────────────────────────
+
+     THE BUG THIS EXISTS TO FIX.
+
+     Every piece of the landing enters with `animation: cx-enter ... both`.
+     A filling animation keeps ownership of the properties it animates —
+     transform and opacity — for as long as it is applied. Phase 83.1 spotted
+     that and had .cx-landing--leaving set `animation:none` to hand them back.
+
+     That part was right. What was wrong was doing it in the SAME style change
+     that applies the leaving transform and opacity: the browser then has no
+     settled before-change style to interpolate from, so it simply adopts the
+     end state. Measured on the approved build: the identity sat at
+     translateY(-42px) scale(.74) opacity 0 by the first animation frame after
+     the press, and no transitionrun, transitionstart or transitionend ever
+     fired. The guest saw the composition vanish, then ~330ms of near-empty
+     screen, then the Menu header animate in on its own.
+
+     THE CORRECTION — three stages, no new CSS layered on the old:
+
+       1. finish() the entrance animations and release them (--releasing).
+          They are long over by the time anyone types a name, so finishing
+          them is a no-op in practice; it is there so that a guest who
+          submits within the first ~340ms gets a settled start rather than a
+          half-played one. The released style is identical to the filled one
+          (cx-enter's implicit `to` IS the element's own style), so this
+          stage is invisible.
+       2. Let the browser actually commit that state. One frame to let React
+          land the class, a forced layout read so style is recomputed with it,
+          and a second frame so the paint has happened. Two frames rather
+          than a timeout because the thing being waited for is a rendering
+          step, not an interval.
+       3. Apply --leaving. Now transform and opacity belong to the normal
+          cascade and have a stable before-change value, so the transitions
+          declared in global.css run.
+
+     The route change is scheduled from stage 3, not from the press, so the
+     290/260ms hand-off stays measured from the moment the movement starts. */
+  function beginExit(trimmed) {
+    const node = landingRef.current;
+
+    /* Stage 1 */
+    if (node) {
+      /* Per-animation, because one that refuses to finish must not stop the
+         rest from settling. */
+      node.getAnimations({ subtree: true }).forEach((anim) => {
+        try { anim.finish(); } catch { /* infinite or already done */ }
+      });
+    }
+    setExitStage("release");
+
+    /* Stage 2 */
+    framesRef.current.push(requestAnimationFrame(() => {
+      /* Forces style and layout to be recomputed with the entrance released,
+         so stage 3 cannot be coalesced into the same recalculation. */
+      if (node) void node.offsetHeight;
+
+      /* Stage 3 */
+      framesRef.current.push(requestAnimationFrame(() => {
+        setExitStage("leave");
+        /* §25 — the composition leaves, then the route changes. The session
+           is saved by onStart at the END so that a navigation which never
+           happens cannot leave a session behind. */
+        timerRef.current = setTimeout(() => onStart(trimmed), EXIT_MS);
+      }));
+    }));
   }
 
   return (
-    <main className={`cx-landing ${leaving ? "cx-landing--leaving" : ""}`}>
+    <main
+      ref={landingRef}
+      className={[
+        "cx-landing",
+        exitStage ? "cx-landing--releasing" : "",
+        exitStage === "leave" ? "cx-landing--leaving" : "",
+      ].filter(Boolean).join(" ")}
+    >
       {/* ── Identity block ──────────────────────────────────────────────
           §14 — logo and name stay LARGE here. They shrink to the compact
           Menu-header treatment only after Start Ordering, which is what makes

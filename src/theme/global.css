@@ -3705,6 +3705,59 @@ button{font-family:var(--font-body)}
 .customer-theme .cust-topbar-right .rest-identity--compact .rest-identity__logo{
   max-width:clamp(40px,12vw,56px)}
 
+/* ══ Phase 112.2b §B — Cart and Tracking below 375px ═══════════════════════
+   One row stopped being enough.
+
+   These two bars carry a back control, Call Staff (Cart only), the language
+   switch and the restaurant identity. Phase 97.2 pinned them to a single row
+   on purpose, because letting .topbar__inner wrap took the bar from 61px to
+   113px at 320px — but that measurement was of the NAIVE wrap, where the
+   whole right-hand cluster dropped together.
+
+   Measured on the approved build, with the identity as the only item allowed
+   to shrink, the venue's name got:
+
+       320px  38 of the 59px "Lumière" needs   (64%)
+       360px  75 of 106px for "Lumière Bistro" (71%)
+       375px  81 of 106px                      (76%)
+
+   So below 375px the name is a fragment, and no amount of further shrinking
+   fixes that — the row simply does not have the pixels.
+
+   The reflow puts the identity on a row of its own and leaves everything else
+   on the first row, which is the arrangement the owner approved. It is done
+   with display:contents rather than by moving anything in the JSX: dissolving
+   the cluster's box makes its three children flex items of the bar itself, so
+   the identity can take a full-width line while Call Staff and the language
+   switch stay beside the back control. Nothing moves in the DOM, nothing
+   changes in the accessibility tree order, and every control keeps its own
+   handler and hit area.
+
+   Cost: the bar is ~92px instead of 60px, and only below 375px. The naive
+   wrap this replaces cost 113px for a worse result.
+
+   375px and up — every width the owner confirmed as working — is untouched. */
+@media(max-width:374.98px){
+  .topbar--customer-deep .topbar__inner{
+    flex-wrap:wrap;row-gap:4px;
+    /* The controls group at the trailing edge and the back control holds the
+       leading one, which is the same reading order the single row has. Both
+       are logical, so Arabic mirrors with no second rule. */
+    justify-content:flex-end}
+  .topbar--customer-deep .cart-back-btn{margin-inline-end:auto}
+  .topbar--customer-deep .cust-topbar-right{display:contents}
+  /* A line of its own, at full bar width. order:1 states the position
+     explicitly rather than relying on the identity being last in two
+     different screens' markup. */
+  .customer-theme .topbar--customer-deep .cust-topbar-right .rest-identity--compact{
+    order:1;flex:0 0 100%;max-width:none;min-width:0}
+  /* With a whole row to sit in, the logo no longer has to give way to the
+     name (112.2a capped it at ~40px here to buy the name room), so it goes
+     back to the cap every other customer surface uses. */
+  .customer-theme .topbar--customer-deep .cust-topbar-right .rest-identity--compact .rest-identity__logo{
+    max-width:80px}
+}
+
 /* ── Phase 112.2a §3 — the Restaurant Info sheet ─────────────────────────
    This one was wrong, and had been since the identity rules were first
    scoped: the sheet is portaled to <body>, OUTSIDE .customer-theme, so not
@@ -5841,21 +5894,29 @@ button{font-family:var(--font-body)}
    Each of these elements enters with `animation: cx-enter ... both`. A
    filling animation keeps ownership of the properties it animates —
    transform and opacity — for as long as it is applied, and animations
-   outrank normal declarations in the cascade. So the exit rules below were
-   never able to take effect: no transitionrun event fired for either
-   property, and the elements SNAPPED to their end state the instant the
-   class landed. What the owner saw was not a transition that was too subtle;
-   it was no transition at all.
+   outrank normal declarations in the cascade. So the exit rules below could
+   never take effect: no transitionrun event fired for either property, and
+   the elements SNAPPED to their end state the instant the class landed. What
+   the owner saw was not a transition that was too subtle; it was no
+   transition at all.
 
    Releasing the animation hands transform and opacity back to the normal
-   cascade, which is what lets the transitions below actually run. Same trap
-   as Phase 81.1's containing block: an entrance animation with fill-mode
-   quietly owning a property long after it has finished. */
-.cx-landing--leaving .cx-landing__identity,
-.cx-landing--leaving .cx-landing__table,
-.cx-landing--leaving .cx-landing__start,
-.cx-landing--leaving .cx-landing__lang,
-.cx-landing--leaving .cx-landing__info{
+   cascade. Phase 83.1 got that far — and did it in the SAME rule as the
+   leaving values, which is why it never worked: released and retargeted in
+   one style change leaves the browser no settled before-change style to
+   interpolate from, so it adopts the end state directly.
+
+   Phase 112.2b splits the two. --releasing lands on its own and does nothing
+   visible: cx-enter's implicit `to` is the element's own style, so removing
+   a finished fill changes no computed value. Two frames later --leaving
+   lands on top of it (both classes are present together) and the transitions
+   below finally have somewhere to start from. CustomerAccessScreen.beginExit
+   owns the sequencing. */
+.cx-landing--releasing .cx-landing__identity,
+.cx-landing--releasing .cx-landing__table,
+.cx-landing--releasing .cx-landing__start,
+.cx-landing--releasing .cx-landing__lang,
+.cx-landing--releasing .cx-landing__info{
   animation:none}
 
 /* ── Phase 83.2 — the same choreography, retimed to be readable ──────────
@@ -5878,19 +5939,25 @@ button{font-family:var(--font-body)}
    Distances and directions are untouched (§5): -42px/scale .74 and
    -56px/scale .6, exactly as approved. */
 
-/* 60ms → 290ms of movement; opacity only from 215ms. */
+/* 30ms → 260ms of movement; opacity only from 185ms.
+
+   Phase 112.2b — every duration and distance here is Phase 83.2's. The only
+   change is that the start delays come down by 30ms, because the two frames
+   the release stage now takes sit in front of them: the movement still
+   begins about 30ms after the press and the exit still ends one beat before
+   the Menu settles, so the total stays inside the approved ~395ms. */
 .cx-landing--leaving .cx-landing__identity{
   opacity:0;transform:translateY(-42px) scale(.74);
-  transition:transform .23s cubic-bezier(.28,0,.5,.72) .06s,
-             opacity .075s var(--ease) .215s}
+  transition:transform .23s cubic-bezier(.28,0,.5,.72) .03s,
+             opacity .075s var(--ease) .185s}
 /* The badge has further to go — it ends up as a small pill in the topbar —
    so it shrinks harder and travels further. It also starts 45ms AFTER the
    identity (§7), which is what makes the pair read as a structured hand-off
    rather than as everything moving at once. Both finish together at 290ms. */
 .cx-landing--leaving .cx-landing__table{
   opacity:0;transform:translateY(-56px) scale(.6);
-  transition:transform .185s cubic-bezier(.28,0,.5,.72) .105s,
-             opacity .06s var(--ease) .23s}
+  transition:transform .185s cubic-bezier(.28,0,.5,.72) .075s,
+             opacity .06s var(--ease) .2s}
 /* The two controls and the form are finished with, so they simply go — and
    they go FIRST, which clears the composition early and leaves the eye with
    only the identity and the badge to follow. */
