@@ -11,6 +11,7 @@ import { findRestaurantBySlug } from "../../data/mockRestaurant.js";
 import { verifyStaffPin } from "../../data/mockStaff.js";
 import { saveKitchenSession } from "../../lib/kitchenSession.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /**
  * validatePinFormat — the PIN must be present, numeric only, and either
@@ -108,7 +109,7 @@ export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn 
               producing a broken-image glyph on a kitchen screen. */}
           <div className="kitchen-login__rest">
             <RestaurantIdentity
-              name={settings.name?.trim() || restaurant?.name}
+              name={restaurantDisplayName(settings, restaurant?.name)}
               logoUrl={settings.logoUrl}
               variant="compact"
             />

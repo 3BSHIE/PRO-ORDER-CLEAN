@@ -33,6 +33,7 @@ import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { isCategoryVisibleNow } from "../../lib/categoryVisibility.js";
 import { fmtPrice } from "../../lib/format.js";
 import { buildCartLine } from "../../lib/cartLine.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* ── Price formatter ─────────────────────────────────────────────────────── */
 
@@ -143,7 +144,7 @@ export default function CustomerMenuScreen({
   /* Gate 2: redirect in progress */
   if (!hasValidSession) return null;
 
-  const effectiveRestaurant = { ...result.restaurant, name: settings.name.trim() || result.restaurant.name };
+  const effectiveRestaurant = { ...result.restaurant, name: restaurantDisplayName(settings, result.restaurant.name) };
 
   return (
     <MenuShell

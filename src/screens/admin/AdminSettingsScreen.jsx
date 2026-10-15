@@ -711,7 +711,10 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     setError(null);
   }
 
-  const previewName = draft.name.trim() || restaurant.name;
+  /* Phase 112.2c — the brand preview shows what a GUEST would see, so an
+     empty name previews as empty: no fallback to the seeded venue name, which
+     would quietly contradict the change the owner is about to save. */
+  const previewName = draft.name.trim();
   /* The preview is rendered through the SAME function the customer screens
      use, so what an admin sees here cannot drift from what guests get. */
   const themePreviewVars = buildCustomerThemeVars(draft);
@@ -1093,7 +1096,7 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               {/* Phase 112.2 — through the shared component, so an uploaded
                   logo previews here the way it will appear to guests. */}
               <RestaurantLogo src={draft.logoUrl} className="ad-brand-preview__logo" />
-              <span className="ad-brand-preview__name">{previewName}</span>
+              {previewName && <span className="ad-brand-preview__name">{previewName}</span>}
             </div>
           </div>
           <p className="ad-settings__hint">
@@ -1203,7 +1206,10 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             {t("admin.preview", "Preview")}
           </span>
           <div className="th-preview" style={themePreviewVars}>
-            <h4 className="th-preview__heading">{previewName}</h4>
+            {/* A type specimen, not an identity: with no name it falls back to
+                the neutral word "Preview" so the heading font and colour can
+                still be judged. Never a fabricated restaurant name. */}
+            <h4 className="th-preview__heading">{previewName || t("admin.preview", "Preview")}</h4>
             <p className="th-preview__body">
               {t("admin.themePreviewText", "Your guests see this typography and accent while ordering.")}
             </p>

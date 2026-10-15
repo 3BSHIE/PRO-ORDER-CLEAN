@@ -30,6 +30,7 @@ import {
   setDraftLineQuantity,
   removeDraftLine,
 } from "../../lib/staffOrdering.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    StaffOrderingScreen — Phase 112.0
@@ -236,7 +237,7 @@ export default function StaffOrderingScreen({
         restaurant: {
           id: restaurant.id,
           slug: restaurant.slug,
-          name: settings.name?.trim() || restaurant.name,
+          name: restaurantDisplayName(settings, restaurant.name),
           serviceChargePercent,
         },
         table: isDirect ? null : { id: table.id, tableNumber: table.tableNumber },

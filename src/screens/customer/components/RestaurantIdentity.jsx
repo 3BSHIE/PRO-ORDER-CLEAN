@@ -1,4 +1,5 @@
 import RestaurantLogo from "../../../components/brand/RestaurantLogo.jsx";
+import { useLanguage } from "../../../i18n/useLanguage.js";
 
 /**
  * RestaurantIdentity — Phase 45.
@@ -16,9 +17,19 @@ import RestaurantLogo from "../../../components/brand/RestaurantLogo.jsx";
  *                      identifiable without a second full header competing
  *                      with the page's own title.
  *
- * The logo is optional by design: a restaurant that has never uploaded one
- * still gets a strong name-only treatment, which is why nothing here reserves
- * space for a missing image.
+ * Phase 112.2c — the NAME is optional too, and independently. A restaurant
+ * whose logo already contains its name should not have that name printed
+ * again beside it, so all four states are first-class here:
+ *
+ *   name + logo   the approved lockup, unchanged
+ *   name only     unchanged — nothing has ever reserved space for a missing
+ *                 image
+ *   logo only     the logo takes the space the pair would have shared
+ *                 (.rest-identity--logo-only, sized per surface in CSS) and
+ *                 carries the accessible name the text used to provide
+ *   neither       an empty flex box: no fabricated text, no placeholder
+ *                 artwork, and no height, because a flex container with no
+ *                 children has none
  *
  * Both the name and the surrounding type inherit the Phase 31 customer theme,
  * so a restaurant's chosen heading font and accent flow through untouched.
@@ -30,6 +41,10 @@ import RestaurantLogo from "../../../components/brand/RestaurantLogo.jsx";
  *   variant  — "hero" | "compact"
  */
 export default function RestaurantIdentity({ name, logoUrl, variant = "hero" }) {
+  const { t } = useLanguage();
+  /* Trimmed here rather than trusted from the caller: "   " is not a name,
+     and it must not produce a name-shaped empty element. */
+  const label = typeof name === "string" ? name.trim() : "";
   /* ── Phase 84.1 — no broken-image icons ────────────────────────────────
      This used to render the <img> whenever logoUrl was any non-empty string,
      with no validation and no error handling. A restaurant whose logo URL was
@@ -52,17 +67,34 @@ export default function RestaurantIdentity({ name, logoUrl, variant = "hero" }) 
      working one would keep showing the fallback until the component
      unmounted. Storing WHICH url failed makes the state self-clearing — a new
      logoUrl no longer matches, so the image is attempted again (test case E). */
-  if (!name) return null;
-
   /* Phase 112.2 — the validation, the asset resolution and the broken-image
      fallback all moved into RestaurantLogo, which every other surface now
      uses too. It renders nothing when there is no usable logo, which is
      exactly the name-only DOM this component has always produced in that
-     case: no layout, spacing or typography changed. */
+     case: no layout, spacing or typography changed.
+
+     Phase 112.2c removed the `if (!name) return null` that used to open this
+     function. It predated optional names and meant a logo-only restaurant
+     rendered NOTHING — logo included — on every surface that uses this
+     component. */
   return (
-    <div className={`rest-identity rest-identity--${variant}`}>
-      <RestaurantLogo src={logoUrl} className="rest-identity__logo" />
-      <span className="rest-identity__name">{name}</span>
+    <div
+      className={[
+        "rest-identity",
+        `rest-identity--${variant}`,
+        label ? "" : "rest-identity--logo-only",
+      ].filter(Boolean).join(" ")}
+    >
+      <RestaurantLogo
+        src={logoUrl}
+        className="rest-identity__logo"
+        /* Decorative while the name is beside it — a screen reader would
+           otherwise announce the restaurant twice. With no name there is
+           nothing else to announce, so the image takes over: a generic,
+           translated description, never an invented restaurant name. */
+        alt={label ? "" : t("common.restaurantLogo", "Restaurant logo")}
+      />
+      {label && <span className="rest-identity__name">{label}</span>}
     </div>
   );
 }

@@ -39,7 +39,26 @@ function settingsKey(restaurantSlug) {
 function defaultSettings(restaurantSlug) {
   return {
     restaurantSlug,
-    name: "",              // "" = fall back to the static RESTAURANT.name
+    name: "",
+    /* Phase 112.2c — the difference between "never configured" and
+       "deliberately blank".
+
+       Until now an empty name meant "fall back to the static RESTAURANT
+       record", which made an intentionally cleared name impossible: the
+       venue's old name came straight back on the next render. The name is
+       now independently optional, so storage has to carry the owner's INTENT
+       as well as the value.
+
+       false means no one has ever touched the field; the display sites fall
+       back to the static record exactly as they always have, so every
+       restaurant that has not opened Settings is unaffected. It flips to
+       true the moment a save carries a name — including an empty one — and
+       from then on settings.name is the whole answer, blank included.
+
+       A record written before this phase has no such key; getSettings infers
+       it from the stored value, so a venue that had typed a name keeps it and
+       one that never did keeps its fallback. Nothing is rewritten on read. */
+    displayNameSet: false,
     logoUrl: "",
     coverImageUrl: "",
     description: "",
@@ -148,6 +167,13 @@ export function getSettings(restaurantSlug) {
          valid value rather than each having to remember to check. No rewrite
          of the stored object is needed to make that true. */
       appearance: resolveAppearance(stored.appearance),
+      /* Phase 112.2c — inferred for legacy records, honoured for new ones.
+         A stored boolean is the owner's recorded intent. Without one, a
+         non-empty stored name means they had configured it (so: set) and an
+         empty one means they never did (so: not set, keep the fallback). */
+      displayNameSet: typeof stored.displayNameSet === "boolean"
+        ? stored.displayNameSet
+        : (typeof stored.name === "string" && stored.name.trim() !== ""),
       defaultLanguage: coerceDefaultLanguage(stored.defaultLanguage ?? defaults.defaultLanguage, languagesEnabled),
       /* Phase 79.1 — normalized, NOT shallow-merged.
 
@@ -197,6 +223,13 @@ export function updateSettings(restaurantSlug, patch) {
        that disables Arabic in the same save that leaves defaultLanguage on
        "ar" is judged against the new state, not the old one. */
     currency: normalizeCurrency(),
+    /* Phase 112.2c — any save that carries a name records that the owner has
+       now decided, whatever they decided. Clearing the field and pressing
+       Save is therefore as durable as typing one, and a patch that does not
+       mention the name (an alerts-only save, say) leaves the flag alone. */
+    displayNameSet: Object.prototype.hasOwnProperty.call(patch, "name")
+      ? true
+      : current.displayNameSet,
     /* Normalised on the way out too, so a patch cannot put an unrecognised
        appearance into storage. */
     appearance: resolveAppearance(patch.appearance ?? current.appearance),

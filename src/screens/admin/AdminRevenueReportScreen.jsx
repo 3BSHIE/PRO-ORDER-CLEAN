@@ -10,6 +10,7 @@ import { fmtPrice, SUPPORTED_CURRENCY } from "../../lib/format.js";
 import { downloadReportPdf, buildReportFilename } from "../../lib/reportPdf.js";
 import { translate } from "../../i18n/translate.js";
 import { reportAccentColor } from "../../lib/reportBrand.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -55,7 +56,7 @@ export default function AdminRevenueReportScreen({
     [report]
   );
 
-  const restaurantName = (settings.name || "").trim() || restaurant.name;
+  const restaurantName = restaurantDisplayName(settings, restaurant.name);
 
   /* Phase 111.4 — the restaurant's configured primary, moved only as far as
      it must be to stay readable on white paper. Resolved here, once, and

@@ -17,6 +17,7 @@ import CustomerLoadingScreen from "./components/CustomerLoadingScreen.jsx";
 import RestaurantInfo from "./components/RestaurantInfo.jsx";
 import { isSafeImageSrc } from "../../lib/safeImage.js";
 import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* How long the landing composition is given to leave before the Menu route is
    pushed, measured from the moment the leaving values are applied — not from
@@ -120,7 +121,7 @@ export default function CustomerAccessScreen({
      is what customer screens display; it never replaces or hides
      PRO·ORDER's own logo, which is rendered independently just above. */
   const effectiveRestaurant = result.ok
-    ? { ...result.restaurant, name: settings.name.trim() || result.restaurant.name, logoUrl: settings.logoUrl }
+    ? { ...result.restaurant, name: restaurantDisplayName(settings, result.restaurant.name), logoUrl: settings.logoUrl }
     : null;
 
   /* The loading screen owns the whole viewport: it is the restaurant's first
@@ -220,6 +221,9 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
     framesRef.current = [];
   }, []);
 
+  /* Phase 112.2c — may legitimately be "". Resolved once here so the heading,
+     the logo's alt and the layout modifier all agree. */
+  const displayName = (restaurant.name || "").trim();
   const logoUrl = (restaurant.logoUrl || "").trim();
   /* Phase 112.2 — see CustomerLoadingScreen: resolve, then validate. */
   const resolvedLogo = useRestaurantLogoSrc(logoUrl);
@@ -373,17 +377,27 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
         />
       </div>
 
-      <section className="cx-landing__identity">
+      {/* Phase 112.2c — the identity is whatever the restaurant actually has.
+          --logo-only lets the logo claim the vertical and horizontal room the
+          name would have taken (see global.css); with no name there is no
+          empty heading left behind to reserve it. */}
+      <section
+        className={`cx-landing__identity${
+          showLogo && !displayName ? " cx-landing__identity--logo-only" : ""
+        }`}
+      >
         {showLogo && (
           <img
             className="cx-landing__logo"
             src={resolvedLogo}
-            alt=""
+            /* Decorative while the name follows as real text; with no name
+               the logo is the only identity on the screen, so it carries a
+               generic translated description rather than nothing at all. */
+            alt={displayName ? "" : t("common.restaurantLogo", "Restaurant logo")}
             onError={() => setLogoFailed(true)}
           />
         )}
-        {/* Decorative alt above — the name follows immediately as real text. */}
-        <h1 className="cx-landing__name">{restaurant.name}</h1>
+        {displayName && <h1 className="cx-landing__name">{displayName}</h1>}
 
         {/* Phase 81 §13 — one restrained line, clamped, so a venue can
             introduce itself without the entry turning into an About page. */}

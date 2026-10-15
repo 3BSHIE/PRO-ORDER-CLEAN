@@ -4,6 +4,7 @@ import { translations } from "../../i18n/translations.js";
 import { isValidHexColor, relativeLuminance, resolveHeadingFont } from "../../lib/theme.js";
 import { isSafeImageSrc } from "../../lib/safeImage.js";
 import { useRestaurantLogoSrc } from "../../lib/restaurantLogoAssets.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /**
  * TableQrPrintCard — Phase 69. One A6 face of a physical table stand.
@@ -90,7 +91,7 @@ function printAccent(primaryColor) {
  */
 export default function TableQrPrintCard({ restaurant, settings, table, qrUrl, language }) {
   const isArabic = language === "ar";
-  const restaurantName = (settings?.name || "").trim() || restaurant.name;
+  const restaurantName = restaurantDisplayName(settings, restaurant.name);
   const logoUrl = (settings?.logoUrl || "").trim();
   /* Phase 112.2 — an uploaded logo is an asset reference; resolving it here
      means the printed stand carries the same image the screen does. A data
@@ -109,12 +110,18 @@ export default function TableQrPrintCard({ restaurant, settings, table, qrUrl, l
         {isSafeImageSrc(resolvedLogo) && (
           <img className="qr-stand__logo" src={resolvedLogo} alt="" aria-hidden="true" />
         )}
-        <h1
-          className="qr-stand__restaurant"
-          style={{ color: accent, fontFamily: `var(--font-heading-${headingFont}, inherit)` }}
-        >
-          {restaurantName}
-        </h1>
+        {/* Phase 112.2c — withheld entirely when the restaurant has no name,
+            rather than printing an empty heading's worth of space onto a
+            physical card. Nothing is substituted: a logo-only venue prints
+            its logo, and a venue with neither prints the table alone. */}
+        {restaurantName && (
+          <h1
+            className="qr-stand__restaurant"
+            style={{ color: accent, fontFamily: `var(--font-heading-${headingFont}, inherit)` }}
+          >
+            {restaurantName}
+          </h1>
+        )}
         <span className="qr-stand__rule" style={{ background: accent }} aria-hidden="true" />
         <p className="qr-stand__table">{resolveTableLabel(table, language)}</p>
       </div>

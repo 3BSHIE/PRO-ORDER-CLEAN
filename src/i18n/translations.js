@@ -82,6 +82,10 @@ export const translations = {
       outOfStock: "Currently unavailable",
       popular: "Popular",
       featured: "Featured",
+      /* Phase 112.2c — read out in place of the restaurant's name when the
+         restaurant has a logo and no name. Generic on purpose: it describes
+         the image, it never claims to BE the venue's name. */
+      restaurantLogo: "Restaurant logo",
       qrAccess: "QR access",
       invalidTableAccess: "Invalid table access",
       invalidTableAccessMsg: "Please scan the QR code placed on your table to open the menu.",
@@ -1276,6 +1280,8 @@ export const translations = {
       outOfStock: "غير متاح حاليًا",
       popular: "الأكثر طلباً",
       featured: "مميز",
+      /* Phase 112.2c — see the English entry. */
+      restaurantLogo: "شعار المطعم",
       qrAccess: "دخول عبر QR",
       invalidTableAccess: "دخول غير صالح للطاولة",
       invalidTableAccessMsg: "يرجى مسح رمز QR الموجود على طاولتك لفتح القائمة.",

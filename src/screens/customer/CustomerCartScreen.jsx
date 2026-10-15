@@ -37,6 +37,7 @@ import { useMenuData } from "../../lib/useMenuData.js";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CustomerCartScreen — Phase 10
@@ -634,7 +635,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
             />
             <LanguageSwitcher variant="compact" enabled={enabledLanguages} />
             <RestaurantIdentity
-              name={settings.name.trim() || restaurant.name}
+              name={restaurantDisplayName(settings, restaurant.name)}
               logoUrl={settings.logoUrl}
               variant="compact"
             />

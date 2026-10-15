@@ -3704,6 +3704,10 @@ button{font-family:var(--font-body)}
    surface keeps the shared 80px. */
 .customer-theme .cust-topbar-right .rest-identity--compact .rest-identity__logo{
   max-width:clamp(40px,12vw,56px)}
+/* Logo-only in these two bars: there is no name to protect, so the cap that
+   exists to protect it does not apply. Still topbar-sized. */
+.customer-theme .cust-topbar-right .rest-identity--compact.rest-identity--logo-only .rest-identity__logo{
+  max-height:34px;max-width:min(48vw,150px)}
 
 /* ══ Phase 112.2b §B — Cart and Tracking below 375px ═══════════════════════
    One row stopped being enough.
@@ -3736,8 +3740,15 @@ button{font-family:var(--font-body)}
    Cost: the bar is ~92px instead of 60px, and only below 375px. The naive
    wrap this replaces cost 113px for a worse result.
 
-   375px and up — every width the owner confirmed as working — is untouched. */
-@media(max-width:374.98px){
+   Phase 112.2c §10 raised the threshold from 375px to 430px. 112.2b drew the
+   line at the widths the owner had called out, but the same measurement run
+   wider shows the single row never had the pixels for a two-word name on ANY
+   phone: "Lumiere Bistro" got 76% at 375 and 80% at 390, and only reached
+   100% at 768. Stopping at 374.98 therefore left a visible inconsistency —
+   the name was whole at 360 and clipped at 375 — which is the opposite of
+   what a breakpoint is for. 430px covers the largest phone in common use and
+   leaves tablets and desktop on the approved single row. */
+@media(max-width:430px){
   .topbar--customer-deep .topbar__inner{
     flex-wrap:wrap;row-gap:4px;
     /* The controls group at the trailing edge and the back control holds the
@@ -3771,10 +3782,24 @@ button{font-family:var(--font-body)}
 .rinfo__body .rest-identity{gap:10px}
 .rinfo__body .rest-identity__logo{
   width:auto;height:auto;max-height:36px;max-width:116px;border-radius:7px}
+.rinfo__body .rest-identity--logo-only .rest-identity__logo{
+  max-height:44px;max-width:min(66vw,240px)}
 .rinfo__body .rest-identity__name{
   font-family:var(--font-display);font-size:17px;font-weight:700;
   letter-spacing:.01em;line-height:1.2;color:var(--gold-ink);
   min-width:0;overflow-wrap:anywhere}
+/* ── Phase 112.2c — logo-only, per surface ───────────────────────────────
+   Each surface widens by the amount its own name would have taken, and no
+   more: the Menu header is a header, not a second Welcome screen, and the
+   topbar variants stay topbar-sized. Bounds only, as on the entry screen, so
+   the source's own proportions and resolution decide the rest. */
+.customer-theme .rest-identity--hero.rest-identity--logo-only .rest-identity__logo{
+  height:auto;width:auto;
+  max-height:clamp(60px,15.5vw,78px);
+  max-width:min(72vw,320px)}
+.customer-theme .rest-identity--compact.rest-identity--logo-only .rest-identity__logo{
+  height:auto;width:auto;max-height:34px;max-width:min(54vw,170px)}
+
 .customer-theme .rest-identity--compact .rest-identity__name{
   font-family:var(--font-display);
   font-size:15px;font-weight:700;letter-spacing:.01em;color:var(--gold-ink);
@@ -4146,6 +4171,33 @@ button{font-family:var(--font-body)}
   .cust-topbar-right{gap:6px}
   .menu-topbar-right .btn--sm,
   .cust-topbar-right .btn--sm{padding-inline:10px}
+  /* ── Phase 112.2c §11 — a real 44x44 target ────────────────────────────
+     This is the width at which Call Staff drops its label and becomes an
+     icon: 14px of glyph inside 7px of padding and a 1px border is a 30px-wide
+     control, measured, on the screens a guest uses one-handed.
+
+     The height was already 44px (min-height on .call-staff). The width is
+     bought with the button's own padding rather than with a wider invisible
+     overlay, because the controls here sit 6px apart: an overlay big enough
+     to reach 44 would reach 7px past each edge and start trading taps with
+     its neighbour. Real padding grows the button inside the flex gap, so the
+     targets stay separated by construction.
+
+     The ICON is untouched at 14px, as is the pill, its border, its states,
+     its aria-label and its place in the row. Only the reachable area grows,
+     and only below 480px.
+
+     Scoped per BAR rather than applied to every .call-staff--compact,
+     because the two bars have different budgets. Cart and Tracking give the
+     identity a row of its own below 430px, so row 1 has the 14px to spare.
+     The Menu topbar does not reflow: it carries five controls on one line
+     that must not wrap, and at 320px they already measured 317 of 320. The
+     wider button tipped it to 331 and the bar wrapped to 112px — caught in
+     testing, which is why the Menu rule starts at 341px. Below that the
+     existing invisible extender (36x56, further up this file) stands, and
+     that is the honest limit of "where practical": five 44px targets do not
+     fit across 320px without taking something away from the guest. */
+  .topbar--customer-deep .call-staff--compact{min-width:44px;min-height:44px}
   /* Cart and Tracking put the identity in the SAME row as the controls, so
      on a phone it yields more width than on the screens where it sits alone.
      It already truncates with an ellipsis, so this costs no layout. */
@@ -4156,6 +4208,11 @@ button{font-family:var(--font-body)}
   .menu-orders-label{display:none}
   .call-staff--compact{padding:7px;gap:0}
   .call-staff--compact .call-staff__label{display:none}
+}
+/* The Menu topbar half of the same rule, held back to 341px: see the note
+   above for why these two bars get different thresholds. */
+@media(min-width:341px) and (max-width:480px){
+  .menu-topbar-right .call-staff--compact{min-width:44px;min-height:44px}
 }
 /* Narrower still: the language codes tighten horizontally but keep their full
    44px height, so the target stays comfortable in the direction that matters
@@ -5736,6 +5793,11 @@ button{font-family:var(--font-body)}
 .cx-loading__logo{
   height:clamp(108px,28vw,152px);width:auto;max-width:72vw;
   object-fit:contain;display:block;border-radius:var(--r-md)}
+/* Phase 112.2c — the splash's own logo-only treatment, in step with the
+   entry screen it hands over to. */
+.cx-loading__identity--logo-only .cx-loading__logo{
+  height:auto;width:auto;
+  max-height:clamp(160px,36vw,232px);max-width:min(86vw,520px)}
 .cx-loading__name{
   font-family:var(--font-display);
   font-size:clamp(38px,10vw,54px);line-height:1.12;
@@ -5816,6 +5878,27 @@ button{font-family:var(--font-body)}
   height:clamp(96px,25vw,140px);width:auto;max-width:70vw;
   border-radius:var(--r-md);
   object-fit:contain;display:block}
+
+/* ── Phase 112.2c §5 — a restaurant whose logo IS its name ───────────────
+   When there is no display name the heading is not rendered at all, so the
+   logo inherits the height the pair used to share plus the 14px gap between
+   them. It is given that room here rather than left at a size chosen on the
+   assumption that text would always sit underneath it.
+
+   BOUNDS, NOT DIMENSIONS. width and height are auto and only the maxima are
+   stated, which is what makes this adapt to the source rather than to a
+   number: a 512x512 mark fills the box, a 900x240 wordmark takes the width
+   and keeps its 3.75 ratio, a 240x760 crest takes the height. object-fit
+   stays contain, so nothing is ever stretched or cropped.
+
+   It also means a SMALL source is never blown up. A 120px asset renders at
+   120px instead of being stretched to 220 and going soft — the brief's
+   "do not upscale very small assets" falls out of auto sizing for free,
+   rather than needing a rule of its own. */
+.cx-landing__identity--logo-only .cx-landing__logo{
+  height:auto;width:auto;
+  max-height:clamp(150px,34vw,220px);
+  max-width:min(86vw,520px)}
 .cx-landing__name{
   font-family:var(--font-display);
   font-size:clamp(36px,9.6vw,50px);line-height:1.12;
@@ -6022,6 +6105,11 @@ button{font-family:var(--font-body)}
      the grid places it — so the two-part desktop landing is unchanged. */
   .cx-landing__identity{gap:18px}
   .cx-landing__name{font-size:clamp(42px,4vw,58px);max-width:13ch}
+  /* The desktop landing gives the identity a whole column, so the logo-only
+     ceiling rises with it. The column is 1.1fr of a 1000px-ish composition;
+     420px keeps the mark inside it with the column gap intact. */
+  .cx-landing__identity--logo-only .cx-landing__logo{
+    max-height:clamp(200px,20vw,280px);max-width:min(42vw,420px)}
   .cx-landing__description{max-width:38ch}
   /* The identity spans both rows so the right column's two items sit
      together. Left as separate rows with align-items:center they were each
@@ -6044,6 +6132,11 @@ button{font-family:var(--font-body)}
    room, so the identity gives some back rather than pushing the field away. */
 @media(max-height:640px){
   .cx-landing{gap:16px}
+  /* The one place the identity gives room back stays the one place it does.
+     Without this the taller logo-only ceiling would push the CTA off a
+     568px phone, which §5 explicitly forbids. */
+  .cx-landing__identity--logo-only .cx-landing__logo{
+    max-height:clamp(96px,24vw,132px)}
   /* Phase 112.2a §5 — raised with the rest, but still the one place the
      identity gives room back: a 568px phone with the keyboard open needs the
      field more than it needs the largest possible logo. */
@@ -11459,6 +11552,14 @@ button{font-family:var(--font-body)}
    inside a 72x40 block with dead space above and below the mark. */
 .ad-sidebar__identity .rest-identity__logo{
   width:auto;height:auto;max-height:40px;max-width:72px;border-radius:8px}
+/* Phase 112.2c — with no name beside it the logo takes the width the name
+   would have had: the sidebar's 228px less its 10px gutters, which is 208.
+   The HEIGHT cap is deliberately unchanged at 40px, because the Phase 112.2
+   layout contract was measured against a 40px identity and a taller one
+   would eat the headroom that keeps Operations off the ordering section. The
+   sidebar does not get wider; only this logo does. */
+.ad-sidebar__identity .rest-identity--logo-only .rest-identity__logo{
+  max-width:208px}
 /* Phase 112.2a §2 — one notch up from 14px. The venue being managed is the
    first thing the sidebar says, and at 14px it read as a caption beside its
    own logo rather than as a name.
@@ -11485,6 +11586,11 @@ button{font-family:var(--font-body)}
 .kb-identity .rest-identity__logo,
 .kitchen-login__rest .rest-identity__logo{
   width:auto;height:auto;max-height:26px;max-width:56px;border-radius:6px}
+/* Phase 112.2c — same idea, kitchen-sized. The board's topbar is a working
+   chrome bar, so the gain is width only. */
+.kb-identity .rest-identity--logo-only .rest-identity__logo,
+.kitchen-login__rest .rest-identity--logo-only .rest-identity__logo{
+  max-height:30px;max-width:148px}
 /* The login card centres its lockup and the uppercase tracking that styles
    the name there must not be inherited by the logo's box. */
 .kitchen-login__rest .rest-identity{justify-content:center}

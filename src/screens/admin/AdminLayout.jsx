@@ -25,6 +25,7 @@ import { playAlertSound } from "../../lib/alertSound.js";
 import StaffCallAlert from "./StaffCallAlert.jsx";
 import StaffOrderingNav from "./StaffOrderingNav.jsx";
 import ErrorBoundary from "../../components/system/ErrorBoundary.jsx";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* Phase 91.2 §7 — ROLE_LABEL / ROLE_LABEL_KEY are gone along with the badge
    they fed.
@@ -333,7 +334,7 @@ export default function AdminLayout({
               version string. */}
           <div className="ad-sidebar__identity">
             <RestaurantIdentity
-              name={settings.name?.trim() || restaurant.name}
+              name={restaurantDisplayName(settings, restaurant.name)}
               logoUrl={settings.logoUrl}
               variant="compact"
             />

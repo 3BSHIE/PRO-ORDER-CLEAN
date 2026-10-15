@@ -22,6 +22,7 @@ import {
   KITCHEN_RELEVANT_STATUSES,
   KITCHEN_CANCELLATION_CHANGE_EVENT,
 } from "../../lib/kitchenCancellations.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* ── The board ───────────────────────────────────────────────────────────
    Exactly three operational states. Phase 96 §1 removed the fourth column:
@@ -425,7 +426,7 @@ export default function KitchenBoardScreen({ restaurant, session, onSignOut }) {
     if (acknowledgeKitchenCancellation(restaurant.slug, orderId)) reloadCancellations();
   }
 
-  const restaurantName = restaurantSettings.name?.trim() || restaurant.name;
+  const restaurantName = restaurantDisplayName(restaurantSettings, restaurant.name);
 
   return (
     <>

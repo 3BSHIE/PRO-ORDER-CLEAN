@@ -22,6 +22,7 @@ import { useLanguage } from "../../i18n/useLanguage.js";
 import { formatDateTime } from "../../i18n/dateFormat.js";
 import { formatItemCount } from "../../i18n/counts.js";
 import { fmtPrice } from "../../lib/format.js";
+import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 const STATUS_LABEL = {
   received:  "Received",
@@ -250,7 +251,7 @@ function OrdersShell({ restaurant, table, session, onBackToMenu, onTrackOrder })
           <RestaurantIdentity
             /* Settings override first, matching every other customer surface —
                this screen was the one place still showing the raw seed name. */
-            name={settings.name.trim() || restaurant.name}
+            name={restaurantDisplayName(settings, restaurant.name)}
             logoUrl={settings.logoUrl}
             variant="compact"
           />

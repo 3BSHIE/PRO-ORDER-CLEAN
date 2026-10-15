@@ -62,7 +62,9 @@ export default function CustomerLoadingScreen({ restaurant, settling = false, me
       role="status"
       aria-live="polite"
     >
-      <div className="cx-loading__identity">
+      {/* Phase 112.2c — with no name the logo is the whole identity, so it
+          takes the room the pair would have shared. */}
+      <div className={`cx-loading__identity${showLogo && !name ? " cx-loading__identity--logo-only" : ""}`}>
         {showLogo && (
           <img
             className="cx-loading__logo"

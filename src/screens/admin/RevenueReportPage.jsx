@@ -315,7 +315,10 @@ export default function RevenueReportPage({
         <div className="rep-head__brand">
           {hasLogo && <img className="rep-head__logo" src={logoUrl} alt="" />}
           <div className="rep-head__names">
-            <h1 className="rep-head__restaurant">{restaurantName}</h1>
+            {/* Phase 112.2c — no name, no heading. The report's own title
+                below carries the document's identity, and no restaurant name
+                is ever invented for a generated document. */}
+            {restaurantName && <h1 className="rep-head__restaurant">{restaurantName}</h1>}
             <p className="rep-head__title">{T("admin.revenueReport", "Revenue Report")}</p>
           </div>
         </div>
