@@ -600,6 +600,19 @@ export const translations = {
       visibilityParentInUse: "This group controls when {groups} appears, so it cannot itself be shown conditionally. Update that group's condition first.",
       visibilityOrderBlocked: "{group} appears only when an option in {parent} is selected, so {parent} must stay above it.",
 
+      /* Phase 115.0 — the shared image control. Short labels on purpose:
+         they sit in a one-line row beside a 72px preview, and a sentence
+         there would wrap the row onto a second line on a phone. */
+      productImage: "Product image",
+      imageUpload: "Upload image",
+      imageChange: "Change",
+      imageRemove: "Remove",
+      imageUrlReplacesUpload: "Entering a URL replaces the uploaded image.",
+      imageTypeError: "Choose a PNG, JPG or WebP image.",
+      imageSizeError: "That image is too large. Choose one under 8 MB.",
+      imageDecodeError: "That file could not be read as an image.",
+      imageStorageError: "The image could not be stored on this device. The previous image is unchanged.",
+
       optionName: "Option name",
       /* Phase 56 — customization price validation. The option rule is >= 0
          because a free choice is legitimate; the add-on rule is > 0. */
@@ -1768,6 +1781,17 @@ export const translations = {
       visibilityOptionInUse: "هذا الخيار يتحكم في ظهور {groups}. عدّل شرط تلك المجموعة قبل حذف هذا الخيار.",
       visibilityParentInUse: "هذه المجموعة تتحكم في ظهور {groups}، لذلك لا يمكن إظهارها هي نفسها بشروط. عدّل شرط تلك المجموعة أولًا.",
       visibilityOrderBlocked: "{group} تظهر فقط عند اختيار خيار من {parent}، لذلك يجب أن تبقى {parent} فوقها.",
+
+      /* Phase 115.0 — عناصر التحكم المشتركة بالصور. */
+      productImage: "صورة المنتج",
+      imageUpload: "رفع صورة",
+      imageChange: "تغيير",
+      imageRemove: "إزالة",
+      imageUrlReplacesUpload: "إدخال رابط يستبدل الصورة المرفوعة.",
+      imageTypeError: "اختر صورة بصيغة PNG أو JPG أو WebP.",
+      imageSizeError: "هذه الصورة كبيرة جدًا. اختر صورة أقل من 8 ميجابايت.",
+      imageDecodeError: "تعذّرت قراءة هذا الملف كصورة.",
+      imageStorageError: "تعذّر تخزين الصورة على هذا الجهاز. الصورة السابقة لم تتغيّر.",
 
       optionName: "اسم الخيار",
       optionExtraPrice: "السعر الإضافي",

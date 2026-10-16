@@ -33,6 +33,7 @@ import { useAcceptingOrders } from "../../lib/useAcceptingOrders.js";
 import { isCategoryVisibleNow } from "../../lib/categoryVisibility.js";
 import { fmtPrice } from "../../lib/format.js";
 import { buildCartLine } from "../../lib/cartLine.js";
+import { useImageAssetSrc } from "../../lib/imageAssets.js";
 import { restaurantDisplayName } from "../../lib/restaurantName.js";
 
 /* ── Price formatter ─────────────────────────────────────────────────────── */
@@ -1302,17 +1303,28 @@ export function productMonogram(name) {
 
 /* ── Image with monogram fallback ───────────────────────────────────────── */
 function ItemImage({ src, alt, name }) {
-  const [imgErr, setImgErr] = useState(false);
-  const useImg = src && !imgErr;
+  /* Keyed on the source, not a boolean: an admin replacing a product's image
+     reaches an already-open menu through the menu-change event, so a card
+     that failed on the old picture has to be willing to try the new one. */
+  const [failedSrc, setFailedSrc] = useState(null);
+  /* Phase 115.0 — the stored value may be an "asset:<id>" reference to an
+     image the restaurant uploaded from their device. The hook hands back a
+     hosted URL unchanged and reads an uploaded one out of IndexedDB once,
+     cached, so a menu of twenty products does not hit the database twenty
+     times. A reference whose asset is not on this device resolves to null
+     and falls through to the monogram below, which is the same fallback an
+     absent image has always used. */
+  const resolved = useImageAssetSrc(src);
+  const useImg = resolved && failedSrc !== resolved;
   return (
     <div className="item-card__img-wrap">
       {useImg ? (
         <img
           className="item-card__img"
-          src={src}
+          src={resolved}
           alt={alt}
           loading="lazy"
-          onError={() => setImgErr(true)}
+          onError={() => setFailedSrc(resolved)}
         />
       ) : (
         /* aria-hidden: the product name is right below in real text, so

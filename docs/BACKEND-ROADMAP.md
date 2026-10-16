@@ -222,6 +222,39 @@ the above.
 
 ---
 
+## C1. Menu images join the same store — DEFERRED (added in Phase 115.0)
+
+Section C above was written when only the restaurant logo could be uploaded.
+Phase 115.0 gave product images the same treatment, through the same shared
+pipeline (`src/lib/imageAssets.js`): the same IndexedDB database
+`pro_order_assets`, the same object store, the same `asset:<id>` references,
+now written into `item.imageUrl` as well as `settings.logoUrl`.
+
+Everything C says still applies, and three things get sharper because
+products are not logos:
+
+- **There are many more of them.** One restaurant has one logo and can have
+  a hundred products. Per-restaurant media quota, and a server-side answer
+  to what happens when it is reached, matter more than they did.
+- **Guests need them.** A logo that only exists on the till is awkward; a
+  product photo that only exists on the till is invisible to every guest who
+  scans a QR code, because their phone has never seen that IndexedDB. **This
+  is the single biggest reason menu images need real server storage**, and
+  nothing in the frontend can fake it.
+- **Replaced images are deliberately kept.** When an upload replaces an
+  earlier saved one, the old asset is left in place: nothing in the browser
+  can prove that no other product points at the same id, and deleting a
+  picture that is still in use is unrecoverable. Only assets created during
+  the current editing session and then abandoned are released. A backend with
+  a real reference count can do better, and should.
+
+Order snapshots and cart lines store the reference, not the image, so an
+order placed today still names the picture it was placed with. A backend
+must decide whether a historical order keeps resolving to the image as it
+was at the time — which argues for never hard-deleting a referenced asset.
+
+---
+
 ## D. Special Category uniqueness — DEFERRED (added in Phase 113.0)
 
 **Status: enforced in the client only. Local to one browser.**

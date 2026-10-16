@@ -20,6 +20,7 @@ import {
    every stored cart line and order keeps matching exactly as before. */
 const ingredientKey = (entry) => getLocalizedText(entry, BASE_CONTENT_LANGUAGE);
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
+import { useImageAssetSrc } from "../../../lib/imageAssets.js";
 import { fmtPrice } from "../../../lib/format.js";
 import { CUSTOMER_ITEM_NOTES_MAX_LENGTH } from "../../../lib/customerCart.js";
 import {
@@ -300,6 +301,12 @@ export default function ItemDetailsModal({
     [choices, choiceSelections]
   );
 
+  /* Phase 115.0 — an uploaded product image resolved to something an <img>
+     can take. Must sit ABOVE the early return below, like every other hook
+     here: one that runs on some renders and not others is the "rendered
+     more hooks than during the previous render" crash. */
+  const imageSrc = useImageAssetSrc(item?.imageUrl);
+
   /* Phase 86.1 §5 — the notes field grows with what is typed.
      At 500 characters a fixed three-row box means the guest writes most of
      their instruction into a scrolling slot they cannot read back. It now
@@ -375,7 +382,7 @@ export default function ItemDetailsModal({
      becomes visible, the problem becomes real, and this blocks exactly as it
      has since Phase 80. */
   const hasUnsatisfiableGroup = getUnsatisfiableGroups(item, choiceSelections).length > 0;
-  const useImg    = !!item.imageUrl && !imgErr;
+  const useImg    = !!imageSrc && !imgErr;
   const emoji     = category?.emoji || "🍽️";
 
   /* ── Handlers ──────────────────────────────────────────────────────────── */
@@ -836,7 +843,7 @@ export default function ItemDetailsModal({
           {useImg ? (
             <img
               className="item-modal__img"
-              src={item.imageUrl}
+              src={imageSrc}
               alt={itemName}
               onError={() => setImgErr(true)}
             />

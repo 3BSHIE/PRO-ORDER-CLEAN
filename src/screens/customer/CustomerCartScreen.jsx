@@ -25,6 +25,7 @@ import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import { validateItemSelections } from "../../lib/choiceRules.js";
 import { getMenuItems, getCategories } from "../../lib/menuData.js";
 import { validateCart, CART_ISSUE } from "../../lib/cartValidation.js";
+import { useImageAssetSrc } from "../../lib/imageAssets.js";
 import { prefersReducedMotion } from "../../lib/motion.js";
 import { createCustomerOrder, getOrderById } from "../../lib/customerOrders.js";
 import { getEstimatedPrepMinutes } from "../../lib/prepTimeData.js";
@@ -921,7 +922,11 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
   const { categories } = useMenuData(restaurantSlug);
   const category = categories.find((c) => c.id === line.categoryId);
   const emoji = category?.emoji || "🍽️";
-  const useImg = !!line.imageUrl && !imgErr;
+  /* Phase 115.0 — see ItemImage: a hosted URL passes through, an uploaded
+     reference is read from this device, and anything that cannot be
+     resolved falls through to the category emoji this card already used. */
+  const imageSrc = useImageAssetSrc(line.imageUrl);
+  const useImg = !!imageSrc && !imgErr;
   const { t } = useLanguage();
 
   const hasRemovals = line.selectedRemovals?.length > 0;
@@ -947,7 +952,7 @@ function CartLineCard({ line, restaurantSlug, validation, onQuantityChange, onRe
           {useImg ? (
             <img
               className="cart-line__img"
-              src={line.imageUrl}
+              src={imageSrc}
               alt={line.name}
               onError={() => setImgErr(true)}
             />

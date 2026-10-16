@@ -10,7 +10,13 @@ import AdminLayout from "./AdminLayout.jsx";
 import { useMenuData } from "../../lib/useMenuData.js";
 /* Phase 103.0 §25 — the project's existing URL guard, already used by
    RestaurantIdentity and CustomerLoadingScreen. Reused, not reimplemented. */
-import { isSafeImageUrl } from "../../lib/safeImage.js";
+import { isSafeImageSrc } from "../../lib/safeImage.js";
+import ImageAssetField from "../../components/admin/ImageAssetField.jsx";
+import {
+  IMAGE_ERROR,
+  deleteImageAsset,
+  useImageAssetSrc,
+} from "../../lib/imageAssets.js";
 import { productMonogram } from "../customer/CustomerMenuScreen.jsx";
 import {
   createMenuItem,
@@ -108,6 +114,28 @@ const groupMaxFieldId  = (groupId) => `mm-group-max-${groupId}`;
 const groupMinFieldId  = (groupId) => `mm-group-min-${groupId}`;
 /* Phase 114.0 — the focus target when a save fails on a broken condition. */
 const groupVisFieldId  = (groupId) => `mm-group-vis-${groupId}`;
+
+/* ── Phase 115.0 — product image limits ──────────────────────────────────
+   Deliberately different from the logo's 512px / 6 MB. A logo is a mark that
+   is never painted large; a product photograph is the hero of the Item
+   Details sheet and fills a card on a high-density phone, so 1024px on the
+   longest edge is the point where keeping more pixels stops being visible.
+   8 MB of source allows a photo straight off a phone camera, which is where
+   these images actually come from, while still refusing a file that is
+   plainly not a menu picture. */
+const MAX_PRODUCT_IMAGE_EDGE = 1024;
+const MAX_PRODUCT_IMAGE_BYTES = 8 * 1024 * 1024;
+
+/* One sentence per failure, each naming what the manager can do about it.
+   Keyed by the code processImageFile throws, with STORAGE as the fallback
+   for anything unexpected — the honest reading of an error we did not
+   anticipate is "it did not get stored". */
+const IMAGE_ERROR_COPY = {
+  [IMAGE_ERROR.TYPE]: ["admin.imageTypeError", "Choose a PNG, JPG or WebP image."],
+  [IMAGE_ERROR.SIZE]: ["admin.imageSizeError", "That image is too large. Choose one under 8 MB."],
+  [IMAGE_ERROR.DECODE]: ["admin.imageDecodeError", "That file could not be read as an image."],
+  [IMAGE_ERROR.STORAGE]: ["admin.imageStorageError", "The image could not be stored on this device. The previous image is unchanged."],
+};
 
 /**
  * Phase 48 — strict parsing for a choice group's selection limit.
@@ -573,6 +601,10 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
         <MenuItemEditorModal
           item={editingItem}
           categories={categories}
+          /* Phase 115.0 — recorded on every uploaded image, so a future
+             cleanup can tell one restaurant's assets from another's on a
+             device that serves more than one. */
+          restaurant={restaurant}
           onSave={handleSave}
           onClose={() => setEditingItem(null)}
           /* §29 — the editor raises the request; the confirmation dialog and
@@ -621,8 +653,8 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
    already handled; a broken one was not.
 
    This is the same guard RestaurantIdentity and CustomerLoadingScreen
-   already use — isSafeImageUrl plus a failed-url latch — so no new technique
-   is introduced. The fallback is the EXISTING category emoji, not a new
+   already use — a safe-source check plus a failed-url latch — so no new
+   technique is introduced. The fallback is the EXISTING category emoji, not a new
    placeholder (§25 rules out introducing one).
 
    The latch stores the URL rather than a boolean so that editing an item to
@@ -630,8 +662,19 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
    about upload or image storage changes; this is render-time only. */
 function ProductThumb({ item, categories, language }) {
   const [failedUrl, setFailedUrl] = useState(null);
-  const url = item.imageUrl;
-  const showImage = isSafeImageUrl(url) && failedUrl !== url;
+  /* Phase 115.0 — the stored field may now be an "asset:<id>" reference to
+     an uploaded image rather than a hosted URL. Resolving it here, through
+     the shared hook, is what makes an upload appear in this list without
+     this component knowing anything about IndexedDB. A plain URL comes back
+     unchanged, so rows that always worked still work.
+
+     isSafeImageSrc rather than isSafeImageUrl: the resolved value of an
+     uploaded image is a data URL this application produced itself, which
+     the URL-only guard deliberately refuses. The distinction between "a URL
+     the restaurant typed" and "a source we resolved" is the one safeImage.js
+     already draws. */
+  const url = useImageAssetSrc(item.imageUrl);
+  const showImage = isSafeImageSrc(url) && failedUrl !== url;
 
   return (
     <div className="mm-item-row__thumb">
@@ -678,10 +721,17 @@ function ProductLivePreview({
   categories, isNew,
 }) {
   const { t, language } = useLanguage();
-  const [imgErr, setImgErr] = useState(false);
+  /* Phase 115.0 — the latch stores WHICH source failed, not merely that one
+     did. A plain boolean stayed true after the admin replaced a dead image
+     with a working upload, so the strip kept showing the monogram for an
+     image that loads perfectly well. */
+  const [failedUrl, setFailedUrl] = useState(null);
 
-  const url = imageUrl.trim();
-  const showImg = isSafeImageUrl(url) && !imgErr;
+  /* Phase 115.0 — same resolution as the list and the guest card, so the
+     preview keeps telling the truth the moment an image is uploaded rather
+     than only after a save. */
+  const url = useImageAssetSrc(imageUrl.trim());
+  const showImg = isSafeImageSrc(url) && failedUrl !== url;
   const displayName =
     getLocalizedText(name, language).trim() ||
     (isNew ? t("admin.newProduct", "New item") : t("admin.untitledProduct", "Untitled item"));
@@ -698,7 +748,7 @@ function ProductLivePreview({
         <span className="mm-preview__media">
           {showImg ? (
             /* alt="" — the name is right beside it in real text. */
-            <img src={url} alt="" loading="lazy" onError={() => setImgErr(true)} />
+            <img src={url} alt="" loading="lazy" onError={() => setFailedUrl(url)} />
           ) : (
             <span className="mm-preview__mono" aria-hidden="true">
               {productMonogram(displayName)}
@@ -743,7 +793,7 @@ function ProductLivePreview({
 }
 
 /* ── Add/Edit item form modal — the big one ──────────────────────────────── */
-function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelete }) {
+function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, onRequestDelete }) {
   const { t, language } = useLanguage();
   const isNew = !item.id;
 
@@ -1037,6 +1087,32 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
+  /* ── Phase 115.0 §14 — images uploaded during THIS editing session ──────
+     An upload has to be written to IndexedDB at the moment it is chosen,
+     because the draft needs a reference to point at. That means a manager
+     who uploads three images before settling on the third has left two
+     behind, and abandoning the editor entirely leaves all three.
+
+     Only refs created here are ever released. An image that was already
+     saved against this product is never touched, even when it is replaced:
+     nothing in this editor can prove that no OTHER product points at the
+     same asset, and deleting a picture that is still in use somewhere is not
+     recoverable, while leaving a replaced one behind costs some bytes. */
+  const createdImageRefs = useRef([]);
+  function releaseUnusedImages(keepRef) {
+    const orphans = createdImageRefs.current.filter((ref) => ref !== keepRef);
+    /* Emptied, NOT re-seeded with keepRef. Putting the surviving reference
+       back would make an image that is now SAVED eligible for deletion by a
+       later release in the same session — the one case this must never do,
+       because by then another product may point at it too. The list means
+       "uploaded here and not yet committed", and once something is
+       committed it leaves the list for good. */
+    createdImageRefs.current = [];
+    /* Fire and forget: a leftover image is not worth blocking a save or a
+       close on, and a failed cleanup costs storage rather than correctness. */
+    for (const ref of orphans) deleteImageAsset(ref);
+  }
+
   /* Every dismissal path — X, overlay, Escape and Cancel — comes through
      here, because this component owns both the Modal and its footer. A clean
      form closes straight away; only unsaved work is worth interrupting for.
@@ -1098,6 +1174,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
     pendingNavRef.current = null;
 
     if (!discard) return; // Keep Editing — draft, errors and editor all stay
+
+    /* §13/§14 — discarding means the product keeps the image it was saved
+       with, so every image uploaded during this session is now unreachable
+       and is released. The SAVED image is not in this list and is therefore
+       untouched, which is exactly what "the original image remains" means. */
+    releaseUnusedImages(null);
 
     /* Phase 60 — close first, then navigate, in that order and once only.
        Closing unmounts this modal and unregisters the guard, so the parked
@@ -1208,6 +1290,8 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       isFeatured,
       isPopular,
       removableIngredients,
+      /* §12 — one effective source. imageUrl carries either a hosted URL or
+         an "asset:<id>" reference, never both and never a merged value. */
       /* §16 — undefined rather than null when never configured, so the data
          layer leaves the stored value alone instead of writing a position
          nobody chose. */
@@ -1262,6 +1346,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
         .filter((a) => hasLocalizedText(a.name))
         .map((a) => ({ ...a, name: trimLocalizedText(a.name), price: parseAddOnPrice(a.price) })),
       });
+      /* §14 — the write succeeded, so the draft's image is now the product's
+         image and every OTHER image uploaded in this session is unreachable.
+         Released only here, against what was actually persisted, so a failed
+         save never costs the manager the picture they just chose. */
+      releaseUnusedImages(imageUrl.trim());
     } finally {
       savingRef.current = false;
       /* A successful save unmounts this editor, so only touch state if the
@@ -2059,14 +2148,29 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           />
         </label>
 
-        {/* §18 — the image comes last in Product Details: the preview above is
-            its feedback. URL only — no upload, no picker, no storage. */}
+        {/* §18 — the image comes last in Product Details: the preview above
+            is its feedback.
+
+            Phase 115.0 §2/§19 — this cell held a bare "Image URL" text input,
+            which asked every restaurant to host their photographs somewhere
+            before they could use them. It is now the shared upload control,
+            and it is still ONE ROW: a 72px preview with its actions beside
+            it, the URL field folded behind a text toggle, and no hint line.
+            The row it shares with Sort order is a little taller than a text
+            input and nothing else about the editor moved. */}
         <div className="mm-row-2">
-          <Input
-            label={t("admin.productImageUrl", "Image URL")}
+          <ImageAssetField
+            label={t("admin.productImage", "Product image")}
             value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…"
+            onChange={setImageUrl}
+            onAssetCreated={(ref) => createdImageRefs.current.push(ref)}
+            restaurantSlug={restaurant.slug}
+            maxEdge={MAX_PRODUCT_IMAGE_EDGE}
+            maxBytes={MAX_PRODUCT_IMAGE_BYTES}
+            idPrefix="img"
+            errorCopy={IMAGE_ERROR_COPY}
+            urlLabel={t("admin.productImageUrl", "Image URL")}
+            previewAlt=""
           />
           <Input
             id={SORT_ORDER_FIELD_ID}

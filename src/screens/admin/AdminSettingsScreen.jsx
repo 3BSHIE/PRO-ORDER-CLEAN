@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Settings as SettingsIcon, Save, ImagePlus } from "lucide-react";
+import { Settings as SettingsIcon, Save } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Input   from "../../components/ui/Input.jsx";
@@ -26,12 +26,12 @@ import { SUPPORTED_CURRENCY } from "../../lib/format.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 import RestaurantLogo from "../../components/brand/RestaurantLogo.jsx";
 import {
-  processLogoFile,
-  saveLogoAsset,
   deleteLogoAsset,
   isLogoAssetRef,
-  ACCEPTED_LOGO_TYPES,
+  MAX_LOGO_EDGE,
+  MAX_LOGO_BYTES,
 } from "../../lib/restaurantLogoAssets.js";
+import ImageAssetField from "../../components/admin/ImageAssetField.jsx";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -215,8 +215,6 @@ const LOGO_ERROR_COPY = {
   "storage-failed": ["admin.logoStorageError", "The logo could not be stored on this device. The previous logo is unchanged."],
 };
 
-const LOGO_ERROR_FALLBACK = "not-an-image";
-
 export default function AdminSettingsScreen({ restaurant, session, onSignOut, onNavigate }) {
   const { settings } = useSettingsData(restaurant.slug);
   const { t } = useLanguage();
@@ -235,9 +233,11 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      known — saved or discarded — the ones nothing points at can be released.
      Only refs created here, in this visit, are ever eligible: never another
      restaurant's, and never the one the persisted settings use. */
-  const [logoBusy, setLogoBusy] = useState(false);
-  const [logoError, setLogoError] = useState(null);
-  const logoFileRef = useRef(null);
+  /* Phase 115.0 — the busy flag, the error message and the file input moved
+     into ImageAssetField, which owns the picking and the storing now. What
+     stays here is the only part this screen has to know about: which assets
+     this visit created, so Save and Discard can release the ones nothing
+     ends up pointing at. */
   const createdLogoRefs = useRef([]);
 
   /* ── Phase 96.1 §4 — Kitchen alert sounds join the Settings lifecycle ───
@@ -469,7 +469,6 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
        this visit that the saved settings do not point at is now unreachable,
        so it is released rather than left occupying the device's storage. */
     releaseUnusedLogos(settings.logoUrl);
-    setLogoError(null);
     if (pending) pending();
   }
 
@@ -554,40 +553,6 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     const orphans = createdLogoRefs.current.filter((ref) => ref !== keepRef);
     createdLogoRefs.current = isLogoAssetRef(keepRef) ? [keepRef] : [];
     for (const ref of orphans) deleteLogoAsset(ref);
-  }
-
-  async function handleLogoFile(event) {
-    const file = event.target.files?.[0];
-    /* Cleared straight away so re-picking the SAME file still fires a change
-       event; a browser will not re-fire for an unchanged input value. */
-    event.target.value = "";
-    if (!file) return;
-
-    setLogoError(null);
-    setLogoBusy(true);
-    try {
-      /* Validate and optimise first, store second: nothing reaches the device
-         until we know it really is a decodable image of a supported type. */
-      const asset = await processLogoFile(file);
-      const ref = await saveLogoAsset(asset, restaurant.slug);
-      createdLogoRefs.current.push(ref);
-      setField("logoUrl", ref);
-    } catch (err) {
-      /* The draft is left exactly as it was, so a rejected file cannot
-         disturb the logo already in place — saved or in progress. */
-      const [key, fallback] =
-        LOGO_ERROR_COPY[err?.message] || LOGO_ERROR_COPY[LOGO_ERROR_FALLBACK];
-      setLogoError(t(key, fallback));
-    } finally {
-      if (mountedRef.current) setLogoBusy(false);
-    }
-  }
-
-  /* Clears the SETTING only. The stored image survives until a Save or a
-     Discard establishes that nothing points at it any more. */
-  function handleRemoveLogo() {
-    setLogoError(null);
-    setField("logoUrl", "");
   }
 
   async function handleSaveAll() {
@@ -757,61 +722,48 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <div className="st-split__col">
               <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
                 placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} />
-              {/* Phase 112.2 §B — a restaurant's logo lives on the owner's
-                  phone or laptop, not at a public URL they can paste, so
-                  uploading is the primary control. The URL field stays
-                  beneath it for a restaurant that does host one, and for the
-                  ones already using it: their stored value is untouched. */}
-              <div className="field st-logo">
-                <span className="field__label">{t("admin.restaurantLogo", "Restaurant Logo")}</span>
-                <div className="st-logo__row">
-                  <div className="st-logo__preview">
-                    {/* Bounded box, contain-fitted: the draft logo is shown
-                        at the real proportions it will keep everywhere. */}
-                    <RestaurantLogo src={draft.logoUrl} className="st-logo__img" />
-                    {!draft.logoUrl && (
-                      <ImagePlus size={18} strokeWidth={1.7} aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="st-logo__actions">
-                    {/* The native picker is driven by the button beside it so
-                        the control matches every other button on this page;
-                        it stays in the DOM and focusable rather than hidden
-                        from assistive technology. */}
-                    <input
-                      ref={logoFileRef}
-                      type="file"
-                      className="st-logo__file"
-                      accept={ACCEPTED_LOGO_TYPES.join(",")}
-                      aria-label={t("admin.uploadLogo", "Upload Restaurant Logo")}
-                      onChange={handleLogoFile}
-                    />
-                    <Button variant="outline" size="sm" icon={ImagePlus} disabled={logoBusy}
-                      onClick={() => logoFileRef.current?.click()}>
-                      {logoBusy ? t("common.saving", "Saving…") : t("admin.uploadLogo", "Upload Restaurant Logo")}
-                    </Button>
-                    {draft.logoUrl && (
-                      <Button variant="ghost" size="sm" disabled={logoBusy}
-                        onClick={handleRemoveLogo}>
-                        {t("admin.removeLogo", "Remove logo")}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {logoError
-                  ? <span className="field__hint field__hint--error" role="alert">{logoError}</span>
-                  : <span className="field__hint">{t("admin.logoHint", "PNG, JPG or WebP. Transparent backgrounds are kept.")}</span>}
-              </div>
-              <Input label={t("admin.logoUrl", "Restaurant Logo URL")}
-                value={isLogoAssetRef(draft.logoUrl) ? "" : draft.logoUrl}
-                disabled={isLogoAssetRef(draft.logoUrl)}
-                placeholder={isLogoAssetRef(draft.logoUrl)
-                  ? t("admin.logoUploadedNote", "An uploaded image is in use")
-                  : "https://…"}
-                hint={isLogoAssetRef(draft.logoUrl)
-                  ? t("admin.logoUploadedHint", "Remove the uploaded logo to use a hosted URL instead.")
-                  : undefined}
-                onChange={(e) => setField("logoUrl", e.target.value)} />
+              {/* ── Phase 115.0 §21–§23 — the logo, as ONE field ──────────
+                  Phase 112.2 added upload beside the URL input that was
+                  already here, and the column ended up carrying three
+                  image-shaped things in a row: a "Restaurant Logo" block
+                  with a preview, two buttons stacked vertically and a
+                  permanent hint; then a separate "Restaurant Logo URL" input
+                  that was usually disabled and carried two more lines
+                  explaining why; then "Cover Image URL". Two labels for one
+                  logo, a field that mostly could not be typed into, and the
+                  actions running down the page instead of across it.
+
+                  It is now the same control the Product editor uses: a
+                  bounded preview with its actions ON ONE LINE beside it, and
+                  the hosted-URL input folded behind a text toggle so it
+                  costs nothing until it is wanted. Every capability survives
+                  — upload, replace, remove, view and edit a legacy URL,
+                  switch either way — and the column reads as Name, Logo,
+                  Cover Image rather than as four competing blocks.
+
+                  Nothing about the lifecycle moved: onChange writes the same
+                  draft field through the same setField, so Save, Discard and
+                  the unsaved-changes guard behave exactly as before. */}
+              <ImageAssetField
+                label={t("admin.restaurantLogo", "Restaurant Logo")}
+                value={draft.logoUrl}
+                onChange={(next) => setField("logoUrl", next)}
+                onAssetCreated={(ref) => createdLogoRefs.current.push(ref)}
+                restaurantSlug={restaurant.slug}
+                maxEdge={MAX_LOGO_EDGE}
+                maxBytes={MAX_LOGO_BYTES}
+                idPrefix="logo"
+                errorCopy={LOGO_ERROR_COPY}
+                urlLabel={t("admin.logoUrl", "Restaurant Logo URL")}
+                /* §23 — the format hint that used to sit here permanently is
+                   gone. The file picker already filters to PNG, JPG and WebP
+                   through its accept list, so the sentence was restating a
+                   constraint the control enforces, and at the width of this
+                   column it wrapped to two lines directly under the row. The
+                   error message still names the formats at the only moment
+                   the owner needs them, which is when a file is refused. */
+                previewAlt=""
+              />
               <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
                 placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
             </div>
