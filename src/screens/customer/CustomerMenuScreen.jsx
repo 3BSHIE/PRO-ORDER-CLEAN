@@ -381,6 +381,17 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      the accessibility tree and hit-testing — see .menu-idbar in global.css. */
   const expandedSearchRef = useRef(null);
   const compactSearchRef = useRef(null);
+  /* §2 — whether the compact row will show a logo, which is what decides
+     between "logo only" and the constrained name fallback. The same test the
+     expanded header's own logo path uses: a configured source. A source that
+     is set but fails to load leaves the identity empty here, exactly as it
+     does everywhere else, rather than silently resurrecting the name. */
+  const compactLogoShown = (settings.logoUrl || "").trim() !== "";
+  /* The wider identity track is for the one case that needs it: a name with
+     no logo to carry it. With neither (state D) the track holds nothing, so
+     the narrow pair applies and Search keeps the extra width. */
+  const compactNameFallback =
+    !compactLogoShown && (restaurant.name || "").trim() !== "";
 
   /* The compact bar's height, from the one place it is declared. Read from
      CSS rather than guessed, and used when a category jump happens while the
@@ -747,15 +758,27 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         ref={idBarRef}
         className={`menu-idbar ${headerCompact ? "menu-idbar--shown" : ""}`}
       >
-        <div className="container menu-idbar__row">
-          {/* Leading end. RestaurantIdentity renders nothing at all when the
-              restaurant has neither a name nor a logo, so no empty slot is
-              reserved and Search simply takes the width. aria-hidden because
-              the expanded header above states the same identity as real
-              content; this is its visual continuation, not a second
-              announcement. */}
+        <div
+          className={`container menu-idbar__row ${
+            compactNameFallback ? "menu-idbar__row--nologo" : ""
+          }`}
+        >
+          {/* ── Region 1: identity, LOGO ONLY where there is one ──────────
+              Phase 113.2 §2 — the name is withheld here, and only here. A
+              phone has one row to give and a venue name can be arbitrarily
+              long; letting it set the width would take that width from the
+              two things that have to work, Search and the space the mascot
+              will occupy. The logo already identifies the restaurant, and the
+              expanded header two scroll-positions above still carries the
+              full lockup, so nothing is lost — it is simply not repeated.
+
+              Passing an empty name is what puts RestaurantIdentity into its
+              existing logo-only mode, so the 112.2c sizing, the contain-fit
+              and the translated alt text all come along unchanged. With no
+              logo the name returns as the fallback, constrained by its column
+              and ellipsed — see .menu-idbar .rest-identity__name. */}
           <RestaurantIdentity
-            name={restaurant.name}
+            name={compactLogoShown ? "" : restaurant.name}
             logoUrl={settings.logoUrl}
             variant="compact"
           />
@@ -787,10 +810,23 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             )}
           </div>
 
-          {/* Trailing end: deliberately empty. A future assistant control is
-              intended here and would be a sibling of the search above — no
-              element, no icon and no reserved width are rendered for it now,
-              because a reserved width would cost a 320px phone real space. */}
+          {/* ── Region 3: the mascot's seat ───────────────────────────────
+              Phase 113.2 §6/§7 — a REAL reservation now, not just an
+              available end. It is the third track of the row's grid, the
+              same width as the identity track, and that equality is what
+              makes Search optically centred rather than merely "in the
+              middle somewhere".
+
+              It is empty on purpose and in every sense: no mascot, no icon,
+              no label, no border, no background, nothing focusable, nothing
+              announced, and pointer-events:none so it cannot take a tap meant
+              for the menu behind it. Phase 113.2 implements no AI of any kind.
+
+              When the assistant arrives it replaces the contents of THIS
+              element — a compact mascot control at mobile widths, with room
+              for a short label where the track is wider — without the other
+              two regions moving. */}
+          <div className="menu-idbar__ai" aria-hidden="true" />
         </div>
       </div>
 

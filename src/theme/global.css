@@ -514,15 +514,54 @@ button{font-family:var(--font-body)}
   transition:opacity .2s var(--ease) .04s,transform .2s var(--ease) .04s}
 .menu-idbar--shown .rest-identity{opacity:1;transform:none}
 
+/* ── Phase 113.2 §1/§8 — three regions, one grid ─────────────────────────
+   identity | search | mascot-to-be.
+
+   The outer tracks are THE SAME WIDTH, and that is the whole centring
+   mechanism: with equal sides the middle track is centred in the row, so
+   Search is centred no matter how wide the logo happens to be or how much
+   the future mascot eventually fills. One variable sets both, so they cannot
+   drift apart and a future change to the mascot's size automatically keeps
+   the composition balanced.
+
+   The track scales with the viewport instead of being fixed: 44px on a 320px
+   phone is a comfortable control and leaves Search ~174px, which is what it
+   had before this phase; 72px on a tablet or desktop gives the mascot room
+   for a short label without Search stretching across the window. */
+:root{--menu-idbar-side:clamp(44px,14vw,72px)}
+/* A name-only restaurant (§4 state C) has nothing but its name to identify
+   it, and 44px clips even a short one. That case gets a wider pair of tracks
+   — BOTH of them, so the search stays centred — which is enough for a normal
+   name and still leaves ~140px of field on a 320px phone. */
+.menu-idbar__row--nologo{--menu-idbar-side:clamp(64px,20vw,96px)}
 .menu-idbar__row{
-  height:100%;display:flex;align-items:center;gap:10px;min-width:0}
-/* §3.1 — identity leads, Search takes the middle and the remaining width,
-   and the trailing end is left structurally free for the future assistant
-   control: adding one later is a sibling after the search, not a rebuild.
-   Nothing is rendered for it now and no width is reserved. */
+  height:100%;min-width:0;
+  display:grid;
+  grid-template-columns:var(--menu-idbar-side) minmax(0,1fr) var(--menu-idbar-side);
+  align-items:center;gap:8px}
+
+/* Region 1. The identity sits at the leading edge of its own track and may
+   not grow past it, which is what stops a name or a wide wordmark from
+   taking width the other two regions need. */
 .customer-theme .menu-idbar .rest-identity--compact{
-  flex:0 1 auto;min-width:0;max-width:46%}
-.menu-idbar__search{flex:1 1 auto;min-width:0;margin:0}
+  min-width:0;max-width:100%;justify-self:start}
+/* The name only ever appears here when there is NO logo (§4 state C). It is
+   kept to one ellipsed line inside the same narrow track rather than being
+   allowed to set the row's proportions. */
+.customer-theme .menu-idbar .rest-identity__name{
+  font-size:13px;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Region 2. Fills its track, centred, and capped so a desktop window does
+   not turn the field into a horizon. */
+.menu-idbar__search{
+  width:100%;max-width:420px;margin:0 auto;min-width:0}
+
+/* Region 3. Reserved, empty, inert. No paint of any kind — the width is the
+   entire point. */
+.menu-idbar__ai{
+  justify-self:end;width:100%;height:100%;
+  pointer-events:none}
 
 /* The compact field: the same control, shorter. It keeps the underline
    treatment, the icon, the clear action and the focus behaviour of the
@@ -534,12 +573,10 @@ button{font-family:var(--font-body)}
 .menu-idbar__search .menu-search__clear{right:0}
 [dir="rtl"] .menu-idbar__search .menu-search__clear{right:auto;left:0}
 
-/* 320px: the identity yields first, because the venue is already named in
-   the expanded header and Search is the control in use. The logo keeps its
-   size; only the name's share of the row narrows. */
+/* 320px: the row tightens rather than dropping anything. The identity track
+   is already at its 44px floor, so the saving comes from the gaps. */
 @media(max-width:360px){
-  .customer-theme .menu-idbar .rest-identity--compact{max-width:38%}
-  .menu-idbar__row{gap:8px}
+  .menu-idbar__row{gap:6px}
 }
 
 /* ── Phase 113.0 §8–§12 — the Special Category chip ──────────────────────
