@@ -115,21 +115,31 @@ export function normalizeChoiceGroup(group) {
   const maxSelections = storedMax !== null ? storedMax : Math.max(1, minSelections);
 
   /* Deliberately destructured out rather than deleted, so the returned object
-     never carries the legacy key at all. */
-  const { required, ...rest } = group || {};
+     never carries the legacy key at all. The condition is taken out for the
+     same reason: a malformed one stored by some other route must not survive
+     by riding along in the rest. */
+  const { required, visibilityCondition: storedCondition, ...rest } = group || {};
 
   /* Phase 114.0 §5/§14 — the condition is resolved on READ, never migrated.
-     A group that predates this phase has no field at all and normalises to
-     null, which IS "Always Show", so no legacy product needs rewriting to
-     keep behaving exactly as it does today. A malformed or half-written
-     condition normalises to null too — see normalizeVisibilityCondition for
-     why that is the safe direction. */
+     A group that predates this phase has no field, reads as "Always Show"
+     and keeps behaving exactly as it does today.
+
+     The key is OMITTED rather than set to null when there is no condition,
+     and that is deliberate. Normalized groups are what gets written back the
+     next time anything saves the menu, so emitting the field unconditionally
+     would quietly stamp "visibilityCondition": null onto every choice group
+     in the restaurant the first time a manager edited any product — a
+     rewrite of legacy data to record the absence of a feature, which §14
+     rules out. Absent and null mean the same thing to every reader here, so
+     the one that leaves stored products untouched is the one to write. */
+  const visibilityCondition = normalizeVisibilityCondition(storedCondition);
+
   return {
     ...rest,
     minSelections,
     maxSelections,
     options,
-    visibilityCondition: normalizeVisibilityCondition(group?.visibilityCondition),
+    ...(visibilityCondition ? { visibilityCondition } : {}),
   };
 }
 

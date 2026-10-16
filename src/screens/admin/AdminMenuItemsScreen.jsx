@@ -911,9 +911,15 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
         return;
       }
     }
-    const patched = { ...group, visibilityCondition: nextCondition };
-    handleUpdateChoiceGroup(group.id, { visibilityCondition: nextCondition });
-    revalidateGroupInDraft(patched);
+    /* undefined, not null, for "Always Show" — the draft has to serialise
+       the same way the UNTOUCHED product does, or returning a group to
+       Always Show and changing nothing else would leave the editor
+       permanently flagged as having unsaved changes. JSON.stringify drops an
+       undefined value, and a normalized group with no condition has no key
+       at all, so the two agree. */
+    const value = nextCondition === null ? undefined : nextCondition;
+    handleUpdateChoiceGroup(group.id, { visibilityCondition: value });
+    revalidateGroupInDraft({ ...group, visibilityCondition: value });
   }
 
   /* Re-judge ONE group against the whole draft and update only its own
