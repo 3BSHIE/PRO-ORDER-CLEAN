@@ -30,6 +30,14 @@ import {
   buildCustomizationSections,
   formatGroupError,
   CHOICE_ISSUE,
+  /* Phase 114.0 — conditional visibility. Imported rather than reimplemented:
+     this sheet is the customization UI for the guest menu, the cart editor
+     AND Staff Ordering, so one evaluator here is already three surfaces that
+     cannot disagree, and the cart validator and the order gate read the same
+     module from the other side (§15/§29). */
+  getVisibleChoiceGroups,
+  pruneHiddenSelections,
+  isConditionalGroup,
 } from "../../../lib/choiceRules.js";
 
 /**
@@ -107,6 +115,21 @@ function reconcileLineToItem(item, line) {
     choiceSelections[group.id] = chosen.slice(0, group.maxSelections);
   }
 
+  /* Phase 114.0 §25 — the order the rules above run in is what makes this
+     correct, and it is the order the specification asks for: every stored
+     selection is reconciled against the live product FIRST, so the parent
+     groups hold whatever the guest actually still has; only then is
+     visibility evaluated from that settled state, and dependent selections
+     survive exactly when their trigger survived with them.
+
+     A line whose trigger was dropped a moment ago — sold out, deleted, or
+     simply no longer what the product offers — therefore arrives with its
+     dependent picks already gone rather than restored into groups the sheet
+     is not going to show. Nothing is written to the cart by this: the
+     editor's state is cleaned, and the line itself changes only if the guest
+     presses Update. */
+  const reconciledChoices = pruneHiddenSelections(item.choices || [], choiceSelections);
+
   const addOnIds = new Set(
     (line.selectedPaidAddOns || [])
       .filter((a) => (item.paidAddOns || []).some((p) => p.id === a.id))
@@ -129,7 +152,7 @@ function reconcileLineToItem(item, line) {
   );
 
   return {
-    choiceSelections,
+    choiceSelections: reconciledChoices,
     addOnIds,
     removedIds,
     quantity: Number.isInteger(line.quantity) && line.quantity > 0 ? line.quantity : 1,
@@ -240,7 +263,13 @@ export default function ItemDetailsModal({
         if (kept.length !== ids.length) changed = true;
         next[groupId] = kept;
       }
-      return changed ? next : prev;
+      /* Phase 114.0 §21 — the option that just went out of stock may have
+         been a TRIGGER, and dropping it has to take the groups it was
+         revealing with it. Pruning inside the same updater is what keeps
+         that from being a second render in which the dependent group is
+         gone from view but its paid option is still in the total. */
+      const settled = pruneHiddenSelections(item.choices || [], changed ? next : prev);
+      return settled === prev ? prev : settled;
     });
   }, [open, item]);
 
@@ -254,6 +283,22 @@ export default function ItemDetailsModal({
   /* ── Price math (must run before any early return — hooks rule) ──────── */
   const choices    = item?.choices || [];
   const paidAddOns = item?.paidAddOns || [];
+
+  /* ── Phase 114.0 — which groups is this item asking right now? ─────────
+     DERIVED during render rather than tracked in state. That is what makes
+     §23's "do not show a conditional group briefly before initial visibility
+     evaluation completes" true by construction instead of by timing: a
+     hidden group is never rendered at all, not for one frame and not on the
+     first paint of an edited cart line.
+
+     It is also what makes §44 hold. Pricing, validation, the rendered
+     sections and the Add-to-cart payload all read THIS set, so there is no
+     arrangement of state in which a group is hidden while its paid option is
+     still in the total — the two are the same computation. */
+  const visibleGroupIds = useMemo(
+    () => new Set(getVisibleChoiceGroups(choices, choiceSelections).map((g) => g.id)),
+    [choices, choiceSelections]
+  );
 
   /* Phase 86.1 §5 — the notes field grows with what is typed.
      At 500 characters a fixed three-row box means the guest writes most of
@@ -282,6 +327,15 @@ export default function ItemDetailsModal({
     [item, paidAddOns]
   );
 
+  /* §16 — the configured order is unchanged; a hidden group simply is not in
+     the sequence. Filtering here rather than inside the renderer means a
+     dependent group reappears in its own configured position, not at the end
+     and not in a nested block of its own. */
+  const visibleSections = useMemo(
+    () => sections.filter((s) => s.kind !== "choice" || visibleGroupIds.has(s.group.id)),
+    [sections, visibleGroupIds]
+  );
+
   const addOnsTotal = useMemo(() => {
     return paidAddOns
       .filter((a) => addOnIds.has(a.id))
@@ -291,6 +345,12 @@ export default function ItemDetailsModal({
   const choicesTotal = useMemo(() => {
     let sum = 0;
     for (const group of choices) {
+      /* §20 — a hidden group contributes nothing to the price, full stop.
+         The selection state is pruned on every path that can hide a group,
+         so this filter should never be the thing that saves us; it is here
+         because "never charge for what is not on screen" is too important
+         to rest on the completeness of the pruning alone. */
+      if (!visibleGroupIds.has(group.id)) continue;
       const selected = choiceSelections[group.id] || [];
       for (const optId of selected) {
         const opt = group.options.find((o) => o.id === optId);
@@ -298,7 +358,7 @@ export default function ItemDetailsModal({
       }
     }
     return sum;
-  }, [choices, choiceSelections]);
+  }, [choices, choiceSelections, visibleGroupIds]);
 
   const unitPrice  = (item?.price || 0) + addOnsTotal + choicesTotal;
   const total      = unitPrice * quantity;
@@ -309,7 +369,12 @@ export default function ItemDetailsModal({
   /* §25 — any group whose available options cannot reach its minimum. Checked
      here rather than trusted from Admin, because stale or hand-edited data
      reaches the guest too. */
-  const hasUnsatisfiableGroup = getUnsatisfiableGroups(item).length > 0;
+  /* Phase 114.0 — scoped to the groups actually being asked. A conditional
+     group whose options are all sold out is not a reason to refuse the whole
+     product while it is hidden; the moment its trigger is selected it
+     becomes visible, the problem becomes real, and this blocks exactly as it
+     has since Phase 80. */
+  const hasUnsatisfiableGroup = getUnsatisfiableGroups(item, choiceSelections).length > 0;
   const useImg    = !!item.imageUrl && !imgErr;
   const emoji     = category?.emoji || "🍽️";
 
@@ -322,24 +387,58 @@ export default function ItemDetailsModal({
     });
   }
 
+  /**
+   * Phase 114.0 §18/§44 — every change to a choice goes through here, and
+   * the clearing of newly-hidden groups happens IN THE SAME TRANSITION.
+   *
+   * This is the financial-integrity rule expressed as structure. Hiding a
+   * group in one update and clearing its selections in a follow-up effect
+   * would leave one committed render in which "Choose your fries" is gone
+   * from the sheet and its +0.500 is still in the total — briefly, but
+   * really, and the guest could tap Add to cart inside that window. Pruning
+   * before either setState runs makes that state unreachable rather than
+   * merely short-lived.
+   *
+   * §18 also forbids the opposite mistake: selections are genuinely dropped,
+   * not parked somewhere for restoration, so re-selecting the trigger brings
+   * the group back EMPTY and the guest chooses again.
+   *
+   * Reading the current selections from the render closure rather than
+   * through the functional updater is deliberate and safe — this runs from a
+   * click, where the closed-over state is current, and one shared snapshot
+   * is what lets both setStates below be derived from the same computation
+   * instead of racing to agree.
+   */
+  function commitChoice(groupId, nextIds) {
+    const merged = { ...choiceSelections, [groupId]: nextIds };
+    const pruned = pruneHiddenSelections(choices, merged);
+    const visible = new Set(getVisibleChoiceGroups(choices, pruned).map((g) => g.id));
+
+    setChoiceSelections(pruned);
+    setChoiceErrors((prev) => {
+      const next = { ...prev, [groupId]: false };
+      /* A group that has just been hidden must not keep a validation error
+         waiting for it: the guest would meet a complaint they never caused
+         the next time the trigger brought the group back. */
+      for (const id of Object.keys(next)) {
+        if (!visible.has(id)) delete next[id];
+      }
+      return next;
+    });
+  }
+
   function selectSingle(groupId, optionId) {
-    setChoiceSelections((prev) => ({ ...prev, [groupId]: [optionId] }));
-    setChoiceErrors((prev) => ({ ...prev, [groupId]: false }));
+    commitChoice(groupId, [optionId]);
   }
 
   function toggleMulti(groupId, optionId, maxSelections) {
-    setChoiceSelections((prev) => {
-      const current = prev[groupId] || [];
-      let next;
-      if (current.includes(optionId)) {
-        next = current.filter((id) => id !== optionId);
-      } else {
-        if (current.length >= maxSelections) return prev; // cap reached
-        next = [...current, optionId];
-      }
-      return { ...prev, [groupId]: next };
-    });
-    setChoiceErrors((prev) => ({ ...prev, [groupId]: false }));
+    const current = choiceSelections[groupId] || [];
+    if (current.includes(optionId)) {
+      commitChoice(groupId, current.filter((id) => id !== optionId));
+      return;
+    }
+    if (current.length >= maxSelections) return; // cap reached
+    commitChoice(groupId, [...current, optionId]);
   }
 
   function toggleAddOn(id) {
@@ -364,6 +463,13 @@ export default function ItemDetailsModal({
     const errors = {};
     let firstInvalidId = null;
     for (const group of choices) {
+      /* §19 — a hidden group's Required setting is preserved, not disabled;
+         it simply is not being asked yet. Validating it would block the
+         guest on a question that is not on screen and that they have no way
+         to answer, which is the one outcome a visibility feature must never
+         produce. Selecting the trigger makes it visible and required in the
+         same moment. */
+      if (!visibleGroupIds.has(group.id)) continue;
       const result = validateGroupSelection(group, choiceSelections[group.id] || []);
       if (!result.ok) {
         errors[group.id] = result.issue;
@@ -479,6 +585,11 @@ export default function ItemDetailsModal({
 
     const selectedChoices = [];
     for (const group of choices) {
+      /* §24 — the cart line is built from what is ACTIVE. A hidden group
+         contributes no option, no label, no price and no summary row, so a
+         phantom pick cannot reach the cart, the order snapshot or the
+         kitchen ticket through this door. */
+      if (!visibleGroupIds.has(group.id)) continue;
       const selected = choiceSelections[group.id] || [];
       for (const optId of selected) {
         const opt = group.options.find((o) => o.id === optId);
@@ -586,7 +697,9 @@ export default function ItemDetailsModal({
                         screen reader announces the group's name when focus
                         lands here, and aria-describedby adds the reason. */}
                     <div
-                      className={`cust-section ${hasError ? "cust-section--invalid" : ""}`}
+                      className={`cust-section ${hasError ? "cust-section--invalid" : ""} ${
+                        isConditionalGroup(group) ? "cust-section--revealed" : ""
+                      }`}
                       ref={(el) => { groupRefs.current[group.id] = el; }}
                       tabIndex={-1}
                       role="group"
@@ -774,7 +887,7 @@ export default function ItemDetailsModal({
             <>
               {/* Phase 85 §9–§12 — emitted in the product's CONFIGURED order.
                   Validation is unaffected by position (§11). */}
-              {sections.map((section) => (
+              {visibleSections.map((section) => (
                 <Fragment key={section.key}>
                   {section.kind === "removals" && renderRemovalsSection()}
                   {section.kind === "choice" && renderChoiceSection(section.group)}

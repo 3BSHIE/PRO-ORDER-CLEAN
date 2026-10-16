@@ -118,7 +118,19 @@ export function normalizeChoiceGroup(group) {
      never carries the legacy key at all. */
   const { required, ...rest } = group || {};
 
-  return { ...rest, minSelections, maxSelections, options };
+  /* Phase 114.0 §5/§14 — the condition is resolved on READ, never migrated.
+     A group that predates this phase has no field at all and normalises to
+     null, which IS "Always Show", so no legacy product needs rewriting to
+     keep behaving exactly as it does today. A malformed or half-written
+     condition normalises to null too — see normalizeVisibilityCondition for
+     why that is the safe direction. */
+  return {
+    ...rest,
+    minSelections,
+    maxSelections,
+    options,
+    visibilityCondition: normalizeVisibilityCondition(group?.visibilityCondition),
+  };
 }
 
 /** Normalize a whole `choices` array. */
@@ -246,9 +258,30 @@ export function isGroupSatisfiable(group) {
   return getAvailableOptions(group).length >= (group?.minSelections ?? 0);
 }
 
-/** Every group of an item that cannot currently be answered. */
-export function getUnsatisfiableGroups(item) {
-  return normalizeChoiceGroups(item?.choices).filter((g) => !isGroupSatisfiable(g));
+/**
+ * Every group of an item that cannot currently be answered.
+ *
+ * Phase 114.0 — optionally scoped to the groups that are actually VISIBLE
+ * for a given selection. A conditional group nobody has triggered is not a
+ * reason to refuse the whole item: a burger whose optional meal-upgrade
+ * sides are out of stock is still a burger you can buy, and blocking it
+ * would take a sellable product off the menu over a group the guest may
+ * never open. Once the trigger IS selected the group is visible, its
+ * problem becomes real, and the sheet blocks exactly as it always has.
+ *
+ * The argument is optional and omitting it keeps the original behaviour —
+ * every group judged — so callers that have no selection to offer are
+ * unchanged.
+ *
+ * @param {object} item
+ * @param {Record<string,string[]>} [selectedIdsByGroup]
+ */
+export function getUnsatisfiableGroups(item, selectedIdsByGroup) {
+  const groups = normalizeChoiceGroups(item?.choices);
+  const scope = selectedIdsByGroup
+    ? getVisibleChoiceGroups(groups, selectedIdsByGroup)
+    : groups;
+  return scope.filter((g) => !isGroupSatisfiable(g));
 }
 
 /* ── Rule descriptions ────────────────────────────────────────────────────
@@ -327,6 +360,16 @@ export function formatGroupError(group, issue, t) {
   if (issue === CHOICE_ISSUE.OPTION_UNAVAILABLE || issue === CHOICE_ISSUE.OPTION_MISSING) {
     return t("choice.reselectOption", "One of your selections is no longer available. Please choose again.");
   }
+  if (issue === CHOICE_ISSUE.HIDDEN_SELECTION) {
+    /* Reachable from a stored cart line, not from the live sheet — the sheet
+       clears hidden selections as part of the same state change that hides
+       the group, so it has nothing to report. Worded as what the guest needs
+       to do rather than as what the data did. */
+    return t(
+      "choice.selectionNoLongerApplies",
+      "One of your selections no longer applies. Please open this item and choose again."
+    );
+  }
 
   const { kind, min, max } = describeGroupRule(group);
 
@@ -365,6 +408,14 @@ export const CHOICE_ISSUE = {
   OPTION_UNAVAILABLE: "option_unavailable",
   OPTION_MISSING: "option_missing",
   UNSATISFIABLE: "unsatisfiable",
+  /* Phase 114.0 §18/§24 — a selection survives for a group that is no longer
+     visible. Distinct from every code above because nothing about the
+     OPTION is wrong: it exists, it is in stock, and it is a legal answer to
+     its group. What has changed is that the group is not being asked. The
+     selection must therefore contribute nothing — no price, no order line,
+     no required-validation — and a cart line still carrying one is stale
+     rather than merely incomplete. */
+  HIDDEN_SELECTION: "hidden_selection",
 };
 
 /**
@@ -422,14 +473,53 @@ export function validateItemSelections(item, selectedChoices) {
   const groups = normalizeChoiceGroups(item?.choices);
   const chosen = Array.isArray(selectedChoices) ? selectedChoices : [];
 
+  /* Phase 114.0 §19/§27 — which groups is this item actually ASKING, given
+     what has been chosen? Derived from the selection itself, so one list
+     answers both halves of the question below: a visible group is validated
+     normally, and a hidden one must contribute nothing at all.
+
+     Note the evaluation reads only PARENT selections, so a hidden group's
+     own entries can never influence whether it is hidden — there is no
+     circularity to resolve and no iteration to settle. */
+  const selectionMap = selectionMapFromList(chosen);
+  const visibleIds = new Set(
+    getVisibleChoiceGroups(groups, selectionMap).map((g) => g.id)
+  );
+
   const byGroup = {};
   const issues = [];
   let firstInvalidGroupId = null;
 
   for (const group of groups) {
     const ids = chosen.filter((c) => c.groupId === group.id).map((c) => c.optionId);
+
+    if (!visibleIds.has(group.id)) {
+      /* §19 — a hidden group is NOT required, however it is configured. The
+         guest is never shown it, so failing them for not answering it would
+         make the item unorderable for reasons they cannot see or fix.
+
+         §18/§24 — but a leftover selection is a real problem, and the
+         direction it fails matters: it is reported rather than ignored, so
+         a stale cart line is stopped and re-examined instead of quietly
+         pricing an option the guest can no longer see. */
+      const ok = ids.length === 0;
+      byGroup[group.id] = {
+        ok,
+        issue: ok ? null : CHOICE_ISSUE.HIDDEN_SELECTION,
+        selectedCount: ids.length,
+        hidden: true,
+      };
+      if (!ok) {
+        if (!issues.includes(CHOICE_ISSUE.HIDDEN_SELECTION)) {
+          issues.push(CHOICE_ISSUE.HIDDEN_SELECTION);
+        }
+        if (!firstInvalidGroupId) firstInvalidGroupId = group.id;
+      }
+      continue;
+    }
+
     const result = validateGroupSelection(group, ids);
-    byGroup[group.id] = result;
+    byGroup[group.id] = { ...result, hidden: false };
     if (!result.ok) {
       if (!issues.includes(result.issue)) issues.push(result.issue);
       if (!firstInvalidGroupId) firstInvalidGroupId = group.id;
@@ -459,9 +549,15 @@ export function validateItemSelections(item, selectedChoices) {
  * maps them to translated copy, exactly as validateChoiceGroups already did.
  *
  * @param {object} group — a DRAFT group (bounds may still be raw strings)
- * @returns {{min?:string, max?:string, options?:string}}
+ * @param {Array<object>} [siblings] — Phase 114.0. The product's OTHER draft
+ *   groups, needed to judge a visibility condition: whether the parent still
+ *   exists, is unconditional, owns the triggering option and sits above this
+ *   group. Omitted, the visibility check is skipped entirely — a caller with
+ *   no product context can still judge the bounds and options exactly as it
+ *   did before this phase.
+ * @returns {{min?:string, max?:string, options?:string, visibility?:string}}
  */
-export function validateGroupConfig(group) {
+export function validateGroupConfig(group, siblings) {
   const errors = {};
 
   /* Phase 98.0 — an option NAME is merchant-authored text, so since Phase
@@ -496,5 +592,320 @@ export function validateGroupConfig(group) {
     if (min !== null && min > availableCount) errors.options = "notEnoughAvailable";
   }
 
+  /* §9 — the condition, judged as configuration. Deliberately a save-blocking
+     error like the others rather than something the dropdowns merely avoid
+     offering: hiding an invalid choice cannot catch a configuration that went
+     invalid AFTER it was made, which is most of the ways one goes wrong. */
+  if (siblings !== undefined) {
+    const visibility = validateVisibilityDraft(group, siblings);
+    if (visibility) errors.visibility = visibility;
+  }
+
   return errors;
+}
+
+/* ══ CONDITIONAL VISIBILITY — Phase 114.0 ════════════════════════════════
+
+   One choice group may control whether another is shown. "Make it a meal?"
+   answered yes reveals "Choose your fries" and "Choose your drink"; answered
+   no hides them, and anything already picked inside them stops existing —
+   not merely stops being painted.
+
+   ── THE SHAPE ─────────────────────────────────────────────────────────
+       visibilityCondition: { parentGroupId, triggerOptionId }   | null
+
+   Two STABLE IDS and nothing else (§13). Names are editable and bilingual,
+   options are renameable, and groups are reorderable, so a reference built
+   from any of those would break the first time a manager tidied their menu.
+   The ids are the same ones the cart lines, the order snapshots and Phase
+   37's validation already join on, so a condition survives exactly what
+   those survive.
+
+   ── ONE LEVEL, BY CONSTRUCTION ────────────────────────────────────────
+   A parent must itself be unconditional (§3). That single rule is what makes
+   chains and cycles unrepresentable rather than merely discouraged: with no
+   second level there is nothing to recurse into, so every evaluation below
+   is one lookup deep, terminates trivially, and needs no cycle detection at
+   all. Several dependants MAY share one parent and one trigger, which is the
+   case the feature exists for.
+
+   ── FAIL-SAFE DIRECTION ───────────────────────────────────────────────
+   Every uncertainty here resolves to HIDDEN, which is the conservative
+   answer in both directions that matter: a hidden group charges nothing, and
+   a hidden group is never required, so corrupt or half-written data can
+   neither bill a guest for something they cannot see nor block a checkout
+   over a question they were never asked. This is the same instinct as the
+   fail-closed note at the top of this module, pointed the other way for the
+   same reason — the cost of the two mistakes is not symmetric.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * A condition in canonical shape, or null for "Always Show".
+ *
+ * Both ids must be present and non-empty. A half-written condition — the
+ * state the Admin editor passes through while a manager is filling in the
+ * two dropdowns — is NOT a condition, and reading it as one would hide a
+ * group the moment the first field was touched. The editor keeps its own
+ * raw draft precisely so it can tell "still being written" from "Always
+ * Show"; everything downstream of storage only ever sees the resolved form.
+ */
+export function normalizeVisibilityCondition(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const parentGroupId = typeof raw.parentGroupId === "string" ? raw.parentGroupId.trim() : "";
+  const triggerOptionId = typeof raw.triggerOptionId === "string" ? raw.triggerOptionId.trim() : "";
+  if (!parentGroupId || !triggerOptionId) return null;
+  return { parentGroupId, triggerOptionId };
+}
+
+/** Does this group appear only under a condition? */
+export function isConditionalGroup(group) {
+  return normalizeVisibilityCondition(group?.visibilityCondition) !== null;
+}
+
+/**
+ * The product's choice groups in the order the guest will meet them.
+ *
+ * Mirrors the choice-group branch of buildCustomizationSections exactly —
+ * stored sortOrder when set, otherwise the array index offset by the shared
+ * base, ties broken by position. It has to: "the controlling group appears
+ * before the dependent one" is only meaningful if both this module and the
+ * sheet mean the same thing by "before".
+ */
+export function orderedChoiceGroups(groups) {
+  return (Array.isArray(groups) ? groups : [])
+    .map((group, index) => ({
+      group,
+      sortOrder: parseSortOrder(group?.sortOrder) ?? CHOICE_GROUP_DEFAULT_SORT_BASE + index,
+      seq: index,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.seq - b.seq)
+    .map((entry) => entry.group);
+}
+
+/**
+ * The groups that may legally control this one (§8).
+ *
+ * Three filters, each one of §9's prevention rules expressed as absence
+ * rather than as a refusal: groups that come BEFORE this one (so the guest
+ * has answered the question before being asked what depends on it), that are
+ * themselves unconditional (so no chain can form), and that have at least
+ * one named option to trigger on (an empty group offers nothing to pick).
+ *
+ * A group not present in the list — a brand-new one still being added — is
+ * treated as sitting last, so every existing group is offered to it.
+ */
+export function getEligibleParentGroups(groups, groupId) {
+  const ordered = orderedChoiceGroups(groups);
+  const at = ordered.findIndex((g) => g?.id === groupId);
+  const preceding = at === -1 ? ordered : ordered.slice(0, at);
+  return preceding.filter(
+    (g) =>
+      g?.id !== groupId &&
+      !isConditionalGroup(g) &&
+      /* A group with no name in either language is discarded by the product
+         save, so it is not something another group can be anchored to. */
+      hasLocalizedText(g?.name) &&
+      (g?.options || []).some((o) => hasLocalizedText(o?.name))
+  );
+}
+
+/** Why a condition is not usable. Codes, not sentences — the editor translates. */
+export const CONDITION_ISSUE = {
+  INCOMPLETE: "incomplete",
+  SELF: "self",
+  PARENT_MISSING: "parentMissing",
+  PARENT_CONDITIONAL: "parentConditional",
+  OPTION_MISSING: "optionMissing",
+  PARENT_AFTER: "parentAfter",
+};
+
+/**
+ * Judge a RESOLVED condition against the product it belongs to.
+ *
+ * Covers §9 A–H. F (a reference to another product) cannot be expressed:
+ * every lookup here is inside this product's own group list, so a foreign id
+ * simply fails to resolve and reports PARENT_MISSING. H (cycles) likewise
+ * cannot be expressed, because PARENT_CONDITIONAL forbids the second level a
+ * cycle would need.
+ *
+ * @param {object} group — the dependent group
+ * @param {Array<object>} groups — every group of the same product
+ * @returns {string|null} a CONDITION_ISSUE, or null when the condition is
+ *   sound (or absent).
+ */
+export function validateVisibilityConfig(group, groups) {
+  const condition = normalizeVisibilityCondition(group?.visibilityCondition);
+  if (!condition) return null;
+
+  if (condition.parentGroupId === group?.id) return CONDITION_ISSUE.SELF;
+
+  const list = Array.isArray(groups) ? groups : [];
+  const parent = list.find((g) => g?.id === condition.parentGroupId);
+  if (!parent) return CONDITION_ISSUE.PARENT_MISSING;
+  if (isConditionalGroup(parent)) return CONDITION_ISSUE.PARENT_CONDITIONAL;
+
+  /* Covers both "the option was deleted" and "the option belongs to a
+     different group": in either case it is not among this parent's options,
+     which is the only question worth asking. */
+  const option = (parent.options || []).find((o) => o?.id === condition.triggerOptionId);
+  if (!option) return CONDITION_ISSUE.OPTION_MISSING;
+
+  const ordered = orderedChoiceGroups(list);
+  const parentAt = ordered.findIndex((g) => g?.id === parent.id);
+  const groupAt = ordered.findIndex((g) => g?.id === group?.id);
+  if (parentAt > -1 && groupAt > -1 && parentAt > groupAt) {
+    return CONDITION_ISSUE.PARENT_AFTER;
+  }
+
+  return null;
+}
+
+/**
+ * The same judgement, for a group still being edited (§12).
+ *
+ * The difference is one case: an object that is PRESENT but not yet filled
+ * in. Storage never holds that shape, but the editor does for as long as it
+ * takes a manager to answer two dropdowns, and it must be refused at Save
+ * rather than silently resolving to "Always Show" — a group that quietly
+ * stopped being conditional is exactly the kind of change nobody notices
+ * until a guest is charged for it.
+ */
+export function validateVisibilityDraft(group, groups) {
+  const raw = group?.visibilityCondition;
+  if (raw == null) return null; // Always Show
+
+  const condition = normalizeVisibilityCondition(raw);
+  if (condition === null) return CONDITION_ISSUE.INCOMPLETE;
+
+  /* A parent whose name has been blanked is already on its way out: the
+     product save drops every unnamed group, so persisting this condition
+     would write a reference to a group that will not be in the saved
+     product. Reported as missing, which is what it is about to be, and the
+     manager fixes it the same way — name the group again, or point the
+     condition somewhere else. */
+  const parent = (Array.isArray(groups) ? groups : []).find(
+    (g) => g?.id === condition.parentGroupId
+  );
+  if (parent && !hasLocalizedText(parent.name)) return CONDITION_ISSUE.PARENT_MISSING;
+
+  return validateVisibilityConfig(group, groups);
+}
+
+/**
+ * Is this group being asked right now?
+ *
+ * @param {object} group — the group to judge
+ * @param {Array<object>} groups — every group of the same product
+ * @param {Record<string,string[]>} selectedIdsByGroup — chosen option ids,
+ *   keyed by group id. Missing keys read as "nothing chosen".
+ */
+export function isGroupVisible(group, groups, selectedIdsByGroup) {
+  const condition = normalizeVisibilityCondition(group?.visibilityCondition);
+  if (!condition) return true; // Always Show — the default, and the legacy shape
+
+  const parent = (Array.isArray(groups) ? groups : []).find(
+    (g) => g?.id === condition.parentGroupId
+  );
+  /* Dangling parent (§33Y). Hidden, not shown: an unresolvable reference is
+     not evidence that the guest should be asked something. */
+  if (!parent) return false;
+  /* An unsupported chain. Admin validation refuses to create one, so this is
+     data that arrived some other way; one level is what this phase defines,
+     and anything beyond it resolves to hidden rather than to a guess. */
+  if (isConditionalGroup(parent)) return false;
+
+  const option = (parent.options || []).find((o) => o?.id === condition.triggerOptionId);
+  if (!option) return false;
+  /* §21 — availability is not overridden by a condition. An option that
+     cannot be picked cannot reveal anything, and a trigger that goes out of
+     stock takes its dependants down with it rather than leaving them
+     stranded and chargeable. */
+  if (option.isAvailable === false) return false;
+
+  const selected = selectedIdsByGroup?.[parent.id] || [];
+  /* §17 — one test for both kinds of parent. For a single-select group the
+     array holds at most one id, so "includes" is "is the selected one"; for
+     a multi-select it is "is among the selected ones". Nothing about how the
+     parent itself behaves changes. */
+  return selected.includes(condition.triggerOptionId);
+}
+
+/** Every group of the product that is currently being asked. */
+export function getVisibleChoiceGroups(groups, selectedIdsByGroup) {
+  const list = Array.isArray(groups) ? groups : [];
+  return list.filter((g) => isGroupVisible(g, list, selectedIdsByGroup));
+}
+
+/**
+ * Turn the flat shape a cart line stores — [{ groupId, optionId }] — into the
+ * keyed shape the evaluator reads. The two shapes exist for good reasons
+ * (one is a serialisable record of what was chosen, the other is the
+ * editor's working state) and this is the single place they meet.
+ */
+export function selectionMapFromList(list) {
+  const map = {};
+  for (const entry of Array.isArray(list) ? list : []) {
+    const groupId = entry?.groupId;
+    if (typeof groupId !== "string" || !groupId) continue;
+    if (!map[groupId]) map[groupId] = [];
+    map[groupId].push(entry.optionId);
+  }
+  return map;
+}
+
+/**
+ * Drop every selection belonging to a group that is not currently visible
+ * (§18 — the financial-integrity rule).
+ *
+ * Returns the SAME object when nothing had to go, so a caller can use the
+ * identity as its "did anything change" test and React state that did not
+ * actually change does not re-render.
+ *
+ * One pass is complete. A dependent group cannot itself be a parent, so
+ * hiding one can never hide another, and there is no cascade to settle.
+ *
+ * Hidden groups keep their key with an empty array rather than losing it:
+ * the shape stays stable across the transition, which is what lets the sheet
+ * treat "hidden" and "visible but unanswered" identically everywhere except
+ * where the difference matters.
+ *
+ * @param {Array<object>} groups
+ * @param {Record<string,string[]>} selectedIdsByGroup
+ * @returns {Record<string,string[]>}
+ */
+export function pruneHiddenSelections(groups, selectedIdsByGroup) {
+  const current = selectedIdsByGroup || {};
+  const visible = new Set(getVisibleChoiceGroups(groups, current).map((g) => g.id));
+
+  let changed = false;
+  const next = {};
+  for (const [groupId, ids] of Object.entries(current)) {
+    if (visible.has(groupId)) {
+      next[groupId] = ids;
+      continue;
+    }
+    if ((ids || []).length > 0) changed = true;
+    next[groupId] = [];
+  }
+  return changed ? next : current;
+}
+
+/**
+ * Every group that depends on the given parent group — and optionally on
+ * one specific option of it.
+ *
+ * This is what the Admin editor asks before allowing a destructive edit
+ * (§10). It is deliberately phrased as "who would break", not "may I", so
+ * the caller can name them in the explanation rather than just refusing.
+ *
+ * @param {Array<object>} groups
+ * @param {string} parentGroupId
+ * @param {string} [triggerOptionId] — narrow to dependants on this option
+ */
+export function getDependentGroups(groups, parentGroupId, triggerOptionId) {
+  return (Array.isArray(groups) ? groups : []).filter((g) => {
+    const condition = normalizeVisibilityCondition(g?.visibilityCondition);
+    if (!condition || condition.parentGroupId !== parentGroupId) return false;
+    return triggerOptionId === undefined || condition.triggerOptionId === triggerOptionId;
+  });
 }

@@ -570,6 +570,36 @@ export const translations = {
       ruleUpTo: "Guests may choose up to {n}.",
       ruleExactly: "Guests must choose exactly {n}.",
       ruleRange: "Guests must choose between {min} and {max}.",
+
+      /* Phase 114.0 — conditional choice groups. The vocabulary here is
+         deliberately free of dependency, predicate, reference and rule
+         language (§7): a manager is configuring one more property of a
+         group, not authoring logic. */
+      visibilityLabel: "When should this group appear?",
+      visibilityAlways: "Always Show",
+      visibilityConditional: "Show Conditionally",
+      visibilityHint: "Show this group only when a specific option is selected in another group.",
+      visibilityNoParent: "Add a choice group above this one to make this group appear conditionally.",
+      visibilityParentGroup: "Choice group",
+      visibilityTriggerOption: "Selected option",
+      visibilitySelectGroup: "Choose a group",
+      visibilitySelectOption: "Choose an option",
+      /* Save-blocking configuration errors. Each one says what to do, not
+         what failed to resolve. */
+      visibilityIncomplete: "Choose both a group and an option, or set this group to Always Show.",
+      visibilityParentMissing: "The group this depends on is no longer available. Choose another, or set this group to Always Show.",
+      visibilityParentConditional: "A group that already appears conditionally cannot control another group.",
+      visibilityOptionMissing: "The option this depends on no longer exists in that group. Choose another option.",
+      visibilitySelf: "A group cannot depend on itself.",
+      visibilityParentAfter: "The controlling group must appear before this one.",
+      /* The refusal dialog: an edit that would break another group's
+         condition is prevented and explained, never silently repaired. */
+      visibilityBlockedTitle: "Update the dependent group first",
+      visibilityGroupInUse: "This group controls when {groups} appears. Update that group's condition before deleting this one.",
+      visibilityOptionInUse: "This option controls when {groups} appears. Update that group's condition before deleting this option.",
+      visibilityParentInUse: "This group controls when {groups} appears, so it cannot itself be shown conditionally. Update that group's condition first.",
+      visibilityOrderBlocked: "{group} appears only when an option in {parent} is selected, so {parent} must stay above it.",
+
       optionName: "Option name",
       /* Phase 56 — customization price validation. The option rule is >= 0
          because a free choice is legitimate; the add-on rule is > 0. */
@@ -1030,6 +1060,10 @@ export const translations = {
     /* Phase 80 — choice-group rules and per-option availability. Guest-facing
        wording only: a diner reads "Choose 2–4", never the field names. */
     choice: {
+      /* Phase 114.0 §18/§26 — reachable only from a stored cart line whose
+         conditional selection no longer applies. Says what to do; never
+         mentions groups, conditions or ids. */
+      selectionNoLongerApplies: "One of your selections no longer applies. Please open this item and choose again.",
       chooseOne: "Choose 1",
       /* Phase 85 §34 — validation states the rule, not a generic complaint. */
       errorChooseOne: "Choose 1 option",
@@ -1712,6 +1746,29 @@ export const translations = {
       ruleUpTo: "يمكن للضيوف اختيار حتى {n}.",
       ruleExactly: "يجب على الضيوف اختيار {n} بالضبط.",
       ruleRange: "يجب على الضيوف الاختيار بين {min} و {max}.",
+
+      /* Phase 114.0 — مجموعات الخيارات المشروطة. */
+      visibilityLabel: "متى تظهر مجموعة الخيارات هذه؟",
+      visibilityAlways: "إظهار دائمًا",
+      visibilityConditional: "إظهار بشروط",
+      visibilityHint: "أظهر هذه المجموعة فقط عند اختيار خيار محدد في مجموعة أخرى.",
+      visibilityNoParent: "أضف مجموعة خيارات قبل هذه المجموعة حتى تتمكن من إظهارها بشروط.",
+      visibilityParentGroup: "مجموعة الخيارات",
+      visibilityTriggerOption: "الخيار المحدد",
+      visibilitySelectGroup: "اختر مجموعة",
+      visibilitySelectOption: "اختر خيارًا",
+      visibilityIncomplete: "اختر المجموعة والخيار معًا، أو اضبط هذه المجموعة على الإظهار الدائم.",
+      visibilityParentMissing: "المجموعة التي تعتمد عليها لم تعد متاحة. اختر مجموعة أخرى، أو اضبط هذه المجموعة على الإظهار الدائم.",
+      visibilityParentConditional: "المجموعة التي تظهر بشروط لا يمكن أن تتحكم في مجموعة أخرى.",
+      visibilityOptionMissing: "الخيار الذي تعتمد عليه لم يعد موجودًا في تلك المجموعة. اختر خيارًا آخر.",
+      visibilitySelf: "لا يمكن للمجموعة أن تعتمد على نفسها.",
+      visibilityParentAfter: "يجب أن تظهر المجموعة المتحكِّمة قبل هذه المجموعة.",
+      visibilityBlockedTitle: "عدّل المجموعة المرتبطة أولًا",
+      visibilityGroupInUse: "هذه المجموعة تتحكم في ظهور {groups}. عدّل شرط تلك المجموعة قبل حذف هذه المجموعة.",
+      visibilityOptionInUse: "هذا الخيار يتحكم في ظهور {groups}. عدّل شرط تلك المجموعة قبل حذف هذا الخيار.",
+      visibilityParentInUse: "هذه المجموعة تتحكم في ظهور {groups}، لذلك لا يمكن إظهارها هي نفسها بشروط. عدّل شرط تلك المجموعة أولًا.",
+      visibilityOrderBlocked: "{group} تظهر فقط عند اختيار خيار من {parent}، لذلك يجب أن تبقى {parent} فوقها.",
+
       optionName: "اسم الخيار",
       optionExtraPrice: "السعر الإضافي",
       optionPriceInvalid: "أدخل سعرًا إضافيًا صحيحًا بقيمة 0 أو أكثر.",
@@ -2096,6 +2153,7 @@ export const translations = {
     },
     /* Phase 80 */
     choice: {
+      selectionNoLongerApplies: "أحد اختياراتك لم يعد منطبقًا. افتح هذا الصنف واختر من جديد.",
       chooseOne: "اختر واحدًا",
       errorChooseOne: "اختر خيارًا واحدًا",
       errorExactly: "اختر {n} خيارات بالضبط",

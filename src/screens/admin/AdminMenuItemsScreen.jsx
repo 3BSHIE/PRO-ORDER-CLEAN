@@ -40,6 +40,14 @@ import {
   parseSelectionBound,
   buildCustomizationSections,
   describeGroupRule,
+  /* Phase 114.0 — conditional visibility. The editor judges and offers; the
+     RULES live in the shared module, so what Admin refuses to save and what
+     the guest sheet, the cart and the order gate refuse to honour are the
+     same definition rather than two that have to be kept in step. */
+  getEligibleParentGroups,
+  getDependentGroups,
+  normalizeVisibilityCondition,
+  CONDITION_ISSUE,
 } from "../../lib/choiceRules.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -98,6 +106,8 @@ const SORT_ORDER_FIELD_ID = "mm-product-sort-order";
 const groupNameFieldId = (groupId) => `mm-group-name-${groupId}`;
 const groupMaxFieldId  = (groupId) => `mm-group-max-${groupId}`;
 const groupMinFieldId  = (groupId) => `mm-group-min-${groupId}`;
+/* Phase 114.0 — the focus target when a save fails on a broken condition. */
+const groupVisFieldId  = (groupId) => `mm-group-vis-${groupId}`;
 
 /**
  * Phase 48 — strict parsing for a choice group's selection limit.
@@ -162,8 +172,16 @@ export function validateChoiceGroups(choices) {
     /* Phase 80 — the per-group rules moved to lib/choiceRules.js so the
        editor, the customer sheet, the cart and the order gate all judge a
        configuration by one definition. This function keeps its shape and its
-       error-code contract; only the source of the codes changed. */
-    const groupError = validateGroupConfig(group);
+       error-code contract; only the source of the codes changed.
+
+       Phase 114.0 — the whole draft list goes with it. A visibility
+       condition is the first rule here that cannot be judged from the group
+       alone: whether the parent exists, is unconditional, owns the trigger
+       and sits above this group are all questions about the PRODUCT. Passing
+       the list is also what makes §9's "validate the final configuration
+       before persistence" real, rather than trusting that the dropdowns
+       never offered anything invalid. */
+    const groupError = validateGroupConfig(group, choices || []);
 
     if (Object.keys(groupError).length > 0) {
       errors[group.id] = groupError;
@@ -805,7 +823,33 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
       { id: genChoiceGroupId(), name: "", minSelections: 0, maxSelections: 1, options: [] },
     ]);
   }
+  /* Phase 114.0 §10 — the names of the groups that would break, ready to be
+     dropped into a sentence. An unnamed group still has to be nameable in
+     the message, hence the fallback the section bar already uses. */
+  function dependentGroupNames(parentGroupId, triggerOptionId) {
+    return getDependentGroups(choices, parentGroupId, triggerOptionId).map(
+      (g) =>
+        getLocalizedText(g.name, language).trim() ||
+        t("admin.untitledGroup", "Untitled group")
+    );
+  }
+
   function handleRemoveChoiceGroup(groupId) {
+    /* §10 — prevented and explained, never silently repaired. Converting the
+       dependants to Always Show instead would quietly expose groups the
+       manager had deliberately hidden, and a required one among them would
+       start blocking checkout for every guest — a far worse outcome than
+       being asked to update one setting first. */
+    const dependents = dependentGroupNames(groupId);
+    if (dependents.length > 0) {
+      setBlockedEdit(
+        t(
+          "admin.visibilityGroupInUse",
+          "This group controls when {groups} appears. Update that group's condition before deleting this one."
+        ).replace("{groups}", dependents.join(", "))
+      );
+      return;
+    }
     setChoices(choices.filter((g) => g.id !== groupId));
   }
   function handleUpdateChoiceGroup(groupId, patch) {
@@ -821,11 +865,71 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
     );
   }
   function handleRemoveOption(groupId, optionId) {
+    /* §10 — the triggering option is the other half of the reference, and
+       deleting it breaks a condition exactly as deleting the group would. */
+    const dependents = dependentGroupNames(groupId, optionId);
+    if (dependents.length > 0) {
+      setBlockedEdit(
+        t(
+          "admin.visibilityOptionInUse",
+          "This option controls when {groups} appears. Update that group's condition before deleting this option."
+        ).replace("{groups}", dependents.join(", "))
+      );
+      return;
+    }
     setChoices(
       choices.map((g) =>
         g.id === groupId ? { ...g, options: g.options.filter((o) => o.id !== optionId) } : g
       )
     );
+  }
+
+  /**
+   * Phase 114.0 §11 — switch one group between Always Show and a condition.
+   *
+   * Passing null returns it to an ordinary group: options, prices, bounds
+   * and every other attribute are untouched, and only the reference is
+   * dropped, so no stale condition is left behind to be revived by a later
+   * edit. Passing the empty pair starts a condition the manager has yet to
+   * fill in — a state storage never holds, and one Save refuses, which is
+   * what stops an incomplete condition being persisted.
+   */
+  function setGroupVisibility(group, nextCondition) {
+    /* §9B/§10 — a group that already controls another cannot itself become
+       conditional: that is the second dependency level this phase does not
+       support, and allowing it would leave the dependant's own condition
+       evaluating against a parent that may not be on screen. */
+    if (nextCondition !== null) {
+      const dependents = dependentGroupNames(group.id);
+      if (dependents.length > 0) {
+        setBlockedEdit(
+          t(
+            "admin.visibilityParentInUse",
+            "This group controls when {groups} appears, so it cannot itself be shown conditionally. Update that group's condition first."
+          ).replace("{groups}", dependents.join(", "))
+        );
+        return;
+      }
+    }
+    const patched = { ...group, visibilityCondition: nextCondition };
+    handleUpdateChoiceGroup(group.id, { visibilityCondition: nextCondition });
+    revalidateGroupInDraft(patched);
+  }
+
+  /* Re-judge ONE group against the whole draft and update only its own
+     entry. Lifted out of the group card in Phase 114.0 because the
+     visibility controls need it too, and because a condition can only be
+     judged with the sibling groups in hand — the single-group list the card
+     used to pass would have reported every parent as missing. */
+  function revalidateGroupInDraft(patchedGroup) {
+    const draftGroups = choices.map((g) => (g.id === patchedGroup.id ? patchedGroup : g));
+    const { errors } = validateChoiceGroups(draftGroups);
+    setGroupErrors((prev) => {
+      const next = { ...prev };
+      if (errors[patchedGroup.id]) next[patchedGroup.id] = errors[patchedGroup.id];
+      else delete next[patchedGroup.id];
+      return next;
+    });
   }
   function handleUpdateOption(groupId, optionId, patch) {
     setChoices(
@@ -905,6 +1009,12 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
   const isDirty = draftSignature !== initialSignature.current;
 
   const [showDiscard, setShowDiscard] = useState(false);
+  /* Phase 114.0 §10 — the explanation shown when an edit is REFUSED because
+     another group depends on what it would remove or move. Holds the
+     sentence, not a flag, because every refusal names the group that has to
+     be updated first — a bare "you can't do that" would leave the manager
+     hunting for which of their groups objected. */
+  const [blockedEdit, setBlockedEdit] = useState(null);
 
   /* ── Phase 92 §23 — one save per press ────────────────────────────────
      The write is synchronous today, so two clicks landing in the same tick
@@ -1030,6 +1140,11 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
         ? groupMinFieldId(groupCheck.firstInvalidGroupId)
         : bad.max
         ? groupMaxFieldId(groupCheck.firstInvalidGroupId)
+        /* Phase 114.0 — the condition's own control, so a save blocked on a
+           broken dependency lands on the setting that is wrong rather than
+           on the group name, where its message does not appear. */
+        : bad.visibility
+        ? groupVisFieldId(groupCheck.firstInvalidGroupId)
         : groupNameFieldId(groupCheck.firstInvalidGroupId);
       document.getElementById(targetId)?.focus();
       return;
@@ -1112,6 +1227,15 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           required: undefined,
           minSelections: parseSelectionBound(g.minSelections, { min: 0 }) ?? 0,
           maxSelections: parseSelectionLimit(g.maxSelections),
+          /* Phase 114.0 §11/§13 — resolved on the way out. A sound condition
+             is written as two stable ids and nothing else; Always Show is
+             written as undefined, which JSON drops, so the saved product
+             carries no empty condition object and a group that never had one
+             is byte-identical to how it saved before this phase (§14).
+
+             Reaching here means validateChoiceGroups already approved the
+             condition, so this normalises rather than decides. */
+          visibilityCondition: normalizeVisibilityCondition(g.visibilityCondition) ?? undefined,
           /* Phase 56: prices become Numbers here for the same reason
              maxSelections does — the row holds the raw string while editing
              so invalid input can be judged, and storage keeps the numeric
@@ -1213,6 +1337,38 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
     const arranged = [...editorSections];
     [arranged[index], arranged[target]] = [arranged[target], arranged[index]];
 
+    /* Phase 114.0 §8/§10 — a controlling group must stay ABOVE the groups it
+       reveals. The move is judged on the arrangement it WOULD produce and
+       refused before any state is written, so a blocked reorder leaves the
+       product exactly as it was rather than saving a position and then
+       complaining about it. Only choice sections can carry a condition;
+       removals and add-ons move freely. */
+    const positionOf = {};
+    arranged.forEach((sec, i) => {
+      if (sec.kind === "choice") positionOf[sec.group.id] = i;
+    });
+    for (const sec of arranged) {
+      if (sec.kind !== "choice") continue;
+      const condition = normalizeVisibilityCondition(sec.group.visibilityCondition);
+      if (!condition) continue;
+      const parentAt = positionOf[condition.parentGroupId];
+      if (parentAt === undefined || parentAt <= positionOf[sec.group.id]) continue;
+      const parent = choices.find((g) => g.id === condition.parentGroupId);
+      setBlockedEdit(
+        t(
+          "admin.visibilityOrderBlocked",
+          "{group} appears only when an option in {parent} is selected, so {parent} must stay above it."
+        )
+          .replace(/\{group\}/g, sectionLabel(sec))
+          .replace(
+            /\{parent\}/g,
+            (parent && getLocalizedText(parent.name, language).trim()) ||
+              t("admin.untitledGroup", "Untitled group")
+          )
+      );
+      return;
+    }
+
     let nextRemovals = removalsSortOrder;
     let nextAddOns = addOnsSortOrder;
     const groupOrder = {};
@@ -1270,6 +1426,66 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
               ? t("admin.minSelectionsInvalid", "Enter a valid minimum (0 or more).")
               : null;
 
+          /* ── Phase 114.0 §4/§6/§9 — conditional visibility ──────────────
+             The RAW field is what the radio reads, not the normalized one:
+             an object that is present but still half-filled is "the manager
+             chose Show Conditionally and has not finished", which must keep
+             the second state selected and its two dropdowns on screen.
+             Normalizing here would snap the control back to Always Show the
+             moment it was touched. */
+          const rawCondition = group.visibilityCondition;
+          const isConditional = rawCondition != null;
+          const conditionParentId = rawCondition?.parentGroupId || "";
+          const conditionOptionId = rawCondition?.triggerOptionId || "";
+
+          const eligibleParents = getEligibleParentGroups(choices, group.id);
+          /* A stored condition may point at a group that is no longer
+             offered — it was renamed to nothing, or it became conditional
+             through some path this editor does not take. Keeping it in the
+             list means the manager SEES what the group currently depends on
+             instead of an empty select, and the validation below says what
+             is wrong with it. */
+          const storedParent = choices.find((g) => g.id === conditionParentId);
+          const parentChoices =
+            storedParent && !eligibleParents.some((g) => g.id === storedParent.id)
+              ? [storedParent, ...eligibleParents]
+              : eligibleParents;
+          /* §6 — only the chosen parent's own options, so an option from an
+             unrelated group is not selectable in the first place. */
+          const triggerChoices = (storedParent?.options || []).filter((o) =>
+            hasLocalizedText(o.name)
+          );
+
+          const visibilityErrorText =
+            gErr.visibility === CONDITION_ISSUE.INCOMPLETE
+              ? t(
+                  "admin.visibilityIncomplete",
+                  "Choose both a group and an option, or set this group to Always Show."
+                )
+              : gErr.visibility === CONDITION_ISSUE.PARENT_MISSING
+              ? t(
+                  "admin.visibilityParentMissing",
+                  "The group this depends on is no longer available. Choose another, or set this group to Always Show."
+                )
+              : gErr.visibility === CONDITION_ISSUE.PARENT_CONDITIONAL
+              ? t(
+                  "admin.visibilityParentConditional",
+                  "A group that already appears conditionally cannot control another group."
+                )
+              : gErr.visibility === CONDITION_ISSUE.OPTION_MISSING
+              ? t(
+                  "admin.visibilityOptionMissing",
+                  "The option this depends on no longer exists in that group. Choose another option."
+                )
+              : gErr.visibility === CONDITION_ISSUE.SELF
+              ? t("admin.visibilitySelf", "A group cannot depend on itself.")
+              : gErr.visibility === CONDITION_ISSUE.PARENT_AFTER
+              ? t(
+                  "admin.visibilityParentAfter",
+                  "The controlling group must appear before this one."
+                )
+              : null;
+
           /* §8 — derived, never stored, so it always describes the two fields
              as they currently stand. */
           const normalizedRule = {
@@ -1294,18 +1510,15 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
           /* Re-run validation for THIS group after any edit to it, so a fixed
              group clears immediately and a still-broken one keeps its message
              — without touching the other groups' errors. */
-          const revalidateGroup = (patchedGroup) => {
-            setGroupErrors((prev) => {
-              const { errors } = validateChoiceGroups([patchedGroup]);
-              const next = { ...prev };
-              if (errors[patchedGroup.id]) next[patchedGroup.id] = errors[patchedGroup.id];
-              else delete next[patchedGroup.id];
-              return next;
-            });
-          };
+          /* Phase 114.0 — now judged against the whole draft rather than
+             against a one-element list, because a condition is a statement
+             about the product. Still writes only THIS group's entry, so a
+             fixed group clears immediately and the other groups' messages
+             are left exactly where they were. */
+          const revalidateGroup = revalidateGroupInDraft;
 
           return (
-          <Card key={group.id} className={`mm-group-card ${gErr.max || gErr.options ? "mm-group-card--invalid" : ""}`}>
+          <Card key={group.id} className={`mm-group-card ${gErr.max || gErr.options || gErr.visibility ? "mm-group-card--invalid" : ""}`}>
             {/* §7/§12 — the group name is the group's identity, so it gets a
                 row of its own with both languages side by side and a divider
                 beneath it separating identity from options. */}
@@ -1376,6 +1589,148 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
               </span>
               <span className="mm-group-rule__text">{groupRuleText}</span>
             </p>
+
+            {/* ── Phase 114.0 §4/§7 — ONE extra property, not a rule builder.
+                Native radios in a fieldset, the same construction the
+                Accepting Orders control uses: the group role, arrow-key
+                navigation and the announced selected state all come from the
+                platform, and the choice is never conveyed by colour alone
+                (§32) because each mode says its own name.
+
+                The vocabulary is deliberately plain — "when should this
+                group appear", "show this group when" — with no dependency,
+                predicate or reference language anywhere in it (§7). */}
+            <fieldset className="mm-vis">
+              <legend className="mm-vis__legend">
+                {t("admin.visibilityLabel", "When should this group appear?")}
+              </legend>
+              <div className="mm-vis__modes">
+                <label className={`mm-vis__mode ${!isConditional ? "mm-vis__mode--active" : ""}`}>
+                  <input
+                    type="radio"
+                    className="mm-vis__input"
+                    name={`mm-vis-${group.id}`}
+                    checked={!isConditional}
+                    onChange={() => setGroupVisibility(group, null)}
+                  />
+                  <span className="mm-vis__mode-label">
+                    {t("admin.visibilityAlways", "Always Show")}
+                  </span>
+                </label>
+                <label
+                  className={`mm-vis__mode ${isConditional ? "mm-vis__mode--active" : ""} ${
+                    !isConditional && parentChoices.length === 0 ? "mm-vis__mode--disabled" : ""
+                  }`}
+                >
+                  <input
+                    id={groupVisFieldId(group.id)}
+                    type="radio"
+                    className="mm-vis__input"
+                    name={`mm-vis-${group.id}`}
+                    checked={isConditional}
+                    /* §8 — with nothing above it to depend on, the second
+                       mode is unreachable rather than reachable-and-broken,
+                       and the line below says why. The editor is never left
+                       in a state it cannot be saved from. */
+                    disabled={!isConditional && parentChoices.length === 0}
+                    onChange={() =>
+                      setGroupVisibility(group, { parentGroupId: "", triggerOptionId: "" })
+                    }
+                  />
+                  <span className="mm-vis__mode-label">
+                    {t("admin.visibilityConditional", "Show Conditionally")}
+                  </span>
+                </label>
+              </div>
+
+              {!isConditional && parentChoices.length === 0 && (
+                <p className="mm-vis__hint">
+                  {t(
+                    "admin.visibilityNoParent",
+                    "Add a choice group above this one to make this group appear conditionally."
+                  )}
+                </p>
+              )}
+
+              {isConditional && (
+                <>
+                  <p className="mm-vis__hint">
+                    {t(
+                      "admin.visibilityHint",
+                      "Show this group only when a specific option is selected in another group."
+                    )}
+                  </p>
+                  <div className="mm-row-2 mm-vis__fields">
+                    <label className="field">
+                      <span className="field__label">
+                        {t("admin.visibilityParentGroup", "Choice group")}
+                      </span>
+                      <select
+                        className="mm-select mm-select--full"
+                        value={conditionParentId}
+                        aria-invalid={visibilityErrorText ? "true" : undefined}
+                        onChange={(e) => {
+                          /* Changing the parent clears the trigger: an
+                             option from the previous group is not an answer
+                             to this one, and carrying it over is exactly
+                             §9C. The manager picks again from the new list. */
+                          const next = {
+                            parentGroupId: e.target.value,
+                            triggerOptionId: "",
+                          };
+                          handleUpdateChoiceGroup(group.id, { visibilityCondition: next });
+                          revalidateGroup({ ...group, visibilityCondition: next });
+                        }}
+                      >
+                        <option value="">
+                          {t("admin.visibilitySelectGroup", "Choose a group")}
+                        </option>
+                        {parentChoices.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {getLocalizedText(g.name, language).trim() ||
+                              t("admin.untitledGroup", "Untitled group")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span className="field__label">
+                        {t("admin.visibilityTriggerOption", "Selected option")}
+                      </span>
+                      <select
+                        className="mm-select mm-select--full"
+                        value={conditionOptionId}
+                        disabled={!conditionParentId}
+                        aria-invalid={visibilityErrorText ? "true" : undefined}
+                        onChange={(e) => {
+                          const next = {
+                            parentGroupId: conditionParentId,
+                            triggerOptionId: e.target.value,
+                          };
+                          handleUpdateChoiceGroup(group.id, { visibilityCondition: next });
+                          revalidateGroup({ ...group, visibilityCondition: next });
+                        }}
+                      >
+                        <option value="">
+                          {t("admin.visibilitySelectOption", "Choose an option")}
+                        </option>
+                        {triggerChoices.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {getLocalizedText(o.name, language).trim() ||
+                              t("admin.optionName", "Option name")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {visibilityErrorText && (
+                    <p className="field__hint field__hint--error" role="alert">
+                      {visibilityErrorText}
+                    </p>
+                  )}
+                </>
+              )}
+            </fieldset>
 
             <div className="mm-options-list">
               {group.options.map((opt) => {
@@ -1861,6 +2216,25 @@ function MenuItemEditorModal({ item, categories, onSave, onClose, onRequestDelet
         dialog — discarding is reachable solely through the explicit button,
         so a stray backdrop click can never destroy the draft it is warning
         about. */}
+    {/* Phase 114.0 §10 — a refusal, not a confirmation: there is one way
+        out and it changes nothing. The destructive edit was never applied,
+        so there is no "do it anyway" to offer — the manager updates the
+        dependent group's condition first, which the message names. */}
+    {blockedEdit && (
+      <Modal
+        open
+        onClose={() => setBlockedEdit(null)}
+        title={t("admin.visibilityBlockedTitle", "Update the dependent group first")}
+        footer={
+          <Button variant="outline" onClick={() => setBlockedEdit(null)}>
+            {t("common.close", "Close")}
+          </Button>
+        }
+      >
+        <p className="ad-cancel-modal__msg">{blockedEdit}</p>
+      </Modal>
+    )}
+
     {showDiscard && (
       <Modal
         open

@@ -5615,6 +5615,81 @@ button{font-family:var(--font-body)}
    word itself is the signal, the tint only reinforces it. */
 .mm-group-rule:has(.mm-group-rule__badge) .mm-group-rule__text{min-width:0}
 
+/* ── Phase 114.0 — Admin: when should this group appear? ─────────────────
+   One extra property on a choice group, presented as two words the manager
+   can choose between rather than as a rule to be composed. The construction
+   is the one the Accepting Orders tri-state already uses — real radios in a
+   fieldset, styled through their labels — so the group role, arrow-key
+   navigation and the announced selection come from the platform instead of
+   being rebuilt on divs, and the choice is never carried by colour alone.
+
+   It sits inside the group card with the same 12px rhythm as everything
+   else there, separated by a hairline above rather than by a heading: it is
+   one more setting for this group, not a new section. */
+.mm-vis{
+  border:0;padding:12px 0 0;margin:0;min-width:0;
+  display:flex;flex-direction:column;gap:10px;
+  border-top:1px solid var(--border)}
+.mm-vis__legend{
+  padding:0;margin-bottom:2px;
+  font-size:12.5px;font-weight:600;color:var(--text-2);line-height:1.4}
+.mm-vis__modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mm-vis__mode{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  min-height:44px;padding:9px 12px;border-radius:var(--r-md);cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--border);text-align:center;
+  transition:border-color .2s,background .2s,color .2s}
+.mm-vis__mode:hover{border-color:var(--border-strong)}
+.mm-vis__input{
+  position:absolute;opacity:0;width:100%;height:100%;inset:0;margin:0;cursor:pointer}
+.mm-vis__mode-label{
+  font-size:13px;font-weight:700;color:var(--text-2);line-height:1.25;min-width:0}
+/* Focus lands on the invisible input, so the ring is drawn on the label
+   around it — without this the control cannot be used from a keyboard. */
+.mm-vis__input:focus-visible + .mm-vis__mode-label{outline:none}
+.mm-vis__mode:focus-within{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-soft)}
+.mm-vis__mode--active{
+  border-color:var(--gold-line);background:var(--gold-soft)}
+.mm-vis__mode--active .mm-vis__mode-label{color:var(--gold-ink)}
+/* §8 — with nothing above it to depend on, the second mode is visibly out
+   of reach and the hint below says why. Dimmed AND disabled, so the state
+   is not communicated by the lighter text alone. */
+.mm-vis__mode--disabled{opacity:.5;cursor:not-allowed}
+.mm-vis__mode--disabled .mm-vis__input{cursor:not-allowed}
+.mm-vis__hint{
+  margin:0;font-size:12px;color:var(--text-3);line-height:1.5}
+.mm-vis__fields{gap:10px}
+
+/* Below ~400px two modes stop holding their labels on one line, so they
+   stack. The 44px floor keeps each one a comfortable target either way. */
+@media(max-width:400px){
+  .mm-vis__modes{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ── Phase 114.0 §23 — a conditional group arriving ──────────────────────
+   The group is not rendered at all until its trigger is selected, so this
+   animates a mount rather than a visibility flip — which is also why there
+   is no flash of a group before its first evaluation: there is nothing to
+   flash.
+
+   Deliberately small. 6px and 180ms is a settle, not an entrance: the guest
+   has just answered a question and the follow-up question should appear to
+   belong to that answer, not announce itself. No height animation, because
+   animating to a measured height is what produces the jitter §39 rules out
+   — the surrounding content reflows once, immediately, and the new block
+   fades into the space it was given.
+
+   The price in the footer is untouched by this and never animates (§23). */
+@keyframes cust-section-reveal{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:none}
+}
+.cust-section--revealed{
+  animation:cust-section-reveal .18s var(--ease) both}
+@media(prefers-reduced-motion:reduce){
+  .cust-section--revealed{animation:none}
+}
+
 /* ── Admin: per-option availability (§9) ──────────────────────────────── */
 
 /* A labelled state, not an icon. "Available" / "Sold out" is readable
