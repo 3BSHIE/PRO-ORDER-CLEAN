@@ -88,6 +88,12 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
 
   const [editingCategory, setEditingCategory] = useState(null); // category object, or {} for "new"
   const [pendingDelete, setPendingDelete] = useState(null); // category awaiting delete confirmation
+  /* Phase 113.0 — a save that would move the Special designation off another
+     category waits here until the Admin confirms it. The WHOLE pending save
+     is held, not a flag: nothing reaches storage until Confirm, so there is
+     never an instant in which two categories are designated, and Cancel
+     simply drops it and leaves both categories as they were. */
+  const [pendingSpecial, setPendingSpecial] = useState(null); // { data, current }
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
@@ -139,7 +145,11 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
     return items.filter((i) => i.categoryId === categoryId).length;
   }
 
-  function handleSave(data) {
+  /* Which category holds the Special designation right now — read from the
+     same live list this screen already renders, so it cannot go stale. */
+  const currentSpecial = categories.find((c) => c.isSpecial) || null;
+
+  function commitSave(data) {
     if (editingCategory?.id) {
       updateCategory(restaurant.slug, editingCategory.id, data);
       setToastMessage(t("admin.categorySaved", "Category saved"));
@@ -149,6 +159,24 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
     }
     setToastVisible(true);
     setEditingCategory(null);
+    setPendingSpecial(null);
+  }
+
+  /* Phase 113.0 — the one case where a save pauses to ask.
+
+     A save that takes the Special designation while a DIFFERENT category
+     holds it is parked for confirmation. Everything else saves immediately
+     and exactly as before: an ordinary edit, turning the designation OFF, and
+     a save on the category that already holds it (re-saving the current
+     Special is not a replacement and must not interrogate the Admin). */
+  function handleSave(data) {
+    const takesSpecial = data.isSpecial === true;
+    const heldByAnother = currentSpecial && currentSpecial.id !== (editingCategory?.id ?? null);
+    if (takesSpecial && heldByAnother) {
+      setPendingSpecial({ data, current: currentSpecial });
+      return;
+    }
+    commitSave(data);
   }
 
   function handleConfirmDelete() {
@@ -239,7 +267,19 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
               <span className="mm-cat-row__emoji">{cat.emoji}</span>
 
               <div className="mm-cat-row__info">
-                <p className="mm-cat-row__name">{getLocalizedText(cat.name, language)}</p>
+                <p className="mm-cat-row__name">
+                  {getLocalizedText(cat.name, language)}
+                  {/* Phase 113.0 — the designation is restaurant-wide and
+                      there is only ever one, so it is stated on the row
+                      rather than only inside the editor. A quiet text chip,
+                      not a second status badge: availability is what the
+                      badge column is for. */}
+                  {cat.isSpecial && (
+                    <span className="mm-cat-row__special">
+                      {t("admin.specialCategory", "Special")}
+                    </span>
+                  )}
+                </p>
                 <p className="mm-cat-row__meta">
                   {/* Phase 110.2 — this printed a bare number beside a bare
                       noun, which Arabic rendered as "3 العناصر" ("3 the-items")
@@ -343,6 +383,37 @@ export default function AdminCategoriesScreen({ restaurant, session, onSignOut, 
         </Modal>
       )}
 
+      {/* ── Phase 113.0 — replacing the Special Category ─────────────────
+          Shown only when the save would move the designation off a different
+          category. Confirming runs the SAME commitSave the ordinary path
+          uses, so the designation transfers inside one write; cancelling
+          drops the pending save and leaves the editor open behind it, with
+          the Admin's unsaved draft intact. */}
+      {pendingSpecial && (
+        <Modal
+          open
+          onClose={() => setPendingSpecial(null)}
+          title={t("admin.replaceSpecialTitle", "Replace Special Category?")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setPendingSpecial(null)}>
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button onClick={() => commitSave(pendingSpecial.data)}>
+                {t("admin.replaceSpecialConfirm", "Replace")}
+              </Button>
+            </>
+          }
+        >
+          <p className="ad-cancel-modal__msg">
+            {t(
+              "admin.replaceSpecialMsg",
+              "{current} is currently the Special Category. Making this one special will remove that designation."
+            ).replace("{current}", getLocalizedText(pendingSpecial.current.name, language))}
+          </p>
+        </Modal>
+      )}
+
       <Toast visible={toastVisible} message={toastMessage} onDone={() => setToastVisible(false)} />
     </AdminLayout>
   );
@@ -369,6 +440,10 @@ function CategoryEditorModal({ category, onSave, onClose }) {
   );
   const [visibleFrom, setVisibleFrom] = useState(category.visibleFrom || "07:00");
   const [visibleUntil, setVisibleUntil] = useState(category.visibleUntil || "12:00");
+  /* Phase 113.0 — the Special Category designation. A plain draft field like
+     every other: it reaches storage only when Save runs, and the
+     one-per-restaurant rule is enforced by the save itself. */
+  const [isSpecial, setIsSpecial] = useState(category.isSpecial === true);
   const [error, setError] = useState(null);
 
   function handleSubmit() {
@@ -389,6 +464,7 @@ function CategoryEditorModal({ category, onSave, onClose }) {
       visibilityMode,
       visibleFrom: visibilityMode === "scheduled" ? visibleFrom : "",
       visibleUntil: visibilityMode === "scheduled" ? visibleUntil : "",
+      isSpecial,
     });
   }
 
@@ -440,6 +516,26 @@ function CategoryEditorModal({ category, onSave, onClose }) {
         <span>{t("admin.onMenu", "On the Menu")}</span>
       </label>
       <p className="mm-toggle-hint">{t("admin.onMenuHint", "Turn this off to remove the category from the customer menu entirely.")}</p>
+
+      {/* ── Phase 113.0 — Special Category ──────────────────────────────
+          One designation per restaurant. It changes where this category sits
+          in the guest's category strip and how its chip is styled; it changes
+          nothing else — not the name, the icon, the schedule, the products or
+          any price. The same toggle serves creating and editing. */}
+      <label className="mm-toggle-row">
+        <input
+          type="checkbox"
+          checked={isSpecial}
+          onChange={(e) => setIsSpecial(e.target.checked)}
+        />
+        <span>{t("admin.specialCategory", "Special Category")}</span>
+      </label>
+      <p className="mm-toggle-hint">
+        {t(
+          "admin.specialCategoryHint",
+          "Shows this category first on the customer menu, with a highlighted chip. Only one category can be special."
+        )}
+      </p>
 
       {/* ── Phase 28: Category Visibility ──────────────────────────────── */}
       <div className="mm-divider" style={{ margin: "16px 0 12px" }} />

@@ -224,10 +224,24 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      — chips, grouped sections, the flat grid, and search — derives from this
      one list, so there is exactly one place the rule is applied. */
   const categories = useMemo(
-    () =>
-      allCategories.filter((c) =>
+    () => {
+      const visible = allCategories.filter((c) =>
         isCategoryVisibleNow(c, { timeZone: settings.timeZone })
-      ),
+      );
+      /* Phase 113.0 — the Special Category leads.
+
+         Applied HERE, after the visibility filter and to the one list every
+         consumer derives from, which gives three things at once: the chip
+         strip, the product sections and the active-category observer all
+         agree on the order; a designated category that is currently
+         unavailable is already gone before this runs, so Special is never a
+         way around availability; and the stored sortOrder is untouched —
+         this is a view of the Admin's ordering, not a rewrite of it. Drop
+         the designation and the category falls straight back into place. */
+      const at = visible.findIndex((c) => c.isSpecial);
+      if (at <= 0) return visible;
+      return [visible[at], ...visible.slice(0, at), ...visible.slice(at + 1)];
+    },
     // visibilityTick is an intentional dependency: it is what re-evaluates
     // schedules for a menu that is already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -332,12 +346,63 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      constant would eventually hide a category heading behind them. */
   const catNavRef = useRef(null);
   const spyPausedUntil = useRef(0);
+  /* The pending settle frame from a category jump; cancelled on unmount and
+     whenever a new jump starts, so no callback can outlive the screen. */
+  const settleFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(settleFrame.current), []);
+
+  /* ── Phase 113.0 §14–§22 — the smart collapsible header ────────────────
+
+     WHAT COLLAPSES, AND WHAT DOES NOT.
+
+     The expanded header — identity, greeting, prompt, search — is left
+     exactly where it is and simply scrolls away, as it always has. Nothing is
+     removed from the document flow, so the page never reflows and the scroll
+     position cannot jump: §22's hardest requirement is met by not creating
+     the problem rather than by compensating for it afterwards.
+
+     What is added is a compact identity bar that is position:FIXED, so it too
+     is outside the flow. It appears once the expanded header has passed
+     behind the topbar, which keeps the venue present for the whole scroll.
+
+     The category strip stays exactly one sticky element, as before; the only
+     thing that changes is its sticky top, and only by the compact bar's own
+     declared height (--menu-idbar-h in global.css, one source for the CSS and
+     for the measurement below). No stack of hardcoded offsets. */
+  /* §25 state D — a restaurant with neither a name nor a logo has nothing to
+     keep visible, so the bar is not rendered at all rather than sticking an
+     empty 46px strip to the top of the menu. The category strip then sits
+     where it always did, and --menu-idbar-shown is never applied because the
+     shell class and the bar are decided by the same condition below. */
+  const hasIdentity =
+    (restaurant.name || "").trim() !== "" || (settings.logoUrl || "").trim() !== "";
+  const headerSentinelRef = useRef(null);
+  const idBarRef = useRef(null);
+  const [headerCompact, setHeaderCompact] = useState(false);
+
+  /* The compact bar's height, from the one place it is declared. Read from
+     CSS rather than guessed, and used when a category jump happens while the
+     header is still expanded — that jump is about to collapse it, so the
+     landing offset has to account for the bar that is on its way in. */
+  const idBarHeight = useCallback(() => {
+    const live = idBarRef.current?.getBoundingClientRect().height;
+    if (live) return live;
+    try {
+      const declared = getComputedStyle(document.documentElement)
+        .getPropertyValue("--menu-idbar-h");
+      const px = parseFloat(declared);
+      return Number.isFinite(px) ? px : 0;
+    } catch {
+      return 0;
+    }
+  }, []);
 
   const stickyOffset = useCallback(() => {
     const bar = document.querySelector(".topbar");
     const barH = bar ? bar.getBoundingClientRect().height : 61;
     const navH = catNavRef.current ? catNavRef.current.getBoundingClientRect().height : 0;
-    return barH + navH;
+    const idH = idBarRef.current ? idBarRef.current.getBoundingClientRect().height : 0;
+    return barH + navH + idH;
   }, []);
 
   /* Tap a category -> scroll its section clear of the sticky stack. The strip
@@ -350,7 +415,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     if (el) revealChip(el);
     const target = document.getElementById(`menu-cat-${catId}`);
     if (!target) return;
-    const y = window.scrollY + target.getBoundingClientRect().top - stickyOffset() - 10;
+    /* §23 — a jump from the top scrolls far enough to collapse the header, so
+       the landing position has to leave room for the compact bar even though
+       it is not on screen yet. Using its declared height here is what stops
+       the heading settling behind it once the collapse lands. */
+    const incomingBar = idBarRef.current ? 0 : idBarHeight();
+    const y =
+      window.scrollY + target.getBoundingClientRect().top - stickyOffset() - incomingBar - 10;
     try {
       window.scrollTo({
         top: Math.max(0, y),
@@ -359,7 +430,41 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     } catch {
       window.scrollTo(0, Math.max(0, y));
     }
-  }, [stickyOffset]);
+
+    /* §23 — re-assert the tapped category once the scroll has actually
+       stopped.
+
+       The section observer is edge-triggered: it fires while a smooth scroll
+       crosses section boundaries and then goes quiet. On a long jump the last
+       callback lands mid-flight, so whatever section happened to be at the
+       band THEN is what stays underlined — measured here as "tap Desserts
+       from the top, land on Desserts, and watch Pasta light up". The 700ms
+       pause above was written for a short scroll and is simply outrun by a
+       2000px one.
+
+       Rather than guess at a longer pause, wait for the thing that actually
+       matters: scrollY holding still for two frames. Then the tapped category
+       is set once more and the pause is lifted, so the next genuine scroll is
+       tracked normally. */
+    cancelAnimationFrame(settleFrame.current);
+    const deadline = Date.now() + 1800;
+    let lastY = Number.NaN;
+    let stillFor = 0;
+    const settle = () => {
+      const now = Math.round(window.scrollY);
+      stillFor = now === lastY ? stillFor + 1 : 0;
+      lastY = now;
+      if (stillFor >= 2 || Date.now() > deadline) {
+        setActiveCategory(catId);
+        spyPausedUntil.current = 0;
+        return;
+      }
+      settleFrame.current = requestAnimationFrame(settle);
+    };
+    /* Long enough that the pause cannot expire before the settle does. */
+    spyPausedUntil.current = Date.now() + 2000;
+    settleFrame.current = requestAnimationFrame(settle);
+  }, [stickyOffset, idBarHeight]);
 
   /* Which section is the guest actually looking at? The bottom rootMargin is
      what makes this read as "the one at the top of the screen" rather than
@@ -402,6 +507,34 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [categories, isSearching, filteredItems.length, stickyOffset]);
+
+  /* §20 — the collapse trigger is a layout observation, not a pixel count.
+
+     A zero-height sentinel sits at the end of the expanded header. Once it
+     has passed behind the topbar the header is compact; it expands again only
+     when the sentinel comes back into view, which can happen only near the
+     true top. That is the hysteresis the brief asks for, for free: there is
+     one crossing point and it is an entire header's worth of scrolling away
+     from the browsing position, so a few pixels of reverse scroll deep in the
+     menu cannot toggle it, and it cannot oscillate.
+
+     Suppressed while a search is running: the search field lives in the
+     expanded header, and collapsing the header out from under someone who is
+     typing in it would hide the control they are using. The query itself is
+     component state and is never touched here. */
+  useEffect(() => {
+    if (isSearching) { setHeaderCompact(false); return undefined; }
+    const el = headerSentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const bar = document.querySelector(".topbar");
+    const barH = bar ? Math.round(bar.getBoundingClientRect().height) : 61;
+    const io = new IntersectionObserver(
+      ([entry]) => setHeaderCompact(!entry.isIntersecting),
+      { rootMargin: `-${barH}px 0px 0px 0px`, threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [isSearching]);
 
   /* Nothing is underlined on first paint until the observer fires, which reads
      as a missing state. Seed it with the first category instead. */
@@ -545,7 +678,40 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         }
       />
 
-      <main className={`container ${hasCartItems ? "container--with-fab" : ""}`}>
+      {/* ── Phase 113.0 §16/§17 — the compact identity bar ────────────────
+          position:fixed, so it is outside the document flow and its arrival
+          cannot move a single pixel of menu content (§22).
+
+          It carries the restaurant's identity and nothing else. The opposite
+          end of the row is deliberately left empty and structurally free: a
+          future AI assistant control is intended to live there, and the row
+          is a logical flex (justify-content:space-between on .menu-idbar__row)
+          so adding one later is a sibling element, not a rebuild. Nothing is
+          rendered for it now — no placeholder, no disabled button, no
+          reserved width.
+
+          RestaurantIdentity is the SAME component the expanded header uses,
+          in its compact variant, so all four Phase 112.2c identity states —
+          logo+name, logo only, name only, neither — are inherited rather than
+          reimplemented, and a restaurant with no identity renders an empty
+          row rather than a fabricated one. */}
+      {headerCompact && hasIdentity && (
+        <div className="menu-idbar" ref={idBarRef} aria-hidden="true">
+          <div className="container menu-idbar__row">
+            <RestaurantIdentity
+              name={restaurant.name}
+              logoUrl={settings.logoUrl}
+              variant="compact"
+            />
+          </div>
+        </div>
+      )}
+
+      <main
+        className={`container ${hasCartItems ? "container--with-fab" : ""} ${
+          headerCompact && hasIdentity ? "menu-shell--compact" : ""
+        }`}
+      >
         {/* ── Header ──────────────────────────────────────────────────── */}
         {/* Phase 83.1, Finding #5 — .anim-rise swapped for .anim-identity-in on
             this ONE element. Both are entrance animations of the same kind;
@@ -687,6 +853,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           )}
         </div>
 
+        {/* Phase 113.0 §20 — the collapse trigger. Zero height, no paint, no
+            semantics: it exists only so an IntersectionObserver has a precise
+            line to watch at the end of the expanded header. */}
+        <div ref={headerSentinelRef} className="menu-header-sentinel" aria-hidden="true" />
+
         {/* ── Category navigation (Phase 99.0 §7) ───────────────────────
             The emoji is still Admin-entered restaurant content, now in a
             fixed-width slot so a wide grapheme cannot set the column width.
@@ -706,7 +877,16 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
                   <button
                     key={cat.id}
                     type="button"
-                    className={`menu-cats__item ${isActive ? "menu-cats__item--active" : ""}`}
+                    /* Phase 113.0 §11 — "special" and "selected" are two
+                       independent states, so they are two independent
+                       classes. A special chip reads as special while another
+                       category is selected, and reads as selected when it is
+                       the active one, without either state hiding the other. */
+                    className={[
+                      "menu-cats__item",
+                      isActive ? "menu-cats__item--active" : "",
+                      cat.isSpecial ? "menu-cats__item--special" : "",
+                    ].filter(Boolean).join(" ")}
                     aria-current={isActive ? "true" : undefined}
                     onClick={(e) => handleCategoryJump(cat.id, e.currentTarget)}
                   >

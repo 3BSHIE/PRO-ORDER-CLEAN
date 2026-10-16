@@ -417,10 +417,99 @@ button{font-family:var(--font-body)}
    width. Background is the opaque page colour rather than a blur, which is
    the restrained option that stays readable in Dark AND Light without a
    second hardcoded treatment. */
+/* ── Phase 113.0 §19 — the sticky stack ──────────────────────────────────
+   The strip is still exactly one sticky element stuck under the topbar. The
+   only thing the collapsible header changes is how far down it sits, and it
+   changes it by ONE value: the compact identity bar's own declared height.
+
+   --menu-idbar-h is declared once, on :root, and is read by three places —
+   the bar's height, the offset below, and CustomerMenuScreen's category-jump
+   maths — so none of them can drift apart. --menu-idbar-shown is 0 until the
+   shell is marked compact, which is what keeps the expanded layout byte-for-
+   byte what it was before this phase. */
+:root{--menu-idbar-h:46px;--menu-idbar-shown:0px}
+.menu-shell--compact{--menu-idbar-shown:var(--menu-idbar-h)}
 .menu-cats{
-  position:sticky;top:61px;z-index:30;
+  position:sticky;top:calc(61px + var(--menu-idbar-shown,0px));z-index:30;
   margin:0 -20px 20px;padding:0 20px;
-  background:var(--bg);border-bottom:1px solid var(--border)}
+  background:var(--bg);border-bottom:1px solid var(--border);
+  /* Moves WITH the bar that is sliding in above it, so the two read as one
+     header settling rather than as two independent elements. */
+  transition:top .18s var(--ease)}
+
+/* Zero-height, zero-paint: the line the collapse observer watches (§20). */
+.menu-header-sentinel{height:0;margin:0;padding:0}
+
+/* Phase 113.0 — the Admin list's marker. A word, not a badge: the badge
+   column beside it is availability, and two badges would compete. */
+.mm-cat-row__special{
+  display:inline-block;margin-inline-start:8px;
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--gold-ink);background:var(--gold-soft);
+  border:1px solid var(--gold-line);border-radius:999px;padding:1px 7px;
+  vertical-align:middle}
+
+/* ── §16/§17 — the compact identity bar ──────────────────────────────────
+   FIXED, not sticky, and that is the whole reason the page never jumps: it
+   is outside the flow, so it can appear and disappear without changing the
+   height of anything. It spans the viewport because it is the chrome the
+   strip sits under; its contents use the shared .container measure so the
+   identity lines up with the menu beneath it.
+
+   The row is a logical flex with space-between, so the identity holds the
+   leading end and the trailing end stays structurally free for the future
+   assistant control (§18). Arabic mirrors it with no second rule. */
+.menu-idbar{
+  position:fixed;top:61px;inset-inline:0;z-index:31;
+  height:var(--menu-idbar-h);
+  background:rgba(10,10,11,.78);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  animation:menu-idbar-in .18s var(--ease) both}
+.menu-idbar__row{
+  height:100%;display:flex;align-items:center;
+  justify-content:space-between;gap:12px;min-width:0}
+/* A short settle, not an entrance: 8px and 180ms, the same restraint the rest
+   of the customer motion uses. Reduced motion collapses it globally. */
+@keyframes menu-idbar-in{
+  from{opacity:0;transform:translateY(-8px)}
+  to{opacity:1;transform:none}
+}
+/* The identity is the only thing in the bar, so it may use the width it
+   needs — but not so much that a long name pushes past the free end. */
+.customer-theme .menu-idbar .rest-identity--compact{max-width:72%}
+
+/* ── Phase 113.0 §8–§12 — the Special Category chip ──────────────────────
+   SAME CHIP. Every dimension that decides the strip's height and density is
+   untouched: no padding, no font-size, no icon size, no min-height, no extra
+   width, no second row. What changes is paint only — a tinted surface, a
+   hairline and the label's ink — so the designation cannot cost the vertical
+   space §8 rules out.
+
+   THEME-DERIVED, NOT A PROMOTIONAL COLOUR. The tokens come from the
+   restaurant's own Secondary via buildCustomerThemeVars: --restaurant-accent
+   and its soft/line derivatives, plus --secondary-ink, which theme.js already
+   computes against the surface it will sit on (readableInkOn). Reusing that
+   machinery is what makes a pale theme and a near-black theme both readable
+   without this file doing any colour maths of its own.
+
+   NOT HUE ALONE (§10): the chip also carries an inset hairline and a filled
+   surface, so it stays identifiable when a restaurant's Primary and Secondary
+   are close together or when the accent is nearly the page colour. */
+.customer-theme .menu-cats__item--special{
+  background:var(--restaurant-accent-soft,var(--gold-soft));
+  box-shadow:inset 0 0 0 1px var(--restaurant-accent-line,var(--gold-line));
+  border-radius:var(--r-sm) var(--r-sm) 0 0;
+  color:var(--secondary-ink,var(--gold-ink))}
+.customer-theme .menu-cats__item--special .menu-cats__label{color:inherit}
+/* §11 — selected is a STRONGER statement of the same colour, so the chip
+   never reads as two unrelated treatments. The foreground is the one theme.js
+   flips by luminance, so the label stays legible on any accent. */
+.customer-theme .menu-cats__item--special.menu-cats__item--active{
+  background:var(--restaurant-accent,var(--gold));
+  color:var(--restaurant-accent-foreground,var(--on-primary));
+  box-shadow:inset 0 0 0 1px transparent}
+.customer-theme .menu-cats__item--special:focus-visible{
+  outline:2px solid var(--restaurant-accent,var(--gold));outline-offset:-2px}
 .menu-cats__track{
   display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;
   padding:4px 0 0;-webkit-overflow-scrolling:touch}

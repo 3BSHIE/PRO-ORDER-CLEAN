@@ -222,6 +222,45 @@ the above.
 
 ---
 
+## D. Special Category uniqueness — DEFERRED (added in Phase 113.0)
+
+**Status: enforced in the client only. Local to one browser.**
+
+Phase 113.0 lets an Admin designate ONE category as the Special Category. The
+rule is enforced inside a single write: `withSingleSpecial()` in
+`src/lib/menuData.js` applies it to the whole category list before it is
+saved, so storage never holds two designations, not even for the instant
+between clearing the old one and setting the new one. The Admin confirmation
+dialog parks the save until it is confirmed, so a cancelled replacement
+writes nothing at all.
+
+That is the right shape for a server to adopt, and it is still only a client.
+Two Admins on two devices can each designate a different category and neither
+will see the other. The designation does not synchronise.
+
+A real implementation needs:
+
+- **Server-side uniqueness.** A partial unique index (one special category
+  per restaurant) or an equivalent constraint, enforced by the database
+  rather than by the client that happens to write last.
+- **Transactional replacement.** Clearing the previous designation and
+  setting the new one must be one transaction, exactly as the single write
+  is today.
+- **Authorization.** Only a session holding `categories.edit` may change it;
+  Cashier holds `categories.toggleAvailability` alone and must not gain this.
+- **Conflict reporting.** When two Admins race, the loser should be told that
+  the designation moved rather than silently overwriting it.
+- **Legacy compatibility.** Categories written before this phase carry no
+  `isSpecial` key and are read as ordinary. A server model must keep that
+  reading rather than back-filling `false` across existing menus.
+
+The designation is presentation only: it changes the category's position in
+the customer strip and its chip styling, and nothing about products, prices,
+availability or ordering. A backend does not need to reason about it beyond
+storing it and keeping it unique.
+
+---
+
 ## Smaller deferred notes from Phase 112.0
 
 - **Order ids** are generated from a localStorage counter

@@ -96,6 +96,15 @@ function seedIfEmpty(restaurantSlug) {
 function normalizeCategory(category) {
   return {
     ...category,
+    /* Phase 113.0 — the Special Category designation. Normalized here for
+       the same reason the visibility fields are: every category written
+       before this phase has no such key, and reading it as `false` means
+       those categories keep behaving exactly as they always have, with no
+       migration and no rewrite of stored data.
+
+       Strict `=== true`, not truthiness: only a category that has actually
+       been designated is special. */
+    isSpecial: category.isSpecial === true,
     isVisible: category.isVisible !== false,
     visibilityMode: category.visibilityMode === "scheduled" ? "scheduled" : "always",
     visibleFrom: typeof category.visibleFrom === "string" ? category.visibleFrom : "",
@@ -176,6 +185,44 @@ function readStoredList(storageKey) {
   }
 }
 
+/**
+ * Phase 113.0 — AT MOST ONE Special Category per restaurant.
+ *
+ * The rule is enforced here, on the list about to be written, rather than by
+ * the callers: a create and an update both go through this, so there is one
+ * definition of the invariant and no path that can write two designations.
+ * It is applied to the WHOLE list in a single pass, which is what makes the
+ * replacement atomic — storage never holds two special categories, not even
+ * for the instant between clearing the old one and setting the new one.
+ *
+ * Restaurant scope is structural: this list is already one restaurant's
+ * categories, read from that restaurant's own key, so a designation here can
+ * never reach another restaurant's menu.
+ *
+ * @param {object[]} list     the categories about to be saved
+ * @param {string|null} keepId the id that should hold the designation, or
+ *                             null to clear it everywhere
+ * @returns {object[]} a new list in which at most one category is special
+ */
+function withSingleSpecial(list, keepId) {
+  return list.map((c) => {
+    const shouldBeSpecial = keepId != null && c.id === keepId;
+    /* Written only when it actually changes, so a save that has nothing to do
+       with the designation does not rewrite every category record. */
+    if ((c.isSpecial === true) === shouldBeSpecial) return c;
+    return { ...c, isSpecial: shouldBeSpecial };
+  });
+}
+
+/**
+ * Phase 113.0 — which category currently holds the designation, if any.
+ * @param {string} restaurantSlug
+ * @returns {object|null} the special category, or null
+ */
+export function getSpecialCategory(restaurantSlug) {
+  return getCategories(restaurantSlug).find((c) => c.isSpecial) || null;
+}
+
 function saveCategories(restaurantSlug, categories) {
   try {
     localStorage.setItem(categoriesKey(restaurantSlug), JSON.stringify(categories));
@@ -219,7 +266,7 @@ function trimAuthored(value) {
 /**
  * @param {string} restaurantSlug
  * @param {object} data — { name, emoji, imageUrl, isActive, isVisible,
- *   visibilityMode, visibleFrom, visibleUntil }
+ *   visibilityMode, visibleFrom, visibleUntil, isSpecial }
  * @returns {object} the created category
  */
 export function createCategory(
@@ -233,6 +280,8 @@ export function createCategory(
     visibilityMode = "always",
     visibleFrom = "",
     visibleUntil = "",
+    /* Phase 113.0 — a category may be created already designated. */
+    isSpecial = false,
   }
 ) {
   const categories = getCategories(restaurantSlug);
@@ -250,15 +299,23 @@ export function createCategory(
     visibilityMode: visibilityMode === "scheduled" ? "scheduled" : "always",
     visibleFrom: (visibleFrom || "").trim(),
     visibleUntil: (visibleUntil || "").trim(),
+    isSpecial: isSpecial === true,
   };
-  saveCategories(restaurantSlug, [...categories, category]);
-  return category;
+  /* One write, invariant applied to the whole list: creating a special
+     category clears any previous one in the same save. */
+  const next = withSingleSpecial(
+    [...categories, category],
+    isSpecial === true ? category.id : (categories.find((c) => c.isSpecial)?.id ?? null)
+  );
+  saveCategories(restaurantSlug, next);
+  return next.find((c) => c.id === category.id) || category;
 }
 
 /**
  * @param {string} restaurantSlug
  * @param {string} categoryId
- * @param {object} patch — any subset of { name, emoji, imageUrl, isActive }
+ * @param {object} patch — any subset of { name, emoji, imageUrl, isActive,
+ *   isSpecial }
  * @returns {object|null} the updated category, or null if not found
  */
 export function updateCategory(restaurantSlug, categoryId, patch) {
@@ -267,9 +324,30 @@ export function updateCategory(restaurantSlug, categoryId, patch) {
   if (idx === -1) return null;
 
   const updated = { ...categories[idx], ...patch };
-  const next = categories.map((c, i) => (i === idx ? updated : c));
+  const merged = categories.map((c, i) => (i === idx ? updated : c));
+
+  /* Phase 113.0 — who should hold the designation after this save?
+
+     A patch that mentions isSpecial is the authority: true moves it here and
+     clears it everywhere else in the same write, false clears it from this
+     category. A patch that does not mention it at all (a rename, an icon
+     change, a schedule edit) leaves whoever had it holding it — so editing
+     an unrelated category can never disturb the designation. */
+  const mentionsSpecial = Object.prototype.hasOwnProperty.call(patch, "isSpecial");
+  let keepId;
+  if (!mentionsSpecial) {
+    keepId = merged.find((c) => c.isSpecial)?.id ?? null;
+  } else if (patch.isSpecial === true) {
+    keepId = categoryId;
+  } else {
+    /* Turning THIS one off must not clear a designation another category
+       legitimately holds. */
+    keepId = categories.find((c) => c.isSpecial && c.id !== categoryId)?.id ?? null;
+  }
+
+  const next = withSingleSpecial(merged, keepId);
   saveCategories(restaurantSlug, next);
-  return updated;
+  return next[idx] || updated;
 }
 
 /**
