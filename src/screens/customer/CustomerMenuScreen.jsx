@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
   Search, SearchX, ShoppingBag, ShoppingCart, Clock, X, UtensilsCrossed,
 } from "lucide-react";
@@ -369,16 +369,18 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      thing that changes is its sticky top, and only by the compact bar's own
      declared height (--menu-idbar-h in global.css, one source for the CSS and
      for the measurement below). No stack of hardcoded offsets. */
-  /* §25 state D — a restaurant with neither a name nor a logo has nothing to
-     keep visible, so the bar is not rendered at all rather than sticking an
-     empty 46px strip to the top of the menu. The category strip then sits
-     where it always did, and --menu-idbar-shown is never applied because the
-     shell class and the bar are decided by the same condition below. */
-  const hasIdentity =
-    (restaurant.name || "").trim() !== "" || (settings.logoUrl || "").trim() !== "";
   const headerSentinelRef = useRef(null);
   const idBarRef = useRef(null);
   const [headerCompact, setHeaderCompact] = useState(false);
+  /* The same boolean, readable from callbacks that must not re-create
+     themselves every time it flips (stickyOffset, the category jump). */
+  const compactRef = useRef(false);
+  useEffect(() => { compactRef.current = headerCompact; }, [headerCompact]);
+  /* The two visual instances of ONE search control. Only one is ever
+     visible, and visibility:hidden keeps the other out of the tab order,
+     the accessibility tree and hit-testing — see .menu-idbar in global.css. */
+  const expandedSearchRef = useRef(null);
+  const compactSearchRef = useRef(null);
 
   /* The compact bar's height, from the one place it is declared. Read from
      CSS rather than guessed, and used when a category jump happens while the
@@ -401,7 +403,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     const bar = document.querySelector(".topbar");
     const barH = bar ? bar.getBoundingClientRect().height : 61;
     const navH = catNavRef.current ? catNavRef.current.getBoundingClientRect().height : 0;
-    const idH = idBarRef.current ? idBarRef.current.getBoundingClientRect().height : 0;
+    /* Phase 113.1 — the bar is mounted even when hidden, so its measured
+       height must only count while it is actually shown. */
+    const idH = compactRef.current && idBarRef.current
+      ? idBarRef.current.getBoundingClientRect().height
+      : 0;
     return barH + navH + idH;
   }, []);
 
@@ -419,7 +425,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
        the landing position has to leave room for the compact bar even though
        it is not on screen yet. Using its declared height here is what stops
        the heading settling behind it once the collapse lands. */
-    const incomingBar = idBarRef.current ? 0 : idBarHeight();
+    const incomingBar = compactRef.current ? 0 : idBarHeight();
     const y =
       window.scrollY + target.getBoundingClientRect().top - stickyOffset() - incomingBar - 10;
     try {
@@ -518,12 +524,14 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      from the browsing position, so a few pixels of reverse scroll deep in the
      menu cannot toggle it, and it cannot oscillate.
 
-     Suppressed while a search is running: the search field lives in the
-     expanded header, and collapsing the header out from under someone who is
-     typing in it would hide the control they are using. The query itself is
-     component state and is never touched here. */
+     Phase 113.1 removed the suppression this effect used to carry. It existed
+     because the search field lived only in the expanded header, so collapsing
+     while someone was typing hid the control they were using. The compact bar
+     now carries its own instance of the same field, so scrolling past the
+     threshold with a query — or with the field focused — is simply the normal
+     case, and the rule that prevented it would now withhold a usable search
+     from the whole scroll. */
   useEffect(() => {
-    if (isSearching) { setHeaderCompact(false); return undefined; }
     const el = headerSentinelRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return undefined;
     const bar = document.querySelector(".topbar");
@@ -534,7 +542,37 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     );
     io.observe(el);
     return () => io.disconnect();
+    /* isSearching stays in the deps, but no longer to SUPPRESS anything —
+       it is here because entering and leaving a search re-renders this
+       subtree and can hand us a different sentinel node. Observing the one
+       captured at mount left the observer watching a detached element and
+       the header stopped collapsing entirely after the first search
+       (measured: scrollY 900 of a 3598px page, bar never shown). */
   }, [isSearching]);
+
+  /* §3.2 — hand the caret over when the header changes state.
+
+     Only when the outgoing field actually had focus: a collapse that happens
+     while the guest is simply scrolling must not steal focus and raise a
+     keyboard. When it did have focus, the incoming field takes it with the
+     same selection range, so typing continues uninterrupted across the
+     threshold. useLayoutEffect, so the move happens in the same frame the
+     visibility flips and no intermediate state is painted. */
+  useLayoutEffect(() => {
+    const from = headerCompact ? expandedSearchRef.current : compactSearchRef.current;
+    const to   = headerCompact ? compactSearchRef.current : expandedSearchRef.current;
+    if (!from || !to || document.activeElement !== from) return;
+    const start = from.selectionStart;
+    const end = from.selectionEnd;
+    /* focus() is a no-op on an element the browser still considers hidden,
+       and the class that reveals it was applied in this same commit. Reading
+       a layout property forces the style recalculation first, so the field is
+       genuinely visible by the time focus moves — measured: without this the
+       collapse direction silently kept focus on the outgoing field. */
+    void to.offsetHeight;
+    to.focus({ preventScroll: true });
+    try { to.setSelectionRange(start, end); } catch { /* type=search on some engines */ }
+  }, [headerCompact]);
 
   /* Nothing is underlined on first paint until the observer fires, which reads
      as a missing state. Seed it with the first category instead. */
@@ -695,21 +733,70 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
           logo+name, logo only, name only, neither — are inherited rather than
           reimplemented, and a restaurant with no identity renders an empty
           row rather than a fabricated one. */}
-      {headerCompact && hasIdentity && (
-        <div className="menu-idbar" ref={idBarRef} aria-hidden="true">
-          <div className="container menu-idbar__row">
-            <RestaurantIdentity
-              name={restaurant.name}
-              logoUrl={settings.logoUrl}
-              variant="compact"
+      {/* Mounted for the whole session and SHOWN by a class (§4). Creating and
+          destroying it would remount the search field inside it on every
+          threshold crossing, which is exactly what loses a half-typed query,
+          the caret and the mobile keyboard. Hidden, it is inert: see the
+          visibility rules on .menu-idbar.
+
+          Phase 113.1 also dropped the Phase 113.0 rule that withheld this bar
+          from a restaurant with no name and no logo. The bar now carries
+          Search, so it is needed in all four identity states; with no identity
+          the row simply starts with the field. */}
+      <div
+        ref={idBarRef}
+        className={`menu-idbar ${headerCompact ? "menu-idbar--shown" : ""}`}
+      >
+        <div className="container menu-idbar__row">
+          {/* Leading end. RestaurantIdentity renders nothing at all when the
+              restaurant has neither a name nor a logo, so no empty slot is
+              reserved and Search simply takes the width. aria-hidden because
+              the expanded header above states the same identity as real
+              content; this is its visual continuation, not a second
+              announcement. */}
+          <RestaurantIdentity
+            name={restaurant.name}
+            logoUrl={settings.logoUrl}
+            variant="compact"
+          />
+
+          {/* Middle: the same search control, shorter. It writes to the same
+              searchQuery state as the expanded field, so there is one query,
+              one set of results and nothing to keep in sync. */}
+          <div className="menu-search menu-idbar__search">
+            <Search className="menu-search__icon" size={14} strokeWidth={2} />
+            <input
+              ref={compactSearchRef}
+              className="menu-search__input"
+              type="search"
+              placeholder={t("customer.searchMenuPlaceholder", "Search menu…")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+              aria-label={t("customer.searchMenuPlaceholder", "Search menu…")}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                className="menu-search__clear"
+                onClick={() => setSearchQuery("")}
+                aria-label={t("customer.clearSearch", "Clear search")}
+              >
+                <X size={14} strokeWidth={2.4} />
+              </button>
+            )}
           </div>
+
+          {/* Trailing end: deliberately empty. A future assistant control is
+              intended here and would be a sibling of the search above — no
+              element, no icon and no reserved width are rendered for it now,
+              because a reserved width would cost a 320px phone real space. */}
         </div>
-      )}
+      </div>
 
       <main
         className={`container ${hasCartItems ? "container--with-fab" : ""} ${
-          headerCompact && hasIdentity ? "menu-shell--compact" : ""
+          headerCompact ? "menu-shell--compact" : ""
         }`}
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
@@ -831,8 +918,15 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         <div className="menu-search anim-rise" style={{ animationDelay: "80ms" }}>
           <Search className="menu-search__icon" size={16} strokeWidth={2} />
           <input
+            ref={expandedSearchRef}
             className="menu-search__input"
             type="search"
+            /* §3.2 — exactly one reachable search field at a time. The
+               compact twin is visibility:hidden while expanded, which
+               already removes it from the tab order; this is the other
+               half, for the expanded field once it has scrolled away and
+               the compact one has taken over. */
+            tabIndex={headerCompact ? -1 : 0}
             placeholder={t("customer.searchMenuPlaceholder", "Search menu…")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

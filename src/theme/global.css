@@ -73,8 +73,22 @@ button{font-family:var(--font-body)}
 .container{width:100%;max-width:1000px;margin:0 auto;padding:0 20px}
 
 /* top bar */
+/* ── Phase 113.1 — the translucent chrome surface, as a token ────────────
+   The literal below used to be written out at each bar that wanted it, with
+   a separate :root[data-appearance="light"] override further down the file
+   for each one. Phase 113.0 copied the DARK literal into .menu-idbar and not
+   its light override, so the compact header stayed black in Light Mode — the
+   bug this phase exists to fix, and a bug the duplication made inevitable.
+
+   One token now carries both values. Every chrome bar reads it, Light Mode is
+   defined once beside Dark, and because the value is resolved from
+   data-appearance on :root, flipping the theme while the menu is open and
+   already collapsed repaints the bar with no reload and no JavaScript. */
+:root{--chrome-bar:rgba(10,10,11,.78)}
+:root[data-appearance="light"]{
+  --chrome-bar:color-mix(in srgb,var(--surface-1) 86%,transparent)}
 .topbar{position:sticky;top:0;z-index:50;
-  background:rgba(10,10,11,.78);backdrop-filter:blur(14px);
+  background:var(--chrome-bar);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--border)}
 .topbar__inner{height:60px;display:flex;align-items:center;
   justify-content:space-between;gap:12px}
@@ -434,8 +448,9 @@ button{font-family:var(--font-body)}
   margin:0 -20px 20px;padding:0 20px;
   background:var(--bg);border-bottom:1px solid var(--border);
   /* Moves WITH the bar that is sliding in above it, so the two read as one
-     header settling rather than as two independent elements. */
-  transition:top .18s var(--ease)}
+     header settling rather than as two independent elements. Matched to the
+     bar's own .22s in Phase 113.1. */
+  transition:top .22s var(--ease)}
 
 /* Zero-height, zero-paint: the line the collapse observer watches (§20). */
 .menu-header-sentinel{height:0;margin:0;padding:0}
@@ -462,21 +477,70 @@ button{font-family:var(--font-body)}
 .menu-idbar{
   position:fixed;top:61px;inset-inline:0;z-index:31;
   height:var(--menu-idbar-h);
-  background:rgba(10,10,11,.78);backdrop-filter:blur(14px);
+  /* Phase 113.1 — the shared token, so Light and Dark are one decision. */
+  background:var(--chrome-bar);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--border);
-  animation:menu-idbar-in .18s var(--ease) both}
-.menu-idbar__row{
-  height:100%;display:flex;align-items:center;
-  justify-content:space-between;gap:12px;min-width:0}
-/* A short settle, not an entrance: 8px and 180ms, the same restraint the rest
-   of the customer motion uses. Reduced motion collapses it globally. */
-@keyframes menu-idbar-in{
-  from{opacity:0;transform:translateY(-8px)}
-  to{opacity:1;transform:none}
+  /* ── The transition (§4) ──────────────────────────────────────────────
+     The bar is mounted for the whole session and shown by a class rather
+     than created and destroyed, for three reasons: the search input inside
+     it is never remounted, so a query being typed across the threshold keeps
+     its value, its caret and the mobile keyboard; the reverse transition can
+     actually run on the way back to the top; and nothing about document
+     height changes either way, because the bar is fixed.
+
+     visibility is what keeps a hidden bar genuinely inert — out of the tab
+     order, out of the accessibility tree and out of hit-testing — so there
+     is no phantom input to catch a key or a tap. It flips instantly on the
+     way in and only after the fade on the way out. */
+  opacity:0;transform:translateY(-6px);visibility:hidden;pointer-events:none;
+  transition:opacity .22s var(--ease),transform .22s var(--ease),
+             visibility 0s linear .22s}
+.menu-idbar--shown{
+  opacity:1;transform:none;visibility:visible;pointer-events:auto;
+  transition:opacity .22s var(--ease),transform .22s var(--ease),
+             visibility 0s}
+/* The global reduced-motion rule collapses every DURATION but not a delay,
+   and the hide above carries a .22s delay on visibility so the bar stays
+   hit-testable until the fade finishes. With motion switched off there is no
+   fade to wait for, so the delay goes too and an invisible fixed bar can
+   never sit over the menu catching taps. */
+@media(prefers-reduced-motion:reduce){
+  .menu-idbar{transition-delay:0s!important}
 }
-/* The identity is the only thing in the bar, so it may use the width it
-   needs — but not so much that a long name pushes past the free end. */
-.customer-theme .menu-idbar .rest-identity--compact{max-width:72%}
+/* The identity settles a touch behind the bar, which is what makes the
+   expanded identity read as becoming this one rather than being replaced. */
+.menu-idbar .rest-identity{
+  opacity:0;transform:translateY(-3px);
+  transition:opacity .2s var(--ease) .04s,transform .2s var(--ease) .04s}
+.menu-idbar--shown .rest-identity{opacity:1;transform:none}
+
+.menu-idbar__row{
+  height:100%;display:flex;align-items:center;gap:10px;min-width:0}
+/* §3.1 — identity leads, Search takes the middle and the remaining width,
+   and the trailing end is left structurally free for the future assistant
+   control: adding one later is a sibling after the search, not a rebuild.
+   Nothing is rendered for it now and no width is reserved. */
+.customer-theme .menu-idbar .rest-identity--compact{
+  flex:0 1 auto;min-width:0;max-width:46%}
+.menu-idbar__search{flex:1 1 auto;min-width:0;margin:0}
+
+/* The compact field: the same control, shorter. It keeps the underline
+   treatment, the icon, the clear action and the focus behaviour of the
+   expanded one — only the vertical rhythm changes. */
+.menu-idbar__search .menu-search__input{
+  padding-block:6px 5px;font-size:13px}
+.menu-idbar__search .menu-search__icon{left:2px}
+[dir="rtl"] .menu-idbar__search .menu-search__icon{left:auto;right:2px}
+.menu-idbar__search .menu-search__clear{right:0}
+[dir="rtl"] .menu-idbar__search .menu-search__clear{right:auto;left:0}
+
+/* 320px: the identity yields first, because the venue is already named in
+   the expanded header and Search is the control in use. The logo keeps its
+   size; only the name's share of the row narrows. */
+@media(max-width:360px){
+  .customer-theme .menu-idbar .rest-identity--compact{max-width:38%}
+  .menu-idbar__row{gap:8px}
+}
 
 /* ── Phase 113.0 §8–§12 — the Special Category chip ──────────────────────
    SAME CHIP. Every dimension that decides the strip's height and density is
@@ -8990,8 +9054,8 @@ button{font-family:var(--font-body)}
    A handful of surfaces were written with literal rgba(10,10,11,…) because
    there was only ever one background. Those are the only places that need a
    light counterpart; everything else already follows the tokens above. */
-:root[data-appearance="light"] .topbar{
-  background:color-mix(in srgb,var(--surface-1) 86%,transparent)}
+/* Phase 113.1 — .topbar's light override moved into --chrome-bar above, so
+   the bar and the Menu's compact identity bar can never drift apart again. */
 :root[data-appearance="light"] .modal__overlay{
   background:rgba(38,32,20,.38)}
 
