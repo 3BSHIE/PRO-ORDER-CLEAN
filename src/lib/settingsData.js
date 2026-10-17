@@ -84,6 +84,12 @@ function defaultSettings(restaurantSlug) {
     contactPhone: "",
     contactEmail: "",
     contactAddress: "",
+    /* Phase 117.0 — one optional link per restaurant, and nothing else:
+       no Google account, no API key, no token. Empty is the default and
+       means "not configured", so a settings record written before this
+       phase reads as unconfigured through the spread below and is never
+       rewritten to say so. The customer CTA is simply not rendered. */
+    googleReviewUrl: "",
     /* Phase 79 — these hours became functional this phase: Accepting Orders'
        Auto mode now reads them, and Auto is the default mode. The previous
        10:00–23:00 default was inherited from Phase 23, when the fields were

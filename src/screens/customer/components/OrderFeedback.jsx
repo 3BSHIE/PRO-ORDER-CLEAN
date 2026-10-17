@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquareHeart, CheckCircle2 } from "lucide-react";
+import { MessageSquareHeart, CheckCircle2, ExternalLink } from "lucide-react";
 import Card from "../../../components/ui/Card.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import StarRating from "../../../components/ui/StarRating.jsx";
@@ -8,6 +8,8 @@ import { formatDateTime } from "../../../i18n/dateFormat.js";
 import { useOrderFeedback } from "../../../lib/useFeedback.js";
 import { createFeedback, MAX_COMMENT_LENGTH } from "../../../lib/feedbackData.js";
 import { orderBelongsToSession } from "../../../lib/customerIdentity.js";
+import { useSettingsData } from "../../../lib/useSettingsData.js";
+import { resolveGoogleReviewUrl } from "../../../lib/googleReview.js";
 
 /**
  * OrderFeedback — Phase 29, customer side.
@@ -35,6 +37,20 @@ export default function OrderFeedback({ order, session }) {
   const { t, language } = useLanguage();
   const restaurantSlug = order?.restaurantSlug;
   const { feedback, refresh } = useOrderFeedback(restaurantSlug, order?.orderId);
+  /* Phase 117.0 — THIS restaurant's link, through the same restaurant-scoped
+     settings hook every other customer surface uses. The slug comes from the
+     order itself, so a guest can only ever be shown the review link of the
+     restaurant whose order they are rating; there is no global value to leak
+     and no default to fall back to.
+
+     Must sit up here with the other hooks: the two eligibility gates below
+     return early, and a hook after an early return runs on some renders and
+     not others. */
+  const { settings } = useSettingsData(restaurantSlug);
+  /* Re-validated here rather than trusted from storage — see
+     resolveGoogleReviewUrl. Unconfigured and unsafe both give "", and ""
+     renders nothing at all. */
+  const googleReviewUrl = resolveGoogleReviewUrl(settings);
 
   const [foodRating, setFoodRating] = useState(0);
   const [serviceRating, setServiceRating] = useState(0);
@@ -132,6 +148,54 @@ export default function OrderFeedback({ order, session }) {
           </div>
           {feedback.comment && <p className="fb-readonly__comment">“{feedback.comment}”</p>}
         </div>
+
+        {/* ── Phase 117.0 — the optional Google invitation ─────────────────
+            WHERE: inside the card that already exists, under the summary of
+            what was just submitted. No new screen, no dialog, no second
+            step — §2 and §7 both turn on this being the same card the guest
+            is already looking at.
+
+            WHEN: only on a submission that just happened in this tab, and
+            only when the restaurant has configured a valid link.
+
+            justSubmitted is the existing flag that separates "thank you"
+            from "already submitted" — reopening an order rated last week
+            shows the calm historical view, and asking that guest for a
+            Google review would be the repeat prompt §7 rules out. The
+            invitation belongs to the moment, not to the record.
+
+            WHAT IT IS NOT: it does not carry the rating, the comment, the
+            order, the table or the session anywhere. The href is exactly
+            what the restaurant saved and nothing is appended to it (§23).
+            Opening it tells us nothing — Google decides whether a review is
+            written, so nothing here may claim one was (§9).
+
+            RATING-NEUTRAL BY CONSTRUCTION: there is no rating in this
+            condition. One star and five stars reach the identical markup,
+            and there is deliberately no branch that could ever make that
+            untrue (§11). */}
+        {justSubmitted && googleReviewUrl && (
+          <div className="fb-google">
+            <p className="fb-google__ask">
+              {t("feedback.googleAsk", "Would you like to share your experience on Google?")}
+            </p>
+            {/* A real anchor, not a button with an onClick: the navigation
+                is the browser's, which is what makes it work from a mobile
+                long-press, survive a popup blocker, and keep this tab's
+                thank-you state intact when the guest comes back.
+                rel="noopener noreferrer" so the opened page gets no handle
+                on this one. */}
+            <a
+              className="fb-google__btn"
+              href={googleReviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink size={15} strokeWidth={2.2} aria-hidden="true" />
+              {t("feedback.googleCta", "Review us on Google")}
+            </a>
+          </div>
+        )}
       </Card>
     );
   }

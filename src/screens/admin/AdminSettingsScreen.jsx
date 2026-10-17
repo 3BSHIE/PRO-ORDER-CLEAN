@@ -33,6 +33,7 @@ import {
 } from "../../lib/restaurantLogoAssets.js";
 import ImageAssetField from "../../components/admin/ImageAssetField.jsx";
 import { ensureFontsLoaded } from "../../lib/fontLoader.js";
+import { isValidGoogleReviewUrl } from "../../lib/googleReview.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -129,6 +130,9 @@ function previewHex(value) {
 }
 
 const hexFieldId = (field) => `st-hex-${field}`;
+/* Phase 117.0 — so a blocked Save can put the cursor on the thing that
+   blocked it, exactly as the colour and sound gates already do. */
+const GOOGLE_REVIEW_FIELD_ID = "st-google-review-url";
 const LANGUAGES_FIELD_ID = "st-default-language";
 
 /* One colour control: a real picker, a free-text HEX field, and its own error
@@ -298,6 +302,18 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
     primaryColor: hexDraft.primaryColor !== null && !isValidHex(hexDraft.primaryColor),
     accentColor: hexDraft.accentColor !== null && !isValidHex(hexDraft.accentColor),
   };
+
+  /* Phase 117.0 — the same shape as hexErrors above, and for the same
+     reason: derived from the draft rather than held in state, so it cannot
+     drift out of step with what is in the box, and it clears itself the
+     moment the value becomes valid.
+
+     EMPTY IS NOT AN ERROR. The link is optional, and clearing it is how a
+     restaurant turns the invitation off — flagging a blank field would make
+     removal feel like a mistake. */
+  const googleReviewError =
+    (draft.googleReviewUrl || "").trim() !== "" &&
+    !isValidGoogleReviewUrl(draft.googleReviewUrl);
 
   /* ── Phase 94.1 §2/§9 — typed text belongs to the user ─────────────────
      THE BUG THIS REPLACES: the previous version cleared the draft whenever
@@ -577,6 +593,16 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
       return;
     }
 
+    /* Phase 117.0 — an unsafe or malformed review link blocks the write the
+       same way a malformed colour does. It is never coerced or silently
+       dropped: this value becomes a link every guest who leaves feedback is
+       invited to click, so the manager is told rather than second-guessed. */
+    if (googleReviewError) {
+      setError(t("admin.googleReviewInvalidBlocksSave", "Fix the Google review link before saving."));
+      document.getElementById(GOOGLE_REVIEW_FIELD_ID)?.focus();
+      return;
+    }
+
     /* §5 — two alert purposes sharing one sound blocks the write outright,
        exactly like a malformed colour does. The inline message on the field
        says which purpose already owns it; this is the gate. */
@@ -783,6 +809,30 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
                 onChange={(e) => setField("contactEmail", e.target.value)} />
               <Input label={t("admin.address", "Address")} value={draft.contactAddress}
                 onChange={(e) => setField("contactAddress", e.target.value)} />
+              {/* ── Phase 117.0 §14/§15 — one compact optional field ────────
+                  Placed with the contact details rather than with the logo
+                  and cover image: those say who the restaurant IS, these say
+                  how a guest reaches it, and a review link is the second
+                  kind. Same Input, same label treatment, same single row as
+                  everything around it — no card, no wizard, no Google panel.
+
+                  The hint names where to find the link because that is the
+                  one thing a manager will not know; it stops short of a
+                  tutorial, and deliberately never mentions a Place ID. */}
+              <Input
+                id={GOOGLE_REVIEW_FIELD_ID}
+                label={t("admin.googleReviewUrl", "Google Review Link")}
+                value={draft.googleReviewUrl}
+                placeholder="https://g.page/…"
+                inputMode="url"
+                aria-invalid={googleReviewError ? "true" : undefined}
+                error={googleReviewError
+                  ? t("admin.googleReviewInvalid", "Enter a valid Google review link.")
+                  : null}
+                /* Input renders the error in place of the hint when one is
+                   present, so both can simply be passed. */
+                hint={t("admin.googleReviewHint", "Optional. Paste the direct review link from your Google Business Profile.")}
+                onChange={(e) => setField("googleReviewUrl", e.target.value)} />
             </div>
           </div>
           <label className="field mm-field st-profile__desc">

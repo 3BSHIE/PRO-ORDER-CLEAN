@@ -3506,6 +3506,39 @@ button{font-family:var(--font-body)}
 .fb-error{
   margin:0;font-size:13px;color:var(--canceled);line-height:1.5}
 
+/* ── Phase 117.0 — the optional Google invitation ────────────────────────
+   Sits under the submitted summary inside the SAME card. Separated by a
+   hairline rather than by a nested box: the thank-you is the moment, and
+   wrapping an invitation in its own panel would make it compete with the
+   thing the guest actually came to do.
+
+   Every colour is a restaurant theme token, so this follows the venue's
+   palette in both Light and Dark rather than arriving as a Google-blue
+   button that clashes with it. The word "Google" and the external-link
+   glyph carry the meaning. */
+.fb-google{
+  display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+  padding-top:14px;border-top:1px solid var(--border);min-width:0}
+.fb-google__ask{
+  margin:0;font-size:13px;color:var(--text-2);line-height:1.5}
+/* Outline, not filled: the primary action on this screen is leaving, and an
+   optional invitation must not out-weigh it (§5). 44px min-height keeps it a
+   comfortable target on a phone. */
+.fb-google__btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;padding:11px 18px;border-radius:999px;max-width:100%;
+  font-family:var(--font-body);font-size:14px;font-weight:600;
+  color:var(--text-1);text-decoration:none;
+  background:var(--surface-2);border:1px solid var(--border-strong);
+  transition:border-color .2s,background .2s,color .2s}
+.fb-google__btn:hover{
+  border-color:var(--primary);color:var(--primary)}
+.fb-google__btn:focus-visible{
+  outline:2px solid var(--primary);outline-offset:2px}
+/* The label wraps rather than overflowing; the icon never shrinks with it.
+   "قيّمنا على Google" and "Review us on Google" both have to survive 320px. */
+.fb-google__btn svg{flex:none}
+
 .fb-readonly{display:flex;flex-direction:column;gap:10px}
 .fb-readonly__row{
   display:flex;align-items:center;justify-content:space-between;gap:14px}

@@ -775,6 +775,12 @@ export const translations = {
       phone: "Phone",
       email: "Email",
       address: "Address",
+      /* Phase 117.0 — optional, and the hint says where to FIND the link
+         rather than what a Place ID is. The manager copies one thing. */
+      googleReviewUrl: "Google Review Link",
+      googleReviewHint: "Optional. Paste the direct review link from your Google Business Profile.",
+      googleReviewInvalid: "Enter a valid Google review link.",
+      googleReviewInvalidBlocksSave: "Fix the Google review link before saving.",
       workingHours: "Working Hours",
       openingTime: "Opening Time",
       closingTime: "Closing Time",
@@ -1276,6 +1282,12 @@ export const translations = {
       rated: "Rated",
       thankYou: "Thanks for your feedback.",
       alreadySubmitted: "Already submitted",
+      /* Phase 117.0 — an invitation, not a campaign. One question, one
+         button, no explanation of why reviews matter and no suggestion that
+         a particular rating is wanted: the same words reach a guest who
+         gave one star and a guest who gave five. */
+      googleAsk: "Would you like to share your experience on Google?",
+      googleCta: "Review us on Google",
       bothRatingsRequired: "Please rate both food quality and service.",
       submitFailed: "Sorry, that didn't go through. Please try again.",
       yourRating: "Your rating",
@@ -1954,6 +1966,11 @@ export const translations = {
       phone: "الهاتف",
       email: "البريد الإلكتروني",
       address: "العنوان",
+      /* Phase 117.0 */
+      googleReviewUrl: "رابط التقييم على Google",
+      googleReviewHint: "اختياري. أضف الرابط المباشر لتقييم مطعمك من ملف نشاطك على Google.",
+      googleReviewInvalid: "أدخل رابط تقييم صالحًا على Google.",
+      googleReviewInvalidBlocksSave: "صحّح رابط التقييم على Google قبل الحفظ.",
       workingHours: "ساعات العمل",
       openingTime: "وقت الفتح",
       closingTime: "وقت الإغلاق",
@@ -2373,6 +2390,9 @@ export const translations = {
       rated: "تم التقييم",
       thankYou: "شكرًا على تقييمك.",
       alreadySubmitted: "تم إرسال التقييم",
+      /* Phase 117.0 — صيغة دعوة لا إلحاح. */
+      googleAsk: "هل تحب مشاركة تجربتك على Google؟",
+      googleCta: "قيّمنا على Google",
       bothRatingsRequired: "يرجى تقييم جودة الطعام والخدمة معًا.",
       submitFailed: "عذرًا، لم يتم الإرسال. يرجى المحاولة مرة أخرى.",
       yourRating: "تقييمك",
