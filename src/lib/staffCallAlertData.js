@@ -44,9 +44,16 @@ import { SOUND_TYPES } from "./alertSound.js";
    whole form, could not save an unrelated field like its own name until it
    resolved the clash.
 
-   "chime" is the remaining member of SOUND_TYPES, so the three defaults are
-   now distinct by construction: bell for a new order, beep for a
-   cancellation, chime for a guest asking for help. */
+   "chime" was, at the time, the remaining member of SOUND_TYPES, so the
+   three defaults became distinct by construction: bell for a new order,
+   beep for a cancellation, chime for a guest asking for help.
+
+   Phase 116.0 took SOUND_TYPES to eight, which does not change any of the
+   above — these three defaults are still distinct, and still these three,
+   because changing a shipped default would silently alter the sound an
+   existing restaurant hears. What the extra voices change is that the rule
+   now has somewhere to go: with exactly three sounds and three purposes
+   there was only ever one valid arrangement. */
 export const DEFAULT_STAFF_CALL_SOUND_TYPE = "chime";
 
 const STAFF_CALL_ALERTS_KEY_PREFIX = "pro_order_staff_call_alerts";

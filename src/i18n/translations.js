@@ -250,6 +250,13 @@ export const translations = {
       soundBell: "Bell",
       soundChime: "Chime",
       soundBeep: "Beep",
+      /* Phase 116.0 — five more voices. Each name says what the sound is
+         like, not which oscillator made it. */
+      soundSoftBell: "Soft Bell",
+      soundDoublePing: "Double Ping",
+      soundKitchenBell: "Kitchen Bell",
+      soundDigital: "Digital Alert",
+      soundAlert: "Clear Alert",
       alertsEnabledToast: "Kitchen alert sound turned on",
       alertsDisabledToast: "Kitchen alert sound turned off",
     },
@@ -859,6 +866,16 @@ export const translations = {
       fontDmSans: "DM Sans",
       fontInter: "Inter",
       fontSystem: "System sans-serif",
+      /* Phase 116.0 — proper names stay as proper names in both languages;
+         what is translated is the ROLE word beside them where one exists. */
+      fontLora: "Lora",
+      fontOutfit: "Outfit",
+      fontManrope: "Manrope",
+      fontPlusJakarta: "Plus Jakarta Sans",
+      /* The Arabic half of the type specimen. Deliberately a real menu
+         sentence rather than a pangram: the Admin is judging how their menu
+         will read, so the sample has to be the kind of thing a menu says. */
+      themePreviewTextAr: "طعام طازج يُحضّر خصيصًا لك"
     },
     orders: {
       yourOrder: "Your order",
@@ -1480,6 +1497,12 @@ export const translations = {
       soundBell: "جرس",
       soundChime: "رنين",
       soundBeep: "صافرة",
+      /* Phase 116.0 — وصف الطابع الصوتي، لا ترجمة حرفية للأسماء. */
+      soundSoftBell: "جرس هادئ",
+      soundDoublePing: "نغمتان قصيرتان",
+      soundKitchenBell: "جرس المطبخ",
+      soundDigital: "تنبيه رقمي",
+      soundAlert: "تنبيه واضح",
       alertsEnabledToast: "تم تفعيل صوت تنبيه المطبخ",
       alertsDisabledToast: "تم إيقاف صوت تنبيه المطبخ",
     },
@@ -2006,6 +2029,11 @@ export const translations = {
       fontDmSans: "DM Sans",
       fontInter: "Inter",
       fontSystem: "خط النظام",
+      fontLora: "Lora",
+      fontOutfit: "Outfit",
+      fontManrope: "Manrope",
+      fontPlusJakarta: "Plus Jakarta Sans",
+      themePreviewTextAr: "طعام طازج يُحضّر خصيصًا لك"
     },
     orders: {
       yourOrder: "طلبك",

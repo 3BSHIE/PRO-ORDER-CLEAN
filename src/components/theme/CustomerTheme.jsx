@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSettingsData } from "../../lib/useSettingsData.js";
-import { buildCustomerThemeVars, resolveAppearance } from "../../lib/theme.js";
+import {
+  buildCustomerThemeVars,
+  resolveAppearance,
+  fontFamiliesForSettings,
+} from "../../lib/theme.js";
+import { ensureFontsLoaded } from "../../lib/fontLoader.js";
 import { applyAppearance } from "../../lib/appearance.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import {
@@ -46,6 +51,25 @@ export default function CustomerTheme({ restaurantSlug, children }) {
      the rendered menu, not by reading the component tree. */
   const appearance = resolveAppearance(settings?.appearance);
   useEffect(() => applyAppearance(appearance), [appearance]);
+
+  /* ── Phase 116.0 §10 — fetch THIS restaurant's pairing, and no other ────
+     Ten presets exist; a guest needs the two their restaurant chose. The
+     families are derived from the same registry that produced the CSS stack
+     above, so what is downloaded and what is asked for can never disagree.
+
+     Scoped to this wrapper for the same structural reason the colours are:
+     it sits around the customer routes and nothing else, so an Admin or
+     Kitchen screen never pulls a restaurant's fonts.
+
+     A restaurant on the shipped default resolves entirely to families the
+     base stylesheet already carries, so this fetches nothing at all and the
+     common case costs exactly what it did before this phase. */
+  const fontFamilies = fontFamiliesForSettings(settings);
+  useEffect(() => {
+    ensureFontsLoaded(fontFamilies);
+    /* Joined because the array identity changes on every render while its
+       contents almost never do. */
+  }, [fontFamilies.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Phase 81/82.1 — the restaurant's languages, enforced in one place ──
      This wrapper already sits around every customer route and nothing else,

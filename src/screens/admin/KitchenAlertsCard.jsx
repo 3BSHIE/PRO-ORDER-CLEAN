@@ -7,16 +7,12 @@ import {
   alertSoundFieldId,
   alertPurposeLabel,
 } from "../../lib/alertPurposes.js";
-import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
+/* Phase 116.0 — the voices and their names now travel together from the
+   audio module. This file used to carry its own copy of the label map, as
+   did StaffCallAlertsCard, so the eight-voice expansion would have meant
+   editing three files and keeping them in step forever. */
+import { playAlertSound, SOUND_TYPES, soundLabel } from "../../lib/alertSound.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
-
-/* Translation keys for the three built-in voices, keyed by their stable id. */
-const SOUND_LABEL_KEY = {
-  bell: "kitchen.soundBell",
-  chime: "kitchen.soundChime",
-  beep: "kitchen.soundBeep",
-};
-const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
 
 /**
  * KitchenAlertsCard — Admin-only configuration of the Kitchen alert sounds.
@@ -89,7 +85,7 @@ export default function KitchenAlertsCard({ value, conflict, onChange }) {
           >
             {SOUND_TYPES.map((type) => (
               <option key={type} value={type}>
-                {t(SOUND_LABEL_KEY[type], SOUND_LABEL_FALLBACK[type])}
+                {soundLabel(type, t)}
               </option>
             ))}
           </select>

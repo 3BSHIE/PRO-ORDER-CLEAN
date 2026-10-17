@@ -3338,6 +3338,13 @@ button{font-family:var(--font-body)}
 .th-preview__body{
   font-family:var(--font-body);font-size:13px;color:var(--text-2);
   line-height:1.6;margin:0}
+/* Phase 116.0 — the Arabic specimen. Same stack, same size, mirrored, with
+   a little more leading because Arabic sets taller than Latin at the same
+   point size and the ascenders of one line otherwise crowd the next.
+   Slightly quieter than the Latin line: it is the second reading of the
+   same sentence, not a second claim. */
+.th-preview__body--ar{
+  line-height:1.9;color:var(--text-3);text-align:start}
 .th-preview__row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .th-preview__btn{
   display:inline-flex;align-items:center;border-radius:999px;

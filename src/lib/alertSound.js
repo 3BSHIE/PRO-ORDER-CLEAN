@@ -30,8 +30,48 @@
  *   order — the sound is an enhancement, not the mechanism.
  */
 
-export const SOUND_TYPES = ["bell", "chime", "beep"];
+/* ── Phase 116.0 — eight voices, and why that number matters ─────────────
+   Three purposes (new order, cancelled order, staff call) must each own a
+   DISTINCT sound — see alertPurposes.js. With exactly three sounds the
+   product was saturated: every arrangement was the only arrangement, and an
+   Admin who disliked one assignment had nowhere to move it. Eight gives the
+   rule room to breathe, which is the operational point of this expansion
+   rather than variety for its own sake.
+
+   The first three are untouched, in id and in audio: a restaurant that
+   chose "chime" in Phase 27 hears the same chime today. */
+export const SOUND_TYPES = [
+  "bell", "chime", "beep",
+  "softBell", "doublePing", "kitchenBell", "digital", "alert",
+];
 export const DEFAULT_SOUND_TYPE = "bell";
+
+/* The label for each voice, next to the voice itself.
+   Phase 116.0 — this map used to be copied into KitchenAlertsCard and
+   StaffCallAlertsCard, so adding a sound meant editing three files and
+   getting all three right. One catalogue now: the cards read it. */
+export const SOUND_LABELS = {
+  bell:        ["kitchen.soundBell", "Bell"],
+  chime:       ["kitchen.soundChime", "Chime"],
+  beep:        ["kitchen.soundBeep", "Beep"],
+  softBell:    ["kitchen.soundSoftBell", "Soft Bell"],
+  doublePing:  ["kitchen.soundDoublePing", "Double Ping"],
+  kitchenBell: ["kitchen.soundKitchenBell", "Kitchen Bell"],
+  digital:     ["kitchen.soundDigital", "Digital Alert"],
+  alert:       ["kitchen.soundAlert", "Clear Alert"],
+};
+
+/**
+ * The translated name of one voice. Unknown ids fall back to the default's
+ * label rather than printing a raw key at an operator.
+ *
+ * @param {string} type
+ * @param {(key:string, fallback:string)=>string} t
+ */
+export function soundLabel(type, t) {
+  const [key, fallback] = SOUND_LABELS[type] || SOUND_LABELS[DEFAULT_SOUND_TYPE];
+  return t(key, fallback);
+}
 
 /* One shared context for the page. Created on first use only — constructing
    an AudioContext before a user gesture is exactly what browsers penalize. */
@@ -112,6 +152,58 @@ const VOICES = {
     scheduleTone(ctx, t0, 880, 0.13, 0.4 * vol, "square");
     scheduleTone(ctx, t0 + 0.19, 880, 0.16, 0.4 * vol, "square");
   },
+
+  /* ── Phase 116.0 ──────────────────────────────────────────────────────
+     Five additions. Each differs from every other in at least three of:
+     waveform, number of notes, interval, timing and decay length — not in
+     pitch alone, which is the one axis that produces eight sounds nobody
+     can tell apart. Two are quieter than the originals and two are more
+     insistent, so a room can match the sound to how much it needs to cut
+     through; none exceeds the peak gain the existing three already use, so
+     nothing spikes when an Admin switches. */
+
+  /* Soft Bell — one low triangle note with a long, unhurried decay and no
+     partial. The gentlest voice here: for a quiet dining room where a sharp
+     tone would carry to the guests. */
+  softBell(ctx, t0, vol) {
+    scheduleTone(ctx, t0, 523.25, 1.6, 0.34 * vol, "triangle");
+    scheduleTone(ctx, t0 + 0.02, 783.99, 1.1, 0.1 * vol, "sine");
+  },
+
+  /* Double Ping — two bright, very short sine pips a fifth apart, close
+     together. Reads as "two" at a glance, which makes it easy to tell from
+     every single-note voice without being loud. */
+  doublePing(ctx, t0, vol) {
+    scheduleTone(ctx, t0, 1174.66, 0.18, 0.4 * vol, "sine");
+    scheduleTone(ctx, t0 + 0.13, 1567.98, 0.22, 0.38 * vol, "sine");
+  },
+
+  /* Kitchen Bell — the struck counter bell: a bright fundamental, a strong
+     inharmonic partial and a second strike. More presence than the original
+     bell, and deliberately the most carrying voice here, for a loud pass. */
+  kitchenBell(ctx, t0, vol) {
+    scheduleTone(ctx, t0, 1318.51, 0.9, 0.5 * vol, "sine");
+    scheduleTone(ctx, t0, 1318.51 * 2.76, 0.5, 0.14 * vol, "sine");
+    scheduleTone(ctx, t0 + 0.22, 1318.51, 0.75, 0.3 * vol, "sine");
+    scheduleTone(ctx, t0 + 0.22, 1318.51 * 2.76, 0.4, 0.09 * vol, "sine");
+  },
+
+  /* Digital Alert — a two-step RISING sawtooth figure, clipped short. The
+     only sawtooth in the set, so its timbre alone separates it from the
+     square-wave beep even before the rising interval does. */
+  digital(ctx, t0, vol) {
+    scheduleTone(ctx, t0, 740, 0.1, 0.3 * vol, "sawtooth");
+    scheduleTone(ctx, t0 + 0.1, 988, 0.14, 0.32 * vol, "sawtooth");
+  },
+
+  /* Clear Alert — three even mid-pitched square pulses. The repetition is
+     what makes it noticeable in a busy room; the mid pitch and short
+     duration are what keep it from being an alarm. */
+  alert(ctx, t0, vol) {
+    scheduleTone(ctx, t0, 659.25, 0.11, 0.34 * vol, "square");
+    scheduleTone(ctx, t0 + 0.16, 659.25, 0.11, 0.34 * vol, "square");
+    scheduleTone(ctx, t0 + 0.32, 659.25, 0.15, 0.36 * vol, "square");
+  },
 };
 
 /**
@@ -119,7 +211,7 @@ const VOICES = {
  * the default, and any failure (no Web Audio, blocked autoplay, suspended
  * context) is swallowed silently.
  *
- * @param {"bell"|"chime"|"beep"} soundType
+ * @param {string} soundType — any member of SOUND_TYPES
  * @param {number} volume — 0..1
  * @returns {boolean} true if playback was successfully scheduled
  */

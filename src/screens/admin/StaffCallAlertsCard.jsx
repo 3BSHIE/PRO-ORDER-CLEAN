@@ -1,22 +1,14 @@
 import { Volume2, Play } from "lucide-react";
 import Card   from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { playAlertSound, SOUND_TYPES } from "../../lib/alertSound.js";
+/* Phase 116.0 — see KitchenAlertsCard: one catalogue, read by both cards. */
+import { playAlertSound, SOUND_TYPES, soundLabel } from "../../lib/alertSound.js";
 import {
   ALERT_PURPOSE_IDS,
   alertSoundFieldId,
   alertPurposeLabel,
 } from "../../lib/alertPurposes.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
-
-/* Translation keys for the three built-in voices, keyed by their stable id.
-   Shared wording with the Kitchen card — they are the same three sounds. */
-const SOUND_LABEL_KEY = {
-  bell: "kitchen.soundBell",
-  chime: "kitchen.soundChime",
-  beep: "kitchen.soundBeep",
-};
-const SOUND_LABEL_FALLBACK = { bell: "Bell", chime: "Chime", beep: "Beep" };
 
 /**
  * StaffCallAlertsCard — Phase 59, Admin-only configuration of the sound
@@ -109,7 +101,7 @@ export default function StaffCallAlertsCard({ value, conflict, onChange }) {
         >
           {SOUND_TYPES.map((type) => (
             <option key={type} value={type}>
-              {t(SOUND_LABEL_KEY[type], SOUND_LABEL_FALLBACK[type])}
+              {soundLabel(type, t)}
             </option>
           ))}
         </select>

@@ -32,12 +32,14 @@ import {
   MAX_LOGO_BYTES,
 } from "../../lib/restaurantLogoAssets.js";
 import ImageAssetField from "../../components/admin/ImageAssetField.jsx";
+import { ensureFontsLoaded } from "../../lib/fontLoader.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
   isDefaultTheme,
   HEADING_FONTS,
   BODY_FONTS,
+  allFontFamilies,
 } from "../../lib/theme.js";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -682,6 +684,13 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
   const previewName = draft.name.trim();
   /* The preview is rendered through the SAME function the customer screens
      use, so what an admin sees here cannot drift from what guests get. */
+  /* Phase 116.0 §10 — Settings is the one place that legitimately wants
+     every face: the point of the preview is to judge a font before choosing
+     it, which cannot be done in a font that has not arrived. Explicitly
+     allowed for the Admin, and paid for by exactly one person rather than by
+     every guest. Runs once per mount; the loader deduplicates. */
+  useEffect(() => { ensureFontsLoaded(allFontFamilies()); }, []);
+
   const themePreviewVars = buildCustomerThemeVars(draft);
   const themeIsDefault = isDefaultTheme(draft);
 
@@ -1164,6 +1173,19 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
             <h4 className="th-preview__heading">{previewName || t("admin.preview", "Preview")}</h4>
             <p className="th-preview__body">
               {t("admin.themePreviewText", "Your guests see this typography and accent while ordering.")}
+            </p>
+            {/* ── Phase 116.0 §3/§6 — the other half of the decision ───────
+                Every stack pairs a Latin face with an Arabic one, and until
+                now the preview showed only the Latin half: an Admin could
+                choose a font without ever seeing what their Arabic menu
+                would look like in it. This line renders the SAME draft
+                stack with dir="rtl", so the pairing is judged, not assumed.
+
+                Shown in both interface languages on purpose. The menu is
+                bilingual whichever language the Admin happens to be
+                configuring in, so the Arabic specimen is never irrelevant. */}
+            <p className="th-preview__body th-preview__body--ar" dir="rtl" lang="ar">
+              {t("admin.themePreviewTextAr", "طعام طازج يُحضّر خصيصًا لك")}
             </p>
             <div className="th-preview__row">
               <span className="th-preview__swatch" />

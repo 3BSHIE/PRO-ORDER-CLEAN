@@ -57,20 +57,121 @@ export const DEFAULT_BODY_FONT = "dmSans";
  * chooses, while Latin text still renders in the chosen face. */
 const AR_SERIF = `"Noto Naskh Arabic","Segoe UI",Tahoma,Georgia,serif`;
 const AR_SANS = `"Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif`;
+/* Phase 116.0 — a third Arabic voice, for the two geometric Latin faces
+   added below. Cairo is built on the same even, rounded geometry Outfit and
+   Manrope are, so those presets read as ONE identity across the language
+   switch rather than as a modern Latin face beside a traditional Naskh. */
+const AR_GEOMETRIC = `"Cairo","Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif`;
+
+/* ── Phase 116.0 — what a font entry carries now ─────────────────────────
+   `stack` is unchanged and still the only thing that reaches CSS. `families`
+   is new: the webfont families this preset actually needs downloaded, which
+   is what lets the loader fetch the chosen pairing and nothing else (§10).
+
+   An entry with no `families` needs no download at all — "georgia" and
+   "system" resolve entirely from what the device already has, which is
+   precisely why they are worth keeping as options.
+
+   EVERY existing key, label and stack below is byte-for-byte what it was.
+   A restaurant that saved "dmSerif" in Phase 83 renders identically. */
 
 /** Curated heading faces. Keys are what gets stored in settings. */
 export const HEADING_FONTS = {
-  playfair: { labelKey: "admin.fontPlayfair", stack: `'Playfair Display',${AR_SERIF}` },
-  dmSerif: { labelKey: "admin.fontDmSerif", stack: `'DM Serif Display',${AR_SERIF}` },
-  georgia: { labelKey: "admin.fontGeorgia", stack: AR_SERIF },
+  /* Elegant editorial serif — the shipped default. */
+  playfair: {
+    labelKey: "admin.fontPlayfair",
+    stack: `'Playfair Display',${AR_SERIF}`,
+    families: ["Playfair Display", "Noto Naskh Arabic"],
+  },
+  /* High-contrast modern display serif. */
+  dmSerif: {
+    labelKey: "admin.fontDmSerif",
+    stack: `'DM Serif Display',${AR_SERIF}`,
+    families: ["DM Serif Display", "Noto Naskh Arabic"],
+  },
+  /* Classic, and free: whatever serif the device already has. */
+  georgia: {
+    labelKey: "admin.fontGeorgia",
+    stack: AR_SERIF,
+    families: ["Noto Naskh Arabic"],
+  },
+  /* Phase 116.0 — a softer, rounder serif than Playfair, designed for
+     screen reading rather than for a masthead. The "warm bistro" voice the
+     three originals had no answer for. */
+  lora: {
+    labelKey: "admin.fontLora",
+    stack: `'Lora',${AR_SERIF}`,
+    families: ["Lora", "Noto Naskh Arabic"],
+  },
+  /* Phase 116.0 — the first NON-serif heading. All three originals were
+     serifs, so a restaurant wanting a modern, minimal identity could not
+     express one at all. Geometric, wide-set, and paired with Cairo. */
+  outfit: {
+    labelKey: "admin.fontOutfit",
+    stack: `'Outfit',${AR_GEOMETRIC}`,
+    families: ["Outfit", "Cairo"],
+  },
 };
 
 /** Curated body faces. */
 export const BODY_FONTS = {
-  dmSans: { labelKey: "admin.fontDmSans", stack: `'DM Sans',${AR_SANS}` },
-  inter: { labelKey: "admin.fontInter", stack: `'Inter',${AR_SANS}` },
-  system: { labelKey: "admin.fontSystem", stack: `ui-sans-serif,system-ui,${AR_SANS}` },
+  /* Neutral and highly legible — the shipped default. */
+  dmSans: {
+    labelKey: "admin.fontDmSans",
+    stack: `'DM Sans',${AR_SANS}`,
+    families: ["DM Sans", "Noto Sans Arabic"],
+  },
+  /* The UI workhorse: tight, even, excellent at small sizes. */
+  inter: {
+    labelKey: "admin.fontInter",
+    stack: `'Inter',${AR_SANS}`,
+    families: ["Inter", "Noto Sans Arabic"],
+  },
+  /* Whatever the device ships. Nothing to download, nothing to fail. */
+  system: {
+    labelKey: "admin.fontSystem",
+    stack: `ui-sans-serif,system-ui,${AR_SANS}`,
+    families: ["Noto Sans Arabic"],
+  },
+  /* Phase 116.0 — rounder and more open than DM Sans, with taller
+     lowercase; reads as friendly without becoming informal. */
+  manrope: {
+    labelKey: "admin.fontManrope",
+    stack: `'Manrope',${AR_GEOMETRIC}`,
+    families: ["Manrope", "Cairo"],
+  },
+  /* Phase 116.0 — contemporary and slightly narrower, which buys room on a
+     320px menu card where DM Sans and Inter both run long. */
+  plusJakarta: {
+    labelKey: "admin.fontPlusJakarta",
+    stack: `'Plus Jakarta Sans',${AR_SANS}`,
+    families: ["Plus Jakarta Sans", "Noto Sans Arabic"],
+  },
 };
+
+/**
+ * Phase 116.0 — the webfont families one restaurant actually needs.
+ *
+ * Used by the customer surface to download the chosen pairing and nothing
+ * else. Deduplicated, because a heading and a body preset routinely share an
+ * Arabic partner.
+ *
+ * @param {object} settings
+ * @returns {string[]} Google Fonts family names
+ */
+export function fontFamiliesForSettings(settings) {
+  const heading = HEADING_FONTS[resolveHeadingFont(settings?.headingFont)];
+  const body = BODY_FONTS[resolveBodyFont(settings?.bodyFont)];
+  return Array.from(new Set([...(heading?.families || []), ...(body?.families || [])]));
+}
+
+/** Every family any preset could ask for — the Admin preview's set. */
+export function allFontFamilies() {
+  const all = [];
+  for (const font of Object.values(HEADING_FONTS)) all.push(...(font.families || []));
+  for (const font of Object.values(BODY_FONTS)) all.push(...(font.families || []));
+  return Array.from(new Set(all));
+}
 
 /** Strict 6-digit hex — what <input type="color"> always produces. */
 export function isValidHexColor(value) {
