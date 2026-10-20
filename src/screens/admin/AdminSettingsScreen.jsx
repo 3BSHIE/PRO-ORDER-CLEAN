@@ -753,28 +753,35 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               rendering as the two columns §9 asks for. */}
           <div className="ad-settings__row">
         <Card className="ad-settings__section">
-          {/* ── Phase 117.1 §17 — the same seven fields, now in two NAMED
-                groups ────────────────────────────────────────────────────
-              Measured before changing anything: the card held seven fields
-              in two undifferentiated stacks whose rows drifted out of
-              alignment going down (the logo control is taller than a text
-              input, so nothing below it lined up with its neighbour), and
-              the identity column ran out 91px before the contact column did,
-              leaving a visible notch of dead space above the description.
+          {/* ── Phase 117.2 — ONE grid, not two columns ─────────────────
+              Phase 117.1 labelled the two stacks and left their geometry
+              alone. That was the wrong fix: the complaint was never that
+              the columns lacked names, it was that they were independent.
+              Two flex columns flow separately, so the moment one side holds
+              something taller than a text input — the logo control, or the
+              logo URL input once it is expanded — everything below it on
+              that side slides down while the other side stays put, and the
+              rectangles stop lining up. Headings cannot fix that.
 
-              Two quiet headings fix the part that was actually wrong. The
-              columns are not forced to equal height — §18 rules that out and
-              their content genuinely differs — but once each stack is
-              labelled, a short column reads as a finished group rather than
-              as a column that stopped early. No new card, no new border, no
-              field moved, nothing renamed. */}
-          <div className="st-split">
-            <div className="st-split__col">
-              <h4 className="st-group__title">
-                {t("admin.profileIdentity", "Identity")}
-              </h4>
+              Every field is now a direct child of ONE grid, so a row is a
+              real row: both cells share its top edge, and the row is as
+              tall as its tallest cell. When the logo URL expands, the logo
+              CELL grows, the whole row grows with it, and Cover Image URL
+              and Address — the next row — move down together. Nothing is
+              offset, measured or compensated for; the layout model does it.
+
+              align-items:start is what keeps Email from stretching to the
+              logo's height: each cell sits at the top of its row and keeps
+              its natural size.
+
+              DOM order is row order, so tab order follows the rows exactly
+              as they read, and the single-column phone layout is the same
+              sequence stacked. */}
+          <div className="st-profile">
               <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
                 placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} />
+              <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
+                onChange={(e) => setField("contactPhone", e.target.value)} />
               {/* ── Phase 115.0 §21–§23 — the logo, as ONE field ──────────
                   Phase 112.2 added upload beside the URL input that was
                   already here, and the column ended up carrying three
@@ -817,17 +824,10 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
                    the owner needs them, which is when a file is refused. */
                 previewAlt=""
               />
-              <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
-                placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
-            </div>
-            <div className="st-split__col">
-              <h4 className="st-group__title">
-                {t("admin.profileContact", "Contact & links")}
-              </h4>
-              <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
-                onChange={(e) => setField("contactPhone", e.target.value)} />
               <Input label={t("admin.email", "Email")} value={draft.contactEmail}
                 onChange={(e) => setField("contactEmail", e.target.value)} />
+              <Input label={t("admin.coverImageUrl", "Cover Image URL")} value={draft.coverImageUrl}
+                placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
               <Input label={t("admin.address", "Address")} value={draft.contactAddress}
                 onChange={(e) => setField("contactAddress", e.target.value)} />
               {/* ── Phase 117.0 §14/§15 — one compact optional field ────────
@@ -840,6 +840,16 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
                   The hint names where to find the link because that is the
                   one thing a manager will not know; it stops short of a
                   tutorial, and deliberately never mentions a Place ID. */}
+            {/* §9 — the full-width rows. A review URL is long and was the
+                odd fourth field in a three-field column; across the whole
+                card it is readable, and it gives the form a deliberate step
+                down from paired rows to full width before the description.
+
+                Wrapped in a div because Input puts its own className on the
+                <input>, not on the .field label — a wrapper costs one
+                element and keeps a component every other form depends on
+                untouched. */}
+            <div className="st-profile__wide">
               <Input
                 id={GOOGLE_REVIEW_FIELD_ID}
                 label={t("admin.googleReviewUrl", "Google Review Link")}
@@ -855,11 +865,14 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
                 hint={t("admin.googleReviewHint", "Optional. Paste the direct review link from your Google Business Profile.")}
                 onChange={(e) => setField("googleReviewUrl", e.target.value)} />
             </div>
+            {/* §10 — inside the grid now, so it is one row-gap below Google
+                rather than hanging off the bottom of whichever column
+                happened to be taller. */}
+            <label className="field mm-field st-profile__wide">
+              <span className="field__label">{t("admin.restaurantDescription", "Restaurant Description")}</span>
+              <textarea className="mm-textarea" value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} />
+            </label>
           </div>
-          <label className="field mm-field st-profile__desc">
-            <span className="field__label">{t("admin.restaurantDescription", "Restaurant Description")}</span>
-            <textarea className="mm-textarea" value={draft.description} onChange={(e) => setField("description", e.target.value)} rows={3} />
-          </label>
         </Card>
           </div>
         </section>

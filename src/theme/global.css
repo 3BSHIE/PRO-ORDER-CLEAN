@@ -11231,10 +11231,26 @@ button{font-family:var(--font-body)}
    Two columns of three fields, description spanning beneath. Logical gaps
    and minmax(0,1fr) tracks so a long placeholder cannot widen the page; one
    column below 860px, matching the breakpoint the paired rows already use. */
-.st-split{
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  gap:14px 20px;align-items:start}
-.st-split__col{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* ── Phase 117.2 — Restaurant Profile: one grid, real rows ──────────────
+   What this replaces: .st-split was a grid of two CELLS, each holding a
+   flex column that flowed on its own. Rows existed between the columns but
+   not between the FIELDS, so the two sides drifted apart as soon as one
+   held something taller than an input — which the logo control always is,
+   and dramatically so once its URL field is expanded.
+
+   Every field is a direct child here, so each pair genuinely shares a grid
+   row: same top edge, and the row takes the height of the taller cell. The
+   expanded-logo case then needs no special handling at all, because the
+   next row simply starts below a taller row.
+
+   align-items:start is the other half: without it a 1fr row would stretch
+   Email to the logo's height and leave a tall empty box beside a short
+   control. */
+.st-profile{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:20px;align-items:start}
+/* Google Review Link and the description: one row each, both columns. */
+.st-profile__wide{grid-column:1 / -1;min-width:0}
 /* ── Phase 117.1 §17 — the group label ───────────────────────────────────
    Small, uppercase and quiet: it is a signpost between two stacks of
    fields, not a heading competing with "Restaurant Profile" above the card.
@@ -11243,13 +11259,17 @@ button{font-family:var(--font-body)}
    The negative bottom margin pulls the first field up against its label,
    which is what makes the heading belong to the group below it rather than
    float midway between two. */
-.st-group__title{
-  margin:0 0 -4px;font-family:var(--font-body);
-  font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--text-3);line-height:1.3}
-.st-profile__desc{margin-top:14px}
+/* Phase 117.2 — the 117.1 column headings and the description's standalone
+   margin are both gone: with interleaved rows the headings no longer
+   described anything, and the description is a grid row like the others, so
+   the shared gap already spaces it. */
+/* One column once the pair would be cramped. Judged on the CONTENT width,
+   not the window: the Admin sidebar takes roughly 200px, so a 860px window
+   leaves about 620px here — two ~300px fields, which is the narrowest a
+   label and a URL still read at. Below that they stack, in the same order
+   they already tab in. */
 @media(max-width:860px){
-  .st-split{grid-template-columns:minmax(0,1fr);gap:14px}
+  .st-profile{grid-template-columns:minmax(0,1fr);gap:18px}
 }
 
 /* ── §25 — Business Settings: three short values, one row ────────────────
