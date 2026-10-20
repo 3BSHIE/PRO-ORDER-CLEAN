@@ -753,8 +753,26 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
               rendering as the two columns §9 asks for. */}
           <div className="ad-settings__row">
         <Card className="ad-settings__section">
+          {/* ── Phase 117.1 §17 — the same seven fields, now in two NAMED
+                groups ────────────────────────────────────────────────────
+              Measured before changing anything: the card held seven fields
+              in two undifferentiated stacks whose rows drifted out of
+              alignment going down (the logo control is taller than a text
+              input, so nothing below it lined up with its neighbour), and
+              the identity column ran out 91px before the contact column did,
+              leaving a visible notch of dead space above the description.
+
+              Two quiet headings fix the part that was actually wrong. The
+              columns are not forced to equal height — §18 rules that out and
+              their content genuinely differs — but once each stack is
+              labelled, a short column reads as a finished group rather than
+              as a column that stopped early. No new card, no new border, no
+              field moved, nothing renamed. */}
           <div className="st-split">
             <div className="st-split__col">
+              <h4 className="st-group__title">
+                {t("admin.profileIdentity", "Identity")}
+              </h4>
               <Input label={t("admin.restaurantNameLabel", "Restaurant Name")} value={draft.name}
                 placeholder={restaurant.name} onChange={(e) => setField("name", e.target.value)} />
               {/* ── Phase 115.0 §21–§23 — the logo, as ONE field ──────────
@@ -803,6 +821,9 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
                 placeholder="https://…" onChange={(e) => setField("coverImageUrl", e.target.value)} />
             </div>
             <div className="st-split__col">
+              <h4 className="st-group__title">
+                {t("admin.profileContact", "Contact & links")}
+              </h4>
               <Input label={t("admin.phone", "Phone")} value={draft.contactPhone}
                 onChange={(e) => setField("contactPhone", e.target.value)} />
               <Input label={t("admin.email", "Email")} value={draft.contactEmail}

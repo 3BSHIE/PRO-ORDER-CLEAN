@@ -777,6 +777,9 @@ export const translations = {
       address: "Address",
       /* Phase 117.0 — optional, and the hint says where to FIND the link
          rather than what a Place ID is. The manager copies one thing. */
+      /* Phase 117.1 — the two field groups inside Restaurant Profile. */
+      profileIdentity: "Identity",
+      profileContact: "Contact & links",
       googleReviewUrl: "Google Review Link",
       googleReviewHint: "Optional. Paste the direct review link from your Google Business Profile.",
       googleReviewInvalid: "Enter a valid Google review link.",
@@ -1967,6 +1970,9 @@ export const translations = {
       email: "البريد الإلكتروني",
       address: "العنوان",
       /* Phase 117.0 */
+      /* Phase 117.1 */
+      profileIdentity: "الهوية",
+      profileContact: "التواصل والروابط",
       googleReviewUrl: "رابط التقييم على Google",
       googleReviewHint: "اختياري. أضف الرابط المباشر لتقييم مطعمك من ملف نشاطك على Google.",
       googleReviewInvalid: "أدخل رابط تقييم صالحًا على Google.",

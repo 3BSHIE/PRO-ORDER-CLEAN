@@ -3516,28 +3516,59 @@ button{font-family:var(--font-body)}
    palette in both Light and Dark rather than arriving as a Google-blue
    button that clashes with it. The word "Google" and the external-link
    glyph carry the meaning. */
+/* ── Phase 117.1 — the invitation, centred and given some presence ───────
+   117.0 put this left-aligned at 13px with a small outline button, which
+   read as a footnote to the summary above it rather than as something on
+   offer. Centring it is what separates it from the left-aligned rows of
+   ratings it follows: the eye stops, because the axis changed.
+
+   It is still inside the same card, still under one hairline, and still
+   second to the thank-you. More presence, not more pressure. */
 .fb-google{
-  display:flex;flex-direction:column;align-items:flex-start;gap:10px;
-  padding-top:14px;border-top:1px solid var(--border);min-width:0}
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding-top:18px;border-top:1px solid var(--border);min-width:0;
+  text-align:center}
+/* 15px and a slightly stronger weight — large enough to be read rather than
+   skimmed, and deliberately still below the thank-you heading so the
+   hierarchy §4 asks for survives. The measure is capped so the question
+   breaks into two balanced lines instead of one long thin one. */
 .fb-google__ask{
-  margin:0;font-size:13px;color:var(--text-2);line-height:1.5}
-/* Outline, not filled: the primary action on this screen is leaving, and an
-   optional invitation must not out-weigh it (§5). 44px min-height keeps it a
-   comfortable target on a phone. */
+  margin:0;max-width:30ch;
+  font-size:15px;font-weight:500;color:var(--text-1);line-height:1.5}
+/* Substantial, not loud. min-width carries it to the ~230px the owner asked
+   for when there is room; max-width:100% is what keeps that from becoming an
+   overflow at 320px, where the button simply fills the card instead. */
 .fb-google__btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  min-height:44px;padding:11px 18px;border-radius:999px;max-width:100%;
-  font-family:var(--font-body);font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:52px;min-width:min(230px,100%);max-width:100%;
+  padding:14px 24px;border-radius:999px;
+  font-family:var(--font-body);font-size:15px;font-weight:600;
   color:var(--text-1);text-decoration:none;
   background:var(--surface-2);border:1px solid var(--border-strong);
   transition:border-color .2s,background .2s,color .2s}
 .fb-google__btn:hover{
-  border-color:var(--primary);color:var(--primary)}
+  border-color:var(--primary);background:var(--surface-3)}
 .fb-google__btn:focus-visible{
   outline:2px solid var(--primary);outline-offset:2px}
-/* The label wraps rather than overflowing; the icon never shrinks with it.
-   "قيّمنا على Google" and "Review us on Google" both have to survive 320px. */
-.fb-google__btn svg{flex:none}
+/* The logo keeps its size while the label wraps, and is pulled up by half a
+   pixel because the G's optical centre sits a touch below its box. */
+.fb-google__logo{flex:none;display:block;transform:translateY(-.5px)}
+/* Google's mark is a letterform: mirroring it in RTL would make it a
+   different shape. The row still reverses — the glyph leads in both
+   directions — but the glyph itself never does. */
+[dir="rtl"] .fb-google__logo{transform:translateY(-.5px)}
+
+/* At 320px the card gives this button 194px of inner width, and the label,
+   logo, gap and padding came to 192px — which with the 1px border on each
+   side is exactly 194 and wrapped to two lines on any sub-pixel rounding.
+   Measured, not guessed: "قيّمنا على Google" needs 114px at 15px.
+
+   The padding is what yields, because it is the only part whose loss costs
+   nothing: the touch target is held by min-height, the label stays 15px and
+   the logo stays 20px. */
+@media(max-width:400px){
+  .fb-google__btn{padding-inline:16px}
+}
 
 .fb-readonly{display:flex;flex-direction:column;gap:10px}
 .fb-readonly__row{
@@ -11204,6 +11235,18 @@ button{font-family:var(--font-body)}
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:14px 20px;align-items:start}
 .st-split__col{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* ── Phase 117.1 §17 — the group label ───────────────────────────────────
+   Small, uppercase and quiet: it is a signpost between two stacks of
+   fields, not a heading competing with "Restaurant Profile" above the card.
+   Same treatment either side, so the two groups read as peers.
+
+   The negative bottom margin pulls the first field up against its label,
+   which is what makes the heading belong to the group below it rather than
+   float midway between two. */
+.st-group__title{
+  margin:0 0 -4px;font-family:var(--font-body);
+  font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3);line-height:1.3}
 .st-profile__desc{margin-top:14px}
 @media(max-width:860px){
   .st-split{grid-template-columns:minmax(0,1fr);gap:14px}

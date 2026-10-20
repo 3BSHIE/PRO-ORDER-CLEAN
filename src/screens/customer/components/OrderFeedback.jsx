@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquareHeart, CheckCircle2, ExternalLink } from "lucide-react";
+import { MessageSquareHeart, CheckCircle2 } from "lucide-react";
+import GoogleGlyph from "../../../components/brand/GoogleGlyph.jsx";
 import Card from "../../../components/ui/Card.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import StarRating from "../../../components/ui/StarRating.jsx";
@@ -191,7 +192,12 @@ export default function OrderFeedback({ order, session }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <ExternalLink size={15} strokeWidth={2.2} aria-hidden="true" />
+              {/* Phase 117.1 §6 — Google's own four-colour G, not a generic
+                  external-link arrow. The owner asked for the mark people
+                  actually recognise, and recognition is the whole reason a
+                  guest trusts where this button goes. It is never recoloured
+                  and never mirrored — see GoogleGlyph. */}
+              <GoogleGlyph size={20} className="fb-google__logo" />
               {t("feedback.googleCta", "Review us on Google")}
             </a>
           </div>
