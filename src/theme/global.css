@@ -12121,12 +12121,39 @@ button{font-family:var(--font-body)}
 .rcpt__printed{margin:0;font-size:9px}
 
 @media print{
-  /* Scoped by the receipt being present, so this can never affect the table
-     stand or the revenue report, which have print rules of their own. */
-  body:has(.rcpt) > *{display:none !important}
+  /* ── Phase 118.1 — THE BLANK-PAGE FIX ─────────────────────────────────
+     118.0 wrote this as:
+
+         body:has(.rcpt) > *       {display:none}
+         body:has(.rcpt) .rcpt-host{display:block}
+
+     and every receipt printed as a blank sheet. The first rule hides each
+     DIRECT CHILD of body, and body's only element child is #root — while
+     the host sat five levels inside it:
+
+         .rcpt-host < main.container < .ad-shell < .restaurant-theme
+                    < .app < #root < body
+
+     so the whole application, receipt included, was display:none. The
+     second rule could not undo that: an element inside a display:none
+     subtree generates no box whatever its own display property says. Its
+     content was never laid out, so there was nothing to print.
+
+     The host is now portalled to document.body (see AdminLiveOrdersScreen),
+     which makes the selector below true rather than almost-true: its
+     siblings really are the application, and :not() spares the receipt.
+     Hiding them with display also means they generate no layout at all, so
+     a long Live Orders page cannot push blank sheets out behind the
+     receipt — which a visibility-based rule would have done.
+
+     Still scoped by .rcpt existing, so the table stand and the revenue
+     report keep their own print rules untouched. */
+  body:has(.rcpt) > *:not(.rcpt-host){display:none !important}
   body:has(.rcpt) .rcpt-host{
-    display:block !important;position:static !important}
-  body:has(.rcpt){background:#fff !important;margin:0 !important;padding:0 !important}
+    display:block !important;position:static !important;
+    width:auto !important;height:auto !important;overflow:visible !important}
+  body:has(.rcpt){background:#fff !important;margin:0 !important;padding:0 !important;
+    height:auto !important;min-height:0 !important;overflow:visible !important}
 
   .rcpt{
     max-width:none !important;width:auto !important;

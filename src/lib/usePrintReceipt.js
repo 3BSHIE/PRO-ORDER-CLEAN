@@ -35,11 +35,31 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Hard stop, so a stuck image can never leave the cashier waiting. */
 const READY_TIMEOUT_MS = 3000;
+/**
+ * Phase 118.1 — the same hard stop, for animation frames.
+ *
+ * A hidden, occluded or backgrounded tab stops firing animation frames
+ * ALTOGETHER, so a wait on rAF there is not slow, it never ends. Measured in
+ * a hidden tab: document.visibilityState "hidden", and not one frame in five
+ * seconds. The receipt stayed mounted, busyRef stayed true, and Print was
+ * dead until the page was reloaded — and a receipt left in the DOM keeps
+ * body:has(.rcpt) true, which would have quietly hijacked the next table
+ * stand or revenue report the cashier printed.
+ *
+ * Long enough that a drawing tab always wins the race on its own two frames,
+ * so this changes nothing in the normal case and only rescues the stalled
+ * one. React has committed well inside it either way: the commit happens
+ * synchronously in the render pass the state update schedules.
+ */
+const FRAME_FALLBACK_MS = 250;
 
 function nextFrame() {
   return new Promise((resolve) => {
     if (typeof requestAnimationFrame !== "function") { resolve(); return; }
-    requestAnimationFrame(() => requestAnimationFrame(resolve));
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    setTimeout(finish, FRAME_FALLBACK_MS);
   });
 }
 
@@ -97,6 +117,9 @@ export function usePrintReceipt() {
   useEffect(() => {
     if (!document_) return undefined;
     let cancelled = false;
+    /* Set once the afterprint listener below is attached, so the effect's
+       own cleanup can detach it if this screen unmounts mid-dialog. */
+    let detach = null;
 
     (async () => {
       await nextFrame();
@@ -104,22 +127,49 @@ export function usePrintReceipt() {
       await withTimeout(imagesSettled(containerRef.current), READY_TIMEOUT_MS);
       if (cancelled) return;
 
+      /* ── Phase 118.1 — tear down only once the browser has finished ────
+         Chrome blocks inside window.print() until the dialog closes, so
+         unmounting on the line after it is safe THERE. It is not safe to
+         assume everywhere: a browser that returned immediately would have
+         the receipt pulled out from under the capture, which is the same
+         blank page arrived at from the other direction.
+
+         afterprint is the signal the platform actually provides for this,
+         so it leads, and returning from print() is the fallback for
+         anything that does not fire it. Whichever comes first wins, and
+         the flag makes sure the teardown runs exactly once. */
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("afterprint", finish);
+        busyRef.current = false;
+        /* Torn down either way: cancelling the dialog leaves the page
+           exactly as it was, with no receipt left behind in the DOM. */
+        if (mountedRef.current) setDocument(null);
+      };
+      window.addEventListener("afterprint", finish);
+      detach = () => window.removeEventListener("afterprint", finish);
+
       try {
-        /* Blocks until the dialog is dismissed in every browser this ships
-           to. Whether the guest's paper actually came out is not something
-           the web platform reports, and nothing here claims it did (§46). */
+        /* Whether the guest's paper actually came out is not something the
+           web platform reports, and nothing here claims it did (§46). */
         window.print();
       } catch {
         if (mountedRef.current) setError(true);
       } finally {
-        busyRef.current = false;
-        /* Unmounted either way: cancelling the dialog leaves the page
-           exactly as it was, with no receipt left in the DOM. */
-        if (mountedRef.current) setDocument(null);
+        /* A macrotask rather than immediately: it gives a non-blocking
+           browser's afterprint the chance to arrive first, and costs a
+           blocking one nothing, its dialog having already closed. */
+        setTimeout(finish, 0);
       }
     })();
 
-    return () => { cancelled = true; busyRef.current = false; };
+    return () => {
+      cancelled = true;
+      busyRef.current = false;
+      if (detach) detach();
+    };
   }, [document_]);
 
   const clearError = useCallback(() => setError(false), []);

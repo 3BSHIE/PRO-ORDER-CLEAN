@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle, Layers, Link2, Printer,
 } from "lucide-react";
@@ -1246,10 +1247,28 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
           the receipt reaches the printer without a popup, a new route, or
           anything that would cost the cashier their place on this page. It
           is mounted only while a print is in flight and removed as soon as
-          the dialog closes, so there is no stale receipt in the DOM. */}
-      <div className="rcpt-host" ref={printRef} aria-hidden="true">
-        {printDoc && <ReceiptDocument doc={printDoc} lang={receiptLanguage} />}
-      </div>
+          the dialog closes, so there is no stale receipt in the DOM.
+
+          ── Phase 118.1 — and portalled to <body> ────────────────────────
+          Rendered in place, this host sat five levels inside #root — and
+          the print rule that hides the application hides #root, which took
+          the receipt down with it and is why every sheet came out blank. A
+          portal makes the host a real sibling of the application instead of
+          a descendant, so "hide everything except the receipt" becomes
+          expressible at all, and the hidden siblings then contribute no
+          layout that could come out as trailing blank pages.
+
+          A portal moves only the DOM node: the component stays in THIS
+          tree for state, context and effects, so the print lifecycle, the
+          ref and the language all behave exactly as before. The receipt's
+          own styling is already absolute black-on-white and inherits
+          nothing from the theme wrapper it has left. */}
+      {createPortal(
+        <div className="rcpt-host" ref={printRef} aria-hidden="true">
+          {printDoc && <ReceiptDocument doc={printDoc} lang={receiptLanguage} />}
+        </div>,
+        document.body
+      )}
 
       {/* Only shown if the browser refused to open a dialog at all. It never
           claims anything was printed — the web platform cannot tell us
