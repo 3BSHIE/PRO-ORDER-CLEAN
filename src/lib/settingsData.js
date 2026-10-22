@@ -90,6 +90,11 @@ function defaultSettings(restaurantSlug) {
        phase reads as unconfigured through the spread below and is never
        rewritten to say so. The customer CTA is simply not rendered. */
     googleReviewUrl: "",
+    /* Phase 118.0 — what language the CUSTOMER's bill and receipt print in,
+       independent of the language the cashier is working in. Empty/absent
+       resolves to English through resolveReceiptLanguage, which is the
+       documented fallback; nothing is rewritten for legacy records. */
+    receiptLanguage: "en",
     /* Phase 79 — these hours became functional this phase: Accepting Orders'
        Auto mode now reads them, and Auto is the default mode. The previous
        10:00–23:00 default was inherited from Phase 23, when the fields were

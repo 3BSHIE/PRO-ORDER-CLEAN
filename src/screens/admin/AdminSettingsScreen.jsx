@@ -34,6 +34,7 @@ import {
 import ImageAssetField from "../../components/admin/ImageAssetField.jsx";
 import { ensureFontsLoaded } from "../../lib/fontLoader.js";
 import { isValidGoogleReviewUrl } from "../../lib/googleReview.js";
+import { RECEIPT_LANGUAGES, resolveReceiptLanguage } from "../../lib/receiptModel.js";
 import {
   buildCustomerThemeVars,
   defaultThemeFields,
@@ -885,6 +886,34 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           <div className="ad-settings__row ad-settings__row--pair">
         <Card className="ad-settings__section">
           <h3 className="mm-section-title">{t("admin.languages", "Languages")}</h3>
+          {/* ── Phase 118.0 §31 — one compact setting, no receipt page ────
+              Printed bills and payment receipts follow the restaurant's
+              choice rather than whichever language the cashier happens to
+              be working in: a till set to English in Amman still hands out
+              Arabic receipts. Sits with Languages because that is what it
+              is — no Receipt Settings section, no paper size, no margins. */}
+          <label className="field mm-field" style={{ marginBottom: 14 }}>
+            <span className="field__label">{t("admin.receiptLanguage", "Receipt Language")}</span>
+            <select
+              className="mm-select mm-select--full"
+              value={resolveReceiptLanguage(draft.receiptLanguage)}
+              onChange={(e) => setField("receiptLanguage", e.target.value)}
+            >
+              {RECEIPT_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {code === "ar"
+                    ? t("admin.receiptLanguageAr", "Arabic")
+                    : code === "en"
+                      ? t("admin.receiptLanguageEn", "English")
+                      : t("admin.receiptLanguageBoth", "Bilingual")}
+                </option>
+              ))}
+            </select>
+            <span className="field__hint">
+              {t("admin.receiptLanguageHint", "Used for printed bills and payment receipts.")}
+            </span>
+          </label>
+
           <label className="field mm-field" style={{ marginBottom: 14 }}>
             <span className="field__label">{t("admin.defaultLanguage", "Default Language")}</span>
             {/* Phase 82.1 — the list offers exactly the languages this

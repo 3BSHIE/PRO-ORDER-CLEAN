@@ -12033,3 +12033,111 @@ button{font-family:var(--font-body)}
 @media(max-width:400px){
   .img-field__row{align-items:flex-start}
 }
+
+/* ══ Phase 118.0 — Receipts ═══════════════════════════════════════════════
+   A printed restaurant bill, not a PRO·ORDER screen. No cards, no accent
+   colour, no rounded surfaces: a centred header, hairline rules, one money
+   column. Black on white because that is all a thermal head can do, and
+   because ink coverage is paper cost (§6/§29).
+
+   The host is display:none on screen — the cashier never sees a receipt in
+   Live Orders — and @media print below reveals it while hiding the
+   application. Same technique the table stand and the revenue report
+   already use here. */
+.rcpt-host{display:none}
+
+.rcpt{
+  /* Sized for the narrower common roll. 80mm paper simply gives the same
+     document more margin rather than a different layout, which is what
+     keeps one stylesheet honest across both widths (§28). */
+  width:100%;max-width:72mm;margin:0 auto;
+  background:#fff;color:#000;
+  font-family:"Helvetica Neue",Arial,"Noto Sans Arabic","Segoe UI",sans-serif;
+  font-size:11px;line-height:1.45;
+  /* Receipt paper is unforgiving about long unbroken strings — a product
+     name or a customisation must wrap rather than run off the roll (§11). */
+  overflow-wrap:anywhere}
+
+.rcpt__head{text-align:center;display:flex;flex-direction:column;gap:3px;align-items:center}
+/* Bounded and contain-fitted so a wide wordmark and a square icon both land
+   inside the roll, and small enough to stay legible in grayscale (§7). */
+.rcpt__logo{max-width:40mm;max-height:16mm;width:auto;height:auto;object-fit:contain;
+  filter:grayscale(1)}
+.rcpt__venue{margin:0;font-size:15px;font-weight:700;letter-spacing:.02em;line-height:1.25}
+.rcpt__contact{margin:0;font-size:10px}
+
+.rcpt__rule{border:0;border-top:1px dashed #000;margin:6px 0;opacity:.75}
+
+.rcpt__kind{
+  margin:0;text-align:center;font-size:12px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase}
+/* The second language sits under the first rather than beside it: on 72mm a
+   joined pair wraps mid-phrase and reads worse than two short lines (§33). */
+.rcpt__alt{display:block;font-size:11px;letter-spacing:.04em}
+
+.rcpt__meta{margin:5px 0 0;display:flex;flex-direction:column;gap:1px}
+.rcpt__meta-row{display:flex;justify-content:space-between;gap:8px;font-size:10.5px}
+.rcpt__meta-row dt{margin:0;font-weight:400}
+.rcpt__meta-row dd{margin:0;font-weight:700;text-align:end}
+
+.rcpt__section{margin:0}
+.rcpt__section + .rcpt__section{margin-top:6px;padding-top:5px;border-top:1px dotted #000}
+/* One original order's heading inside a combined bill: its own reference and
+   its own table, so a cross-table group never reads as one table (§17). */
+.rcpt__section-head{
+  display:flex;justify-content:space-between;gap:8px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  margin-bottom:3px}
+
+.rcpt__line{margin:0 0 4px}
+.rcpt__line-main{display:flex;gap:5px;align-items:baseline}
+.rcpt__qty{flex:none;font-weight:700;min-width:2.2em}
+.rcpt__name{flex:1 1 auto;min-width:0}
+/* The one figure in the money column. Tabular digits so the decimals stack
+   down the receipt instead of drifting (§29). */
+.rcpt__money{
+  flex:none;text-align:end;white-space:nowrap;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+/* Modifiers sit under their item, indented, one per line. They carry a
+   surcharge where one was paid; the line total above already includes it. */
+.rcpt__mods{display:flex;flex-direction:column;padding-inline-start:2.6em}
+.rcpt__mod{font-size:10px}
+.rcpt__note{padding-inline-start:2.6em;font-size:10px;font-style:italic}
+
+.rcpt__totals{display:flex;flex-direction:column;gap:2px}
+.rcpt__total-row{display:flex;justify-content:space-between;gap:8px;font-size:11px}
+.rcpt__total-row--grand{font-size:13px;font-weight:700;margin-top:3px}
+
+.rcpt__pay{display:flex;flex-direction:column;gap:1px}
+.rcpt__stamp{
+  margin:0 0 3px;text-align:center;font-size:12px;font-weight:700;
+  letter-spacing:.14em;border:1px solid #000;padding:2px 0}
+.rcpt__flag{margin:5px 0 0;text-align:center;font-size:10px;font-weight:700}
+
+.rcpt__foot{text-align:center;display:flex;flex-direction:column;gap:2px}
+.rcpt__thanks{margin:0;font-size:11px}
+/* Named as the print time so a reprint can never be mistaken for a second
+   payment (§7). */
+.rcpt__printed{margin:0;font-size:9px}
+
+@media print{
+  /* Scoped by the receipt being present, so this can never affect the table
+     stand or the revenue report, which have print rules of their own. */
+  body:has(.rcpt) > *{display:none !important}
+  body:has(.rcpt) .rcpt-host{
+    display:block !important;position:static !important}
+  body:has(.rcpt){background:#fff !important;margin:0 !important;padding:0 !important}
+
+  .rcpt{
+    max-width:none !important;width:auto !important;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* Keep an item and its modifiers together; a surcharge orphaned at the
+     top of a second sheet is unreadable (§30). */
+  .rcpt__line,.rcpt__section-head{break-inside:avoid;page-break-inside:avoid}
+
+  /* auto, not a fixed sheet: the roll's length is its content, and naming
+     A4 here is what produces a mostly-blank page on a thermal printer. The
+     driver's configured width stays authoritative (§28). */
+  @page{size:auto;margin:4mm}
+}
+

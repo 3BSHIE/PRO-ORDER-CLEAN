@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle, Layers, Link2,
+  ChevronDown, PackageSearch, CheckCircle2, XCircle, AlertTriangle, Layers, Link2, Printer,
 } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -25,6 +25,14 @@ import { useSettingsData } from "../../lib/useSettingsData.js";
 import { isDirectOrder, isStaffOrder, formatTableNumber } from "../../lib/staffOrdering.js";
 import { resolveMethodLabel } from "../../lib/paymentLabels.js";
 import CombinedBillCard from "./CombinedBillCard.jsx";
+import ReceiptDocument from "./ReceiptDocument.jsx";
+import { usePrintReceipt } from "../../lib/usePrintReceipt.js";
+import {
+  buildOrderReceipt,
+  buildGroupReceipt,
+  resolveReceiptLanguage,
+  RECEIPT_KIND,
+} from "../../lib/receiptModel.js";
 import { settleOrdersAsPaid } from "../../lib/customerOrders.js";
 import { can, PERMISSIONS } from "../../lib/permissions.js";
 import { PAYMENT_METHODS } from "../../data/paymentMethods.js";
@@ -236,6 +244,40 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
      every refresh, which is what keeps a canceled or separately-settled
      order from lingering inside a bill. */
   const canBill = can(session, PERMISSIONS.BILLS_MANAGE);
+  /* ── Phase 118.0 — printing ───────────────────────────────────────────
+     The hook owns the transport only; what the document SAYS was decided by
+     receiptModel from data this screen already has. Nothing below writes to
+     an order, a group or a payment: printing is an output, and a reprint an
+     hour later must produce the same document as the first one (§20). */
+  const { document: printDoc, containerRef: printRef, printDocument, error: printError, clearError: clearPrintError } =
+    usePrintReceipt();
+  const receiptLanguage = resolveReceiptLanguage(settings?.receiptLanguage);
+
+  const handlePrintOrder = useCallback((order) => {
+    printDocument(
+      buildOrderReceipt({
+        order,
+        settings,
+        restaurant,
+        /* The document follows the money, not the button: an order that has
+           been settled prints a receipt, one that has not prints a bill. */
+        kind: order.paymentStatus === "paid" ? RECEIPT_KIND.RECEIPT : RECEIPT_KIND.BILL,
+      })
+    );
+  }, [printDocument, settings, restaurant]);
+
+  const handlePrintGroup = useCallback((group, groupOrdersList) => {
+    printDocument(
+      buildGroupReceipt({
+        group,
+        orders: groupOrdersList,
+        settings,
+        restaurant,
+        kind: group.status === BILL_STATUS.SETTLED ? RECEIPT_KIND.RECEIPT : RECEIPT_KIND.BILL,
+      })
+    );
+  }, [printDocument, settings, restaurant]);
+
   const [groups, setGroups] = useState(() => getBillingGroups(restaurant.slug));
   /* Phase 112.1 — combining is no longer a MODE. The order being combined
      from (its picker is open), the drag in flight, and the confirmation a
@@ -868,6 +910,12 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
                 onSeparate={open && canBill ? () => handleSeparateBill(group.id) : undefined}
                 onMerge={open && canBill ? (sourceId) => handleMergeBills(group.id, sourceId) : undefined}
                 onSettle={open && canBill ? () => handleRequestSettle(group) : undefined}
+                /* §16 — printing a grouped bill happens HERE and only here.
+                   A member order is never rendered as its own card while it
+                   is in a group (the list below is ungroupedOrders), so
+                   there is no competing per-order bill action to suppress.
+                   Offered on settled bills too: that is the reprint. */
+                onPrint={() => handlePrintGroup(group, restaurantOrders)}
               />
             );
           })}
@@ -891,6 +939,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
               onMarkDelivered={() => handleMarkDelivered(order)}
               onCancelOrder={() => handleRequestCancel(order)}
               onMarkAsPaid={() => handleRequestMarkAsPaid(order)}
+              onPrint={() => handlePrintOrder(order)}
               combinable={canBill && selectableIds.has(order.orderId)}
               onCombineWith={() => setCombineFor(order)}
               dragging={dragOrderId === order.orderId}
@@ -1192,6 +1241,25 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
         )}
       </Modal>
 
+      {/* ── Phase 118.0 — the printable document ─────────────────────────
+          Hidden on screen and revealed only by @media print, which is how
+          the receipt reaches the printer without a popup, a new route, or
+          anything that would cost the cashier their place on this page. It
+          is mounted only while a print is in flight and removed as soon as
+          the dialog closes, so there is no stale receipt in the DOM. */}
+      <div className="rcpt-host" ref={printRef} aria-hidden="true">
+        {printDoc && <ReceiptDocument doc={printDoc} lang={receiptLanguage} />}
+      </div>
+
+      {/* Only shown if the browser refused to open a dialog at all. It never
+          claims anything was printed — the web platform cannot tell us
+          whether paper came out (§46). */}
+      <Toast
+        visible={printError}
+        message={t("print.printFailed", "Couldn't open the print dialog. Check your browser's settings and try again.")}
+        onDone={clearPrintError}
+      />
+
       {/* Phase 49 — Mark as Paid confirmation.
 
           Every field is read from the order snapshot, never hardcoded, and
@@ -1285,7 +1353,7 @@ export default function AdminLiveOrdersScreen({ restaurant, session, onSignOut, 
 
 /* ── One live order card (collapsed summary + expandable details) ───────── */
 function LiveOrderCard({
-  order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, isNew,
+  order, expanded, onToggle, isUpdating, onMarkDelivered, onCancelOrder, onMarkAsPaid, onPrint, isNew,
   /* Phase 112.1 — combining, without a mode. The card is draggable and
      droppable only while it is genuinely eligible, and the same operation
      is always one press away in "Combine with…". */
@@ -1534,8 +1602,30 @@ function LiveOrderCard({
               None of the handlers changed. Mark as Paid still routes through
               the Phase 49 confirmation and Cancel still routes through the
               Phase 50 paid warning — this is presentation only. */}
-          {(canDeliver || canCancel || canMarkAsPaid || combinable) && (
+          {(canDeliver || canCancel || canMarkAsPaid || combinable || onPrint) && (
             <div className="ad-live-card__actions ad-live-card__actions--row">
+              {/* Phase 118.0 — Bill before payment, Receipt after. One
+                  button whose label follows the order's own payment state,
+                  so a cashier never has to decide which document this is.
+                  Always available, including on a canceled order, because
+                  reprinting what was already settled is a normal request. */}
+              {onPrint && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  disabled={isUpdating}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPrint();
+                  }}
+                >
+                  <Printer size={13} strokeWidth={2.2} aria-hidden="true" />
+                  {isPaid
+                    ? t("print.printReceipt", "Print Receipt")
+                    : t("print.printBill", "Print Bill")}
+                </Button>
+              )}
               {combinable && (
                 <button
                   type="button"

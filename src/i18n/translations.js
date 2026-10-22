@@ -777,6 +777,12 @@ export const translations = {
       address: "Address",
       /* Phase 117.0 — optional, and the hint says where to FIND the link
          rather than what a Place ID is. The manager copies one thing. */
+      /* Phase 118.0 — the one receipt setting. */
+      receiptLanguage: "Receipt Language",
+      receiptLanguageEn: "English",
+      receiptLanguageAr: "Arabic",
+      receiptLanguageBoth: "Bilingual",
+      receiptLanguageHint: "Used for printed bills and payment receipts.",
       googleReviewUrl: "Google Review Link",
       googleReviewHint: "Optional. Paste the direct review link from your Google Business Profile.",
       googleReviewInvalid: "Enter a valid Google review link.",
@@ -973,6 +979,13 @@ export const translations = {
          change, so this is calm and says nothing about being late. */
       takingLonger:        "Taking a little longer",
       takingLongerHelp:    "Your order is still being prepared. Thank you for your patience.",
+    },
+    print: {
+      /* Phase 118.0 — before payment it is a bill, after payment a receipt.
+         Two words a cashier already uses; nothing invented. */
+      printBill: "Print Bill",
+      printReceipt: "Print Receipt",
+      printFailed: "Couldn't open the print dialog. Check your browser's settings and try again.",
     },
     payment: {
       paymentTitle: "Payment",
@@ -1967,6 +1980,12 @@ export const translations = {
       email: "البريد الإلكتروني",
       address: "العنوان",
       /* Phase 117.0 */
+      /* Phase 118.0 */
+      receiptLanguage: "لغة الفاتورة",
+      receiptLanguageEn: "الإنجليزية",
+      receiptLanguageAr: "العربية",
+      receiptLanguageBoth: "ثنائية اللغة",
+      receiptLanguageHint: "تُستخدم في فواتير الحساب وإيصالات الدفع المطبوعة.",
       googleReviewUrl: "رابط التقييم على Google",
       googleReviewHint: "اختياري. أضف الرابط المباشر لتقييم مطعمك من ملف نشاطك على Google.",
       googleReviewInvalid: "أدخل رابط تقييم صالحًا على Google.",
@@ -2113,6 +2132,11 @@ export const translations = {
       estimatedRemaining: "الوقت المتبقي المتوقع",
       takingLonger:       "يستغرق وقتاً أطول قليلاً",
       takingLongerHelp:   "لا يزال طلبك قيد التحضير. شكراً لسعة صدرك.",
+    },
+    print: {
+      printBill: "طباعة فاتورة الحساب",
+      printReceipt: "طباعة إيصال الدفع",
+      printFailed: "تعذّر فتح نافذة الطباعة. تحقّق من إعدادات المتصفح وحاول مجددًا.",
     },
     payment: {
       paymentTitle: "الدفع",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Layers, Check, Scissors, Merge, Plus, X, Ban } from "lucide-react";
+import { ChevronDown, Layers, Check, Scissors, Merge, Plus, X, Ban, Printer } from "lucide-react";
 import Badge from "../../components/ui/Badge.jsx";
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
@@ -64,6 +64,10 @@ export default function CombinedBillCard({
   onSeparate,
   onMerge,
   onSettle,
+  /* Phase 118.0 — the ONLY customer-document action for a grouped bill.
+     Handed to open and settled bills alike: before payment it prints the
+     combined bill, after payment it reprints the settlement (§16). */
+  onPrint,
   addableOrders = [],
   mergeTargets = [],
   busy = false,
@@ -201,11 +205,26 @@ export default function CombinedBillCard({
           </ul>
 
           {settled ? (
-            <p className="ad-bill__note">
-              {t("bill.readOnly", "Settled bills are read-only.")}{" "}
-              {members.some((o) => o.status === "canceled") &&
-                t("bill.notRefund", "Canceling an order does not refund it. The settlement record is kept as it was.")}
-            </p>
+            <>
+              <p className="ad-bill__note">
+                {t("bill.readOnly", "Settled bills are read-only.")}{" "}
+                {members.some((o) => o.status === "canceled") &&
+                  t("bill.notRefund", "Canceling an order does not refund it. The settlement record is kept as it was.")}
+              </p>
+              {/* Phase 118.0 — the reprint. The only action a settled bill
+                  offers, and it changes nothing: the document is rebuilt
+                  from the settlement this group froze when it was paid, so
+                  a copy handed over an hour later says what the first one
+                  said (§18). Read-only stays read-only. */}
+              {onPrint && (
+                <div className="ad-bill__actions">
+                  <button type="button" className="so-line__btn" disabled={busy} onClick={onPrint}>
+                    <Printer size={12} strokeWidth={2.2} aria-hidden="true" />
+                    {t("print.printReceipt", "Print Receipt")}
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <>
               {picking === "add" && (
@@ -289,6 +308,17 @@ export default function CombinedBillCard({
                   <Scissors size={12} strokeWidth={2.2} aria-hidden="true" />
                   {t("bill.separate", "Separate bill")}
                 </button>
+                {onPrint && (
+                  <button
+                    type="button"
+                    className="so-line__btn"
+                    disabled={busy}
+                    onClick={onPrint}
+                  >
+                    <Printer size={12} strokeWidth={2.2} aria-hidden="true" />
+                    {t("print.printBill", "Print Bill")}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="so-line__btn so-line__btn--pay"
