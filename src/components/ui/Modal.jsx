@@ -13,13 +13,7 @@ import { X } from "lucide-react";
    The wrapper is rendered ONLY when something is passed, so every other
    modal in the app keeps byte-identical DOM and the shell renders exactly as
    before when the prop is omitted. */
-/* Phase 119.1 — `headExtra` is an OPTIONAL control rendered in the head row
-   beside the title, for a dialog with one product-level state worth keeping
-   in view (the Product Editor's Available).
-
-   Same contract as stickyHead above: rendered only when something is passed,
-   so every other modal keeps byte-identical DOM. */
-export default function Modal({ open, onClose, title, children, footer, className = "", stickyHead = null, headExtra = null }) {
+export default function Modal({ open, onClose, title, children, footer, className = "", stickyHead = null }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -33,7 +27,6 @@ export default function Modal({ open, onClose, title, children, footer, classNam
   const head = (
     <div className="modal__head">
       <h3 className="modal__title">{title}</h3>
-      {headExtra}
       <button
         type="button"
         className="modal__x"

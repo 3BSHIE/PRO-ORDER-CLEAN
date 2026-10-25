@@ -11491,16 +11491,13 @@ button{font-family:var(--font-body)}
    ::before cover, the same device the Tables access modal uses. */
 .modal--editor .modal__sticky{
   position:sticky;top:0;z-index:4;
-  margin-bottom:12px;padding-bottom:8px;
+  margin-bottom:12px;padding-bottom:10px;
   background:var(--surface-1);
   border-bottom:1px solid var(--border)}
 .modal--editor .modal__sticky::before{
   content:"";position:absolute;left:0;right:0;bottom:100%;height:26px;
   background:var(--surface-1)}
-/* Phase 119.1 — the gap under the head was sized for a head that ended in a
-   title. It now ends in a control with its own padding, so the extra air
-   below it was doubling up. */
-.modal--editor .modal__head{margin-bottom:6px}
+.modal--editor .modal__head{margin-bottom:10px}
 /* The X sits in a stacked context now; keeping it positioned means its focus
    ring draws inside the dialog padding rather than being clipped (§59). */
 .modal--editor .modal__x{position:relative;z-index:1}
@@ -12406,11 +12403,14 @@ button{font-family:var(--font-body)}
 }
 .mm-mini__label{
   display:block;font-size:9.5px;font-weight:700;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--text-3);
-  /* Phase 119.1 — the caption is the one part of this column that is not the
-     card, so it is where height can come off without touching the card's
-     own composition. line-height pulls the block in to the glyphs. */
-  line-height:1;margin-bottom:4px}
+  text-transform:uppercase;color:var(--text-3);margin-bottom:5px;
+  /* Phase 119.2 §4 — centred over the CARD, not over the dialog. This block
+     is a child of .mm-mini, whose width IS the card's width (128px, or 104px
+     on a narrow phone), so centring the text inside it lands the caption on
+     the card's own centre line at every breakpoint. Doing it with
+     text-align rather than an offset also means RTL needs no rule of its
+     own: centre is centre in both directions. */
+  text-align:center}
 .mm-mini .item-card{
   --ic-pad:6px 7px 7px;
   --ic-name:9px;
@@ -12443,14 +12443,11 @@ button{font-family:var(--font-body)}
    between "Limited" and "Seasonal" can reach both — they are just reachable
    by scrolling this column rather than by scrolling the product form. */
 .mm-labels{
-  display:flex;flex-direction:column;gap:10px;min-width:0;
+  display:flex;flex-direction:column;gap:9px;min-width:0;
   max-height:196px;overflow-y:auto;overscroll-behavior:contain;
   padding-inline-end:4px}
 @media (min-width:640px){
-  /* Phase 119.1 — with Available out of this column the two groups start
-     ~51px higher, so the cap can come down and still show more than it did
-     before. Above 640px the pair fits inside it without scrolling at all. */
-  .mm-labels{max-height:184px}
+  .mm-labels{max-height:232px}
 }
 .mm-labels__group{display:flex;flex-direction:column;gap:5px;min-width:0}
 .mm-labels__head{
@@ -12490,55 +12487,16 @@ button{font-family:var(--font-body)}
   color:var(--text-3)}
 .mm-labels__legacy-hint{font-size:10px;color:var(--text-3);line-height:1.4}
 
-/* ── Phase 119.1 — Available, compact and in the head row ──────────────────
-   It was .mm-toggle-row--primary: a framed block that, being the only child
-   of a flex column, stretched to the column's full width — 485px by 42px at
-   1024px to hold one checkbox and one word.
+/* Availability keeps the framed primary row it already had — same control,
+   same wording, same behaviour, now beside the preview instead of two
+   sections down (§16).
 
-   Now it is content-sized and sits beside the dialog title. The checkbox
-   itself is untouched — same element, same accent, same 16px box, same
-   checked and unchecked rendering — so the control still reads as the
-   checkbox it has always been rather than as a new status widget. */
-.mm-avail-chip{
-  display:inline-flex;align-items:center;gap:7px;
-  flex:none;width:fit-content;
-  /* 30px + 1px of border each side = 32px, which is exactly the height of
-     the X beside it. The head row therefore does not grow by a single pixel
-     to carry this control. */
-  padding:4px 10px;min-height:30px;
-  border:1px solid var(--border);border-radius:999px;
-  background:var(--surface-2);
-  font-size:12.5px;font-weight:600;color:var(--text-1);
-  cursor:pointer;user-select:none;white-space:nowrap;
-  transition:border-color .15s,background .15s}
-.mm-avail-chip:hover{border-color:var(--border-strong)}
-.mm-avail-chip input{width:16px;height:16px;flex:none;accent-color:var(--gold);cursor:pointer}
-/* The label is the click target, so the ring belongs on the label, not on
-   the 16px box inside it. */
-.mm-avail-chip:focus-within{outline:2px solid var(--gold);outline-offset:1px}
-/* A finger needs more than a mouse does — but the row it sits in must not
-   grow to provide it, or the compact control would hand back on a phone the
-   height it just saved on a desktop. So the hit area is a pseudo-element
-   that reaches past the chip without being part of the layout: 44px tall,
-   centred on a chip that stays 32px.
-
-   The same trick .customer-theme uses for the guest card's "+" button, for
-   the same reason. The label is the click target and this sits inside it, so
-   a tap above or below the visible pill still toggles the checkbox. */
-@media (pointer:coarse){
-  .mm-avail-chip{position:relative;padding-inline:12px}
-  .mm-avail-chip::after{
-    content:"";position:absolute;left:0;right:0;
-    top:50%;transform:translateY(-50%);height:44px}
-}
-
-/* The head row carries it. Title first, Available beside it, X pinned to the
-   far end — logical, so Arabic mirrors the whole row without a rule of its
-   own. The title gives way first when the row runs out of space. */
-.modal--editor .modal__head{justify-content:flex-start;gap:10px}
-.modal--editor .modal__title{
-  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.modal--editor .modal__x{margin-inline-start:auto}
+   Phase 119.2 — restored here after 119.1 moved it up beside the dialog
+   title as a pill. The owner reviewed that and preferred this: a full-width
+   framed row at the top of the control column, aligned with the Badge and
+   Attribute groups under it. Filling the column is the point, not waste —
+   it is what makes the three controls read as one stack. */
+.mm-top .mm-toggle-row--primary{margin:0}
 
 /* ── Custom label management ────────────────────────────────────────────── */
 .mm-lblmgr{display:flex;flex-direction:column;gap:12px}

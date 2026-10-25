@@ -2355,26 +2355,6 @@ function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSav
          region that resizes while you scroll past it is a region you cannot
          aim at. The grid is content-width for the card and whatever is left
          for the controls, so the preview never dominates. */
-      /* Phase 119.1 §1/§2 — Available sits in the head row now.
-         It was a framed block filling the whole control column — 485px wide
-         and 42px tall at 1024px for one checkbox and one word — which is the
-         waste the owner called out. Moved here it costs no height at all:
-         the head row already existed, and between the title and the X it was
-         the emptiest horizontal space in the dialog.
-
-         Same input, same checked/unchecked states, same handler, same
-         wording, same keyboard behaviour. Only the frame around it and where
-         it sits have changed. */
-      headExtra={
-        <label className="mm-avail-chip">
-          <input
-            type="checkbox"
-            checked={isAvailable}
-            onChange={(e) => setIsAvailable(e.target.checked)}
-          />
-          <span>{t("admin.available", "Available")}</span>
-        </label>
-      }
       stickyHead={
         <div className="mm-top">
           <ProductMiniPreview
@@ -2389,6 +2369,23 @@ function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSav
             isNew={isNew}
           />
           <div className="mm-labels">
+            {/* §16 — the same control, the same wording and the same
+                semantics it had two sections down; only its position
+                changed. Nothing about availability was redefined here.
+
+                Phase 119.2 — back at the top of this column after 119.1
+                moved it beside the dialog title. The owner reviewed both and
+                chose this one: Available, then Promotional badge, then
+                Attributes, as one aligned stack. */}
+            <label className="mm-toggle-row mm-toggle-row--primary">
+              <input
+                type="checkbox"
+                checked={isAvailable}
+                onChange={(e) => setIsAvailable(e.target.checked)}
+              />
+              <span>{t("admin.available", "Available")}</span>
+            </label>
+
             <LabelChips
               kind={LABEL_KIND.PROMO}
               options={PROMO_BADGES}
