@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, UtensilsCrossed, ChevronUp, ChevronDown, Tag, Check } from "lucide-react";
 import Card    from "../../components/ui/Card.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import Badge   from "../../components/ui/Badge.jsx";
@@ -18,6 +18,21 @@ import {
   useImageAssetSrc,
 } from "../../lib/imageAssets.js";
 import { productMonogram } from "../customer/CustomerMenuScreen.jsx";
+import { PromoBadge, AttributeRow } from "../../components/ProductLabels.jsx";
+import {
+  PROMO_BADGES,
+  PRODUCT_ATTRIBUTES,
+  LEGACY_FEATURED,
+  LABEL_KIND,
+  resolvePromoBadge,
+  resolveAttributes,
+  initialPromoBadge,
+  createCustomLabel,
+  updateCustomLabel,
+  deleteCustomLabel,
+  countProductsUsingLabel,
+  labelText,
+} from "../../lib/productLabels.js";
 import {
   createMenuItem,
   updateMenuItem,
@@ -278,7 +293,7 @@ export function validateCustomizationPrices(choices, paidAddOns) {
 }
 
 export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, onNavigate }) {
-  const { categories, items } = useMenuData(restaurant.slug);
+  const { categories, items, customLabels } = useMenuData(restaurant.slug);
   const { t, language } = useLanguage();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -535,15 +550,22 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
                       ? t("admin.available", "Available")
                       : t("admin.unavailable", "Unavailable")}
                   </span>
-                  {/* Both flags stay visible — Admin genuinely needs to know
-                      each one, so the Customer's single-badge rule deliberately
-                      does NOT apply here (§5). They are just quieter now. */}
-                  {item.isFeatured && (
-                    <span className="mm-flag">{t("common.featured", "Featured")}</span>
-                  )}
-                  {item.isPopular && (
-                    <span className="mm-flag mm-flag--popular">{t("common.popular", "Popular")}</span>
-                  )}
+                  {/* Phase 119.0 §7 — ONE designation, because there is now
+                      one field holding it. The two raw flags shown here were
+                      the readout of two independent checkboxes; a product
+                      carries a single promotional badge, so the list states
+                      which one rather than which flags are set. Resolved
+                      through the shared resolver, so a legacy product still
+                      reads exactly as it always did. */}
+                  {(() => {
+                    const badge = resolvePromoBadge(item, customLabels);
+                    if (!badge) return null;
+                    return (
+                      <span className="mm-flag mm-flag--popular">
+                        {labelText(badge, t, language)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -605,6 +627,11 @@ export default function AdminMenuItemsScreen({ restaurant, session, onSignOut, o
              cleanup can tell one restaurant's assets from another's on a
              device that serves more than one. */
           restaurant={restaurant}
+          /* Phase 119.0 — the restaurant's own badges and attributes, read by
+             useMenuData with the rest of the menu and refreshed by the same
+             change event, so a label created inside the editor is on the
+             chips before the modal has finished re-rendering. */
+          customLabels={customLabels}
           onSave={handleSave}
           onClose={() => setEditingItem(null)}
           /* §29 — the editor raises the request; the confirmation dialog and
@@ -694,31 +721,32 @@ function ProductThumb({ item, categories, language }) {
   );
 }
 
-/* ── Live customer preview (Phase 108.0 §4–§11) ──────────────────────────
+/* ── The miniature customer card (Phase 119.0 §15) ───────────────────────
 
-   A compact read-only rendering of what this product will look like in the
-   guest menu, pinned to the top of the editor so it stays answerable while
-   the form scrolls past it.
+   Phase 108.0 put a live preview at the top of the editor and it answered
+   the right question, but it answered it in the wrong shape: a wide
+   horizontal strip — thumbnail, then name, then category, then price — which
+   is not how a guest sees a product at all. A manager could not use it to
+   judge composition, because the composition was invented for the strip.
 
-   It deliberately does NOT reimplement the guest card. The badge rule, the
-   image fallback and the price formatting are the customer ones:
-     - fmtPrice is the same formatter the guest card calls
-     - productMonogram is imported from CustomerMenuScreen, not copied
-     - the badge priority below mirrors CustomerMenuScreen exactly:
-         unavailable  -> "Out of Stock" and NO body badge
-         available + isPopular            -> Popular
-         available + !isPopular + featured -> Featured
-       i.e. at most one badge, Out of Stock > Popular > Featured (§10).
+   This renders the REAL card. Not a lookalike: the same <article
+   className="item-card"> with the same children in the same order, the same
+   image wrapper and monogram fallback, the same badge corner, the same
+   attribute row, the same foot. The only thing .mm-mini overrides is the
+   handful of CSS custom properties the card exposes for its own scale, so
+   the hierarchy and the spacing rhythm cannot drift from the guest menu —
+   there is nothing here for them to drift from, because it is the same
+   markup and the same stylesheet.
 
-   §8/§56 — informational only. The "+" is a <span aria-hidden>, not a
-   button: it cannot be clicked, focused or tabbed to, and it carries no
-   handler at all, so there is nothing to disable. The whole strip is inert.
+   §15 — the description is tiny on purpose. The objective is "how does this
+   compose", not "can I read it", and the owner accepted that explicitly.
 
-   §9 — every value comes from the live draft state passed in, so it tracks
-   edits with no save and no extra state of its own (§60). */
-function ProductLivePreview({
-  name, price, categoryId, imageUrl, isAvailable, isPopular, isFeatured,
-  categories, isNew,
+   §27 — inert. The "+" is a <span>, not a button: unfocusable, untabbable,
+   no handler, nothing to disable, and .mm-mini turns off pointer events for
+   the whole card so even hover does nothing. */
+function ProductMiniPreview({
+  name, description, price, imageUrl, isAvailable,
+  promoBadge, attributes, customLabels, isNew,
 }) {
   const { t, language } = useLanguage();
   /* Phase 115.0 — the latch stores WHICH source failed, not merely that one
@@ -727,73 +755,319 @@ function ProductLivePreview({
      image that loads perfectly well. */
   const [failedUrl, setFailedUrl] = useState(null);
 
-  /* Phase 115.0 — same resolution as the list and the guest card, so the
-     preview keeps telling the truth the moment an image is uploaded rather
-     than only after a save. */
   const url = useImageAssetSrc(imageUrl.trim());
   const showImg = isSafeImageSrc(url) && failedUrl !== url;
   const displayName =
     getLocalizedText(name, language).trim() ||
     (isNew ? t("admin.newProduct", "New item") : t("admin.untitledProduct", "Untitled item"));
-  const category = categories.find((c) => c.id === categoryId);
+  const displayDesc = getLocalizedText(description, language);
   const parsed = parseProductPrice(price);
 
+  /* The same resolver the card and the sheet use. The draft is passed as a
+     product-shaped object with the legacy flags deliberately absent, because
+     the editor's badge state is already authoritative — deriving from
+     isPopular here would make the preview disagree with what will be saved. */
+  const promo = resolvePromoBadge({ promoBadge }, customLabels);
+  const attrs = resolveAttributes({ attributes }, customLabels);
+
   return (
-    <div className="mm-preview">
-      <span className="mm-preview__label">
+    <div className="mm-mini">
+      <span className="mm-mini__label">
         {t("admin.livePreview", "Customer preview")}
       </span>
 
-      <div className="mm-preview__card">
-        <span className="mm-preview__media">
+      <article className={`item-card ${isAvailable ? "item-card--available" : "item-card--unavailable"}`}>
+        <div className="item-card__img-wrap">
           {showImg ? (
-            /* alt="" — the name is right beside it in real text. */
-            <img src={url} alt="" loading="lazy" onError={() => setFailedUrl(url)} />
+            /* alt="" — the name is in the form behind this, in real text. */
+            <img className="item-card__img" src={url} alt="" loading="lazy" onError={() => setFailedUrl(url)} />
           ) : (
-            <span className="mm-preview__mono" aria-hidden="true">
-              {productMonogram(displayName)}
-            </span>
+            <div className="item-card__mono-wrap" aria-hidden="true">
+              <span className="item-card__mono">{productMonogram(displayName)}</span>
+            </div>
           )}
-          {!isAvailable && (
-            <span className="mm-preview__oos">
-              {t("common.outOfStock", "Out of Stock")}
-            </span>
-          )}
-        </span>
+        </div>
 
-        <span className="mm-preview__info">
-          <span className="mm-preview__name">{displayName}</span>
-          <span className="mm-preview__cat">
-            {category ? `${category.emoji} ${getLocalizedText(category.name, language)}` : "—"}
-          </span>
-          <span className="mm-preview__foot">
-            <span className="mm-preview__price">
+        {isAvailable
+          ? <PromoBadge label={promo} className="item-card__promo" />
+          : <span className="item-card__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>}
+
+        <div className="item-card__body">
+          <AttributeRow labels={attrs} className="item-card__badges" />
+          <p className="item-card__name">{displayName}</p>
+          <p className="item-card__desc">{displayDesc}</p>
+          <div className="item-card__foot">
+            <span className="item-card__price">
               {parsed !== null ? fmtPrice(parsed) : "—"}
             </span>
-            {/* §10 — one badge at most, customer priority. */}
-            {isAvailable && isPopular && (
-              <span className="badge badge--gold mm-preview__badge">
-                {t("customer.popular", "Popular")}
-              </span>
-            )}
-            {isAvailable && !isPopular && isFeatured && (
-              <span className="badge badge--featured mm-preview__badge">
-                {t("customer.featured", "Featured")}
-              </span>
-            )}
-          </span>
-        </span>
-
-        {/* §56 — decorative only: inert, unfocusable, out of the tab order
-            and hidden from assistive tech. */}
-        <span className="mm-preview__add" aria-hidden="true">+</span>
-      </div>
+            <span className="item-card__add" aria-hidden="true">+</span>
+          </div>
+        </div>
+      </article>
     </div>
   );
 }
 
+/* ── One row of selectable label chips (Phase 119.0 §16) ─────────────────
+
+   Promotional badges are single-select with an explicit "None"; attributes
+   are multi-select. Both are plain buttons with aria-pressed, so the control
+   states what it is to assistive tech instead of relying on the gold fill.
+
+   The lists are shown in full rather than behind a dropdown: ten short chips
+   wrap into three lines and a manager choosing between "Limited" and
+   "Seasonal" has to see both. Management of the restaurant's OWN labels is
+   the one thing that opens a modal, because a create/rename/delete form in a
+   sticky header is exactly the bloat §15 forbids. */
+function LabelChips({ kind, options, customOptions, selected, onToggle, onManage, legacyLabel }) {
+  const { t, language } = useLanguage();
+  const multi = kind === LABEL_KIND.ATTRIBUTE;
+  const isOn = (id) => (multi ? selected.includes(id) : selected === id);
+
+  return (
+    <div className="mm-labels__group">
+      <div className="mm-labels__head">
+        <span className="mm-labels__title">
+          {multi ? t("labels.attributes", "Attributes") : t("labels.promoBadge", "Promotional badge")}
+        </span>
+        <span className="mm-labels__hint">
+          {multi ? t("labels.attrHint", "Choose every one that applies.")
+                 : t("labels.promoHint", "One per product.")}
+        </span>
+        <button type="button" className="mm-labels__manage" onClick={onManage}>
+          <Tag size={11} strokeWidth={2.2} aria-hidden="true" />
+          {t("labels.manage", "Manage")}
+        </button>
+      </div>
+
+      <div className="mm-chips">
+        {!multi && (
+          <button
+            type="button"
+            className={`mm-chip${selected ? "" : " mm-chip--on"}`}
+            aria-pressed={!selected}
+            onClick={() => onToggle(null)}
+          >
+            <span>{t("labels.none", "None")}</span>
+          </button>
+        )}
+
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            className={`mm-chip${isOn(o.id) ? " mm-chip--on" : ""}`}
+            aria-pressed={isOn(o.id)}
+            onClick={() => onToggle(o.id)}
+          >
+            <span>{t(o.key, o.fallback)}</span>
+          </button>
+        ))}
+
+        {/* §7 — the legacy designation appears ONLY while this product still
+            carries it. It is not an eleventh choice: it cannot be selected
+            from nothing, it disappears the moment another badge is picked,
+            and it is marked so nobody mistakes it for a current option. What
+            it prevents is a manager opening an old product, saving an
+            unrelated typo, and silently losing the designation it had. */}
+        {legacyLabel && (
+          <button
+            type="button"
+            className="mm-chip mm-chip--on mm-chip--legacy"
+            aria-pressed="true"
+            onClick={() => onToggle(null)}
+          >
+            <span>{t(legacyLabel.key, legacyLabel.fallback)}</span>
+            <span className="mm-chip__tag">{t("labels.legacy", "Legacy")}</span>
+          </button>
+        )}
+
+        {customOptions.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            className={`mm-chip${isOn(l.id) ? " mm-chip--on" : ""}`}
+            aria-pressed={isOn(l.id)}
+            onClick={() => onToggle(l.id)}
+          >
+            <span>{getLocalizedText(l.name, language)}</span>
+          </button>
+        ))}
+      </div>
+
+      {legacyLabel && (
+        <p className="mm-labels__legacy-hint">
+          {t("labels.legacyHint", "A designation from an earlier version. Choose a badge above to replace it.")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Create / rename / delete the restaurant's own labels (§6) ───────────
+
+   ── WHY THESE WRITES ARE IMMEDIATE ──────────────────────────────────────
+   A custom label is a RESTAURANT entity, not part of the product draft that
+   surrounds it. Creating "House Special" while editing a burger creates it
+   for the whole menu, and §23 requires precisely that cancelling that burger
+   must not delete it again. So label writes persist as they are made and are
+   never rolled back by the product's Cancel — which is also what makes them
+   "explicit and understandable": the label list is the same before and after
+   whatever happens to the product.
+
+   The product draft is the other half of that contract. Deleting a label
+   strips its id from every STORED product, and the draft open on screen is
+   not stored yet, so it is cleaned in the same breath — otherwise saving
+   this product afterwards would write back a reference to a label that no
+   longer exists, which is the orphan §28 forbids. */
+function CustomLabelManager({ kind, restaurantSlug, labels, onChanged, onClose }) {
+  const { t, language } = useLanguage();
+  const [draftName, setDraftName] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState(null);
+  const [confirming, setConfirming] = useState(null);
+
+  const list = labels[kind] || [];
+  const title = kind === LABEL_KIND.PROMO
+    ? t("labels.promoBadge", "Promotional badge")
+    : t("labels.attributes", "Attributes");
+
+  function handleSubmit() {
+    const result = editingId
+      ? updateCustomLabel(restaurantSlug, kind, editingId, draftName)
+      : createCustomLabel(restaurantSlug, kind, draftName);
+    if (!result.ok) {
+      setError(t("labels.emptyName", "Give the label a name in at least one language."));
+      return;
+    }
+    setDraftName("");
+    setEditingId(null);
+    setError(null);
+    onChanged();
+  }
+
+  function handleDelete(label) {
+    const result = deleteCustomLabel(restaurantSlug, kind, label.id);
+    setConfirming(null);
+    if (result.ok) onChanged(label.id);
+  }
+
+  return (
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        title={`${t("labels.manageTitle", "Custom labels")} — ${title}`}
+        footer={<Button variant="ghost" onClick={onClose}>{t("common.close", "Close")}</Button>}
+      >
+        <div className="mm-lblmgr">
+          <div className="mm-lblmgr__list">
+            {list.length === 0 && (
+              <p className="mm-lblmgr__empty">{t("labels.noCustomYet", "No custom labels yet.")}</p>
+            )}
+            {list.map((l) => (
+              <div className="mm-lblmgr__row" key={l.id}>
+                <span className="mm-lblmgr__names">
+                  {/* Both languages, as stored — not the resolved value, so a
+                      label written only in Arabic reads as exactly that
+                      rather than appearing to have an English name (§5). */}
+                  <span className="mm-lblmgr__en">{getOwnName(l.name, "en") || "—"}</span>
+                  <span className="mm-lblmgr__ar" dir="rtl">{getOwnName(l.name, "ar") || "—"}</span>
+                </span>
+                <button
+                  type="button"
+                  className="mm-lblmgr__act"
+                  aria-label={t("labels.editLabel", "Rename label")}
+                  onClick={() => { setEditingId(l.id); setDraftName(l.name); setError(null); }}
+                >
+                  <Pencil size={13} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="mm-lblmgr__act mm-lblmgr__act--danger"
+                  aria-label={t("labels.deleteLabel", "Delete label")}
+                  onClick={() => setConfirming({
+                    label: l,
+                    count: countProductsUsingLabel(restaurantSlug, kind, l.id),
+                  })}
+                >
+                  <Trash2 size={13} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mm-lblmgr__form">
+            <LocalizedField
+              id="custom-label-name"
+              label={t("labels.nameLabel", "Label name")}
+              value={draftName}
+              error={error}
+              compact
+              onChange={(next) => { setDraftName(next); if (error) setError(null); }}
+            />
+            <div className="mm-lblmgr__actions">
+              <Button type="button" size="sm" icon={editingId ? Check : Plus} onClick={handleSubmit}>
+                {editingId ? t("labels.save", "Save label") : t("labels.create", "Create")}
+              </Button>
+              {editingId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setEditingId(null); setDraftName(""); setError(null); }}
+                >
+                  {t("common.cancel", "Cancel")}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* §6 — the blast radius, in words, before anything happens: the
+          label's own name and how many products carry it right now. */}
+      {confirming && (
+        <Modal
+          open
+          onClose={() => setConfirming(null)}
+          title={t("labels.deleteTitle", "Delete this label?")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirming(null)}>
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button variant="danger" onClick={() => handleDelete(confirming.label)}>
+                {t("labels.deleteConfirm", "Delete label")}
+              </Button>
+            </>
+          }
+        >
+          <p className="ad-cancel-modal__msg">
+            {(confirming.count > 0
+              ? t("labels.deleteUsed", "{name} is on {n} products. Deleting it removes the label from them.")
+              : t("labels.deleteUnused", "{name} is not used by any product.")
+            )
+              .replace("{name}", getLocalizedText(confirming.label.name, language))
+              .replace("{n}", String(confirming.count))}
+          </p>
+          <p className="ad-cancel-modal__msg">
+            {t("labels.deleteKeepsProducts", "The products themselves, their prices and their order history are not affected.")}
+          </p>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** The text stored for ONE language — never the resolved fallback (§5). */
+function getOwnName(value, code) {
+  if (typeof value === "string") return code === BASE_CONTENT_LANGUAGE ? value : "";
+  return (value && typeof value === "object" ? value[code] : "") || "";
+}
+
 /* ── Add/Edit item form modal — the big one ──────────────────────────────── */
-function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, onRequestDelete }) {
+function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSave, onClose, onRequestDelete }) {
   const { t, language } = useLanguage();
   const isNew = !item.id;
 
@@ -809,8 +1083,21 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
   const [imageUrl, setImageUrl] = useState(item.imageUrl || "");
   const [sortOrder, setSortOrder] = useState(item.sortOrder != null ? String(item.sortOrder) : "");
   const [isAvailable, setIsAvailable] = useState(item.isAvailable !== false);
-  const [isFeatured, setIsFeatured] = useState(!!item.isFeatured);
-  const [isPopular, setIsPopular] = useState(!!item.isPopular);
+  /* Phase 119.0 §7 — ONE authoritative field. isPopular and isFeatured were
+     two independent checkboxes that could both be on, which made "what badge
+     does this product show" a question only the card could answer. They are
+     still WRITTEN on save, derived from this, so nothing downstream that
+     reads them breaks — but they are no longer separately editable, so a
+     contradictory state can no longer be created.
+
+     Seeded through the shared compatibility rule, so opening a product that
+     predates this phase shows the designation it already had. */
+  const [promoBadge, setPromoBadge] = useState(() => initialPromoBadge(item));
+  const [attributes, setAttributes] = useState(() =>
+    Array.isArray(item.attributes) ? item.attributes : []
+  );
+  /* Which kind of custom label the management modal is open for, or null. */
+  const [managingKind, setManagingKind] = useState(null);
   const [removableIngredients, setRemovableIngredients] = useState(item.removableIngredients || []);
   const [newIngredient, setNewIngredient] = useState("");
   const [choices, setChoices] = useState(item.choices || []);
@@ -1054,7 +1341,7 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
      changed product name. */
   const draftSignature = JSON.stringify({
     name, description, price, categoryId, imageUrl, sortOrder,
-    isAvailable, isFeatured, isPopular,
+    isAvailable, promoBadge, attributes,
     removableIngredients, choices, paidAddOns,
     /* §28 — reordering customization sections is a real edit, so it has to
        arm the unsaved-changes guard like any other. */
@@ -1287,8 +1574,15 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
       imageUrl: imageUrl.trim(),
       sortOrder: parsedSortOrder,
       isAvailable,
-      isFeatured,
-      isPopular,
+      /* Phase 119.0 §7 — the authoritative field, plus the legacy pair kept
+         coherent with it rather than left to drift. A product badged
+         "Best Seller" has neither flag set, which is correct: it is not
+         Popular and it is not Featured, and any consumer still reading the
+         old booleans gets a true answer instead of a stale one. */
+      promoBadge,
+      attributes,
+      isPopular: promoBadge === "popular",
+      isFeatured: promoBadge === LEGACY_FEATURED.id,
       removableIngredients,
       /* §12 — one effective source. imageUrl carries either a hosted URL or
          an "asset:<id>" reference, never both and never a merged value. */
@@ -2055,18 +2349,60 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
       /* Phase 108.0 §4/§12 — the preview rides with the title and the X in
          one sticky block, so "which product am I in, and how will it look"
          stays answerable from anywhere in a 1859px form. */
+      /* Phase 119.0 §15/§16 — the miniature card and the controls that
+         change what it shows, side by side and permanently visible. Fixed in
+         size: it does not shrink, collapse or animate on scroll, because a
+         region that resizes while you scroll past it is a region you cannot
+         aim at. The grid is content-width for the card and whatever is left
+         for the controls, so the preview never dominates. */
       stickyHead={
-        <ProductLivePreview
-          name={name}
-          price={price}
-          categoryId={categoryId}
-          imageUrl={imageUrl}
-          isAvailable={isAvailable}
-          isPopular={isPopular}
-          isFeatured={isFeatured}
-          categories={categories}
-          isNew={isNew}
-        />
+        <div className="mm-top">
+          <ProductMiniPreview
+            name={name}
+            description={description}
+            price={price}
+            imageUrl={imageUrl}
+            isAvailable={isAvailable}
+            promoBadge={promoBadge}
+            attributes={attributes}
+            customLabels={customLabels}
+            isNew={isNew}
+          />
+          <div className="mm-labels">
+            {/* §16 — the same control, the same wording and the same
+                semantics it had two sections down; only its position
+                changed. Nothing about availability was redefined here. */}
+            <label className="mm-toggle-row mm-toggle-row--primary">
+              <input
+                type="checkbox"
+                checked={isAvailable}
+                onChange={(e) => setIsAvailable(e.target.checked)}
+              />
+              <span>{t("admin.available", "Available")}</span>
+            </label>
+
+            <LabelChips
+              kind={LABEL_KIND.PROMO}
+              options={PROMO_BADGES}
+              customOptions={customLabels.promo}
+              selected={promoBadge}
+              onToggle={(id) => setPromoBadge((cur) => (cur === id ? null : id))}
+              onManage={() => setManagingKind(LABEL_KIND.PROMO)}
+              legacyLabel={promoBadge === LEGACY_FEATURED.id ? LEGACY_FEATURED : null}
+            />
+
+            <LabelChips
+              kind={LABEL_KIND.ATTRIBUTE}
+              options={PRODUCT_ATTRIBUTES}
+              customOptions={customLabels.attribute}
+              selected={attributes}
+              onToggle={(id) => setAttributes((cur) =>
+                cur.includes(id) ? cur.filter((a) => a !== id) : [...cur, id]
+              )}
+              onManage={() => setManagingKind(LABEL_KIND.ATTRIBUTE)}
+            />
+          </div>
+        </div>
       }
       footer={
         <>
@@ -2090,37 +2426,85 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
             scrolling away and without reading as another form card (§6). */}
         <h4 className="mm-section-title mm-sec">{t("admin.productDetails", "Product Details")}</h4>
 
-        <LocalizedField
-          id="product-name"
-          label={t("admin.productName", "Item name")}
-          value={name}
-          error={error}
-          required
-          onChange={(next) => { setName(next); if (error) setError(null); }}
-        />
+        {/* ── Phase 119.0 §17/§18 — Product Information, in a grid ─────────
+            Shorter because the geometry is better, not because anything got
+            smaller: every control is the component it already was, at the
+            font size and touch target it already had. What changed is that a
+            price no longer takes a whole row of a 680px modal while the image
+            control waits its turn underneath.
 
-        <div className="mm-row-2">
-          <Input
-            id={PRICE_FIELD_ID}
-            label={t("admin.productPrice", "Price")}
-            type="number"
-            step="0.01"
-            /* Phase 47 — min is 0.01 rather than 0 so the browser's own
-               spinner and native hints agree with the rule actually enforced
-               on save. It is a hint, not the guard: parseProductPrice is
-               what decides, since min is trivially bypassed by typing. */
-            min="0.01"
-            value={price}
-            error={priceError}
-            aria-invalid={priceError ? "true" : undefined}
-            onChange={(e) => {
-              setPrice(e.target.value);
-              /* Phase 47 — clear as soon as the value becomes valid, so a
-                 corrected price re-enables Save without pressing it first. */
-              if (priceError && parseProductPrice(e.target.value) !== null) setPriceError(null);
-            }}
+            The approved order, top to bottom: name, image, price, category,
+            sort order, description. Below 640px every cell stacks in exactly
+            that sequence, which is why the markup is written in it.
+
+            The two bilingual fields are rendered INLINE, so LocalizedField
+            becomes display:contents and its English and Arabic rows become
+            direct items of this grid — Name EN beside Name AR, each with its
+            own direction, rather than two full-width rows stacked. That
+            mechanism is Phase 108.1's, reused here rather than reinvented.
+
+            Columns are deliberately unequal (1.25fr / 1fr). The image control
+            is a 72px thumbnail with its actions beside it; a price is six
+            characters. Equal halves would starve the one that needs width to
+            flatter the one that does not. */}
+        <div className="mm-grid">
+          <LocalizedField
+            id="product-name"
+            label={t("admin.productName", "Item name")}
+            value={name}
+            error={error}
+            required
+            inline
+            onChange={(next) => { setName(next); if (error) setError(null); }}
           />
-          <label className="field mm-field">
+
+          {/* Phase 115.0 §2/§19 — the shared upload control, unchanged: a
+              72px preview with its actions beside it, the URL field folded
+              behind a text toggle. Phase 119.0 only moves it up beside the
+              name, where §18 puts it, so the picture is chosen while the
+              product is still being named rather than after everything
+              else. */}
+          <div className="mm-grid__img">
+            <ImageAssetField
+              label={t("admin.productImage", "Product image")}
+              value={imageUrl}
+              onChange={setImageUrl}
+              onAssetCreated={(ref) => createdImageRefs.current.push(ref)}
+              restaurantSlug={restaurant.slug}
+              maxEdge={MAX_PRODUCT_IMAGE_EDGE}
+              maxBytes={MAX_PRODUCT_IMAGE_BYTES}
+              idPrefix="img"
+              errorCopy={IMAGE_ERROR_COPY}
+              urlLabel={t("admin.productImageUrl", "Image URL")}
+              previewAlt=""
+            />
+          </div>
+
+          <div className="mm-grid__price">
+            <Input
+              id={PRICE_FIELD_ID}
+              label={t("admin.productPrice", "Price")}
+              type="number"
+              step="0.01"
+              /* Phase 47 — min is 0.01 rather than 0 so the browser's own
+                 spinner and native hints agree with the rule actually
+                 enforced on save. It is a hint, not the guard:
+                 parseProductPrice is what decides, since min is trivially
+                 bypassed by typing. */
+              min="0.01"
+              value={price}
+              error={priceError}
+              aria-invalid={priceError ? "true" : undefined}
+              onChange={(e) => {
+                setPrice(e.target.value);
+                /* Phase 47 — clear as soon as the value becomes valid, so a
+                   corrected price re-enables Save without pressing it first. */
+                if (priceError && parseProductPrice(e.target.value) !== null) setPriceError(null);
+              }}
+            />
+          </div>
+
+          <label className="field mm-field mm-grid__cat">
             <span className="field__label">{t("admin.productCategory", "Category")}</span>
             <select
               className="mm-select mm-select--full"
@@ -2132,102 +2516,46 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
               ))}
             </select>
           </label>
-        </div>
 
-        {/* §17 — descriptions after the commercial identity, still multiline
-            and still bilingual; LocalizedField and its validation are
-            untouched. */}
-        <label className="field mm-field">
+          <div className="mm-grid__sort">
+            <Input
+              id={SORT_ORDER_FIELD_ID}
+              label={t("admin.productSortOrder", "Sort order")}
+              type="number"
+              min="0"
+              step="1"
+              value={sortOrder}
+              error={sortOrderError}
+              aria-invalid={sortOrderError ? "true" : undefined}
+              onChange={(e) => {
+                setSortOrder(e.target.value);
+                /* Clear as soon as it becomes valid again — including when it
+                   is emptied, which is a legitimate "leave it to the system". */
+                const next = e.target.value.trim();
+                if (sortOrderError && (next === "" || parseSortOrder(next) !== null)) {
+                  setSortOrderError(null);
+                }
+              }}
+            />
+          </div>
+
           <LocalizedField
             id="product-description"
             label={t("admin.productDescription", "Description")}
             value={description}
             multiline
             rows={3}
+            inline
             onChange={(next) => setDescription(next)}
           />
-        </label>
-
-        {/* §18 — the image comes last in Product Details: the preview above
-            is its feedback.
-
-            Phase 115.0 §2/§19 — this cell held a bare "Image URL" text input,
-            which asked every restaurant to host their photographs somewhere
-            before they could use them. It is now the shared upload control,
-            and it is still ONE ROW: a 72px preview with its actions beside
-            it, the URL field folded behind a text toggle, and no hint line.
-            The row it shares with Sort order is a little taller than a text
-            input and nothing else about the editor moved. */}
-        <div className="mm-row-2">
-          <ImageAssetField
-            label={t("admin.productImage", "Product image")}
-            value={imageUrl}
-            onChange={setImageUrl}
-            onAssetCreated={(ref) => createdImageRefs.current.push(ref)}
-            restaurantSlug={restaurant.slug}
-            maxEdge={MAX_PRODUCT_IMAGE_EDGE}
-            maxBytes={MAX_PRODUCT_IMAGE_BYTES}
-            idPrefix="img"
-            errorCopy={IMAGE_ERROR_COPY}
-            urlLabel={t("admin.productImageUrl", "Image URL")}
-            previewAlt=""
-          />
-          <Input
-            id={SORT_ORDER_FIELD_ID}
-            label={t("admin.productSortOrder", "Sort order")}
-            type="number"
-            min="0"
-            step="1"
-            value={sortOrder}
-            error={sortOrderError}
-            aria-invalid={sortOrderError ? "true" : undefined}
-            onChange={(e) => {
-              setSortOrder(e.target.value);
-              /* Clear as soon as it becomes valid again — including when it
-                 is emptied, which is a legitimate "leave it to the system". */
-              const next = e.target.value.trim();
-              if (sortOrderError && (next === "" || parseSortOrder(next) !== null)) {
-                setSortOrderError(null);
-              }
-            }}
-          />
         </div>
 
-        {/* Phase 92 §15 — three identical checkbox rows said these three
-            matter equally. They do not: Available decides whether a guest can
-            order the thing at all, Featured and Popular only decide where it
-            is shown. Same control, same behaviour — availability just gets
-            its own framed row and the two merchandising flags share a quieter
-            line underneath.
-
-            Phase 108.0 §20 — named as its own section now. The three controls,
-            their state and their meaning are unchanged; Popular and Featured
-            stay separate flags and neither disables the other (§22). */}
-        <h4 className="mm-section-title mm-sec">
-          {t("admin.visibilityPromotion", "Visibility & Promotion")}
-        </h4>
-        <div className="mm-toggles mm-toggles--visibility">
-          <label className="mm-toggle-row mm-toggle-row--primary">
-            <input type="checkbox" checked={isAvailable} onChange={(e) => setIsAvailable(e.target.checked)} />
-            <span>{t("admin.available", "Available")}</span>
-          </label>
-          {/* Phase 108.3 — Popular sits before Featured, matching both the
-              approved row order and the badge priority the preview applies
-              (Popular outranks Featured). Swapped in the MARKUP rather than
-              with CSS order, so reading, tab and visual order stay the same
-              three things. Both remain independent flags; neither disables
-              the other and no meaning changes. */}
-          <div className="mm-flags-row">
-            <label className="mm-toggle-row">
-              <input type="checkbox" checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)} />
-              <span>{t("common.popular", "Popular")}</span>
-            </label>
-            <label className="mm-toggle-row">
-              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
-              <span>{t("common.featured", "Featured")}</span>
-            </label>
-          </div>
-        </div>
+        {/* Phase 119.0 §16 — "Visibility & Promotion" is gone from here, and
+            deliberately not replaced by anything. Availability moved into the
+            sticky region above, where it sits beside the preview that shows
+            its effect; the two merchandising checkboxes became the single
+            promotional badge picker up there. Leaving a second copy of either
+            control down here is exactly the contradictory pair §7 forbids. */}
 
         <div className="mm-divider" />
 
@@ -2343,6 +2671,31 @@ function MenuItemEditorModal({ item, categories, restaurant, onSave, onClose, on
       >
         <p className="ad-cancel-modal__msg">{blockedEdit}</p>
       </Modal>
+    )}
+
+    {/* Phase 119.0 §6/§23 — custom label management. It lives in its own
+        modal rather than in the sticky region, because a create/rename/delete
+        form up there would be the bloated header §15 forbids.
+
+        Its writes are immediate and restaurant-scoped: creating a label
+        creates it for the whole menu, and cancelling THIS product afterwards
+        must not take it away again. The one thing that has to be reconciled
+        is a deletion, which strips the label from every stored product while
+        this draft is not stored yet — so the draft is cleaned here too,
+        otherwise Save would write back a reference to a label that no longer
+        exists. */}
+    {managingKind && (
+      <CustomLabelManager
+        kind={managingKind}
+        restaurantSlug={restaurant.slug}
+        labels={customLabels}
+        onChanged={(deletedId) => {
+          if (!deletedId) return;
+          setPromoBadge((cur) => (cur === deletedId ? null : cur));
+          setAttributes((cur) => cur.filter((a) => a !== deletedId));
+        }}
+        onClose={() => setManagingKind(null)}
+      />
     )}
 
     {showDiscard && (

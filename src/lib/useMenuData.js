@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getCategories, getMenuItems, MENU_CHANGE_EVENT } from "./menuData.js";
+import { getCustomLabels } from "./productLabels.js";
 
 /**
  * useMenuData — React hook giving any component the live categories/items
@@ -13,16 +14,27 @@ import { getCategories, getMenuItems, MENU_CHANGE_EVENT } from "./menuData.js";
  * a customer/admin screen open on one restaurant is never re-rendered (or
  * confused) by an edit happening on a different restaurant's menu.
  *
+ * Phase 119.0 — the restaurant's own custom badges and attributes ride
+ * along. They are menu data by every meaningful test: restaurant-scoped,
+ * stored beside the items that reference them, and changed by the same Admin
+ * screens that fire MENU_CHANGE_EVENT. Reading them here means one read per
+ * screen instead of one per product card, and means a label renamed in the
+ * editor reaches an open guest menu through the machinery that already
+ * exists.
+ *
  * @param {string} restaurantSlug
- * @returns {{ categories: object[], items: object[], refresh: () => void }}
+ * @returns {{ categories: object[], items: object[], customLabels: object,
+ *             refresh: () => void }}
  */
 export function useMenuData(restaurantSlug) {
   const [categories, setCategories] = useState(() => getCategories(restaurantSlug));
   const [items, setItems] = useState(() => getMenuItems(restaurantSlug));
+  const [customLabels, setCustomLabels] = useState(() => getCustomLabels(restaurantSlug));
 
   const refresh = useCallback(() => {
     setCategories(getCategories(restaurantSlug));
     setItems(getMenuItems(restaurantSlug));
+    setCustomLabels(getCustomLabels(restaurantSlug));
   }, [restaurantSlug]);
 
   useEffect(() => {
@@ -39,5 +51,5 @@ export function useMenuData(restaurantSlug) {
     };
   }, [refresh, restaurantSlug]);
 
-  return { categories, items, refresh };
+  return { categories, items, customLabels, refresh };
 }

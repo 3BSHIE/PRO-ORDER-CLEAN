@@ -6,6 +6,8 @@ import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
+import { PromoBadge, AttributeRow } from "../../components/ProductLabels.jsx";
+import { resolvePromoBadge, resolveAttributes } from "../../lib/productLabels.js";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
@@ -168,7 +170,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      merchant-authored text (category and product names). System copy keeps
      going through t(). */
   const { t, language } = useLanguage();
-  const { categories: allCategories, items: allMenuItems } = useMenuData(restaurant.slug);
+  const { categories: allCategories, items: allMenuItems, customLabels } = useMenuData(restaurant.slug);
   /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
      sees the notice appear when staff flip it, without reloading. */
   const { busyModeEnabled } = usePrepTime(restaurant.slug);
@@ -1044,13 +1046,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
 
         {/* ── Content ─────────────────────────────────────────────────── */}
         {showGrouped ? (
-          <GroupedView items={filteredItems} categories={categories} onOpen={handleOpenItem} />
+          <GroupedView items={filteredItems} categories={categories} onOpen={handleOpenItem} customLabels={customLabels} />
         ) : filteredItems.length === 0 ? (
           /* Still the Phase 73 search-no-results state, deliberately NOT
              merged with the zero-products fallback above (§45). */
           <SearchEmpty query={searchQuery} />
         ) : (
-          <ItemGrid items={filteredItems} onOpen={handleOpenItem} />
+          <ItemGrid items={filteredItems} onOpen={handleOpenItem} customLabels={customLabels} />
         )}
         </>
         )}
@@ -1087,6 +1089,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         open={!!selectedItem}
         onClose={handleCloseModal}
         onSubmit={handleAddToCart}
+        customLabels={customLabels}
       />
     </>
   );
@@ -1123,7 +1126,7 @@ function revealChip(el) {
 /* Phase 112.0 — exported so Staff Ordering renders the SAME product cards
    the guest sees. Nothing about this component changed; a second
    implementation of the menu is what the export exists to prevent. */
-export function GroupedView({ items, categories, onOpen }) {
+export function GroupedView({ items, categories, onOpen, customLabels }) {
   const { t, language } = useLanguage();
   return (
     <>
@@ -1146,7 +1149,7 @@ export function GroupedView({ items, categories, onOpen }) {
                 {formatItemCount(t, catItems.length)}
               </span>
             </div>
-            <ItemGrid items={catItems} onOpen={onOpen} />
+            <ItemGrid items={catItems} onOpen={onOpen} customLabels={customLabels} />
           </section>
         );
       })}
@@ -1156,20 +1159,25 @@ export function GroupedView({ items, categories, onOpen }) {
 
 /* ── Flat item grid ─────────────────────────────────────────────────────── */
 /* Phase 112.0 — exported for Staff Ordering, unchanged otherwise. */
-export function ItemGrid({ items, onOpen }) {
+export function ItemGrid({ items, onOpen, customLabels }) {
   return (
     <div className="menu-grid">
       {items.map((item) => (
-        <ItemCard key={item.id} item={item} onOpen={onOpen} />
+        <ItemCard key={item.id} item={item} onOpen={onOpen} customLabels={customLabels} />
       ))}
     </div>
   );
 }
 
 /* ── Product card ───────────────────────────────────────────────────────── */
-function ItemCard({ item, onOpen }) {
+function ItemCard({ item, onOpen, customLabels }) {
   const available = item.isAvailable;
   const { t, language } = useLanguage();
+  /* Phase 119.0 — resolved from ids, with the legacy isPopular/isFeatured
+     fallback living in productLabels so the card, the sheet and the editor's
+     preview all answer this question identically. */
+  const promoBadge = resolvePromoBadge(item, customLabels);
+  const attributes = resolveAttributes(item, customLabels);
   const itemName = getLocalizedText(item.name, language);
   const itemDescription = getLocalizedText(item.description, language);
   const oosId = `oos-${item.id}`;
@@ -1203,6 +1211,20 @@ function ItemCard({ item, onOpen }) {
          need a string, never the localized object. */}
       <ItemImage src={item.imageUrl} alt={itemName} name={itemName} />
 
+      {/* Phase 119.0 §10 — the promotional badge, in the image's top-end
+          corner. It is a child of the CARD rather than of the image wrapper,
+          so it sits in exactly the same place whether the product has a
+          photograph, a broken one or none at all — the monogram panel fills
+          the identical box and nothing was invented to hold the badge. The
+          opposite corner from Out of Stock, which keeps its own.
+
+          Suppressed on an unavailable card, which is the rule Phase 73 §7 and
+          Phase 85 §8 already settled: one status at a time. The card body is
+          dimmed to .5 when unavailable and this badge is not in the body, so
+          leaving it would have put a full-strength "Best Seller" on a faded
+          card for something nobody can order. */}
+      {available && <PromoBadge label={promoBadge} className="item-card__promo" />}
+
       {/* Out of stock overlay badge. Carries an id so the disabled "+" can
           point at it instead of repeating the wording — one source of truth
           for the status text, in whichever language is active. */}
@@ -1223,18 +1245,14 @@ function ItemCard({ item, onOpen }) {
 
             The slot is always rendered, even when empty, so the product name
             sits at the same height on every card in a row. */}
-        <div className="item-card__badges">
-          {available && item.isPopular && (
-            <span className="badge badge--gold item-card__badge">
-              {t("customer.popular", "Popular")}
-            </span>
-          )}
-          {available && !item.isPopular && item.isFeatured && (
-            <span className="badge badge--featured item-card__badge">
-              {t("customer.featured", "Featured")}
-            </span>
-          )}
-        </div>
+        {/* Phase 119.0 §11/§12 — the slot the old single badge occupied now
+            carries the product's ATTRIBUTES: at most three, fewer when the
+            card is too narrow for three, measured rather than guessed. Shown
+            regardless of availability because they are information about the
+            dish, not a promotion of it, and they dim with the body like the
+            rest of the card. The slot is still rendered when empty so every
+            name in a grid row starts at the same height. */}
+        <AttributeRow labels={attributes} className="item-card__badges" />
         <p className="item-card__name">{itemName}</p>
         <p className="item-card__desc">{itemDescription}</p>
         <div className="item-card__foot">

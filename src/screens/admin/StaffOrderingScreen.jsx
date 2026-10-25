@@ -64,7 +64,7 @@ export default function StaffOrderingScreen({
 }) {
   const { t, language } = useLanguage();
   const { settings } = useSettingsData(restaurant.slug);
-  const { categories: allCategories, items: allItems } = useMenuData(restaurant.slug);
+  const { categories: allCategories, items: allItems, customLabels } = useMenuData(restaurant.slug);
   const { tables } = useTableData(restaurant.slug);
   /* Read to SAY something, never to block: the approved exception is that
      staff may take an order while customer QR ordering is closed. Nothing
@@ -506,6 +506,7 @@ export default function StaffOrderingScreen({
         item={selectedItem}
         category={selectedCategory}
         open={!!selectedItem}
+        customLabels={customLabels}
         mode={editingLine ? "edit" : "create"}
         line={editingLine}
         onClose={() => { setSelectedItem(null); setEditingLine(null); }}

@@ -179,7 +179,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
      Admin edit reaches an open cart with no extra machinery. The tick below
      only exists for category SCHEDULES, which change with the clock rather
      than with any event — same 30s cadence the menu screen uses. */
-  const { items: liveItems, categories: liveCategories } = useMenuData(restaurant.slug);
+  const { items: liveItems, categories: liveCategories, customLabels } = useMenuData(restaurant.slug);
   const [scheduleTick, setScheduleTick] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setScheduleTick(Date.now()), 30000);
@@ -805,6 +805,7 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
           mode="edit"
           line={editingLine}
           item={editingItem}
+          customLabels={customLabels}
           category={liveCategories.find((c) => c.id === editingItem.categoryId) || null}
           open
           /* §33 — closing without Update leaves the line exactly as it was;

@@ -186,6 +186,39 @@ function readStoredList(storageKey) {
 }
 
 /**
+ * Phase 119.0 — rewrite the stored product list WITHOUT normalizing it.
+ *
+ * Deleting a shared custom label has to strip that label's id from every
+ * product carrying it. Doing that through getMenuItems + saveMenuItems would
+ * persist read-time normalization across the whole catalogue — the trap
+ * readStoredList above exists to avoid — so a label deletion would produce a
+ * diff on products nobody touched.
+ *
+ * This reads exactly what is stored, hands it to the caller's transform, and
+ * writes the result back. The transform is expected to return untouched
+ * records BY IDENTITY, which is what lets the equality check below skip the
+ * write entirely when no product actually referenced the label.
+ *
+ * Nothing stored means the restaurant is still on the seeded demo menu, which
+ * cannot reference a custom label, so there is nothing to clean and nothing
+ * is written.
+ *
+ * @param {string} restaurantSlug
+ * @param {(items:object[]) => object[]} transform
+ * @returns {boolean} whether anything was written
+ */
+export function saveMenuItemsRaw(restaurantSlug, transform) {
+  const stored = readStoredList(itemsKey(restaurantSlug));
+  if (!stored) return false;
+  const next = transform(stored);
+  const changed =
+    next.length !== stored.length || next.some((item, i) => item !== stored[i]);
+  if (!changed) return false;
+  saveMenuItems(restaurantSlug, next);
+  return true;
+}
+
+/**
  * Phase 113.0 — AT MOST ONE Special Category per restaurant.
  *
  * The rule is enforced here, on the list about to be written, rather than by
@@ -511,7 +544,7 @@ export function moveCategory(restaurantSlug, categoryId, direction) {
  * @param {object} data — full item shape minus id (see mockMenu.js for the
  *   canonical shape): { categoryId, name, description, price, imageUrl,
  *   isAvailable, isFeatured, isPopular, sortOrder, removableIngredients,
- *   choices, paidAddOns }
+ *   choices, paidAddOns, promoBadge, attributes }
  * @returns {{ok:true, item:object} | {ok:false, reason:string, field:string}}
  *   Phase 66 — a write can now FAIL. Invalid money is rejected rather than
  *   coerced to 0, so callers must check .ok instead of assuming success.
@@ -560,6 +593,15 @@ export function createMenuItem(restaurantSlug, data) {
     isAvailable: data.isAvailable !== false,
     isFeatured: !!data.isFeatured,
     isPopular: !!data.isPopular,
+    /* Phase 119.0 — createMenuItem builds its item explicitly rather than
+       spreading its input, so a field that is not named here simply does not
+       reach storage. Both label fields are named, and both are written in
+       their resolved shape: null for "no badge chosen", [] for "no attributes
+       chosen". A brand-new product is therefore never a legacy record, and
+       resolvePromoBadge reads its explicit null instead of falling back to
+       the old flags. */
+    promoBadge: data.promoBadge ?? null,
+    attributes: Array.isArray(data.attributes) ? data.attributes : [],
     sortOrder: resolvedSortOrder,
     removableIngredients: Array.isArray(data.removableIngredients) ? data.removableIngredients : [],
     /* Phase 92 §16 — where the removals and add-ons blocks sit in the guest's

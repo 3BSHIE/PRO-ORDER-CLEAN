@@ -8,6 +8,8 @@ import {
   localizedVariants,
   BASE_CONTENT_LANGUAGE,
 } from "../../../lib/localizedContent.js";
+import { PromoBadge, AttributeList } from "../../../components/ProductLabels.jsx";
+import { resolvePromoBadge, resolveAttributes } from "../../../lib/productLabels.js";
 
 /* Phase 97.7 §13/§31 — a removable ingredient has no id of its own: the
    string IS the identity, in the selection Set, in the cart line and on the
@@ -173,6 +175,11 @@ export default function ItemDetailsModal({
      condition that produces "Add to cart" on an edit after a refactor. */
   mode = "create",
   line = null,
+  /* Phase 119.0 — the restaurant's own custom labels. Optional and defaulted,
+     because the three screens that open this sheet all read them from
+     useMenuData, but a caller that has not been given them should still
+     render the ten predefined labels rather than crash. */
+  customLabels = null,
 }) {
   const [quantity,   setQuantity]   = useState(1);
   const [notes,      setNotes]      = useState("");
@@ -194,6 +201,11 @@ export default function ItemDetailsModal({
      is further down because the hooks above it must not be skipped. */
   const itemName = getLocalizedText(item?.name, language);
   const itemDescription = getLocalizedText(item?.description, language);
+  /* Phase 119.0 — same resolution the card uses, including the legacy
+     isPopular/isFeatured fallback, so the sheet and the card can never
+     disagree about what a product is labelled. */
+  const promoBadge = resolvePromoBadge(item, customLabels);
+  const attributes = resolveAttributes(item, customLabels);
 
   /* Phase 35 — the modal element itself is the scroll container
      (.item-modal has overflow-y:auto), and each required group registers its
@@ -872,13 +884,15 @@ export default function ItemDetailsModal({
 
               Out of Stock is not handled here because an unavailable item
               renders its own dedicated notice instead of this body. */}
-          {(item.isPopular || item.isFeatured) && (
-            <div className="item-modal__badges">
-              {item.isPopular ? (
-                <span className="badge badge--gold">{t("customer.popular", "Popular")}</span>
-              ) : (
-                <span className="badge badge--featured">{t("customer.featured", "Featured")}</span>
-              )}
+          {/* Phase 119.0 §13 — the badge and EVERY attribute, in the same
+              design language as the card and in the same hierarchy: the
+              promotional badge first and alone, the attributes under it,
+              wrapping rather than truncating. The card hides what will not
+              fit; this is the surface where nothing is hidden. */}
+          {(promoBadge || attributes.length > 0) && (
+            <div className="item-modal__labels">
+              {promoBadge && <PromoBadge label={promoBadge} />}
+              <AttributeList labels={attributes} />
             </div>
           )}
 
