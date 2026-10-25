@@ -7,6 +7,7 @@ import Input   from "../../components/ui/Input.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
+import TableBadge from "./components/TableBadge.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { useDeferredLoading } from "../../lib/useDeferredLoading.js";
 import { prefersReducedMotion } from "../../lib/motion.js";
@@ -416,10 +417,12 @@ function LandingView({ restaurant, table, settings, enabledLanguages, onStart })
 
           The number comes from result.table, which is the record
           resolveTableAccess validated — no display value bypasses that (§19). */}
-      <section className="cx-landing__table" aria-label={`${t("customer.yourTable", "Table")} ${table.tableNumber}`}>
-        <span className="cx-landing__table-word">{t("customer.yourTable", "Table")}</span>
-        <span className="cx-landing__table-number">{table.tableNumber}</span>
-      </section>
+      {/* Phase 120.0 — identical output, built by the shared component so the
+          Customer Menu's smaller badge cannot drift from this one. The hero
+          variant emits the same cx-landing__table classes it always has, so
+          the exit choreography and the desktop grid rules that name them are
+          untouched. */}
+      <TableBadge variant="hero" number={table.tableNumber} />
 
       {/* ── Name + CTA (§21/§22) ────────────────────────────────────────
           Deliberately not wrapped in a card or a panel: the field and the

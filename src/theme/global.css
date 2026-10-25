@@ -338,10 +338,82 @@ button{font-family:var(--font-body)}
 .topbar--customer-deep .topbar__inner{flex-wrap:nowrap}
 .topbar--customer-deep .cart-back-btn{flex:none}
 .topbar--customer-deep .cust-topbar-right{flex:0 1 auto}
+/* Phase 120.0 — kept because .menu-table-pill is still used by other
+   customer surfaces; the Menu topbar no longer renders one (§2). */
 .menu-table-pill{font-size:11.5px;font-weight:700;letter-spacing:.06em;
   color:var(--text-2);white-space:nowrap;
   background:var(--surface-2);border:1px solid var(--border);
   border-radius:999px;padding:4px 10px}
+
+/* ══ Phase 120.0 §6/§7/§9 — the expanded header's identity row ════════════
+   The restaurant at the inline-start and the assistant's future seat at the
+   inline-end of the same row. Logical properties throughout, so Arabic
+   mirrors the whole row without a second rule.
+
+   The reserved end paints nothing and takes no tap: it is width held open,
+   which is the only honest way to "reserve" a position without shipping a
+   placeholder nobody asked for. */
+.menu-header__idrow{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;min-width:0}
+.menu-header__idrow .rest-identity{min-width:0;flex:0 1 auto}
+.menu-header__ai{
+  flex:none;align-self:stretch;
+  /* Enough for the compact control intended to land here, and no more: a
+     wider hold would be whitespace charged to the restaurant's own name. */
+  width:clamp(34px,9vw,44px);
+  pointer-events:none}
+
+/* The greeting row: badge, then the two lines of copy beside it. One row
+   rather than a new full-height band for a small badge (§9). */
+.menu-header__context{
+  display:flex;align-items:center;gap:11px;min-width:0;margin-top:10px}
+.menu-header__lines{min-width:0;display:flex;flex-direction:column;gap:2px}
+.menu-header__context .menu-header__meta,
+.menu-header__context .menu-header__prompt{margin:0}
+
+/* ── The mini table badge ────────────────────────────────────────────────
+   The Welcome badge's design family, deliberately not a new chip: same
+   framed card, same rounded corners, same themed border and ground, same
+   stacked TABLE-over-number lockup, same display face on the number. What
+   changes is scale — this one is context beside a greeting, not the focal
+   point of a landing page — and the number drops from clamp(30px,8vw,40px)
+   to 19px so the badge cannot become a second headline.
+
+   Themed, not gold-by-decree: --gold-soft/--gold-line/--gold-ink are the
+   tokens a restaurant's own palette already redefines, which is how the
+   Welcome badge follows branding and how this one follows it too (§18). */
+.menu-table-badge{
+  flex:none;
+  display:inline-flex;flex-direction:column;align-items:center;gap:0;
+  padding:4px 12px 5px;border-radius:var(--r-md);
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  /* A long table NAME wraps to a second line rather than stretching the row;
+     a number never reaches this. */
+  max-width:38vw}
+.menu-table-badge__word{
+  font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-3);line-height:1.5}
+.menu-table-badge__number{
+  font-family:var(--font-display);
+  font-size:19px;line-height:1.15;font-weight:700;
+  color:var(--gold-ink);
+  text-align:center;overflow-wrap:anywhere;
+  /* A bare number keeps Latin digit order inside Arabic copy — same rule the
+     Welcome badge uses. */
+  direction:ltr;unicode-bidi:isolate}
+/* §10 — the destination half of the hand-off, staggered behind the identity
+   by the same 45ms the Welcome side uses between the two, so the pair reads
+   as one structured arrival rather than as two things appearing at once. The
+   global prefers-reduced-motion rule collapses it to 1ms like every other
+   animation here, which is the required fallback. */
+.menu-table-badge.anim-identity-in{animation-delay:45ms}
+
+@media(max-width:360px){
+  .menu-header__context{gap:9px}
+  .menu-table-badge{padding:3px 10px 4px}
+  .menu-table-badge__number{font-size:17px}
+}
 
 /* menu header */
 /* Phase 45 — compacted. Was 28px/20px padding around a three-line stack
@@ -529,22 +601,46 @@ button{font-family:var(--font-body)}
    had before this phase; 72px on a tablet or desktop gives the mascot room
    for a short label without Search stretching across the window. */
 :root{--menu-idbar-side:clamp(44px,14vw,72px)}
+/* Phase 120.0 §12 — the reserved end's own width, independent of the
+   identity track now that the two are no longer mirrored. Sized for the
+   compact control intended to land there; any wider and it would be taking
+   room from the field it sits beside. */
+:root{--menu-idbar-ai:clamp(30px,8vw,44px)}
 /* A name-only restaurant (§4 state C) has nothing but its name to identify
    it, and 44px clips even a short one. That case gets a wider pair of tracks
    — BOTH of them, so the search stays centred — which is enough for a normal
    name and still leaves ~140px of field on a 320px phone. */
-.menu-idbar__row--nologo{--menu-idbar-side:clamp(64px,20vw,96px)}
+/* With no logo the identity falls back to the name, which needs more room
+   than a mark — but it is now a content-sized track with its own cap rather
+   than a fixed width, so this only has to bound it. */
+.menu-idbar__row--nologo .rest-identity--compact{max-width:clamp(64px,26vw,150px)}
+/* Phase 120.0 §12 — the three tracks are no longer equal.
+   They were identity | search | reserved at the SAME side width, which made
+   Search optically centred but also made it short: at 390px the field got
+   ~206px and "Search the menu" was clipped. Centring was never the
+   requirement — a usable field was.
+
+   So the identity track is now content-sized, Search takes everything that
+   is left, and the reserved end holds only what a compact control will
+   actually need. Search therefore starts immediately after the identity and
+   runs to the assistant's seat, which is the composition the owner approved,
+   and the reserved position is still a real track rather than a leftover. */
 .menu-idbar__row{
   height:100%;min-width:0;
   display:grid;
-  grid-template-columns:var(--menu-idbar-side) minmax(0,1fr) var(--menu-idbar-side);
+  grid-template-columns:auto minmax(0,1fr) var(--menu-idbar-ai);
   align-items:center;gap:8px}
 
 /* Region 1. The identity sits at the leading edge of its own track and may
    not grow past it, which is what stops a name or a wide wordmark from
    taking width the other two regions need. */
+/* Phase 120.0 §14 — the track is content-sized now, so the identity needs
+   its own bound: a wide wordmark or a long fallback name would otherwise set
+   the row's proportions and take the width Search needs. Capped as a share
+   of the viewport, so it scales with the phone rather than at a fixed pixel
+   that is generous at 430px and ruinous at 320px. */
 .customer-theme .menu-idbar .rest-identity--compact{
-  min-width:0;max-width:100%;justify-self:start}
+  min-width:0;max-width:clamp(56px,22vw,120px);justify-self:start}
 /* The name only ever appears here when there is NO logo (§4 state C). It is
    kept to one ellipsed line inside the same narrow track rather than being
    allowed to set the row's proportions. */
@@ -552,10 +648,12 @@ button{font-family:var(--font-body)}
   font-size:13px;max-width:100%;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* Region 2. Fills its track, centred, and capped so a desktop window does
-   not turn the field into a horizon. */
+/* Region 2. Fills its track from the identity outward. The cap stays for
+   desktop — a field the width of a 1280px window is not a search box — but
+   it is no longer centred inside the track, so on a phone the field begins
+   where the identity ends instead of leaving a gap in front of it (§12). */
 .menu-idbar__search{
-  width:100%;max-width:420px;margin:0 auto;min-width:0}
+  width:100%;max-width:520px;margin:0;min-width:0}
 
 /* Region 3. Reserved, empty, inert. No paint of any kind — the width is the
    entire point. */
@@ -4483,6 +4581,57 @@ button{font-family:var(--font-body)}
   .menu-orders-label{display:none}
   .call-staff--compact{padding:7px;gap:0}
   .call-staff--compact .call-staff__label{display:none}
+}
+
+/* ══ Phase 120.0 §3/§4/§5 — the Menu bar keeps its words ═════════════════
+   The rules above collapse both labels to icons below 480px. That was the
+   right trade when this bar carried five controls — at 320px they measured
+   317px of 320 — but the table pill has left it, and the owner's point
+   stands: a bell and a bag are a guess, and the phones that showed only
+   icons are the ones where guessing costs most.
+
+   So the Menu bar opts out, and ONLY the Menu bar. Cart and Tracking still
+   carry the identity on their control row and still have five things to fit,
+   so .cust-topbar-right keeps the collapse exactly as it is (§19).
+
+   The width is bought back the honest way — from padding, gaps and a point
+   of type — not by shrinking the text until it cannot be read. Measured
+   worst case is Arabic at 320px, where the labels are wider than English. */
+.menu-topbar-right .menu-orders-label{display:inline}
+.menu-topbar-right .call-staff--compact{padding:7px 9px;gap:5px}
+.menu-topbar-right .call-staff--compact .call-staff__label{display:inline}
+@media(max-width:480px){
+  .menu-topbar-right{gap:5px}
+  .menu-topbar-right .btn--sm{padding-inline:7px;font-size:12px!important}
+  .menu-topbar-right .call-staff--compact{padding:7px 8px;gap:4px;font-size:12px}
+}
+@media(max-width:400px){
+  .menu-topbar-right{gap:4px}
+  .menu-topbar-right .btn--sm{padding-inline:5px;font-size:11.5px!important}
+  .menu-topbar-right .call-staff--compact{padding:7px 6px;gap:3px;font-size:11.5px}
+  /* The label is the only part allowed to give way, and it gives way by
+     losing letter-spacing rather than size. */
+  .menu-topbar-right .call-staff__label,
+  .menu-topbar-right .menu-orders-label{letter-spacing:-.01em;white-space:nowrap}
+}
+/* 320px, measured: the four controls wanted 307px of the 296px the bar's
+   own padding leaves, so it wrapped to 113px — a third of the viewport
+   spent on a toolbar. The 11px it needed comes off padding, gaps and the
+   language control, which at 93px was the widest single item in the row and
+   wider than either labelled button. No label is dropped and no type gets
+   smaller than the 11px above; the words were the point. */
+@media(max-width:340px){
+  .menu-topbar-right .btn--sm{padding-inline:4px;font-size:11px!important}
+  .menu-topbar-right .call-staff--compact{padding:6px 5px;font-size:11px}
+  .menu-topbar-left{gap:4px}
+  /* Measured again after the first attempt: the row needed 303px of 300.
+     The language control is 93px of that, but its two options are 44px
+     guest touch targets and shrinking those would trade a real thumb target
+     for three pixels — the wrong trade, and one §5 warns against. So the
+     width comes from the bar's own padding and the two gaps instead, which
+     cost nothing anyone can touch. */
+  .topbar .topbar__inner{padding-inline:8px;gap:4px}
+  .menu-topbar-right{gap:2px}
 }
 /* The Menu topbar half of the same rule, held back to 341px: see the note
    above for why these two bars get different thresholds. */

@@ -6,6 +6,7 @@ import Topbar  from "../../components/layout/Topbar.jsx";
 import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
+import TableBadge from "./components/TableBadge.jsx";
 import { PromoBadge, AttributeRow } from "../../components/ProductLabels.jsx";
 import { resolvePromoBadge, resolveAttributes } from "../../lib/productLabels.js";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
@@ -666,9 +667,20 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
       {/* Phase 73 §32/§36 — the topbar is already position:sticky, so putting
           Call Staff here is what makes it reachable at any scroll depth on a
           3,400px menu without inventing a second floating button (the Cart FAB
-          owns that space). Table identity moves to the left so the right side
-          reads as one action cluster rather than a mixed toolbar, and the
-          labels collapse to icons on narrow phones — see .menu-topbar-right. */}
+          owns that space).
+
+          ── Phase 120.0 §2/§3/§4 ─────────────────────────────────────────
+          Two changes, and the first pays for the second. The table pill has
+          left this bar for the expanded header below, which frees the width
+          that made the labels collapse: at 320px the five controls measured
+          317px of 320, so Call Staff and My Orders were reduced to bare icons
+          on exactly the phones that most needed the words. Four controls fit,
+          so both labels now stay at every width.
+
+          The table CONTEXT is untouched — session, QR token, order
+          assignment, cart ownership and staff calls all still read
+          table.id/table.tableNumber. Only the pill that displayed it here is
+          gone. */}
       <Topbar
         left={
           /* Phase 84 §4–§6 — the static PRO·ORDER mark joins the table pill on
@@ -687,9 +699,6 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
             >
               <BrandMarkStatic size={22} />
             </button>
-            <span className="menu-table-pill anim-identity-in">
-              {t("customer.yourTable", "Table")} #{table.tableNumber}
-            </span>
           </div>
         }
         right={
@@ -863,6 +872,22 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               swaps in the closed/unavailable notices, so the page keeps its
               title in every state. */}
           <h1 className="sr-only">{t("customer.menuWord", "Menu")}</h1>
+          {/* ── Phase 120.0 §8/§9 — the identity row ──────────────────────
+              The restaurant at one end, and the far end of the SAME row left
+              structurally free for the assistant that is coming. It is a
+              logical flex, so Arabic mirrors it without a rule of its own:
+              identity at the inline-start, reserved end at the inline-end.
+
+              Nothing is rendered into it. No icon, no label, no border, no
+              background, nothing focusable and nothing announced — Phase
+              120.0 implements no AI of any kind. It exists so that adding one
+              later is a sibling element rather than a re-layout, and so the
+              composition already reads as balanced while it is empty.
+
+              The table badge deliberately does NOT live here (§8): this end
+              belongs to the assistant, and the badge sits with the greeting
+              below where it is context rather than a second focal point. */}
+          <div className="menu-header__idrow">
           {/* Phase 45 — the restaurant is now the headline. It was an 11px
               uppercase eyebrow above a 26px greeting, which made the software's
               copy louder than the venue the guest is sitting in.
@@ -871,26 +896,49 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               line below: they are context, not the title, and separating them
               across two lines cost ~38px before any food appeared. The
               greeting word is translated; the name is never localized. */}
-          <RestaurantIdentity
-            name={restaurant.name}
-            logoUrl={settings.logoUrl}
-            variant="hero"
-          />
-          {/* Phase 73 §4 — the table number left this line. It is already in
-              the sticky topbar, where it stays visible the whole way down the
-              menu; repeating it here stated the same fact twice in the same
-              viewport. The greeting keeps the name, which is the part that is
-              actually personal. */}
-          <p className="menu-header__meta">
-            {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
-          </p>
-          {/* Phase 84 §9 — one short helper line, and deliberately nothing
-              more. No restaurant description (that belongs to Restaurant
-              Info), no marketing copy, no hero. The guest came here to
-              browse food. */}
-          <p className="menu-header__prompt">
-            {t("customer.orderPrompt", "What would you like to order today?")}
-          </p>
+            <RestaurantIdentity
+              name={restaurant.name}
+              logoUrl={settings.logoUrl}
+              variant="hero"
+            />
+            <div className="menu-header__ai" aria-hidden="true" />
+          </div>
+
+          {/* ── Phase 120.0 §6/§7/§9 — table identity, beside the greeting ──
+              The same badge the Welcome screen shows, from the same component,
+              at a smaller scale: it is context for the greeting rather than a
+              second headline, so it shares the greeting's row instead of
+              taking one of its own.
+
+              It belongs to EXPANDED content, which is the whole point of
+              putting it here — when the header collapses it goes with the
+              greeting, exactly like the rest of this block, and the compact
+              bar keeps carrying only identity, Search and the reserved end
+              (§13).
+
+              .anim-identity-in is the destination half of the Welcome
+              hand-off, inherited from the pill this badge replaces. The
+              Welcome badge now travels toward a real badge rather than toward
+              a pill in the bar above. */}
+          <div className="menu-header__context">
+            <TableBadge
+              variant="mini"
+              number={table.tableNumber}
+              className="anim-identity-in"
+            />
+            <div className="menu-header__lines">
+              <p className="menu-header__meta">
+                {t("customer.greeting", "Hi,")} <i>{session.customerName}</i>
+              </p>
+              {/* Phase 84 §9 — one short helper line, and deliberately nothing
+                  more. No restaurant description (that belongs to Restaurant
+                  Info), no marketing copy, no hero. The guest came here to
+                  browse food. */}
+              <p className="menu-header__prompt">
+                {t("customer.orderPrompt", "What would you like to order today?")}
+              </p>
+            </div>
+          </div>
           {/* Phase 81 §20/§29 — sits with the restaurant's identity rather
               than in the topbar's action cluster, so Call Staff and My Orders
               keep their space and the header stays ordering-first. Renders
