@@ -5223,6 +5223,51 @@ button{font-family:var(--font-body)}
    clear of the bar rather than only at maximum scroll. */
 .modal__body{padding-bottom:8px}
 
+/* ══ Phase 119.1 — the Product Editor's Save floats, with no bar ══════════
+   SCOPED to .modal--editor on purpose. .modal__foot above is shared by every
+   Admin dialog and by the Home demo switcher, and those keep their footer
+   exactly as it is — including their own Cancel buttons, which this phase
+   does not touch.
+
+   What goes: the opaque surface and the 20px fade above it. Together they
+   were a full-width strip painted over the form, and on a long product that
+   is most of what you saw while scrolling. Nothing replaces them — no
+   translucency, no blur, no gradient — so the fields underneath stay
+   visible right up to the moment the button overlaps them.
+
+   What stays: position:sticky, inherited from the rule above. That matters
+   more than it looks. A sticky element remains IN FLOW, so the button still
+   reserves its own space at the end of the content: while you scroll it
+   floats over the form, and at the bottom of the scroll it comes to rest
+   after the last field with nothing hidden beneath it. The Delete this item
+   block sits inside the body above that resting place, so it is reachable
+   without any extra padding being invented for it.
+
+   pointer-events is what makes the rest of the strip honest: the row spans
+   the dialog but only the button can be clicked, so the empty space beside
+   it passes clicks through to the field it happens to be over. */
+.modal--editor .modal__foot{
+  background:none;
+  margin-top:12px;padding:0 0 2px;
+  justify-content:flex-end;
+  pointer-events:none;
+  z-index:3}
+.modal--editor .modal__foot::before{content:none}
+.modal--editor .modal__foot > *{pointer-events:auto}
+/* Its own shadow, so the button reads as lifted off the form rather than
+   printed on it — the one thing the removed bar was doing that is worth
+   keeping, now attached to the button instead of to a strip. */
+.modal--editor .modal__foot .btn{
+  box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 0 4px var(--surface-1)}
+/* Under 400px the shared footer stretches its buttons to fill the row, which
+   is right for a bar of two and wrong for one button floating on its own:
+   Save came out as a full-width gold slab across the bottom of the phone,
+   which is the domination this phase set out to remove. Content-sized here,
+   and only here — every other dialog keeps the stretch. */
+@media (max-width:400px){
+  .modal--editor .modal__foot .btn{flex:0 0 auto;min-width:0}
+}
+
 /* ── Tables & QR (§21–§25) ────────────────────────────────────────────── */
 
 /* Identity first. The number was 17px beside four lines of machine data. */
@@ -11446,13 +11491,16 @@ button{font-family:var(--font-body)}
    ::before cover, the same device the Tables access modal uses. */
 .modal--editor .modal__sticky{
   position:sticky;top:0;z-index:4;
-  margin-bottom:12px;padding-bottom:10px;
+  margin-bottom:12px;padding-bottom:8px;
   background:var(--surface-1);
   border-bottom:1px solid var(--border)}
 .modal--editor .modal__sticky::before{
   content:"";position:absolute;left:0;right:0;bottom:100%;height:26px;
   background:var(--surface-1)}
-.modal--editor .modal__head{margin-bottom:10px}
+/* Phase 119.1 — the gap under the head was sized for a head that ended in a
+   title. It now ends in a control with its own padding, so the extra air
+   below it was doubling up. */
+.modal--editor .modal__head{margin-bottom:6px}
 /* The X sits in a stacked context now; keeping it positioned means its focus
    ring draws inside the dialog padding rather than being clipped (§59). */
 .modal--editor .modal__x{position:relative;z-index:1}
@@ -12358,7 +12406,11 @@ button{font-family:var(--font-body)}
 }
 .mm-mini__label{
   display:block;font-size:9.5px;font-weight:700;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--text-3);margin-bottom:5px}
+  text-transform:uppercase;color:var(--text-3);
+  /* Phase 119.1 — the caption is the one part of this column that is not the
+     card, so it is where height can come off without touching the card's
+     own composition. line-height pulls the block in to the glyphs. */
+  line-height:1;margin-bottom:4px}
 .mm-mini .item-card{
   --ic-pad:6px 7px 7px;
   --ic-name:9px;
@@ -12391,11 +12443,14 @@ button{font-family:var(--font-body)}
    between "Limited" and "Seasonal" can reach both — they are just reachable
    by scrolling this column rather than by scrolling the product form. */
 .mm-labels{
-  display:flex;flex-direction:column;gap:9px;min-width:0;
+  display:flex;flex-direction:column;gap:10px;min-width:0;
   max-height:196px;overflow-y:auto;overscroll-behavior:contain;
   padding-inline-end:4px}
 @media (min-width:640px){
-  .mm-labels{max-height:232px}
+  /* Phase 119.1 — with Available out of this column the two groups start
+     ~51px higher, so the cap can come down and still show more than it did
+     before. Above 640px the pair fits inside it without scrolling at all. */
+  .mm-labels{max-height:184px}
 }
 .mm-labels__group{display:flex;flex-direction:column;gap:5px;min-width:0}
 .mm-labels__head{
@@ -12435,10 +12490,55 @@ button{font-family:var(--font-body)}
   color:var(--text-3)}
 .mm-labels__legacy-hint{font-size:10px;color:var(--text-3);line-height:1.4}
 
-/* Availability keeps the framed primary row it already had — same control,
-   same wording, same behaviour, now beside the preview instead of two
-   sections down (§16). */
-.mm-top .mm-toggle-row--primary{margin:0}
+/* ── Phase 119.1 — Available, compact and in the head row ──────────────────
+   It was .mm-toggle-row--primary: a framed block that, being the only child
+   of a flex column, stretched to the column's full width — 485px by 42px at
+   1024px to hold one checkbox and one word.
+
+   Now it is content-sized and sits beside the dialog title. The checkbox
+   itself is untouched — same element, same accent, same 16px box, same
+   checked and unchecked rendering — so the control still reads as the
+   checkbox it has always been rather than as a new status widget. */
+.mm-avail-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  flex:none;width:fit-content;
+  /* 30px + 1px of border each side = 32px, which is exactly the height of
+     the X beside it. The head row therefore does not grow by a single pixel
+     to carry this control. */
+  padding:4px 10px;min-height:30px;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--surface-2);
+  font-size:12.5px;font-weight:600;color:var(--text-1);
+  cursor:pointer;user-select:none;white-space:nowrap;
+  transition:border-color .15s,background .15s}
+.mm-avail-chip:hover{border-color:var(--border-strong)}
+.mm-avail-chip input{width:16px;height:16px;flex:none;accent-color:var(--gold);cursor:pointer}
+/* The label is the click target, so the ring belongs on the label, not on
+   the 16px box inside it. */
+.mm-avail-chip:focus-within{outline:2px solid var(--gold);outline-offset:1px}
+/* A finger needs more than a mouse does — but the row it sits in must not
+   grow to provide it, or the compact control would hand back on a phone the
+   height it just saved on a desktop. So the hit area is a pseudo-element
+   that reaches past the chip without being part of the layout: 44px tall,
+   centred on a chip that stays 32px.
+
+   The same trick .customer-theme uses for the guest card's "+" button, for
+   the same reason. The label is the click target and this sits inside it, so
+   a tap above or below the visible pill still toggles the checkbox. */
+@media (pointer:coarse){
+  .mm-avail-chip{position:relative;padding-inline:12px}
+  .mm-avail-chip::after{
+    content:"";position:absolute;left:0;right:0;
+    top:50%;transform:translateY(-50%);height:44px}
+}
+
+/* The head row carries it. Title first, Available beside it, X pinned to the
+   far end — logical, so Arabic mirrors the whole row without a rule of its
+   own. The title gives way first when the row runs out of space. */
+.modal--editor .modal__head{justify-content:flex-start;gap:10px}
+.modal--editor .modal__title{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal--editor .modal__x{margin-inline-start:auto}
 
 /* ── Custom label management ────────────────────────────────────────────── */
 .mm-lblmgr{display:flex;flex-direction:column;gap:12px}

@@ -2355,6 +2355,26 @@ function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSav
          region that resizes while you scroll past it is a region you cannot
          aim at. The grid is content-width for the card and whatever is left
          for the controls, so the preview never dominates. */
+      /* Phase 119.1 §1/§2 — Available sits in the head row now.
+         It was a framed block filling the whole control column — 485px wide
+         and 42px tall at 1024px for one checkbox and one word — which is the
+         waste the owner called out. Moved here it costs no height at all:
+         the head row already existed, and between the title and the X it was
+         the emptiest horizontal space in the dialog.
+
+         Same input, same checked/unchecked states, same handler, same
+         wording, same keyboard behaviour. Only the frame around it and where
+         it sits have changed. */
+      headExtra={
+        <label className="mm-avail-chip">
+          <input
+            type="checkbox"
+            checked={isAvailable}
+            onChange={(e) => setIsAvailable(e.target.checked)}
+          />
+          <span>{t("admin.available", "Available")}</span>
+        </label>
+      }
       stickyHead={
         <div className="mm-top">
           <ProductMiniPreview
@@ -2369,18 +2389,6 @@ function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSav
             isNew={isNew}
           />
           <div className="mm-labels">
-            {/* §16 — the same control, the same wording and the same
-                semantics it had two sections down; only its position
-                changed. Nothing about availability was redefined here. */}
-            <label className="mm-toggle-row mm-toggle-row--primary">
-              <input
-                type="checkbox"
-                checked={isAvailable}
-                onChange={(e) => setIsAvailable(e.target.checked)}
-              />
-              <span>{t("admin.available", "Available")}</span>
-            </label>
-
             <LabelChips
               kind={LABEL_KIND.PROMO}
               options={PROMO_BADGES}
@@ -2404,17 +2412,19 @@ function MenuItemEditorModal({ item, categories, restaurant, customLabels, onSav
           </div>
         </div>
       }
+      /* Phase 119.1 §4/§5/§6 — Save alone, and no bar behind it.
+         Cancel is gone from HERE only. It was never the only way out: the X,
+         Escape and a click on the overlay all call the same
+         handleRequestClose, so every dismissal path still runs the
+         unsaved-changes guard and nothing is autosaved. Removing the second
+         button is what lets the remaining one stand on its own without a
+         full-width strip to hold the pair.
+
+         Still disabled while a save is in flight, exactly as before. */
       footer={
-        <>
-          {/* §23 — both disabled while a save is in flight: leaving Cancel
-              live would let a manager dismiss the editor mid-write. */}
-          <Button variant="ghost" disabled={isSaving} onClick={handleRequestClose}>
-            {t("common.cancel", "Cancel")}
-          </Button>
-          <Button disabled={isSaving} onClick={handleSubmit}>
-            {isSaving ? t("common.saving", "Saving…") : t("common.save", "Save")}
-          </Button>
-        </>
+        <Button disabled={isSaving} onClick={handleSubmit}>
+          {isSaving ? t("common.saving", "Saving…") : t("common.save", "Save")}
+        </Button>
       }
     >
       <div className="mm-editor">
