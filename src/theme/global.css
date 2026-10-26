@@ -353,16 +353,41 @@ button{font-family:var(--font-body)}
    The reserved end paints nothing and takes no tap: it is width held open,
    which is the only honest way to "reserve" a position without shipping a
    placeholder nobody asked for. */
+/* Phase 120.1 — a grid, not space-between. With flex, the identity took
+   whatever it wanted and the seat got the remainder, which is how a long
+   name squeezed the reservation down to 34px. Two explicit tracks reverse
+   that: the seat is guaranteed its width and the identity adapts inside
+   minmax(0,1fr), which is also what lets a long name wrap rather than push.
+
+   Centred rather than top-aligned, so a one-line name and a square seat sit
+   on the same optical axis instead of hanging from the top edge. */
 .menu-header__idrow{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  gap:12px;min-width:0}
-.menu-header__idrow .rest-identity{min-width:0;flex:0 1 auto}
+  display:grid;
+  grid-template-columns:minmax(0,1fr) var(--menu-ai-hero);
+  gap:clamp(10px,3vw,16px);
+  align-items:center;min-width:0}
+.menu-header__idrow .rest-identity{min-width:0}
+/* Square-ish on purpose: a mascot is about as tall as it is wide, and
+   reserving width without height would be reserving a letterbox. The height
+   is capped at the token so the row cannot grow past the seat itself. */
 .menu-header__ai{
-  flex:none;align-self:stretch;
-  /* Enough for the compact control intended to land here, and no more: a
-     wider hold would be whitespace charged to the restaurant's own name. */
-  width:clamp(34px,9vw,44px);
+  width:100%;aspect-ratio:1/1;max-height:var(--menu-ai-hero);
   pointer-events:none}
+
+/* ── Phase 120.1 §2 — the name, one notch quieter on a phone ───────────
+   Scoped to the MENU header's hero and to phone widths only: the Welcome
+   screen's hero keeps every pixel of its size, and so does the desktop
+   ceiling, which the shared clamp still reaches at 38px above 640px.
+
+   27px at 323px was wide enough that "CRISPY CHICKEN" needed 232px of a
+   278px row — the reason the seat beside it had 34px left. Two lines are
+   still two lines; they are simply set at a size that leaves the row
+   something to give. Line-height comes in slightly with the size so a
+   two-line name does not gain the height the type just lost. */
+@media (max-width:640px){
+  .customer-theme .menu-header__idrow .rest-identity--hero .rest-identity__name{
+    font-size:clamp(20px,5.6vw,27px);line-height:1.18}
+}
 
 /* The greeting row: badge, then the two lines of copy beside it. One row
    rather than a new full-height band for a small badge (§9). */
@@ -601,11 +626,30 @@ button{font-family:var(--font-body)}
    had before this phase; 72px on a tablet or desktop gives the mascot room
    for a short label without Search stretching across the window. */
 :root{--menu-idbar-side:clamp(44px,14vw,72px)}
-/* Phase 120.0 §12 — the reserved end's own width, independent of the
-   identity track now that the two are no longer mirrored. Sized for the
-   compact control intended to land there; any wider and it would be taking
-   room from the field it sits beside. */
-:root{--menu-idbar-ai:clamp(30px,8vw,44px)}
+/* ══ Phase 120.1 — the two reserved seats, sized honestly ════════════════
+   120.0 gave the assistant a 30–44px end in both headers. Measured against
+   the owner's own venue at 323px that came out 34x62 expanded and 30x45
+   collapsed — an icon slot, not somewhere a character could stand, which is
+   what §2 asks for.
+
+   They are deliberately DIFFERENT sizes, because they sit beside different
+   things:
+
+   · the expanded seat is square-ish and generous, 72–96px, which is room
+     for a small face and body rather than a glyph;
+
+   · the collapsed seat matches the compact restaurant logo it sits opposite
+     — measured 47x34 for this venue — so the row reads as identity and
+     mascot bracketing the search, rather than as a search with a nub on the
+     end. It is sized from the logo's own design box (28–34px tall, capped at
+     80px wide) rather than from the name, which is variable-width and would
+     reserve a different amount per restaurant.
+
+   Both stay completely empty. */
+:root{
+  --menu-ai-hero:clamp(72px,21vw,96px);
+  --menu-idbar-ai:clamp(40px,13vw,52px);
+}
 /* A name-only restaurant (§4 state C) has nothing but its name to identify
    it, and 44px clips even a short one. That case gets a wider pair of tracks
    — BOTH of them, so the search stays centred — which is enough for a normal
@@ -655,10 +699,15 @@ button{font-family:var(--font-body)}
 .menu-idbar__search{
   width:100%;max-width:520px;margin:0;min-width:0}
 
-/* Region 3. Reserved, empty, inert. No paint of any kind — the width is the
-   entire point. */
+/* Region 3. Reserved, empty, inert. No paint of any kind — the dimensions
+   are the entire point.
+
+   Phase 120.1 — height is now the compact logo's own, not the row's, so the
+   seat is a box of roughly the logo's proportions opposite it rather than a
+   full-height sliver. */
 .menu-idbar__ai{
-  justify-self:end;width:100%;height:100%;
+  justify-self:end;width:100%;
+  height:clamp(28px,8.5vw,34px);
   pointer-events:none}
 
 /* The compact field: the same control, shorter. It keeps the underline
