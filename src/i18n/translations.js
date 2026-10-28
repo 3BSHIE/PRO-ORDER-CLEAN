@@ -12,14 +12,26 @@
 
 export const translations = {
   en: {
-    /* ── Phase 121.0 — the AI waiter's copy ────────────────────────────
-       "notConnected" is the honest answer this phase gives: there is no
-       model behind the field yet, and the guest is told so plainly rather
-       than shown a fabricated reply. */
+    /* ── Phase 121.1 — the AI waiter's copy ──────────────────────
+       "notConnected" is still the honest answer: there is no model behind
+       the field, and the guest is told so plainly rather than shown a
+       fabricated reply. The three q* keys are the suggested openers, and
+       they are keys rather than hard-coded sentences so a second character
+       can one day ask different things. {name} and {venue} are substituted
+       by the components, never concatenated, so Arabic word order holds. */
     ai: {
       title: "AI waiter",
-      openAssistant: "Ask Zaatar, the AI waiter",
-      welcome: "Hi! I'm Zaatar. Ask me anything about the menu.",
+      characterName: "Zaatar",
+      roleAt: "AI waiter · {venue}",
+      askCharacter: "Ask {name}",
+      /* Only for the collapsed header bar, where the full CTA will not fit. */
+      askShort: "Ask AI",
+      greetingLead: "Hi, I'm {name}.",
+      greetingBody: "I'm your AI waiter. Ask me about any dish and I'll help you choose.",
+      suggestionsLabel: "Suggested questions",
+      q1: "What's popular here?",
+      q2: "Any vegetarian dishes?",
+      q3: "What do you recommend?",
       placeholder: "Ask about the menu…",
       send: "Send",
       notConnected: "The AI waiter isn't connected yet — this is an early preview.",
@@ -1391,8 +1403,20 @@ export const translations = {
   ar: {
     ai: {
       title: "النادل الذكي",
-      openAssistant: "اسأل زعتر، النادل الذكي",
-      welcome: "أهلًا! أنا زعتر. اسألني أي شيء عن المنيو.",
+      characterName: "زعتر",
+      roleAt: "النادل الذكي · {venue}",
+      askCharacter: "اسأل {name}",
+      /* Just the verb. "اسأل الذكي" is clipped by the collapsed pill at
+         320px, and widening the pill would take the width Phase 120.0 fought
+         to give the search field. The portrait beside it supplies the object,
+         and the button's accessible name is still the full "اسأل زعتر". */
+      askShort: "اسأل",
+      greetingLead: "أهلًا! أنا {name}.",
+      greetingBody: "أنا نادلك الذكي. اسألني عن أي طبق وسأساعدك في الاختيار.",
+      suggestionsLabel: "أسئلة مقترحة",
+      q1: "ما الأكثر طلبًا هنا؟",
+      q2: "هل لديكم أطباق نباتية؟",
+      q3: "بماذا تنصحني؟",
       placeholder: "اسأل عن المنيو…",
       send: "إرسال",
       notConnected: "النادل الذكي غير متصل بعد — هذه معاينة أولية.",
