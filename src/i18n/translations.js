@@ -12,6 +12,18 @@
 
 export const translations = {
   en: {
+    /* ── Phase 121.0 — the AI waiter's copy ────────────────────────────
+       "notConnected" is the honest answer this phase gives: there is no
+       model behind the field yet, and the guest is told so plainly rather
+       than shown a fabricated reply. */
+    ai: {
+      title: "AI waiter",
+      openAssistant: "Ask Zaatar, the AI waiter",
+      welcome: "Hi! I'm Zaatar. Ask me anything about the menu.",
+      placeholder: "Ask about the menu…",
+      send: "Send",
+      notConnected: "The AI waiter isn't connected yet — this is an early preview.",
+    },
     /* ── Phase 119.0 — product label names ──────────────────────────────
        These ship with the product, so they belong to the i18n layer and
        follow the viewer's language like any other system copy. A restaurant's
@@ -1377,6 +1389,14 @@ export const translations = {
     },
   },
   ar: {
+    ai: {
+      title: "النادل الذكي",
+      openAssistant: "اسأل زعتر، النادل الذكي",
+      welcome: "أهلًا! أنا زعتر. اسألني أي شيء عن المنيو.",
+      placeholder: "اسأل عن المنيو…",
+      send: "إرسال",
+      notConnected: "النادل الذكي غير متصل بعد — هذه معاينة أولية.",
+    },
     promoBadge: {
       popular: "شائع",
       bestSeller: "الأكثر مبيعًا",

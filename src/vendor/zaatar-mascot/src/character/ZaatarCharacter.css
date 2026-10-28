@@ -1,0 +1,120 @@
+.zaatar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.zaatar__motion,
+.zaatar__breath,
+.zaatar__pose {
+  position: absolute;
+  inset: 0;
+}
+
+.zaatar__motion {
+  will-change: transform;
+}
+
+.zaatar__layer {
+  position: absolute;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+}
+
+/* Contact shadow, so he stands on the stage rather than floating on it. */
+.zaatar__shadow {
+  position: absolute;
+  width: 72%;
+  height: 4.5%;
+  transform: translate(-50%, -55%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.28) 55%, transparent);
+}
+
+/* Ambient life. Both loops are slow and small on purpose: he is nonchalant. */
+.zaatar__breath {
+  animation: zaatar-breath calc(4.8s * var(--zaatar-time-scale, 1)) ease-in-out infinite;
+}
+
+@keyframes zaatar-breath {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  45% {
+    transform: scale(1.002, 1.009);
+  }
+}
+
+/* A lazy tail flick, then a long rest. */
+.zaatar__layer--tail {
+  animation: zaatar-tail calc(7.5s * var(--zaatar-time-scale, 1)) ease-in-out infinite;
+}
+
+.zaatar__pose[data-pose='thinking'] .zaatar__layer--tail {
+  animation-delay: calc(-2.4s * var(--zaatar-time-scale, 1));
+}
+
+.zaatar__pose[data-pose='suggesting'] .zaatar__layer--tail {
+  animation-name: zaatar-tail-left;
+  animation-delay: calc(-4.6s * var(--zaatar-time-scale, 1));
+}
+
+.zaatar__pose[data-pose='welcome'] .zaatar__layer--tail {
+  animation-name: zaatar-tail-left;
+  animation-delay: calc(-1.2s * var(--zaatar-time-scale, 1));
+}
+
+/* Responding's tail curls right like Idle's, so it uses the same flick. */
+.zaatar__pose[data-pose='responding'] .zaatar__layer--tail {
+  animation-delay: calc(-3.6s * var(--zaatar-time-scale, 1));
+}
+
+.zaatar__pose[data-pose='acknowledging'] .zaatar__layer--tail {
+  animation-delay: calc(-5.2s * var(--zaatar-time-scale, 1));
+}
+
+@keyframes zaatar-tail {
+  0%,
+  58%,
+  100% {
+    transform: rotate(0deg);
+  }
+  66% {
+    transform: rotate(-4deg);
+  }
+  76% {
+    transform: rotate(2.2deg);
+  }
+  86% {
+    transform: rotate(-0.8deg);
+  }
+}
+
+/* The Suggesting and Welcome tails curl the other way, so they flick the other way. */
+@keyframes zaatar-tail-left {
+  0%,
+  58%,
+  100% {
+    transform: rotate(0deg);
+  }
+  66% {
+    transform: rotate(4deg);
+  }
+  76% {
+    transform: rotate(-2.2deg);
+  }
+  86% {
+    transform: rotate(0.8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zaatar__breath,
+  .zaatar__layer--tail {
+    animation: none;
+  }
+}

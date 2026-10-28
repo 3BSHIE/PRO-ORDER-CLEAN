@@ -1,0 +1,25 @@
+{
+  "name": "zaatar-mascot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zaatar, the animated AI menu mascot: approved artwork, renderer, choreography and activity contract.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "assets",
+    "README.md",
+    "PACKAGE-MANIFEST.md",
+    "PRO-ORDER-INTEGRATION.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "peerDependencies": {
+    "react": ">=18.2.0"
+  }
+}

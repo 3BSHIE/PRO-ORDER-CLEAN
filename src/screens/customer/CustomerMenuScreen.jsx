@@ -7,6 +7,9 @@ import Logo    from "../../components/brand/Logo.jsx";
 import Button  from "../../components/ui/Button.jsx";
 import ItemDetailsModal from "./components/ItemDetailsModal.jsx";
 import TableBadge from "./components/TableBadge.jsx";
+import ZaatarEntry from "./ai/ZaatarEntry.jsx";
+import AiChatOverlay from "./ai/AiChatOverlay.jsx";
+import { useAiChat } from "../../lib/aiChat.js";
 import { PromoBadge, AttributeRow } from "../../components/ProductLabels.jsx";
 import { resolvePromoBadge, resolveAttributes } from "../../lib/productLabels.js";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
@@ -172,6 +175,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      going through t(). */
   const { t, language } = useLanguage();
   const { categories: allCategories, items: allMenuItems, customLabels } = useMenuData(restaurant.slug);
+  /* Phase 121.0 — one conversation per customer session, scoped to this
+     restaurant and table. No model, no request, no key: see lib/aiChat.js. */
+  const ai = useAiChat({
+    restaurantSlug: restaurant.slug,
+    tableId: table.id,
+    sessionStartedAt: session.startedAt,
+  });
   /* Phase 26 — live Busy Mode flag, so a guest already sitting on the menu
      sees the notice appear when staff flip it, without reloading. */
   const { busyModeEnabled } = usePrepTime(restaurant.slug);
@@ -838,7 +848,12 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               element — a compact mascot control at mobile widths, with room
               for a short label where the track is wider — without the other
               two regions moving. */}
-          <div className="menu-idbar__ai" aria-hidden="true" />
+          {/* Phase 121.0 — the compact entry, in the seat Phase 120.1 sized
+              to the restaurant's own logo opposite it. aria-hidden is gone
+              because this now holds a real, named control. */}
+          <div className="menu-idbar__ai">
+            <ZaatarEntry variant="compact" onOpen={ai.open} />
+          </div>
         </div>
       </div>
 
@@ -901,7 +916,13 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
               logoUrl={settings.logoUrl}
               variant="hero"
             />
-            <div className="menu-header__ai" aria-hidden="true" />
+            {/* Phase 121.0 — Zaatar takes the square seat opposite the
+                restaurant identity. He displaces nothing: the seat was
+                already this size and the identity, badge, greeting and
+                search keep every pixel they had. */}
+            <div className="menu-header__ai">
+              <ZaatarEntry variant="hero" onOpen={ai.open} />
+            </div>
           </div>
 
           {/* ── Phase 120.0 §6/§7/§9 — table identity, beside the greeting ──
@@ -1138,6 +1159,18 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         onClose={handleCloseModal}
         onSubmit={handleAddToCart}
         customLabels={customLabels}
+      />
+
+      {/* Phase 121.0 — the AI waiter's room. Rendered from here so closing
+          it returns the guest to exactly the menu they left, with their
+          scroll, filters and conversation intact. */}
+      <AiChatOverlay
+        open={ai.isOpen}
+        onClose={ai.close}
+        messages={ai.messages}
+        phase={ai.phase}
+        onSend={ai.send}
+        restaurantName={restaurant.name}
       />
     </>
   );

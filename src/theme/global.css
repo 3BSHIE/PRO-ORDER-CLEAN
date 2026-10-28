@@ -12746,3 +12746,199 @@ button{font-family:var(--font-body)}
 /* Under 720px everything stacks in source order, which is already the
    approved priority: name, image, price, category, sort order, description. */
 .mm-lblmgr__actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ══ Phase 121.0 — the AI waiter ══════════════════════════════════════════
+   Two things: Zaatar sitting in the seats Phases 120.0/120.1 reserved for
+   him, and the room the conversation happens in. Nothing else on the
+   customer menu changes. */
+
+/* ── The entry points ───────────────────────────────────────────────────
+   The seats were built with pointer-events:none and aria-hidden, because
+   until now they held nothing. They hold a real control now, so both come
+   off — on the SEAT, not on the mascot: the button owns the name and the
+   focus ring, and the artwork inside stays hidden from assistive tech. */
+.menu-header__ai,
+.menu-idbar__ai{pointer-events:auto}
+
+.zaatar-entry{
+  display:block;width:100%;height:100%;
+  padding:0;border:0;background:none;
+  cursor:pointer;line-height:0;
+  border-radius:var(--r-md);
+  -webkit-tap-highlight-color:transparent}
+.zaatar-entry:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.zaatar-entry__figure{display:block;width:100%;height:100%}
+/* A small, quiet acknowledgement of the tap. Not a bounce — he has his own
+   motion and the package owns it. */
+.zaatar-entry:active{transform:scale(.96)}
+@media(prefers-reduced-motion:reduce){.zaatar-entry:active{transform:none}}
+
+/* The compact bar's seat is 28–34px tall, which would render him at about
+   18px wide. His canvas carries ~23.5% transparent headroom for the raised
+   cane, and he never suggests from a header, so the figure is given real
+   height and allowed to use that headroom to overlap the bar's own padding
+   — feet on the seat's bottom edge, nothing clipped. */
+.zaatar-entry--compact{position:relative}
+.zaatar-entry--compact .zaatar-entry__figure{
+  position:absolute;inset-inline:0;bottom:0;height:42px}
+
+/* ── The chat ───────────────────────────────────────────────────────────
+   Phone first: the panel IS the screen. dvh rather than vh so the browser
+   chrome collapsing does not leave a gap, and the composer carries the safe
+   area so it clears a home indicator. */
+.aichat{position:fixed;inset:0;z-index:60;display:flex}
+.aichat__scrim{display:none}
+.aichat__panel{
+  position:relative;flex:1;min-width:0;
+  display:flex;flex-direction:column;
+  background:var(--surface-1);color:var(--text-1);
+  height:100vh;height:100dvh;overflow:hidden}
+
+@media(min-width:768px){
+  /* Desktop: a spacious overlay over the menu, not a navigation away from
+     it. The guest can still see where they were. */
+  .aichat{align-items:center;justify-content:center;padding:24px}
+  .aichat__scrim{
+    display:block;position:absolute;inset:0;
+    background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
+  .aichat__panel{
+    flex:none;width:min(1040px,94vw);height:min(760px,86vh);
+    border:1px solid var(--border-strong);border-radius:var(--r-xl);
+    box-shadow:var(--shadow)}
+}
+
+.aichat__bar{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);
+  padding-top:max(12px,env(safe-area-inset-top))}
+.aichat__title{font-size:14px;font-weight:700;color:var(--text-1);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aichat__venue{color:var(--text-3);font-weight:600}
+.aichat__x{
+  flex:none;width:32px;height:32px;display:grid;place-items:center;
+  border-radius:50%;border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text-2);cursor:pointer}
+.aichat__x:hover{color:var(--text-1);border-color:var(--border-strong)}
+
+/* ── The stage ──────────────────────────────────────────────────────────
+   ONE grid, two arrangements. The mascot is rendered once and never moves
+   between parents, so React keeps the same instance and the FLIP in
+   AiChatOverlay animates the difference.
+
+   direction:ltr is deliberate and is the rule the handoff notes ask for:
+   the physical order of the two columns is the same in Arabic as in
+   English. Only the text inside them follows the interface language, which
+   the two rules at the end restore. Zaatar is never mirrored. */
+.aichat__stage{
+  flex:1;min-height:0;min-width:0;
+  display:grid;gap:14px;padding:14px 16px;
+  direction:ltr}
+
+.aichat__panel--welcome .aichat__stage{
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) auto auto;
+  grid-template-areas:"character" "talk" "composer";
+  justify-items:center}
+.aichat__panel--talking .aichat__stage{
+  grid-template-columns:minmax(0,1fr) var(--aichat-char);
+  grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"talk character" "composer composer"}
+/* Desktop: the conversation column is wide enough to hold its own input, so
+   the composer goes back where it belongs and the character spans both
+   rows beside it. */
+@media(min-width:768px){
+  .aichat__panel--talking .aichat__stage{
+    grid-template-areas:"talk character" "composer character"}
+}
+
+/* The character column. Its width is the one number the later
+   recommendation phase will re-decide against the real product card; for
+   now it is sized so Zaatar reads comfortably without starving the
+   conversation on a 320px phone. */
+:root{--aichat-char:clamp(104px,30vw,136px)}
+@media(min-width:768px){:root{--aichat-char:clamp(200px,22vw,264px)}}
+
+.aichat__character{
+  grid-area:character;min-width:0;min-height:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+/* Welcome: he is the whole point of this state, so he is centred in the
+   space rather than standing at the bottom of it. The height cap is what
+   keeps the greeting and the composer in view on a short phone instead of
+   being pushed under the fold by a 480px character. */
+.aichat__panel--welcome .aichat__character{
+  width:min(260px,62vw);justify-content:center}
+.aichat__panel--welcome .aichat__mascot{
+  flex:none;height:min(420px,46vh)}
+.aichat__panel--talking .aichat__character{width:100%}
+
+/* §7 — the recommendation region, above him, where his Suggesting motion
+   will point. It holds nothing in this phase and takes no height: an empty
+   frame would be a promise the menu has not made. The later phase gives it
+   one PRO-ORDER product card, swipeable, three at most. */
+.aichat__recs{flex:none;width:100%}
+.aichat__recs:empty{display:none}
+
+.aichat__mascot{flex:1;min-height:0;width:100%}
+
+/* ── The conversation ───────────────────────────────────────────────── */
+.aichat__talk{
+  grid-area:talk;min-width:0;min-height:0;
+  display:flex;flex-direction:column;gap:10px;width:100%}
+.aichat__panel--welcome .aichat__talk{max-width:520px}
+
+.aichat__greeting{
+  margin:0;text-align:center;
+  font-size:15px;line-height:1.5;color:var(--text-2)}
+
+.aichat__log{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:8px;padding-inline-end:2px}
+.aichat__msg{
+  margin:0;max-width:86%;padding:8px 12px;border-radius:var(--r-md);
+  font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.aichat__msg--user{
+  align-self:flex-end;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold-ink)}
+.aichat__msg--assistant{
+  align-self:flex-start;
+  background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-1)}
+/* Not a bubble, on purpose. This is PRO-ORDER speaking, and it must never
+   be mistaken for the waiter answering. */
+.aichat__notice{
+  margin:0;align-self:stretch;text-align:center;
+  font-size:12.5px;line-height:1.5;color:var(--text-3);
+  padding:8px 10px;border-radius:var(--r-sm);
+  background:var(--surface-2);border:1px dashed var(--border-strong)}
+
+.aichat__composer{
+  grid-area:composer;
+  display:flex;align-items:center;gap:8px;width:100%;min-width:0;
+  padding-bottom:env(safe-area-inset-bottom)}
+.aichat__panel--welcome .aichat__composer{max-width:520px}
+.aichat__input{
+  flex:1;min-width:0;height:44px;padding:0 14px;
+  border-radius:999px;border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text-1);
+  font-size:16px}
+.aichat__input:focus{outline:2px solid var(--gold);outline-offset:1px}
+.aichat__send{
+  flex:none;width:44px;height:44px;display:grid;place-items:center;
+  border-radius:50%;border:none;cursor:pointer;
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
+  color:var(--on-primary)}
+.aichat__send:disabled{
+  background:var(--surface-3);color:var(--text-3);cursor:not-allowed}
+
+/* Direction restored for everything the guest reads and types. The columns
+   above keep their physical order; these do not.
+
+   The composer is on this list because it is a child of the stage, not of
+   the conversation column — moving it there to win phone width also moved
+   it out of the inherited direction, which left an Arabic guest typing into
+   a left-aligned field with the send button on the wrong side. */
+[dir="rtl"] .aichat__talk,
+[dir="rtl"] .aichat__composer,
+[dir="rtl"] .aichat__recs{direction:rtl}
+

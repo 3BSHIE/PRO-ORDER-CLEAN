@@ -1,0 +1,198 @@
+{
+  "generatedBy": "tools/prepare_assets.py",
+  "canvas": {
+    "width": 835,
+    "height": 1548
+  },
+  "ground": {
+    "x": 433,
+    "y": 1505
+  },
+  "poses": {
+    "idle": {
+      "source": "assets/source/zaatar-idle.webp",
+      "sourceSha256": "55a889b123e57acb229ee11c0c51b7ca05fa4c3f893b260df4a0c333ad357250",
+      "scale": 0.7822,
+      "layers": [
+        {
+          "id": "base",
+          "src": "idle-base.webp",
+          "x": 40,
+          "y": 365,
+          "width": 665,
+          "height": 1159
+        },
+        {
+          "id": "tail",
+          "src": "idle-tail.webp",
+          "x": 590,
+          "y": 1176,
+          "width": 128,
+          "height": 198,
+          "pivot": {
+            "x": 598.8,
+            "y": 1249.8
+          }
+        }
+      ],
+      "anchors": {}
+    },
+    "thinking": {
+      "source": "assets/source/zaatar-thinking.webp",
+      "sourceSha256": "d7c68776560744546c6a97c7a7ccd34af46c5f3c39373b9e40a798320c21bc9a",
+      "scale": 0.7817,
+      "layers": [
+        {
+          "id": "base",
+          "src": "thinking-base.webp",
+          "x": 47,
+          "y": 366,
+          "width": 660,
+          "height": 1156
+        },
+        {
+          "id": "tail",
+          "src": "thinking-tail.webp",
+          "x": 576,
+          "y": 1182,
+          "width": 152,
+          "height": 175,
+          "pivot": {
+            "x": 584.6,
+            "y": 1249.7
+          }
+        }
+      ],
+      "anchors": {}
+    },
+    "suggesting": {
+      "source": "assets/source/zaatar-suggesting.webp",
+      "sourceSha256": "5514ad77bb15ad2a9eab2f70e37abe2461678b229b6493faaa0d57c5034653d4",
+      "scale": 1.0,
+      "layers": [
+        {
+          "id": "cane",
+          "src": "suggesting-cane.webp",
+          "x": 683,
+          "y": 24,
+          "width": 128,
+          "height": 368,
+          "pivot": {
+            "x": 695.0,
+            "y": 453.0
+          }
+        },
+        {
+          "id": "base",
+          "src": "suggesting-base.webp",
+          "x": 24,
+          "y": 360,
+          "width": 762,
+          "height": 1160
+        },
+        {
+          "id": "tail",
+          "src": "suggesting-tail.webp",
+          "x": 24,
+          "y": 1139,
+          "width": 198,
+          "height": 199,
+          "pivot": {
+            "x": 210.0,
+            "y": 1275.5
+          }
+        }
+      ],
+      "anchors": {
+        "caneTip": {
+          "x": 760.2,
+          "y": 25
+        }
+      }
+    },
+    "welcome": {
+      "source": "assets/source/zaatar-welcome.webp",
+      "sourceSha256": "cbdf9d4d80765f2ed1e70e9985ed450d25d82b11c9d212eba2ec1d38143cfcd3",
+      "scale": 0.779,
+      "layers": [
+        {
+          "id": "base",
+          "src": "welcome-base.webp",
+          "x": 94,
+          "y": 364,
+          "width": 663,
+          "height": 1165
+        },
+        {
+          "id": "tail",
+          "src": "welcome-tail.webp",
+          "x": 79,
+          "y": 1085,
+          "width": 217,
+          "height": 180,
+          "pivot": {
+            "x": 285.8,
+            "y": 1218.7
+          }
+        }
+      ],
+      "anchors": {}
+    },
+    "responding": {
+      "source": "assets/source/zaatar-responding.webp",
+      "sourceSha256": "5327c576bfa652c139b6dd71123c2d9092bd32d697a59638c3fe3df434fe4983",
+      "scale": 0.7948,
+      "layers": [
+        {
+          "id": "base",
+          "src": "responding-base.webp",
+          "x": 42,
+          "y": 366,
+          "width": 734,
+          "height": 1155
+        },
+        {
+          "id": "tail",
+          "src": "responding-tail.webp",
+          "x": 546,
+          "y": 1180,
+          "width": 172,
+          "height": 217,
+          "pivot": {
+            "x": 555.4,
+            "y": 1219.3
+          }
+        }
+      ],
+      "anchors": {}
+    },
+    "acknowledging": {
+      "source": "assets/source/zaatar-acknowledging.webp",
+      "sourceSha256": "fb4fb3c9d8dcd89e010921d619c981a793880bf4e446d7a15b0f2d58cad2066c",
+      "scale": 0.7822,
+      "layers": [
+        {
+          "id": "base",
+          "src": "acknowledging-base.webp",
+          "x": 62,
+          "y": 363,
+          "width": 696,
+          "height": 1159
+        },
+        {
+          "id": "tail",
+          "src": "acknowledging-tail.webp",
+          "x": 554,
+          "y": 1177,
+          "width": 169,
+          "height": 224,
+          "pivot": {
+            "x": 563.6,
+            "y": 1238.5
+          }
+        }
+      ],
+      "anchors": {}
+    }
+  }
+}
