@@ -34,6 +34,17 @@ export const translations = {
       recsRole: "Suggested dishes",
       recsLabel: "Dishes {name} suggests",
       recsGoTo: "Show dish {n}",
+      /* Phase 121.3 §8 — the compact strip on a panel too short to stand a
+         full card beside him, and what it opens. */
+      recsPeek: "Suggested dishes ({n})",
+      /* Phase 121.3 §2/§3 — clearing the conversation, and only that. The
+         body says what survives, because a guest mid-order reading "new
+         chat" has every reason to fear for their basket. */
+      newChat: "New chat",
+      newChatTitle: "Start a new chat?",
+      newChatBody: "This replaces your current conversation with {name}. Your cart and your orders are not affected.",
+      newChatConfirm: "Start new chat",
+      newChatKeep: "Keep conversation",
       q1: "What's popular here?",
       q2: "Any vegetarian dishes?",
       q3: "What do you recommend?",
@@ -1422,6 +1433,12 @@ export const translations = {
       recsRole: "أطباق مقترحة",
       recsLabel: "أطباق يقترحها {name}",
       recsGoTo: "عرض الطبق {n}",
+      recsPeek: "أطباق مقترحة ({n})",
+      newChat: "محادثة جديدة",
+      newChatTitle: "بدء محادثة جديدة؟",
+      newChatBody: "سيحل هذا محل محادثتك الحالية مع {name}. لن تتأثر سلتك ولا طلباتك.",
+      newChatConfirm: "ابدأ محادثة جديدة",
+      newChatKeep: "الاحتفاظ بالمحادثة",
       q1: "ما الأكثر طلبًا هنا؟",
       q2: "هل لديكم أطباق نباتية؟",
       q3: "بماذا تنصحني؟",

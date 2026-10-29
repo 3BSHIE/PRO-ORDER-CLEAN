@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * aiChat — Phase 121.0. The AI Waiter's conversation state, and nothing else.
@@ -132,8 +132,32 @@ export function useAiChat(scope) {
     ]);
   }, []);
 
-  /** Start over. The customer's own action, never automatic. */
-  const reset = useCallback(() => setMessages([]), []);
+  /* ── Phase 121.3 §3 — the seam a cancelable request will need ──────────
+     There is nothing in flight today: no model, no stream, no request. But
+     "New chat" is the one action that MUST be able to abandon work in
+     progress, and bolting that on afterwards is how a reset ends up racing
+     a reply that arrives into a conversation the guest already cleared.
 
-  return { isOpen, open, close, messages, phase, send, reset };
+     So the seam exists now and is empty: whatever starts a request later
+     parks its AbortController here, and every path that clears the
+     conversation goes through cancelInFlight() first. Nothing is faked to
+     exercise it — §3 is explicit that a pretend stream is not wanted. */
+  const inFlight = useRef(null);
+  const cancelInFlight = useCallback(() => {
+    const request = inFlight.current;
+    inFlight.current = null;
+    try {
+      request?.abort?.();
+    } catch {
+      /* An already-settled request is not an error worth surfacing. */
+    }
+  }, []);
+
+  /** Start over. The customer's own action, never automatic. */
+  const reset = useCallback(() => {
+    cancelInFlight();
+    setMessages([]);
+  }, [cancelInFlight]);
+
+  return { isOpen, open, close, messages, phase, send, reset, inFlight, cancelInFlight };
 }

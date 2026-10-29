@@ -12840,53 +12840,109 @@ button{font-family:var(--font-body)}
   font-size:clamp(10px,2.9vw,11.5px);line-height:1}
 
 /* -- The chat room ------------------------------------------------------
-   Phone first: the panel IS the screen. dvh rather than vh so collapsing
-   browser chrome leaves no gap, and the composer carries the safe area so
-   it clears a home indicator. */
+   Phone first: the panel is the screen BELOW THE CUSTOMER UTILITY HEADER.
+
+   Phase 121.3 §1 — the single most important line in this block is the
+   `inset` below. Until now the assistant covered the viewport, which took
+   PRO-ORDER's own navigation off the screen the instant it opened and is a
+   large part of why the owner read it as a separate application. It now
+   starts at --aichat-top, which AiChatOverlay measures from the live
+   .topbar before paint, so the venue's header stays exactly where it was,
+   with its own markup and its own handlers. Nothing is duplicated and
+   nothing moves.
+
+   The fallback is 0px rather than a guessed 61: a host without that bar
+   gets the full-screen panel it had, not a mysterious band of nothing. */
 /* Above the Cart FAB (150), below the product sheet (200). At 60 the FAB
    won on z-index whatever the DOM order was, and a guest with items in the
    cart had a gold pill sitting on the assistant's composer. */
-.aichat{position:fixed;inset:0;z-index:160;display:flex}
+.aichat{position:fixed;inset:var(--aichat-top,0px) 0 0 0;z-index:160;display:flex}
 .aichat__scrim{display:none}
 .aichat__panel{
   position:relative;flex:1;min-width:0;
   display:flex;flex-direction:column;
   background:var(--surface-1);color:var(--text-1);
-  height:100vh;height:100dvh;overflow:hidden}
+  height:100%;overflow:hidden}
 
 @media(min-width:768px){
   /* Desktop: a spacious overlay over the menu, not a navigation away from
      it. Taller than 121.1's panel, because the card region and the character
      share one column and height is the scarce axis -- see the geometry notes
-     in useCharacterPlacement. */
+     in useCharacterPlacement.
+
+     Height as a percentage of what is LEFT, not of the viewport: the top of
+     this box is already below the utility header, so 92vh would overflow
+     the space by exactly that header. */
   .aichat{align-items:center;justify-content:center;padding:24px}
   .aichat__scrim{
     display:block;position:absolute;inset:0;
     background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
   .aichat__panel{
-    flex:none;width:min(1040px,94vw);height:min(860px,92vh);
+    flex:none;width:min(1040px,94vw);height:min(960px,100%);
     border:1px solid var(--border-strong);border-radius:var(--r-xl);
     box-shadow:var(--shadow)}
 }
 :root[data-appearance="light"] .aichat__scrim{background:rgba(38,32,20,.38)}
 
-/* -- The header strip --------------------------------------------------- */
+/* -- The secondary AI header (§2) ---------------------------------------
+   Slim, and subordinate on purpose. The Customer Utility Header is directly
+   above it now and owns the hierarchy: this one is a single 40px row with
+   the character's name set at label size, not a title block.
+
+   The safe-area padding that used to be here is gone with it — the topbar
+   above now takes the notch, and keeping a second copy would have inset
+   this row for an edge it no longer touches. */
 .aichat__bar{
   flex:none;display:flex;align-items:center;justify-content:space-between;
-  gap:12px;padding:10px 16px 11px;
-  padding-top:max(10px,env(safe-area-inset-top));
+  gap:10px;min-height:40px;padding:5px 12px 5px 16px;
+  background:var(--surface-2);
   border-bottom:1px solid var(--border)}
-.aichat__who{display:flex;flex-direction:column;min-width:0}
+/* One line, not a stack: the name and the role sit side by side with a
+   separating dot, which is what keeps the row at 40px. */
+.aichat__who{display:flex;align-items:baseline;gap:7px;min-width:0}
 .aichat__name{
-  font-family:var(--font-display);font-weight:600;
-  font-size:clamp(15px,4.4vw,18px);line-height:1.25;color:var(--text-1);
+  flex:none;font-family:var(--font-display);font-weight:600;
+  font-size:14.5px;line-height:1.3;color:var(--text-1);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aichat__role{
-  font-size:10.5px;font-weight:600;letter-spacing:.09em;
+  min-width:0;
+  font-size:10.5px;font-weight:600;letter-spacing:.07em;
   text-transform:uppercase;color:var(--text-3);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aichat__role::before{
+  content:"";display:inline-block;vertical-align:middle;
+  inline-size:3px;block-size:3px;border-radius:50%;
+  margin-inline-end:7px;background:var(--border-strong)}
 /* Arabic letters join; spacing them apart breaks the word. */
 [dir="rtl"] .aichat__role{letter-spacing:0;text-transform:none}
+
+.aichat__acts{flex:none;display:flex;align-items:center;gap:6px}
+/* §3 — New chat. A ghost control, because it is the one destructive action
+   here and a prominent button invites the accident. Disabled until there is
+   actually a conversation to replace. */
+.aichat__act{
+  display:inline-flex;align-items:center;gap:5px;
+  height:30px;padding-inline:10px;border-radius:999px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-2);cursor:pointer;
+  font-family:var(--font-body);font-size:12px;font-weight:600;
+  white-space:nowrap;
+  transition:color .16s var(--ease),border-color .16s var(--ease),
+    background .16s var(--ease)}
+.aichat__act:hover:not(:disabled){
+  color:var(--text-1);border-color:var(--border-strong);background:var(--surface-3)}
+.aichat__act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.aichat__act:disabled{opacity:.42;cursor:default}
+.aichat__act svg{flex:none}
+/* Under 360px the label gives way and the icon carries the control. It does
+   not become unlabelled: display:none takes the text out of the
+   accessibility tree too, and the button's `title` is what names it then —
+   which is why that attribute is on the element rather than being left to
+   the visible text. */
+@media(max-width:359.98px){
+  .aichat__act{padding-inline:8px}
+  .aichat__act-label{display:none}
+}
 .aichat__x{
   flex:none;width:34px;height:34px;display:grid;place-items:center;
   border-radius:50%;border:1px solid var(--border);
@@ -12909,6 +12965,10 @@ button{font-family:var(--font-body)}
    --aichat-col, --aichat-card-h and --aichat-mascot-h are written here by
    the hook, from the measured scene. They are the whole conversation
    layout, and none of them depends on what is inside the card region. */
+/* Everything under the AI header, and the box the viewer covers. */
+.aichat__body{
+  position:relative;flex:1;min-width:0;min-height:0;
+  display:flex;flex-direction:column}
 .aichat__scene{
   position:relative;flex:1;min-width:0;min-height:0;
   padding:14px 16px 10px;overflow:clip}
@@ -12928,11 +12988,35 @@ button{font-family:var(--font-body)}
 .aichat__split{
   direction:ltr;display:grid;height:100%;
   grid-template-columns:var(--aichat-col,38%) minmax(0,1fr);
-  gap:12px;align-items:stretch}
+  gap:14px;align-items:stretch}
 @media(min-width:768px){
   .aichat__welcome,.aichat__split{gap:20px}
 }
 .aichat__slot{min-width:0;min-height:0}
+
+/* -- §5: the seam between the two sides ---------------------------------
+   The owner's complaint was not that the regions were wrong but that they
+   did not read as two deliberate parts of one interface. One hairline in
+   the restaurant's own border token says so, and nothing else does: no
+   frame around the character, no second surface tone, no shadow.
+
+   It is drawn by the CONTAINER, in the middle of the grid gap, rather than
+   as a border on either column. A border on the thread would take a pixel
+   out of a width useCharacterPlacement has already solved, and a border on
+   the character's side would start reading as a box around him.
+
+   An absolutely positioned ::before of a grid container is out of flow, so
+   it is not a track of its own; `left` is physical, which is correct here
+   because the character is physically left in both languages. */
+.aichat__split{position:relative}
+.aichat__split::before{
+  content:"";position:absolute;top:0;bottom:0;
+  left:calc(var(--aichat-col,38%) + 7px);
+  width:1px;background:var(--border);
+  pointer-events:none}
+@media(min-width:768px){
+  .aichat__split::before{left:calc(var(--aichat-col,38%) + 10px)}
+}
 
 /* -- Welcome ------------------------------------------------------------
    His slot is exactly his box, centred, so the greeting beside it lines up
@@ -13002,13 +13086,82 @@ button{font-family:var(--font-body)}
 .airecs__dot--on{background:var(--gold);transform:scale(1.25)}
 .airecs__dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
+/* -- §8: the compact strip, and the viewer it opens ---------------------
+   Where the panel is too short for a real card to stand beside him, this is
+   what the reserved region holds instead. It is deliberately NOT a card:
+   no image, no price, no add control, nothing that could be mistaken for a
+   miniature product. A labelled control, and the real cards are one tap
+   away at a size the menu's own grid never reaches on these phones.
+
+   Its height is fixed by useCharacterPlacement (STRIP), and it is reserved
+   whether or not there is anything to put in it — which is exactly what
+   keeps the character's size from moving when recommendations arrive. */
+.airecs-strip{
+  width:100%;height:100%;min-width:0;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding-inline:10px 8px;cursor:pointer;
+  border-radius:var(--r-md);
+  border:1px solid var(--gold-line);background:var(--gold-soft);
+  color:var(--gold-ink);font-family:var(--font-body);
+  transition:border-color .16s var(--ease),background .16s var(--ease),
+    transform .14s var(--ease)}
+.airecs-strip:hover{
+  border-color:var(--gold);
+  background:color-mix(in srgb,var(--gold) 16%,transparent)}
+.airecs-strip:active{transform:scale(.985)}
+.airecs-strip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.airecs-strip__text{
+  min-width:0;font-size:11.5px;font-weight:600;line-height:1.25;
+  text-align:start;overflow:hidden;text-overflow:ellipsis}
+.airecs-strip__go{flex:none;opacity:.8}
+/* The chevron points the way the reader reads. */
+[dir="rtl"] .airecs-strip__go{transform:scaleX(-1)}
+
+/* The viewer: the whole scene, one real card at a time. It covers the
+   character rather than squeezing him, which is the point — his size is
+   decided before this exists and is unchanged while it is up. */
+.airecs-view{
+  position:absolute;inset:0;z-index:3;
+  display:flex;flex-direction:column;gap:8px;
+  padding:14px 16px calc(10px + env(safe-area-inset-bottom));
+  background:var(--surface-1)}
+@media(min-width:768px){
+  .airecs-view{padding:20px 20px calc(14px + env(safe-area-inset-bottom))}
+}
+.airecs-view__head{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  gap:10px}
+.airecs-view__title{
+  min-width:0;font-family:var(--font-display);font-weight:600;
+  font-size:13.5px;line-height:1.3;color:var(--text-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.airecs-view__x{width:30px;height:30px}
+.airecs-view__body{flex:1;min-height:0;display:flex}
+/* The stage carries the solved width; the body around it stays full-width,
+   because measuring the box the answer is written to would ratchet it
+   narrower on every pass. */
+.airecs-view__stage{
+  width:min(100%,var(--airecs-view-w,100%));
+  margin-inline:auto;min-width:0;min-height:0}
+/* In the viewer the card keeps its NATURAL height and the track scrolls if
+   the room runs out — a contained scroll region, not a clipped card. */
+.airecs-view .airecs__track{overflow-y:auto;align-items:flex-start}
+.airecs-view .airecs__slide{align-items:flex-start}
+.airecs-view .airecs__slide>.item-card{min-height:0}
+
 /* -- Conversation: the thread ------------------------------------------- */
 .aichat__thread{
   min-width:0;min-height:0;display:flex;flex-direction:column}
+/* The inline padding is the tails' room. A tail reaches about 5.4px past
+   its bubble, so 7px of gutter is what stops it being clipped on a 320px
+   phone; overflow-x:clip rather than the `visible`-becomes-`auto` default
+   makes a miscalculation show as a trimmed point instead of a horizontal
+   scrollbar across the conversation. */
 .aichat__log{
-  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  flex:1;min-height:0;overflow-y:auto;overflow-x:clip;
+  overscroll-behavior:contain;
   display:flex;flex-direction:column;gap:7px;
-  padding-block:2px;padding-inline-end:2px}
+  padding-block:2px;padding-inline:7px}
 /* A short conversation sits at the BOTTOM of the column, beside Zaatar,
    rather than hanging from the top with him alone under half a screen of
    nothing. margin-auto on the first child rather than justify-content:
@@ -13017,28 +13170,79 @@ button{font-family:var(--font-body)}
    the content is taller than the box. */
 .aichat__log>*:first-child{margin-block-start:auto}
 
-/* Restrained, not comic: a rounded rectangle whose inner corner tightens.
-   No tails, no gradients, no drop shadows. The two voices are told apart by
-   side, ground and border -- three signals, none of them loud. */
+/* -- §6: messages that read as a conversation ---------------------------
+   121.2's bubbles were rounded rectangles and the owner's verdict was that
+   they had no conversational direction. They have tails now, and the tail
+   is the smallest thing that can carry that: a 9px square turned 45 degrees,
+   half of it tucked under the bubble it belongs to.
+
+   Only the two OUTWARD borders are drawn, so no line ever crosses the
+   bubble, and the fill is the bubble's own colour so the join is seamless.
+   That is also why it is not a clip-path triangle — a filled triangle
+   cannot inherit a 1px outline on two sides and stay this small.
+
+   Nine pixels: a point, not a pennant. Nothing comic, nothing outlined
+   heavily, no drop shadow. */
 .aichat__msg{
-  margin:0;max-width:93%;padding:8px 12px;
+  position:relative;
+  margin:0;max-width:90%;padding:8px 12px;
   border-radius:var(--r-md);
   font-size:14px;line-height:1.5;overflow-wrap:anywhere;
   /* Shift+Enter puts a real newline in the field; the message should show
      the question the way the guest wrote it. */
   white-space:pre-wrap}
+.aichat__msg::after{
+  content:"";position:absolute;bottom:2px;
+  width:9px;height:9px;transform:rotate(45deg)}
+
+/* The guest. Physically on the trailing edge of the thread, which is the
+   RIGHT in English and the LEFT in Arabic -- align-self:flex-end inside a
+   column that takes back the document's direction. The tail has to follow
+   that, and a logical border property cannot do it on a rotated box, so the
+   two sides are stated and swapped explicitly. */
 .aichat__msg--user{
   align-self:flex-end;color:var(--text-1);
   background:var(--gold-soft);border:1px solid var(--gold-line);
-  border-end-end-radius:6px}
+  /* Nearly square, because the tail springs from this corner: a 5px curve
+     pulls the bubble's edge away from the tail's base and the point starts
+     reading as a diamond someone dropped beside the message. */
+  border-end-end-radius:3px}
+.aichat__msg--user::after{
+  right:-4.5px;
+  background:var(--gold-soft);
+  border-top:1px solid var(--gold-line);
+  border-right:1px solid var(--gold-line)}
+[dir="rtl"] .aichat__msg--user::after{
+  right:auto;left:-4.5px;
+  border-top:none;border-right:none;
+  border-bottom:1px solid var(--gold-line);
+  border-left:1px solid var(--gold-line)}
+
+/* The waiter. The same surface the rest of the panel uses, with a border
+   that leans towards the character's accent -- enough that a reply reads as
+   HIS without a mascot illustration being stamped on every message. */
 .aichat__msg--assistant{
   align-self:flex-start;color:var(--text-1);
-  background:var(--surface-2);border:1px solid var(--border);
-  border-end-start-radius:6px}
-/* Not a bubble, on purpose. This is PRO-ORDER speaking about itself, and it
-   must never be mistaken for the waiter answering. */
+  background:var(--surface-2);
+  border:1px solid color-mix(in srgb,var(--gold-line) 55%,var(--border));
+  border-end-start-radius:3px}
+.aichat__msg--assistant::after{
+  left:-4.5px;
+  background:var(--surface-2);
+  border-bottom:1px solid color-mix(in srgb,var(--gold-line) 55%,var(--border));
+  border-left:1px solid color-mix(in srgb,var(--gold-line) 55%,var(--border))}
+[dir="rtl"] .aichat__msg--assistant::after{
+  left:auto;right:-4.5px;
+  border-bottom:none;border-left:none;
+  border-top:1px solid color-mix(in srgb,var(--gold-line) 55%,var(--border));
+  border-right:1px solid color-mix(in srgb,var(--gold-line) 55%,var(--border))}
+
+/* Not a bubble, and explicitly NOT given a tail. This is PRO-ORDER speaking
+   about itself, and it must never be mistaken for the waiter answering --
+   §6 is explicit that a connection notice does not get to look like
+   Zaatar. Centred, dashed, no side, no point. */
 .aichat__notice{
-  margin:1px 0;align-self:stretch;text-align:center;
+  margin:1px 0;align-self:stretch;max-width:100%;text-align:center;
   font-size:12px;line-height:1.5;color:var(--text-3);
   padding:7px 10px;border-radius:var(--r-sm);
   background:transparent;border:1px dashed var(--border-strong)}
@@ -13086,13 +13290,31 @@ button{font-family:var(--font-body)}
   flex:none;display:flex;align-items:flex-end;gap:8px;
   padding:0 16px 10px;
   padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+/* §4 — the field. The stray line beside Send was this element's own
+   scrollbar: the autosize set its height from scrollHeight, which excludes
+   the border, and border-box then took that border back out of the content
+   box, so the field overflowed itself by 2px and drew a permanent 7px
+   scrollbar. The arithmetic is fixed in AiChatOverlay; what is fixed HERE
+   is what a scrollbar looks like in the one case it is earned — a message
+   long enough to pass max-height. Thin, in the theme's own tones, instead
+   of a platform scrollbar dropped into a rounded field.
+
+   resize:none stays: the native corner grip is the other artifact that can
+   appear beside Send, and a field that already grows with its text has no
+   use for it. */
 .aichat__input{
   flex:1;min-width:0;resize:none;
   min-height:44px;max-height:132px;padding:11px 14px;
   border-radius:var(--r-lg);border:1px solid var(--border);
   background:var(--surface-2);color:var(--text-1);
   font-family:var(--font-body);font-size:16px;line-height:1.35;
-  overflow-y:auto}
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border-strong) transparent}
+.aichat__input::-webkit-scrollbar{width:6px}
+.aichat__input::-webkit-scrollbar-track{background:transparent}
+.aichat__input::-webkit-scrollbar-thumb{
+  background:var(--border-strong);border-radius:999px}
 .aichat__input::placeholder{color:var(--text-3)}
 /* A solid two-pixel gold edge rather than an outline ring: it is as visible
    as the outline every other control here uses, and it keeps the field the
@@ -13131,16 +13353,65 @@ button{font-family:var(--font-body)}
     -webkit-mask-image:none;mask-image:none}
 }
 
+/* -- §3: the New chat confirmation --------------------------------------
+   It covers the assistant and nothing else: it is a child of .aichat, which
+   starts below the Customer Utility Header, so the venue's own controls stay
+   visible and operable behind a question about a chat log.
+
+   The destructive action leads and the safe one follows it, but the SAFE
+   one takes focus (see NewChatConfirm) -- order for reading, focus for
+   accidents. */
+.aiconfirm{
+  position:absolute;inset:0;z-index:4;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(0,0,0,.52)}
+:root[data-appearance="light"] .aiconfirm{background:rgba(38,32,20,.34)}
+.aiconfirm__box{
+  width:min(380px,100%);
+  padding:18px 18px 16px;
+  border-radius:var(--r-lg);
+  border:1px solid var(--border-strong);
+  background:var(--surface-1);color:var(--text-1);
+  box-shadow:var(--shadow)}
+.aiconfirm__title{
+  margin:0 0 7px;font-family:var(--font-display);font-weight:600;
+  font-size:clamp(16px,4.6vw,19px);line-height:1.3}
+.aiconfirm__body{
+  margin:0 0 16px;font-size:13.5px;line-height:1.55;color:var(--text-2)}
+.aiconfirm__actions{display:flex;flex-direction:column;gap:8px}
+.aiconfirm__btn{
+  width:100%;min-height:42px;padding-inline:14px;
+  border-radius:999px;cursor:pointer;
+  font-family:var(--font-body);font-size:13.5px;font-weight:600;
+  transition:filter .16s,border-color .16s var(--ease),
+    background .16s var(--ease),transform .14s var(--ease)}
+.aiconfirm__btn:active{transform:scale(.985)}
+.aiconfirm__btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.aiconfirm__btn--go{
+  border:none;color:var(--on-primary);
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
+.aiconfirm__btn--go:hover{filter:brightness(1.07)}
+.aiconfirm__btn--keep{
+  border:1px solid var(--border);background:transparent;color:var(--text-2)}
+.aiconfirm__btn--keep:hover{
+  color:var(--text-1);border-color:var(--border-strong);background:var(--surface-2)}
+
 /* Reading direction restored for everything the guest reads and types. The
    two grid tracks keep their physical order; the words inside do not. The
    chips and the composer are siblings of the scene rather than children of
-   it, so they never inherited the forced ltr in the first place. */
+   it, so they never inherited the forced ltr in the first place.
+
+   The viewer is a child of the scene and therefore inherits the forced ltr;
+   it is a reading surface, so it takes the document's direction back. */
 [dir="rtl"] .aichat__hello,
+[dir="rtl"] .airecs-view,
 [dir="rtl"] .aichat__thread{direction:rtl}
 
 @media(prefers-reduced-motion:reduce){
-  .zaatar-cta,.aichat__x,.aichat__chip,.aichat__send,.airecs__dot{transition:none}
-  .zaatar-cta:active,.aichat__chip:active,
+  .zaatar-cta,.aichat__x,.aichat__chip,.aichat__send,.airecs__dot,
+  .aichat__act,.airecs-strip,.aiconfirm__btn{transition:none}
+  .zaatar-cta:active,.aichat__chip:active,.airecs-strip:active,
+  .aiconfirm__btn:active,
   .aichat__send:active:not(:disabled){transform:none}
   .airecs__dot--on{transform:none}
 }

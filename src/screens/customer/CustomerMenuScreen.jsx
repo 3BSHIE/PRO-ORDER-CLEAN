@@ -1200,6 +1200,11 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         messages={ai.messages}
         phase={ai.phase}
         onSend={ai.send}
+        /* Phase 121.3 §3 — "New chat", confirmed by the guest inside the
+           panel. It clears the conversation and nothing else: the cart, the
+           orders, the table session and the restaurant's own data are all
+           owned elsewhere and are not touched by it. */
+        onReset={ai.reset}
         restaurantName={restaurant.name}
         /* The menu’s own handler and the menu’s own labels: a tapped
            recommendation opens the real Product Details sheet, with the real

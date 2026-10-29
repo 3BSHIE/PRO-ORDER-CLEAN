@@ -85,6 +85,23 @@ const CARD_MAX = 230;
    and the owner's verdict was that the character paid too much for it; this
    is the deliberate re-balance, not an accident of the grid. */
 const SIDE_SHARE = 0.42;
+
+/* ── Phase 121.3 §8 — the compact strip, and why it is a FIXED height ────
+   121.2 reserved nothing on a short panel and showed nothing, which left a
+   320x568 phone with no way to reach a recommendation at all. The owner's
+   verdict: not acceptable as production behaviour.
+
+   So a short panel now reserves exactly this — one 44px touch target above
+   the character, always, whether or not there is anything to put in it —
+   and the real cards open from it into a viewer that uses the whole scene.
+   Reserving it unconditionally is the entire point: his height is still
+   decided before anything knows whether a recommendation exists, so the
+   mandatory rule survives the fallback.
+
+   44 because that is the touch-target floor the rest of the app uses; at
+   320x568 it costs the character nothing, because his size there is bound
+   by the column's WIDTH, not by the height left over. */
+const STRIP = 44;
 /* Welcome has no card to fit, so the character may take half the width — or
    less, when the scene is short enough that half would be more than the
    height can use. */
@@ -101,40 +118,84 @@ const clamp = (lo, value, hi) => Math.max(lo, Math.min(value, hi));
 /**
  * The conversation's proportions, from the scene's measured content box.
  *
- * Solves `card(L) + GAP + L / aspectRatio = height` for the column width L —
- * the width at which the card and the character come out at comparable
- * heights and exactly fill the column — then clamps it to what the card is
- * designed for and to the conversation's share of the width.
+ * Solves `card(L) + GAP + figure(L) = height` for the column width L — the
+ * width at which the card and the character come out at comparable heights
+ * and exactly fill the column — then clamps it to what the card is designed
+ * for and to the conversation's share of the width.
  *
- * ── WHERE THEY WILL NOT BOTH FIT ─────────────────────────────────────────
- * A real card at its narrowest proven width, 132px, is 281px tall. The
- * character needs about 1.85 times his width in height. Below roughly 715px
- * of panel, or 315px of panel width, those two cannot share a column without
- * one of them being shrunk past what it is designed for — and this phase
- * forbids shrinking either.
+ * ── 121.3: figure(L), NOT box(L) ─────────────────────────────────────────
+ * His canvas reserves 23.5% of its height above the hair as transparent
+ * headroom for Suggesting's raised cane. Reserving that as LAYOUT, which is
+ * what 121.2 did, put 88px of nothing between the bottom of the card and the
+ * top of his head: the pair stopped reading as a pair.
  *
- * So the region is not reserved at all there, and the caller renders no
- * card. That is a real limitation, not a workaround: the recommendation is
- * unavailable on a short panel. It keeps the mandatory rule intact — his
- * size still never changes with the cards, because there are none — and it
- * is what stops a 320x568 phone, or a 1280x800 laptop, ending up with both a
- * cramped card and a character smaller than Phase 121.1 left him.
+ * So the column now reserves only what is VISIBLE, `box * (1 - HEADROOM)`,
+ * and the layer is allowed to overhang upward into the gap — the overhang is
+ * transparent, so nothing is covered, and the card comes to rest a deliberate
+ * 12px above his head instead of a third of a screen above it. He does not
+ * move a pixel and does not change size: the column is bottom-aligned, so
+ * shortening the slot moves the CARD down, not him. It also buys back about
+ * 63px of height, which is enough to put a full card beside him at 1280x800
+ * where 121.2 could show none.
+ *
+ * ── WHERE THEY WILL NOT BOTH FIT: THE 121.3 FALLBACK ─────────────────────
+ * A real card at its narrowest proven width, 132px, is 294px tall. The
+ * character needs about 1.85 times his width in height. Below roughly 390px
+ * of scene height the two cannot share a column without one of them being
+ * shrunk past what it is designed for — and this phase forbids shrinking
+ * either, or rebuilding the card.
+ *
+ * 121.2 answered that by reserving nothing and showing nothing. 121.3
+ * answers it by reserving the STRIP instead: the column keeps a compact,
+ * always-present control, the character keeps the rest, and the real card —
+ * the same shared component, untouched — opens from it across the whole
+ * scene, where there is room for it at 250-400px wide. Nothing is hidden,
+ * nothing is miniaturised, and the character does not shrink: at the widths
+ * where this applies he is bound by the column's width, so the 44px costs
+ * him nothing at all.
  */
+/* His visible figure's height, from the width of his column. */
+const FIGURE_PER_WIDTH = (1 - HEADROOM) / aspectRatio;
+/* The slot the column reserves: visible figure only. */
+const figureOf = (boxHeight) => boxHeight * (1 - HEADROOM);
+
+/* How much of his natural column an inline card may cost him.
+   ──────────────────────────────────────────────────────────────────────
+   Measured, after the fallback was first written without it: on a 1280x800
+   laptop the panel is 1038px wide and 547px tall, so a full card fits — by
+   squeezing his column from the 230px the width would have given him to
+   141px. He came out SMALLER on a desktop than on a 430px phone, which is
+   precisely the complaint 121.2 was raised to fix.
+
+   So the card has to earn its place. It is shown beside him only while it
+   costs him no more than this; past it the strip wins and he keeps his
+   size, with the real cards one tap away at 400px wide. 15% is what lets
+   768x1024 keep its inline card (it costs 3%) while 1280x800 does not
+   (it costs 39%). */
+const MAX_COLUMN_LOSS = 0.15;
+
 function conversationGeometry(width, height) {
-  const byHeight = (height - GAP - CARD_BODY - CARD_BORDER - DOTS_ROW + CARD_BORDER * CARD_IMAGE)
-    / (CARD_IMAGE + 1 / aspectRatio);
   const byWidth = width * SIDE_SHARE;
 
-  if (byHeight < CARD_MIN || byWidth < CARD_MIN) {
-    const bare = clamp(CARD_MIN * 0.75, Math.min(byWidth, height * aspectRatio), CARD_MAX);
-    return { col: bare, cardH: 0, mascotH: Math.min(bare / aspectRatio, height), cards: false };
+  /* ── 1. His column when nothing but the strip is above him ──────────── */
+  const free = Math.max(0, height - GAP - STRIP);
+  const stripCol = clamp(CARD_MIN * 0.75, Math.min(byWidth, free / FIGURE_PER_WIDTH), CARD_MAX);
+
+  /* ── 2. The column at which a real card and his figure exactly fill it ─ */
+  const byHeight = (height - GAP - CARD_BODY - CARD_BORDER - DOTS_ROW + CARD_BORDER * CARD_IMAGE)
+    / (CARD_IMAGE + FIGURE_PER_WIDTH);
+  const cardCol = clamp(CARD_MIN, Math.min(byHeight, byWidth), CARD_MAX);
+
+  if (byHeight >= CARD_MIN && byWidth >= CARD_MIN
+      && cardCol >= stripCol * (1 - MAX_COLUMN_LOSS)) {
+    const cardH = cardHeightFor(cardCol);
+    /* Width-bound unless the column is taller than it is wide enough for. */
+    const boxH = Math.min(cardCol / aspectRatio, (height - GAP - cardH) / (1 - HEADROOM));
+    return { col: cardCol, cardH, mascotH: figureOf(boxH), recs: "inline" };
   }
 
-  const col = clamp(CARD_MIN, Math.min(byHeight, byWidth), CARD_MAX);
-  const cardH = cardHeightFor(col);
-  /* Width-bound unless the column is taller than it is wide enough for. */
-  const mascotH = Math.min(col / aspectRatio, height - GAP - cardH);
-  return { col, cardH, mascotH, cards: true };
+  const boxH = Math.min(stripCol / aspectRatio, free / (1 - HEADROOM));
+  return { col: stripCol, cardH: STRIP, mascotH: figureOf(boxH), recs: "strip" };
 }
 
 /**
@@ -149,7 +210,7 @@ function conversationGeometry(width, height) {
  */
 function welcomeGeometry(width, height) {
   const col = Math.min(width * WELCOME_SHARE, (height / (1 - HEADROOM)) * aspectRatio);
-  return { col, cardH: 0, mascotH: Math.min(col / aspectRatio, height), cards: false };
+  return { col, cardH: 0, mascotH: Math.min(col / aspectRatio, height), recs: "none" };
 }
 
 /** Welcome: centred in its slot, filling it, headroom allowed to overhang. */
@@ -173,10 +234,14 @@ function fitWelcome(slot) {
  * are gone, because both made his size depend on the cards.
  */
 function fitActive(slot) {
-  /* No inset: the slot IS his box. An inset costs height as well as width
+  /* No inset: the slot IS his FIGURE. An inset costs height as well as width
      — four pixels a side is fifteen pixels of figure at these proportions —
-     and it opens a gap under the card that reads as a mistake. */
-  const height = Math.min(slot.w / aspectRatio, slot.h);
+     and it opens a gap under the card that reads as a mistake.
+
+     121.3: the slot is the visible figure, so the box is scaled back up by
+     the headroom and allowed to overhang above it. Transparent pixels, so
+     the card sitting 12px higher is not covered by anything. */
+  const height = Math.min(slot.w / aspectRatio, slot.h / (1 - HEADROOM));
   const width = height * aspectRatio;
   return {
     left: slot.x + (slot.w - width) / 2,
@@ -204,7 +269,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
   /* Only the caller's rendering decision lives in state; the geometry itself
      is written straight to the DOM below, so the layout is correct in the
      same frame rather than one render later. */
-  const [cardsFit, setCardsFit] = useState(false);
+  const [recsMode, setRecsMode] = useState("none");
   const [resizeTick, setResizeTick] = useState(0);
   const lastKey = useRef(motion.key);
   const placed = useRef(false);
@@ -248,7 +313,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     vars.style.setProperty("--aichat-col", `${geom.col}px`);
     vars.style.setProperty("--aichat-card-h", `${geom.cardH}px`);
     vars.style.setProperty("--aichat-mascot-h", `${geom.mascotH}px`);
-    setCardsFit(geom.cards);
+    setRecsMode(geom.recs);
 
     /* Reading the slot now forces the layout those three properties just
        invalidated, so what comes back is the column as it will be painted. */
@@ -323,5 +388,5 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
       .catch(() => {});
   }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef]);
 
-  return cardsFit;
+  return recsMode;
 }
