@@ -13044,8 +13044,14 @@ button{font-family:var(--font-body)}
 .aichat__side{
   min-width:0;min-height:0;
   display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
+/* --aichat-lift (121.3a) raises the card clear of the raised cane. It is a
+   MARGIN rather than a change to the column's arithmetic: the column is
+   bottom-aligned, so this moves the card up and leaves his slot, and
+   therefore his size and position, exactly where 121.3 put them. Applied
+   whether or not a card is showing, so nothing shifts when one arrives. */
 .aichat__recs{
-  flex:0 0 var(--aichat-card-h,0px);min-height:0}
+  flex:0 0 var(--aichat-card-h,0px);min-height:0;
+  margin-bottom:var(--aichat-lift,0px)}
 .aichat__recs:empty{display:none}
 .aichat__slot--talking{
   flex:0 0 var(--aichat-mascot-h,100%)}

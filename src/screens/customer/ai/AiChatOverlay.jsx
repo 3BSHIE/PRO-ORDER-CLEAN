@@ -117,8 +117,27 @@ export default function AiChatOverlay({
   const closeRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
 
-  const activity = activityFor({ phase, pending: false });
   const welcome = phase === AI_PHASE.WELCOME;
+
+  /* ── 121.3a — the mascot's own card cue ─────────────────────────────────
+     The package times the card for us: going INTO Suggesting it reports the
+     card visible 360ms in, as the cane reaches up, and coming out it clears
+     the card first and then lowers him. That is ZAATAR-LAB's approved
+     choreography, and taking it means the card arrives WITH the gesture
+     instead of sitting there waiting for him to notice it.
+
+     `mascotFailed` is the safety valve: a product recommendation must not
+     be hostage to a .webp. The package resolves exactly one of onReady or
+     onError for every mount (it awaits decode() on every layer), so the
+     three states are real — loading, ready, failed — and the gate is
+     abandoned only in the last of them.
+
+     It is deliberately "failed", not "not ready". A boolean that starts
+     false and means "not ready yet" would show the card on the very first
+     frame, then hide it the moment the artwork finished decoding, then
+     show it again when the cane went up: one flicker on every open. */
+  const [cardCued, setCardCued] = useState(false);
+  const [mascotFailed, setMascotFailed] = useState(false);
 
   /* "inline" — the full card fits above him; "strip" — only the compact
      control does, and the real cards open into the viewer; "none" — this is
@@ -143,6 +162,23 @@ export default function AiChatOverlay({
     [recommendationIds, menuItems]
   );
   const hasRecs = !welcome && recommendations.length > 0;
+
+  /* ── 121.3a §1 — what "a recommendation is being displayed" means ───────
+     A real product card, on screen, beside him. Not the existence of IDs,
+     and not the compact strip: an unopened strip is a way IN to a product,
+     not a product, and §6 is explicit that it must not raise the cane.
+
+     The viewer the strip opens is a full-cover surface — he is behind it
+     and cannot be seen pointing — so it does not count either, and closing
+     it therefore leaves him exactly as it found him. */
+  const recommending = hasRecs && recsMode === "inline";
+  const activity = activityFor({ phase, pending: false, recommending });
+
+  /* Drop the cue the moment the reason for it goes away, so a later group
+     cannot inherit the previous group's "already visible". */
+  useEffect(() => { if (!recommending) setCardCued(false); }, [recommending]);
+
+  const showInlineCards = recommending && (cardCued || mascotFailed);
 
   /* ── §1 — where the panel starts ────────────────────────────────────────
      The Customer Utility Header stays on screen, so the overlay begins at
@@ -360,7 +396,7 @@ export default function AiChatOverlay({
                   him. */}
               <div className="aichat__side">
                 <div className="aichat__recs">
-                  {hasRecs && recsMode === "inline" && (
+                  {showInlineCards && (
                     <RecommendationCarousel
                       items={recommendations}
                       onOpen={onOpenItem}
@@ -413,7 +449,12 @@ export default function AiChatOverlay({
           )}
 
           <div className="aichat__layer" ref={layerRef} aria-hidden="true">
-            <ZaatarMascot activity={activity} />
+            <ZaatarMascot
+              activity={activity}
+              onReady={() => setMascotFailed(false)}
+              onError={() => setMascotFailed(true)}
+              onCardVisibleChange={setCardCued}
+            />
           </div>
         </div>
 

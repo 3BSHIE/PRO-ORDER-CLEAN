@@ -45,15 +45,32 @@ export const AI_ROLE = { USER: "user", ASSISTANT: "assistant", NOTICE: "notice" 
  * decides which one is current, so a later phase wires real lifecycle events
  * here and nothing else in the UI has to learn about poses.
  *
- * Phase 121.0 can honestly produce exactly two of them — a conversation that
+ * Phase 121.0 could honestly produce exactly two of them — a conversation that
  * has just opened, and one that is sitting idle. Thinking, Responding and
- * Suggesting describe work that is not happening yet, and §5 forbids timers
- * that pretend otherwise, so they are reachable through this function and
- * simply never selected until there is a real request to reflect.
+ * Suggesting described work that was not happening yet, and §5 forbade timers
+ * that pretend otherwise, so they were reachable through this function and
+ * simply never selected until there was a real request to reflect.
+ *
+ * ── Phase 121.3a — Suggesting now has something real to reflect ──────────
+ * 121.2 put real product cards beside the character and 121.3 kept them
+ * there, but neither came back to this function: it still took only `phase`
+ * and `pending`, so `assistant_recommending` had no input that could ever
+ * select it and the mascot stayed in Idle with a card at his shoulder. That
+ * was the whole defect — not a missing pose, a missing argument.
+ *
+ * `recommending` means a recommendation is ACTUALLY ON SCREEN beside him,
+ * not that product IDs exist. A collapsed strip the guest has not opened is
+ * not a displayed product and must not raise the cane; the caller decides
+ * that, because only the caller knows which way the panel is laid out.
+ *
+ * Priority is unchanged where it already existed: greeting a new guest wins,
+ * then work in progress, and Suggesting sits below both — a recommendation
+ * can wait, a reply cannot.
  */
-export function activityFor({ phase, pending }) {
+export function activityFor({ phase, pending, recommending }) {
   if (phase === AI_PHASE.WELCOME) return "assistant_welcome";
   if (pending) return "assistant_processing";
+  if (recommending) return "assistant_recommending";
   return "assistant_idle";
 }
 

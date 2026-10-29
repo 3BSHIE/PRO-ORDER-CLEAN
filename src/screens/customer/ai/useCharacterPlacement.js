@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { aspectRatio, figureTop } from "../../../vendor/zaatar-mascot/src/index.js";
+import { aspectRatio, caneTip, figureTop } from "../../../vendor/zaatar-mascot/src/index.js";
 
 /**
  * useCharacterPlacement — Phase 121.1, re-measured in 121.2.
@@ -45,6 +45,24 @@ import { aspectRatio, figureTop } from "../../../vendor/zaatar-mascot/src/index.
 const HEADROOM = Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking);
 
 const GAP = 12;     // px between the card region and the character
+
+/* ── Phase 121.3a — how far the raised cane reaches above his slot ────────
+   The column reserves his IDLE figure, which starts 23.5% down the canvas.
+   Suggesting is the one pose that breaks that line: the rig puts the raised
+   cane's tip at y = 1.61% of the canvas, so when he points, the cane rises
+   through the gap and — before this phase — straight across the product
+   card's price row and its Add button.
+
+   Both numbers come from the package's own rig rather than from a ruler, so
+   re-exported artwork moves this on its own:
+
+     CANE_RISE = (idle figure top) - (cane tip)   as a fraction of his box
+
+   TIP_GAP is the only judgement call here: the breathing room left between
+   the tip and the card's lower edge, so the gesture reaches toward the card
+   without touching it. */
+const CANE_RISE = Math.max(0, Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking) - caneTip.y);
+const TIP_GAP = 8;
 
 /* The carousel's pagination row, inside the reserved region and above the
    card. Measured, not estimated: a 6px dot, a 1px offset and the 6px gap
@@ -191,11 +209,36 @@ function conversationGeometry(width, height) {
     const cardH = cardHeightFor(cardCol);
     /* Width-bound unless the column is taller than it is wide enough for. */
     const boxH = Math.min(cardCol / aspectRatio, (height - GAP - cardH) / (1 - HEADROOM));
-    return { col: cardCol, cardH, mascotH: figureOf(boxH), recs: "inline" };
+    const figure = figureOf(boxH);
+
+    /* ── 121.3a §2/§3 — raise the card into the room already there ───────
+       The character's size and the mode decision above are EXACTLY what
+       121.3 computed; the owner approved them and nothing here touches
+       them. The lift is paid for out of the column's existing slack —
+       which exists because the column reserves only his visible figure
+       while the panel is taller than the pair needs — so the card moves
+       up and he does not move at all.
+
+       Where there is no slack the column is height-bound, meaning the card
+       and his figure already fill it exactly. Then the lift is whatever
+       fits, which is nothing, and the cane crosses the card's lower edge.
+       Shrinking him to buy the room is what §3 forbids, so the limitation
+       is reported rather than paid for. */
+    const slack = Math.max(0, height - cardH - GAP - figure);
+    const need = Math.max(0, CANE_RISE * boxH + TIP_GAP - DOTS_ROW - GAP);
+    return {
+      col: cardCol,
+      cardH,
+      mascotH: figure,
+      lift: Math.min(slack, need),
+      recs: "inline",
+    };
   }
 
   const boxH = Math.min(stripCol / aspectRatio, free / (1 - HEADROOM));
-  return { col: stripCol, cardH: STRIP, mascotH: figureOf(boxH), recs: "strip" };
+  /* The strip is not a displayed product, so he does not point at it and
+     there is nothing to lift (§6, short-screen fallback: do not redesign). */
+  return { col: stripCol, cardH: STRIP, mascotH: figureOf(boxH), lift: 0, recs: "strip" };
 }
 
 /**
@@ -210,7 +253,7 @@ function conversationGeometry(width, height) {
  */
 function welcomeGeometry(width, height) {
   const col = Math.min(width * WELCOME_SHARE, (height / (1 - HEADROOM)) * aspectRatio);
-  return { col, cardH: 0, mascotH: Math.min(col / aspectRatio, height), recs: "none" };
+  return { col, cardH: 0, mascotH: Math.min(col / aspectRatio, height), lift: 0, recs: "none" };
 }
 
 /** Welcome: centred in its slot, filling it, headroom allowed to overhang. */
@@ -313,6 +356,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     vars.style.setProperty("--aichat-col", `${geom.col}px`);
     vars.style.setProperty("--aichat-card-h", `${geom.cardH}px`);
     vars.style.setProperty("--aichat-mascot-h", `${geom.mascotH}px`);
+    vars.style.setProperty("--aichat-lift", `${geom.lift}px`);
     setRecsMode(geom.recs);
 
     /* Reading the slot now forces the layout those three properties just
