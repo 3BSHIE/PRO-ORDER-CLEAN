@@ -4,8 +4,11 @@ import { X, ArrowUp } from "lucide-react";
 import { ZaatarMascot, usePrefersReducedMotion, aspectRatio } from "../../../vendor/zaatar-mascot/src/index.js";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { AI_PHASE, AI_ROLE, activityFor } from "../../../lib/aiChat.js";
+import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
+import { resolveRecommendations } from "../../../lib/aiRecommendations.js";
 import { getCharacter, characterName, withName } from "./characters.js";
 import { useCharacterPlacement } from "./useCharacterPlacement.js";
+import RecommendationCarousel from "./RecommendationCarousel.jsx";
 
 /* Welcome → conversation. The approved reference uses 650ms; measured here,
    that is long enough to follow him across the panel without the guest
@@ -21,25 +24,57 @@ const MOVE_MS = 650;
 const SUGGESTION_KEYS = ["ai.q1", "ai.q2", "ai.q3"];
 
 /**
- * AiChatOverlay — Phase 121.1.
+ * AiChatOverlay — Phase 121.1, recomposed in 121.2.
  *
  * ── THE ARCHITECTURE THAT FIXES THE TRANSITION ───────────────────────────
  * Zaatar is NOT inside either layout. The welcome panel and the conversation
  * split each render an empty SLOT; he lives in one absolutely positioned
  * LAYER over a shared SCENE, and useCharacterPlacement measures the slot and
  * moves him there. Swapping layouts therefore cannot unmount him, cannot
- * resize him through a grid, and cannot interrupt his move — which is what
- * made 121.0's FLIP feel wrong. That hook carries the full diagnosis.
+ * resize him through a grid, and cannot interrupt his move. That hook carries
+ * the full diagnosis of what 121.0 did instead.
  *
  * ── HE IS ON THE LEFT, IN BOTH LANGUAGES ─────────────────────────────────
- * The owner's decision, and it supersedes 121.0: character left, conversation
- * right, identically in Arabic and English. Both layouts are forced to
- * direction:ltr so the physical order of the two columns cannot follow the
- * writing mode, and the greeting and the thread take their reading direction
- * back inside it. The chips and the composer sit outside the scene, so they
- * never inherited the forced direction at all. The artwork is never mirrored.
+ * Character left, conversation right, identically in Arabic and English.
+ * Both layouts are forced to direction:ltr so the physical order of the two
+ * columns cannot follow the writing mode, and the greeting and the thread
+ * take their reading direction back inside it. The chips and the composer
+ * sit outside the scene, so they never inherited the forced direction at
+ * all. The artwork is never mirrored.
+ *
+ * ── 121.2: THE CARD REGION, AND WHY HIS SIZE CANNOT MOVE ─────────────────
+ * The left column is two boxes stacked against its bottom edge: a reserved
+ * region for one real product card, and his slot. Both heights come from
+ * useCharacterPlacement, which derives them from the measured scene and
+ * nothing else. A recommendation appearing, disappearing or being swiped
+ * therefore cannot change either one — the region was already that size and
+ * was already there, empty.
+ *
+ * The card inside it is the guest menu's own ItemCard, and tapping it opens
+ * the guest menu's own ItemDetailsModal through the same handler the menu
+ * uses. Nothing about a product is re-implemented here, and nothing is added
+ * to a cart without the customer pressing Add in that sheet.
  */
-export default function AiChatOverlay({ open, onClose, messages, phase, onSend, restaurantName }) {
+export default function AiChatOverlay({
+  open,
+  onClose,
+  messages,
+  phase,
+  onSend,
+  restaurantName,
+  /* The menu's own item handler — opens the real ItemDetailsModal. */
+  onOpenItem,
+  /* Product IDs only. Resolved against the live menu below, because a model
+     must never be the source of a name or a price. Phase 121.2 ships no
+     model; in development these come from the real menu (see devFlags). */
+  recommendationIds,
+  menuItems,
+  customLabels,
+  /* True while the real product sheet is open on top of this panel. The
+     sheet listens for Escape on the window too, so without this one press
+     would close the sheet AND the chat underneath it. */
+  suspended = false,
+}) {
   const { t } = useLanguage();
   const character = getCharacter();
   const name = characterName(character, t);
@@ -56,39 +91,41 @@ export default function AiChatOverlay({ open, onClose, messages, phase, onSend, 
   const activity = activityFor({ phase, pending: false });
   const welcome = phase === AI_PHASE.WELCOME;
 
-  useCharacterPlacement({
+  /* True when the panel is tall enough that a reserved card region still
+     leaves him a real presence. Where it is not, nothing is reserved and
+     nothing is shown — see useCharacterPlacement's MASCOT_MIN. */
+  const cardsFit = useCharacterPlacement({
     sceneRef,
     layerRef,
     slot,
     mode: welcome ? "welcome" : "active",
-    /* No recommendations exist yet, so no room is held for them — §3's
-       "do not leave a giant empty reserved area". The hook already takes the
-       flag the later phase will set. */
-    showCards: false,
     /* The hook decides whether this is a journey or a correction, from the
        key. It has to: the slot arrives as state from a ref callback, so the
        render that first sees the new phase still holds the OLD slot element
        and bails out. Anything this component measured "phase just changed"
        with would already be stale by the render that actually moves him --
-       which is how the 650ms move was running at the 180ms correction speed.
-       The hook compares the key it last acted on, so it cannot be fooled. */
+       which is how the 650ms move once ran at a 180ms correction speed. */
     motion: { key: `${phase}|${open}`, ms: MOVE_MS },
     reducedMotion,
   });
 
+  const recommendations = useMemo(
+    () => resolveRecommendations(recommendationIds, menuItems),
+    [recommendationIds, menuItems]
+  );
+  const showCards = !welcome && cardsFit && recommendations.length > 0;
+
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || suspended) return undefined;
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, suspended]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  /* The same reference-counted lock the item sheet uses, so opening a
+     product on top of the chat freezes the page once and releases it once,
+     and the menu behind comes back on the pixel it was left on. */
+  useBodyScrollLock(open);
 
   /* Focus the close control, not the field: opening the assistant should not
      raise a phone keyboard before the guest has decided to type. */
@@ -108,12 +145,36 @@ export default function AiChatOverlay({ open, onClose, messages, phase, onSend, 
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages.length]);
 
+  /* Where the panel is mounted. Not document.body: a restaurant's colours
+     are inline custom properties on the .customer-theme wrapper, and a
+     portal outside it inherits none of them -- the assistant was painting
+     itself in PRO-ORDER's default gold while the header beside it wore the
+     venue's own accent. That wrapper is display:contents, so it generates no
+     box: it cannot create a stacking context, and it cannot become the
+     containing block for anything fixed. Mounting inside it changes only
+     what is inherited.
+
+     document.body remains the fallback, so a host that renders this outside
+     a themed scope still gets a working panel.
+
+     Keyed on `open` rather than computed once: the first render of this
+     component happens while React is still building the tree, before the
+     wrapper is in the document at all, and a lookup then finds nothing and
+     remembers it forever. By the time the panel is asked to open, it is
+     there. */
+  const mount = useMemo(
+    () => (!open || typeof document === "undefined"
+      ? null
+      : document.querySelector(".customer-theme") || document.body),
+    [open]
+  );
+
   const suggestions = useMemo(
     () => SUGGESTION_KEYS.map((key) => ({ key, text: t(key, "") })).filter((s) => s.text),
     [t]
   );
 
-  if (!open) return null;
+  if (!open || !mount) return null;
 
   const submit = (e) => {
     e?.preventDefault?.();
@@ -180,10 +241,21 @@ export default function AiChatOverlay({ open, onClose, messages, phase, onSend, 
             </div>
           ) : (
             <div className="aichat__split">
-              {/* LEFT — the character column. The recommendation zone will
-                  sit above him here, and renders nothing until it has a real
-                  card to hold. */}
-              <div className="aichat__slot aichat__slot--talking" ref={setSlot} />
+              {/* LEFT — the card region and the character, as one column
+                  pinned to the bottom. Both heights are set from the panel,
+                  so what is or is not inside the region cannot move him. */}
+              <div className="aichat__side">
+                <div className="aichat__recs">
+                  {showCards && (
+                    <RecommendationCarousel
+                      items={recommendations}
+                      onOpen={onOpenItem}
+                      customLabels={customLabels}
+                    />
+                  )}
+                </div>
+                <div className="aichat__slot aichat__slot--talking" ref={setSlot} />
+              </div>
 
               {/* RIGHT — the conversation. */}
               <div className="aichat__thread">
@@ -211,11 +283,12 @@ export default function AiChatOverlay({ open, onClose, messages, phase, onSend, 
 
         {/* ── Suggestions, then the composer ──────────────────────────────
             Both sit below the scene and span the panel. On a 320px phone the
-            conversation column is ~190px wide, and a 190px field is not
+            conversation column is ~150px wide, and a 150px field is not
             somewhere anyone writes a question — §11 asks for a usable
             composer at 320px, and that wins over keeping the input strictly
-            inside the right-hand region. From 768px, in the conversation, they
-            are inset to line up under the thread so they read as part of it. */}
+            inside the right-hand region. From 768px, in the conversation,
+            they are inset to line up under the thread so they read as part
+            of it. */}
         {suggestions.length > 0 && (
           <div className="aichat__chips" role="group" aria-label={t("ai.suggestionsLabel", "Suggested questions")}>
             {suggestions.map((s) => (
@@ -253,6 +326,6 @@ export default function AiChatOverlay({ open, onClose, messages, phase, onSend, 
         </form>
       </div>
     </div>,
-    document.body
+    mount
   );
 }

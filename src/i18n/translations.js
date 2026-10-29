@@ -29,6 +29,11 @@ export const translations = {
       greetingLead: "Hi, I'm {name}.",
       greetingBody: "I'm your AI waiter. Ask me about any dish and I'll help you choose.",
       suggestionsLabel: "Suggested questions",
+      /* The card region beside the conversation. Zaatar does not pick the
+         dishes yet; these name the region for assistive tech only. */
+      recsRole: "Suggested dishes",
+      recsLabel: "Dishes {name} suggests",
+      recsGoTo: "Show dish {n}",
       q1: "What's popular here?",
       q2: "Any vegetarian dishes?",
       q3: "What do you recommend?",
@@ -1414,6 +1419,9 @@ export const translations = {
       greetingLead: "أهلًا! أنا {name}.",
       greetingBody: "أنا نادلك الذكي. اسألني عن أي طبق وسأساعدك في الاختيار.",
       suggestionsLabel: "أسئلة مقترحة",
+      recsRole: "أطباق مقترحة",
+      recsLabel: "أطباق يقترحها {name}",
+      recsGoTo: "عرض الطبق {n}",
       q1: "ما الأكثر طلبًا هنا؟",
       q2: "هل لديكم أطباق نباتية؟",
       q3: "بماذا تنصحني؟",

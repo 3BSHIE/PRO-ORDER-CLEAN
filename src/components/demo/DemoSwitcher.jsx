@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wrench, X } from "lucide-react";
 import { clearCustomerSession } from "../../lib/customerSession.js";
@@ -6,6 +6,7 @@ import { clearKitchenSession } from "../../lib/kitchenSession.js";
 import { clearAdminSession } from "../../lib/adminSession.js";
 import { clearCustomerCart } from "../../lib/customerCart.js";
 import { clearCustomerOrders } from "../../lib/customerOrders.js";
+import { DEV_FLAG_AI_RECS, readFlag, writeFlag, subscribeFlags } from "../../lib/devFlags.js";
 
 /**
  * DemoSwitcher — DEVELOPMENT/DEMO TESTING TOOL ONLY.
@@ -51,6 +52,16 @@ const CLEAR_ACTIONS = [
 export default function DemoSwitcher() {
   const [open, setOpen] = useState(false);
   const [confirmingIndex, setConfirmingIndex] = useState(null);
+  /* Phase 121.2 §6 — a layout aid, not a feature. It puts real products
+     from the open restaurant's menu into the AI waiter's card region so the
+     composition can be checked against real cards. It recommends nothing and
+     claims nothing; the flag lives in sessionStorage and the whole path is
+     compiled out of a production build. */
+  const aiRecs = useSyncExternalStore(
+    subscribeFlags,
+    () => readFlag(DEV_FLAG_AI_RECS),
+    () => false,
+  );
   const navigate = useNavigate();
 
   if (!SHOW_DEMO_TOOLS) return null;
@@ -102,6 +113,17 @@ export default function DemoSwitcher() {
                 {link.label}
               </button>
             ))}
+          </div>
+
+          <div className="demo-switcher__group">
+            <button
+              type="button"
+              className={`demo-switcher__link ${aiRecs ? "demo-switcher__link--on" : ""}`}
+              aria-pressed={aiRecs}
+              onClick={() => writeFlag(DEV_FLAG_AI_RECS, !aiRecs)}
+            >
+              {aiRecs ? "✓ " : ""}AI card preview (layout)
+            </button>
           </div>
 
           <div className="demo-switcher__danger">

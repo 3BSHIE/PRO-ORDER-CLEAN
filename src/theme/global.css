@@ -12747,73 +12747,95 @@ button{font-family:var(--font-body)}
    approved priority: name, image, price, category, sort order, description. */
 .mm-lblmgr__actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
-/* == Phase 121.1 -- the AI waiter, refined ================================
-   Replaces the whole 121.0 AI block. Three things changed shape, so very
-   little of the old block survived: the header seat now holds a labelled
-   button rather than a bare mascot, the chat room puts Zaatar on the LEFT
-   in both languages, and he is positioned by measurement rather than laid
-   out by a grid. */
+/* == Phase 121.2 -- the AI waiter, recomposed =============================
+   Replaces the whole 121.1 AI block. The owner reviewed 121.1 on real
+   screenshots and rejected the composition: the header control read as a
+   sticker, Welcome wasted its space, and the character was too small beside
+   the conversation. The structure underneath -- one mascot, one scene,
+   measured placement -- is unchanged. */
 
 /* -- The header entry ---------------------------------------------------
    The seats were built inert, because until 121.0 they held nothing. */
 .menu-header__ai,
 .menu-idbar__ai{pointer-events:auto}
 
-/* 120.0/120.1 reserved a square and a small nub, sized for a mascot alone.
-   A character WITH a CTA needs different room, so both reservations are
-   re-cut here rather than edited in place -- the 120.1 block above still
-   explains why the originals were the size they were.
-
-   Deliberately modest: the hero track grows by 6-8px and the collapsed one
-   by ~30px, which is the smallest widening that fits the words. The
-   collapsed row pays for it out of the search field, which keeps ~130px at
-   320px -- enough for the 13px placeholder it carries. */
+/* The reservations, re-cut once more. The hero seat is a touch wider than
+   121.1's because the control is now a horizontal pill rather than a stack;
+   the collapsed one gives 4-8px back to the search field, which is what the
+   tighter pill no longer needs. */
 :root{
-  --menu-ai-hero:clamp(78px,22vw,104px);
-  --menu-idbar-ai:clamp(68px,19vw,84px);
+  --menu-ai-hero:clamp(114px,32vw,150px);
+  --menu-idbar-ai:clamp(66px,18.5vw,78px);
 }
-/* The square comes off: the button sets its own height inside the reserved
-   width, and the row stays vertically centred around it. */
+/* No square: the pill sets its own height and the row stays centred on it. */
 .menu-header__ai{aspect-ratio:auto;max-height:none;height:auto}
 
+/* He STANDS ON the pill rather than sitting inside it -- feet on the lower
+   edge, head above the surface. That is what stops it reading as a picture
+   in a box: the artwork and the control share an edge instead of one framing
+   the other. overflow is visible on purpose, and the pill carries no shadow
+   that would cut him off.
+
+   --z-face is his height and --z-lift how far he rises above the pill; the
+   two are all the owner's dedicated header artwork should need to re-balance
+   when it replaces the temporary pose. */
 .zaatar-cta{
-  display:flex;min-width:0;cursor:pointer;
-  border:1px solid var(--border-strong);
-  background:var(--surface-2);color:var(--text-1);
+  position:relative;display:flex;align-items:center;min-width:0;
+  cursor:pointer;overflow:visible;
+  border-radius:999px;
+  border:1px solid var(--gold-line);
+  background:var(--gold-soft);
+  color:var(--gold-ink);
+  font-family:var(--font-body);
   -webkit-tap-highlight-color:transparent;
   transition:border-color .18s var(--ease),background .18s var(--ease),
     transform .14s var(--ease)}
-.zaatar-cta:hover{border-color:var(--gold-line);background:var(--surface-3)}
+.zaatar-cta:hover{
+  border-color:var(--gold);
+  background:color-mix(in srgb,var(--gold) 18%,transparent)}
 .zaatar-cta:active{transform:scale(.97)}
-.zaatar-cta:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.zaatar-cta:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
-/* His own file is his bounding box -- the 23.5% of transparent cane headroom
-   belongs to the animated canvas, not to this asset -- so the picture needs
-   no cropping, only a height. width:auto keeps his proportions, and he is
-   never flipped in Arabic. */
+/* His own file is his bounding box -- the transparent cane headroom belongs
+   to the animated canvas, not to this asset -- so the picture needs no
+   cropping, only a height. width:auto keeps his proportions, and he is never
+   flipped in Arabic. */
 .zaatar-cta__face{
-  display:block;flex:none;height:var(--z-face);width:auto;
-  user-select:none}
+  display:block;flex:none;
+  height:var(--z-face);width:auto;
+  margin-block-start:calc(var(--z-lift) * -1);
+  margin-block-end:-1px;
+  align-self:flex-end;
+  user-select:none;pointer-events:none}
 .zaatar-cta__label{
-  min-width:0;font-weight:600;
+  min-width:0;font-weight:600;letter-spacing:.005em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* Hero -- the expanded header. Portrait above the words: the seat is a tall
-   reserved column beside the restaurant name, and a horizontal pill there
-   would take back the width 120.1 gave the name. */
+/* Hero -- beside the restaurant identity. Sized so the pair reads as one
+   control at a glance: a 40px pill, a 54px character, and the label set at
+   the header's own small-label size rather than shouting. */
 .zaatar-cta--hero{
-  --z-face:clamp(42px,12vw,56px);
-  flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  width:100%;padding:7px 6px 8px;border-radius:var(--r-md)}
+  --z-face:clamp(46px,13.5vw,58px);
+  --z-lift:clamp(15px,4.5vw,20px);
+  width:100%;height:40px;gap:6px;
+  padding-inline:5px 12px;
+  justify-content:center}
 .zaatar-cta--hero .zaatar-cta__label{
-  max-width:100%;font-size:clamp(10px,2.9vw,11.5px);line-height:1.2}
+  font-size:clamp(11px,3.1vw,12.5px);line-height:1}
+/* Without the portrait the pill is just a labelled button, centred. */
+.zaatar-cta--noface{padding-inline:12px}
 
-/* Compact -- the collapsed identity bar. A pill the height of the seat, so
-   it reads as a control in a row of controls. */
+/* Compact -- the collapsed identity bar. Provisionally approved in 121.1 and
+   kept: the same pill, with the portrait given the same standing treatment
+   so he is readable at this size too. */
 .zaatar-cta--compact{
-  --z-face:clamp(24px,7vw,30px);
-  flex-direction:row;align-items:center;justify-content:center;gap:5px;
-  width:100%;height:100%;padding-inline:4px 9px;border-radius:999px}
+  --z-face:clamp(30px,8.5vw,36px);
+  --z-lift:clamp(9px,2.8vw,12px);
+  width:100%;height:100%;gap:4px;
+  /* Measured, not guessed: at 360-400px the label is within a pixel or two
+     of the pill, so the trailing padding is the one that gives. */
+  padding-inline:3px 8px;
+  justify-content:center}
 .zaatar-cta--compact .zaatar-cta__label{
   font-size:clamp(10px,2.9vw,11.5px);line-height:1}
 
@@ -12821,7 +12843,10 @@ button{font-family:var(--font-body)}
    Phone first: the panel IS the screen. dvh rather than vh so collapsing
    browser chrome leaves no gap, and the composer carries the safe area so
    it clears a home indicator. */
-.aichat{position:fixed;inset:0;z-index:60;display:flex}
+/* Above the Cart FAB (150), below the product sheet (200). At 60 the FAB
+   won on z-index whatever the DOM order was, and a guest with items in the
+   cart had a gold pill sitting on the assistant's composer. */
+.aichat{position:fixed;inset:0;z-index:160;display:flex}
 .aichat__scrim{display:none}
 .aichat__panel{
   position:relative;flex:1;min-width:0;
@@ -12831,22 +12856,21 @@ button{font-family:var(--font-body)}
 
 @media(min-width:768px){
   /* Desktop: a spacious overlay over the menu, not a navigation away from
-     it. The guest can still see where they were. */
+     it. Taller than 121.1's panel, because the card region and the character
+     share one column and height is the scarce axis -- see the geometry notes
+     in useCharacterPlacement. */
   .aichat{align-items:center;justify-content:center;padding:24px}
   .aichat__scrim{
     display:block;position:absolute;inset:0;
     background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
   .aichat__panel{
-    flex:none;width:min(1040px,94vw);height:min(760px,86vh);
+    flex:none;width:min(1040px,94vw);height:min(860px,92vh);
     border:1px solid var(--border-strong);border-radius:var(--r-xl);
     box-shadow:var(--shadow)}
 }
 :root[data-appearance="light"] .aichat__scrim{background:rgba(38,32,20,.38)}
 
-/* -- The header strip ---------------------------------------------------
-   His name in the display face, his job underneath in the system's small
-   caps. Two lines of hierarchy instead of one concatenated string, so a
-   long venue name shortens itself rather than pushing the name out. */
+/* -- The header strip --------------------------------------------------- */
 .aichat__bar{
   flex:none;display:flex;align-items:center;justify-content:space-between;
   gap:12px;padding:10px 16px 11px;
@@ -12876,12 +12900,19 @@ button{font-family:var(--font-body)}
 
 /* -- The scene ----------------------------------------------------------
    The positioning contract with useCharacterPlacement: the scene is the
-   containing block, and it carries NO padding or border, because the hook
-   derives the layer's left/top from the scene's bounding rect and an inset
-   would shift him by exactly that much. The two layouts hold the padding
-   instead. */
+   containing block and it has no BORDER, which is what lets it carry padding
+   without moving the layer -- an absolutely positioned child is laid out
+   against the padding box, and with no border that box starts exactly where
+   the scene's bounding rect does. The hook reads this padding back to work
+   out how much room the two columns really have.
+
+   --aichat-col, --aichat-card-h and --aichat-mascot-h are written here by
+   the hook, from the measured scene. They are the whole conversation
+   layout, and none of them depends on what is inside the card region. */
 .aichat__scene{
-  position:relative;flex:1;min-width:0;min-height:0;overflow:clip}
+  position:relative;flex:1;min-width:0;min-height:0;
+  padding:14px 16px 10px;overflow:clip}
+@media(min-width:768px){.aichat__scene{padding:20px 20px 14px}}
 
 /* He lives here, over both layouts, never inside either. Sized and moved
    entirely by the hook. */
@@ -12892,65 +12923,86 @@ button{font-family:var(--font-body)}
    direction:ltr is the mechanism -- it fixes the PHYSICAL order of the grid
    tracks so Arabic cannot mirror them -- and the rules at the end of this
    block give the reading direction back to the text inside. The artwork is
-   never mirrored either way.
-
-   The character column is a clamp, not a percentage: the conversation takes
-   everything left over, which is ~66% at 320px and ~80% on a wide desktop
-   panel. A fixed share would give the thread less exactly where it has
-   least to give. */
-:root{
-  --aichat-char-welcome:clamp(116px,34vw,150px);
-  --aichat-char-talk:clamp(84px,25vw,108px);
-  --aichat-gap:clamp(10px,3.2vw,16px);
-}
-@media(min-width:768px){
-  :root{
-    --aichat-char-welcome:clamp(200px,24vw,276px);
-    --aichat-char-talk:clamp(148px,17vw,200px);
-    --aichat-gap:20px;
-  }
-}
-
+   never mirrored either way. */
 .aichat__welcome,
 .aichat__split{
   direction:ltr;display:grid;height:100%;
-  gap:var(--aichat-gap);padding:14px 16px 10px;align-items:stretch}
-.aichat__welcome{grid-template-columns:var(--aichat-char-welcome) minmax(0,1fr)}
-.aichat__split{grid-template-columns:var(--aichat-char-talk) minmax(0,1fr)}
-/* The slots are empty on purpose -- they are measurements, not containers.
-   align-items:stretch above is what gives them a height to measure. */
+  grid-template-columns:var(--aichat-col,38%) minmax(0,1fr);
+  gap:12px;align-items:stretch}
+@media(min-width:768px){
+  .aichat__welcome,.aichat__split{gap:20px}
+}
 .aichat__slot{min-width:0;min-height:0}
-/* The welcome slot is HIS SHAPE, centred, rather than the whole column:
-   stretched to the full height he would stand at the very bottom while the
-   greeting sat halfway up the panel, which is not "beside" him. Capped at the
-   column height for short viewports. */
-.aichat__slot--welcome{
-  align-self:center;width:100%;
-  aspect-ratio:var(--zaatar-aspect);max-height:100%}
 
-/* -- The greeting, beside him -------------------------------------------
-   Beside, not beneath, and with no tail or bubble: it is a line of writing
-   that happens to sit next to a character, which is what makes it read as
-   his voice rather than as a caption. */
+/* -- Welcome ------------------------------------------------------------
+   His slot is exactly his box, centred, so the greeting beside it lines up
+   with him instead of floating halfway up an empty column. */
+.aichat__slot--welcome{
+  align-self:center;width:100%;height:var(--aichat-mascot-h,60%)}
+
+/* Beside, not beneath, and with no tail or bubble: a line of writing that
+   happens to sit next to a character, which is what makes it read as his
+   voice rather than as a caption. 121.2 scales it up with him. */
 .aichat__hello{align-self:center;min-width:0}
 .aichat__hello-lead{
-  margin:0 0 7px;font-family:var(--font-display);font-weight:600;
-  font-size:clamp(19px,5.4vw,27px);line-height:1.22;color:var(--text-1)}
+  margin:0 0 8px;font-family:var(--font-display);font-weight:600;
+  font-size:clamp(21px,6vw,34px);line-height:1.18;color:var(--text-1)}
 .aichat__hello-body{
-  margin:0;font-size:clamp(13px,3.7vw,15px);line-height:1.55;
-  color:var(--text-2);max-width:34ch}
+  margin:0;font-size:clamp(13.5px,3.9vw,17px);line-height:1.55;
+  color:var(--text-2);max-width:32ch}
 
-/* -- The conversation ---------------------------------------------------
-   §3's recommendation zone belongs above the character, inside the left
-   column, and nothing is reserved for it here. Two reasons, both honest:
-   there are no recommendations to show in this phase, and a real PRO-ORDER
-   product card will not fit that column on a phone. The card is designed
-   two-up in .menu-grid, which is ~138px wide at a 320px viewport; the
-   character column is 84px there. So when recommendations arrive the card
-   has to span the panel above BOTH columns below ~430px, and can only sit
-   inside the character column from 768px up, where that column is 148-200px.
-   useCharacterPlacement already takes the showCards flag and returns the
-   zone geometry for the width where it does fit. */
+/* -- Conversation: the character side -----------------------------------
+   Two boxes pinned to the bottom of the column: the reserved card region and
+   his slot. Both take their height from the hook, so a recommendation
+   appearing, being swiped or vanishing moves nothing. Whatever height is
+   left over sits above them, where the conversation beside it is also
+   empty. */
+.aichat__side{
+  min-width:0;min-height:0;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
+.aichat__recs{
+  flex:0 0 var(--aichat-card-h,0px);min-height:0}
+.aichat__recs:empty{display:none}
+.aichat__slot--talking{
+  flex:0 0 var(--aichat-mascot-h,100%)}
+
+/* -- The recommendation carousel ----------------------------------------
+   One real .item-card at a time. The track is a scroll-snap row, which is
+   what makes the swipe native on touch and on a trackpad without a gesture
+   library; the dots are the only control, because §6 asks for no arrows.
+
+   The slides restore the reading direction the scene forced to ltr, so a
+   card inside the assistant is laid out exactly as the same card is in the
+   menu. The track itself stays in the document's own direction so the first
+   card is the one on the reading edge. */
+.airecs{height:100%;display:flex;flex-direction:column;gap:6px;min-height:0}
+.airecs__track{
+  flex:1;min-height:0;
+  display:flex;gap:8px;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+  overscroll-behavior-x:contain}
+.airecs__track::-webkit-scrollbar{display:none}
+.airecs__slide{
+  flex:0 0 100%;min-width:0;
+  scroll-snap-align:center;scroll-snap-stop:always;
+  display:flex}
+[dir="rtl"] .airecs__slide{direction:rtl}
+/* Stretched to the region, exactly as a card stretches to its row in
+   .menu-grid -- so a long product name cannot make one slide taller than
+   its neighbours, and nothing below it can move. */
+.airecs__slide > .item-card{width:100%;min-height:100%}
+.airecs__dots{
+  flex:none;display:flex;justify-content:center;gap:6px;padding-block-start:1px}
+.airecs__dot{
+  width:6px;height:6px;padding:0;border:none;border-radius:50%;
+  background:var(--border-strong);cursor:pointer;
+  transition:background .18s var(--ease),transform .18s var(--ease)}
+.airecs__dot--on{background:var(--gold);transform:scale(1.25)}
+.airecs__dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* -- Conversation: the thread ------------------------------------------- */
 .aichat__thread{
   min-width:0;min-height:0;display:flex;flex-direction:column}
 .aichat__log{
@@ -12992,17 +13044,26 @@ button{font-family:var(--font-body)}
   background:transparent;border:1px dashed var(--border-strong)}
 
 /* -- Suggested questions ------------------------------------------------
-   Directly above the composer, in both phases, and they submit through the
-   same path as typing -- so they get the same honest answer and there is no
-   second reply mechanism behind them.
-
-   One scrolling row rather than a wrapping block: three questions wrap to
-   three lines at 320px, and that height comes straight out of the scene the
-   character needs. From 768px there is room to wrap, so they do. */
+   Unchanged behaviour (§7): one scrolling row, the same submission path as
+   typing. 121.2 fixes only how it reads -- the row now fades at the trailing
+   edge instead of appearing to be cut off, and carries its own end padding
+   so the last chip clears the edge when it is scrolled to. */
 .aichat__chips{
   flex:none;display:flex;gap:7px;padding:0 16px 9px;
-  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+  overscroll-behavior-x:contain;
+  scroll-padding-inline:16px;
+  -webkit-mask-image:linear-gradient(to right,
+    #000 0,#000 calc(100% - 26px),transparent 100%);
+  mask-image:linear-gradient(to right,
+    #000 0,#000 calc(100% - 26px),transparent 100%)}
+[dir="rtl"] .aichat__chips{
+  -webkit-mask-image:linear-gradient(to left,
+    #000 0,#000 calc(100% - 26px),transparent 100%);
+  mask-image:linear-gradient(to left,
+    #000 0,#000 calc(100% - 26px),transparent 100%)}
 .aichat__chips::-webkit-scrollbar{display:none}
+.aichat__chips::after{content:"";flex:none;inline-size:8px}
 .aichat__chip{
   flex:none;cursor:pointer;white-space:nowrap;
   padding:7px 13px;border-radius:999px;
@@ -13054,20 +13115,20 @@ button{font-family:var(--font-body)}
   background:var(--surface-2);border:1px solid var(--border);
   color:var(--text-3);cursor:not-allowed}
 
-/* On a wide panel the character column is 148-200px, and a full-width
-   composer under a narrow mascot reads as belonging to neither column. In
-   the conversation it is inset to line up with the thread above it. The
-   welcome screen keeps it full width: there is no thread to line up with,
-   and the invitation to start should be the widest thing on the panel. */
+/* On a wide panel the character column is ~150px and a full-width composer
+   under it reads as belonging to neither column. In the conversation it is
+   inset to line up with the thread above it.
+
+   padding-LEFT, physically. The character column is on the left in both
+   languages, so a logical inset would move this to the right-hand side in
+   Arabic and line the composer up under Zaatar instead of under the
+   thread. */
 @media(min-width:768px){
-  /* padding-LEFT, physically. The character column is on the left in both
-     languages, so a logical inset would move this to the right-hand side in
-     Arabic and line the composer up under Zaatar instead of under the thread
-     -- which is exactly what it did before this was pinned down. */
   .aichat__panel--talking .aichat__chips,
   .aichat__panel--talking .aichat__composer{
-    padding-left:calc(16px + var(--aichat-char-talk) + var(--aichat-gap))}
-  .aichat__chips{flex-wrap:wrap;overflow:visible}
+    padding-left:calc(20px + var(--aichat-col,38%) + 20px)}
+  .aichat__chips{flex-wrap:wrap;overflow:visible;
+    -webkit-mask-image:none;mask-image:none}
 }
 
 /* Reading direction restored for everything the guest reads and types. The
@@ -13078,12 +13139,13 @@ button{font-family:var(--font-body)}
 [dir="rtl"] .aichat__thread{direction:rtl}
 
 @media(prefers-reduced-motion:reduce){
-  .zaatar-cta,.aichat__x,.aichat__chip,.aichat__send{transition:none}
+  .zaatar-cta,.aichat__x,.aichat__chip,.aichat__send,.airecs__dot{transition:none}
   .zaatar-cta:active,.aichat__chip:active,
   .aichat__send:active:not(:disabled){transform:none}
+  .airecs__dot--on{transform:none}
 }
 
-/* -- Phase 121.1 §8 -- the developer switcher, out of the way ------------
+/* -- The developer switcher, out of the way -----------------------------
    It was bottom-right at z-index 400, which is the Cart FAB's corner and,
    with the assistant open, sat on top of the send button. Production was
    never the problem: App.jsx renders it behind import.meta.env.DEV, so the
@@ -13091,10 +13153,8 @@ button{font-family:var(--font-body)}
    grepping the dist bundles for "demo-switcher", which returns nothing.
    What it needed was a corner nothing else wants.
 
-   Bottom-LEFT, below the chat's z-index so it can never cover the composer,
-   and faded until it is hovered or focused, so it stops competing with the
-   interface it is there to navigate. Still a real 38px target, and keyboard
-   focus brings it back to full opacity. */
+   The leading bottom corner, below the chat's z-index so it can never cover
+   the composer, and faded until it is hovered or focused. */
 .demo-switcher{
   /* Logical, so it keeps to the leading edge in both languages, and it must
      cancel the physical right: the 14.5 rule above sets one. The safe area
@@ -13104,10 +13164,14 @@ button{font-family:var(--font-body)}
   inset-inline-end:auto;
   z-index:55;align-items:flex-start;
   opacity:.4;transition:opacity .18s var(--ease)}
-/* The panel is 509px tall, which does not fit above a 16px bottom margin on
-   a 568px phone -- it was running off the top of the screen. */
-.demo-switcher__panel{max-height:calc(100dvh - 86px);overflow-y:auto}
 .demo-switcher:hover,
 .demo-switcher:focus-within{opacity:1}
+/* The panel is ~509px tall, which does not fit above a 16px bottom margin on
+   a 568px phone -- it was running off the top of the screen. */
+.demo-switcher__panel{max-height:calc(100dvh - 86px);overflow-y:auto}
+/* An engaged dev flag. Gold rather than a checkbox, because the panel has no
+   other form controls and does not need one. */
+.demo-switcher__link--on{
+  border-color:var(--gold-line);color:var(--gold-ink)}
 @media(prefers-reduced-motion:reduce){.demo-switcher{transition:none}}
 

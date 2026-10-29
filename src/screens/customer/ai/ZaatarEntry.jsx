@@ -3,28 +3,35 @@ import { useLanguage } from "../../../i18n/useLanguage.js";
 import { getCharacter, characterName, withName } from "./characters.js";
 
 /**
- * ZaatarEntry — Phase 121.1. One control: the character AND the words.
+ * ZaatarEntry — Phase 121.2. One pill: the character and the invitation.
  *
- * ── WHY IT CHANGED ───────────────────────────────────────────────────────
- * 121.0 put the animated mascot in the header on his own. A small idle
- * character does not say "tap me to ask something" — the owner's point — so
- * the button now carries his picture and a CTA inside one surface, with a
- * real border, hover and pressed state. It reads as a control without
- * needing a hover to discover it.
+ * ── WHY IT CHANGED AGAIN ─────────────────────────────────────────────────
+ * 121.1 stacked a portrait over a label inside a bordered rectangle, and the
+ * owner read it as a sticker dropped next to the restaurant's name — a
+ * picture in a box rather than a control. The fault was the shape: a tall
+ * rectangle with the artwork floating in its own padding belongs to a
+ * promotion, not to a button.
+ *
+ * So the composition is horizontal now, and the portrait is no longer inside
+ * the surface. He stands ON the pill: his feet sit on its lower edge and his
+ * head rises above it, which ties the two together instead of framing him.
+ * The pill keeps the restaurant's own accent tokens, so it reads as part of
+ * this venue's header rather than as something the app pasted in.
  *
  * ── A STATIC PICTURE, NOT A SECOND MASCOT ────────────────────────────────
- * The header shows a plain <img>, not the animated component. Two reasons:
- * the owner wants the header artwork still, and running a second
- * ZaatarMascot — with its director, its reduced-motion listener and its
- * thirteen layers — purely as decoration is waste the package's own notes
- * warn about. The image URL comes from the character registry, which is the
- * single place the owner's forthcoming dedicated header illustration will be
- * dropped in without this button changing at all.
+ * A plain <img>, not the animated component: running a second ZaatarMascot —
+ * its director, its reduced-motion listener, thirteen layers — as header
+ * decoration is waste, and the owner wants this image to hold still. Only
+ * the pill reacts to hover and press.
+ *
+ * The URL comes from the character registry, which is where the owner's
+ * forthcoming dedicated header artwork will be dropped in. Nothing in this
+ * file needs to change when it arrives: a taller or wider illustration is
+ * handled by the two CSS custom properties the variants set.
  *
  * ── WHEN THE PICTURE WILL NOT LOAD ───────────────────────────────────────
- * The CTA survives it. A missing image hides the portrait and leaves a
- * perfectly good labelled button, rather than removing the guest's only way
- * into the assistant — which is what 121.0 did.
+ * The pill survives it, with its label and its accessible name intact. The
+ * guest keeps the way in.
  */
 export default function ZaatarEntry({ variant = "hero", onOpen }) {
   const { t } = useLanguage();
@@ -32,14 +39,14 @@ export default function ZaatarEntry({ variant = "hero", onOpen }) {
   const [imageFailed, setImageFailed] = useState(false);
 
   const label = withName(t(character.ctaKey, "Ask {name}"), characterName(character, t));
-  /* The compact bar is narrow; "Ask AI" is the approved shorter variant and
-     the accessible name stays the full one either way. */
+  /* The collapsed bar is narrow and sits beside the search field; the short
+     form is the approved fallback there. The accessible name stays full. */
   const shortLabel = t("ai.askShort", "Ask AI");
 
   return (
     <button
       type="button"
-      className={`zaatar-cta zaatar-cta--${variant}`}
+      className={`zaatar-cta zaatar-cta--${variant} ${imageFailed ? "zaatar-cta--noface" : ""}`}
       onClick={onOpen}
       aria-label={label}
       title={label}
