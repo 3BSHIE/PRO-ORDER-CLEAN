@@ -25,6 +25,9 @@ const MOVE_MS = 650;
    files and a future character supplies its own. */
 const SUGGESTION_KEYS = ["ai.q1", "ai.q2", "ai.q3"];
 
+/* One identity, so clearing the held group cannot loop a state update. */
+const NO_RECOMMENDATIONS = [];
+
 /**
  * AiChatOverlay — Phase 121.1, recomposed in 121.2, re-housed in 121.3.
  *
@@ -142,7 +145,7 @@ export default function AiChatOverlay({
   /* "inline" — the full card fits above him; "strip" — only the compact
      control does, and the real cards open into the viewer; "none" — this is
      the welcome, which has no card region at all. */
-  const recsMode = useCharacterPlacement({
+  const { recsMode, moving } = useCharacterPlacement({
     sceneRef,
     layerRef,
     slot,
@@ -172,13 +175,48 @@ export default function AiChatOverlay({
      and cannot be seen pointing — so it does not count either, and closing
      it therefore leaves him exactly as it found him. */
   const recommending = hasRecs && recsMode === "inline";
-  const activity = activityFor({ phase, pending: false, recommending });
+
+  /* ── 121.3b — the Welcome hold ──────────────────────────────────────────
+     ZAATAR-LAB pins the pose to Welcome for the whole welcome-to-chat glide
+     (ChatDemo.jsx:52) so that a pose transition never runs against the
+     placement animation. Without it the character was changing pose WHILE
+     being moved and rescaled across the panel — two animations on one
+     element, which is a large part of what read as "less smooth".
+
+     Held at the activity rather than at the pose, because the activity is
+     this component's contract with the package; the mapping stays the
+     package's business. */
+  const activity = moving
+    ? "assistant_welcome"
+    : activityFor({ phase, pending: false, recommending });
 
   /* Drop the cue the moment the reason for it goes away, so a later group
      cannot inherit the previous group's "already visible". */
   useEffect(() => { if (!recommending) setCardCued(false); }, [recommending]);
 
-  const showInlineCards = recommending && (cardCued || mascotFailed);
+  /* ── 121.3b — the group that is on screen, or on its way off it ─────────
+     The dev preview turns the IDs themselves off, so without this the array
+     empties and the card has nothing left to fade: it vanished instantly
+     while the character was still holding the cane up for it. The lab never
+     has this problem — it keeps the recommended message and flips a
+     separate `visible` flag — so this is the same idea in PRO-ORDER's
+     terms: hold the last real group, and let visibility do the work.
+
+     The Welcome exclusion is DERIVED, not an effect that empties the state:
+     clearing it on `welcome` left nothing to refill it, because the resolved
+     list keeps its identity across a New Chat and the effect below therefore
+     never ran again — the card stayed unmounted for the rest of the session.
+     Deriving it means the held group is still there when the guest comes
+     back, and the card mounts hidden the moment the conversation does. */
+  const [held, setHeld] = useState(recommendations);
+  useEffect(() => {
+    if (recommendations.length > 0) setHeld(recommendations);
+  }, [recommendations]);
+  const displayed = welcome ? NO_RECOMMENDATIONS : held;
+
+  const cardVisible = recommending && (cardCued || mascotFailed);
+  /* Mounted whenever there is anything to show OR to finish hiding. */
+  const mountInlineCards = !welcome && recsMode === "inline" && displayed.length > 0;
 
   /* ── §1 — where the panel starts ────────────────────────────────────────
      The Customer Utility Header stays on screen, so the overlay begins at
@@ -396,11 +434,12 @@ export default function AiChatOverlay({
                   him. */}
               <div className="aichat__side">
                 <div className="aichat__recs">
-                  {showInlineCards && (
+                  {mountInlineCards && (
                     <RecommendationCarousel
-                      items={recommendations}
+                      items={displayed}
                       onOpen={onOpenItem}
                       customLabels={customLabels}
+                      visible={cardVisible}
                     />
                   )}
                   {hasRecs && recsMode === "strip" && (

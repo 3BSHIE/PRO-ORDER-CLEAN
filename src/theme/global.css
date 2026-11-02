@@ -13065,7 +13065,35 @@ button{font-family:var(--font-body)}
    card inside the assistant is laid out exactly as the same card is in the
    menu. The track itself stays in the document's own direction so the first
    card is the one on the reading edge. */
-.airecs{height:100%;display:flex;flex-direction:column;gap:6px;min-height:0}
+/* ── Phase 121.3b — the approved card transition ────────────────────────
+   Ported value-for-value from ZAATAR-LAB's .recs at 199c15d4 (ChatDemo.css
+   468-492), because the owner's verdict was that PRO-ORDER's motion was
+   "less smooth" and this was simply missing: 121.2 mounted the card when it
+   became visible and unmounted it when it did not, so there was never a
+   state to transition FROM. It popped in at the cut and vanished on the
+   dismiss.
+
+   opacity leads at 240ms and the 8px rise follows at 320ms, so the card is
+   legible before it has finished settling. visibility is the piece that is
+   easy to miss: 0s on the way in so it is paintable immediately, and
+   delayed by the full 320ms on the way out so the transform can finish
+   before the box leaves the accessibility and hit-testing tree. */
+.airecs{height:100%;display:flex;flex-direction:column;gap:6px;min-height:0;
+  opacity:0;transform:translateY(8px);visibility:hidden;
+  transition:
+    opacity 240ms ease-out,
+    transform 320ms cubic-bezier(0.2,0.75,0.3,1),
+    visibility 0s linear 320ms}
+.airecs--in{
+  opacity:1;transform:none;visibility:visible;
+  transition:
+    opacity 240ms ease-out,
+    transform 320ms cubic-bezier(0.2,0.75,0.3,1),
+    visibility 0s}
+/* The lab keeps the fade and drops only the movement. */
+@media(prefers-reduced-motion:reduce){
+  .airecs,.airecs--in{transform:none}
+}
 .airecs__track{
   flex:1;min-height:0;
   display:flex;gap:8px;

@@ -313,6 +313,14 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
      is written straight to the DOM below, so the layout is correct in the
      same frame rather than one render later. */
   const [recsMode, setRecsMode] = useState("none");
+  /* True only while the character is actually gliding between layouts.
+     ZAATAR-LAB holds the Welcome pose for the length of that move
+     (ChatDemo.jsx:52, `pose = moving ? 'welcome' : ...`) so a pose
+     transition never runs against the placement animation. The lab uses a
+     650ms timer for it; this is the animation's own lifetime instead, so it
+     cannot drift from the move it is supposed to cover and cannot outlive
+     a move that was cancelled. */
+  const [moving, setMoving] = useState(false);
   const [resizeTick, setResizeTick] = useState(0);
   const lastKey = useRef(motion.key);
   const placed = useRef(false);
@@ -405,6 +413,10 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     if (!keyChanged || !placed.current || reducedMotion || !from.width || box.width < 1) {
       apply(layer, box);
       placed.current = box.width >= 1;
+      /* Nothing is gliding, so nothing is being covered for. Reduced motion
+         lands here too, which is why it gets no Welcome hold — exactly as
+         the lab skips its own hold when motion is reduced. */
+      setMoving(false);
       return;
     }
 
@@ -422,6 +434,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     }
     const record = { target: box, layer, cancel: () => run.cancel() };
     animation.current = record;
+    setMoving(true);
     run.finished
       .then(() => {
         apply(layer, box);
@@ -429,8 +442,11 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
         /* The move is over; the guard above has nothing left to protect. */
         if (animation.current === record) animation.current = null;
       })
-      .catch(() => {});
+      .catch(() => {})
+      /* Released on arrival AND on cancellation, so a move cut short by a
+         resize or a close can never strand the character in the held pose. */
+      .finally(() => { if (animation.current === record || !animation.current) setMoving(false); });
   }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef]);
 
-  return recsMode;
+  return { recsMode, moving };
 }

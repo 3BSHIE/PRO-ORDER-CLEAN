@@ -27,7 +27,7 @@ import { getCharacter, characterName, withName } from "./characters.js";
  * change anything below it, because the region's height is decided by the
  * panel, never by the card inside it.
  */
-export default function RecommendationCarousel({ items, onOpen, customLabels }) {
+export default function RecommendationCarousel({ items, onOpen, customLabels, visible = true }) {
   const { t } = useLanguage();
   const name = characterName(getCharacter(), t);
   const trackRef = useRef(null);
@@ -101,7 +101,18 @@ export default function RecommendationCarousel({ items, onOpen, customLabels }) 
   };
 
   return (
-    <div className="airecs">
+    /* Phase 121.3b — mounted long before it is seen, and hidden by CLASS
+       rather than by unmounting. That is what lets the entrance be a
+       transition at all: the images are already decoded and laid out when
+       the cane goes up, so the card fades and rises instead of popping into
+       a freshly-built box. While hidden it is inert and out of the
+       accessibility tree, so a product on its way off screen cannot be
+       tapped or announced. */
+    <div
+      className={`airecs${visible ? " airecs--in" : ""}`}
+      aria-hidden={visible ? undefined : "true"}
+      inert={visible ? undefined : ""}
+    >
       <div
         className="airecs__track"
         ref={trackRef}
