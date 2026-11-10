@@ -15,6 +15,11 @@ import ZaatarEntry from "./ai/ZaatarEntry.jsx";
 import AiChatOverlay from "./ai/AiChatOverlay.jsx";
 import { useAiChat } from "../../lib/aiChat.js";
 import { DEV_FLAG_AI_RECS, readFlag, subscribeFlags } from "../../lib/devFlags.js";
+/* Phase 121.4 — the layout comparison prototype and its dev-only switch.
+   Both are referenced ONLY under import.meta.env.DEV below, which Vite
+   replaces with the literal false, so the branch folds to the shipping
+   overlay and Rollup drops these two modules (and their CSS) from a
+   production build. */
 import { devPreviewIds } from "../../lib/aiRecommendations.js";
 import CallStaffButton  from "./components/CallStaffButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
@@ -650,7 +655,6 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     [devRecsOn, allMenuItems],
   );
 
-
   /* Real add-to-cart: builds the structured cart item, merges/saves it,
      closes the modal, and shows a confirmation toast. */
   const handleAddToCart = useCallback((item, quantity, notes, selections) => {
@@ -697,6 +701,32 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
     ? categories.find((c) => c.id === selectedItem.categoryId)
     : null;
 
+  /* Phase 121.4 — see the branch at the end of the JSX below. */
+  const aiChatProps = {
+    open: ai.isOpen,
+    onClose: ai.close,
+    messages: ai.messages,
+    phase: ai.phase,
+    onSend: ai.send,
+    /* Phase 121.3 §3 — "New chat", confirmed by the guest inside the
+       panel. It clears the conversation and nothing else: the cart, the
+       orders, the table session and the restaurant's own data are all
+       owned elsewhere and are not touched by it. */
+    onReset: ai.reset,
+    restaurantName: restaurant.name,
+    /* The menu’s own handler and the menu’s own labels: a tapped
+       recommendation opens the real Product Details sheet, with the real
+       customization rules and the real Add to cart. */
+    onOpenItem: handleOpenItem,
+    menuItems: allMenuItems,
+    customLabels,
+    recommendationIds: previewRecommendationIds,
+    /* Phase 121.5 — the follow-ups belonging to the latest reply. Empty
+       until the AI Brain returns any; the overlay falls back to the
+       openers meanwhile. */
+    followUps: ai.followUps,
+    suspended: !!selectedItem,
+  };
   return (
     <>
       {/* ── Topbar ──────────────────────────────────────────────────────────
@@ -1194,27 +1224,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
       {/* Phase 121.0 — the AI waiter's room. Rendered from here so closing
           it returns the guest to exactly the menu they left, with their
           scroll, filters and conversation intact. */}
-      <AiChatOverlay
-        open={ai.isOpen}
-        onClose={ai.close}
-        messages={ai.messages}
-        phase={ai.phase}
-        onSend={ai.send}
-        /* Phase 121.3 §3 — "New chat", confirmed by the guest inside the
-           panel. It clears the conversation and nothing else: the cart, the
-           orders, the table session and the restaurant's own data are all
-           owned elsewhere and are not touched by it. */
-        onReset={ai.reset}
-        restaurantName={restaurant.name}
-        /* The menu’s own handler and the menu’s own labels: a tapped
-           recommendation opens the real Product Details sheet, with the real
-           customization rules and the real Add to cart. */
-        onOpenItem={handleOpenItem}
-        menuItems={allMenuItems}
-        customLabels={customLabels}
-        recommendationIds={previewRecommendationIds}
-        suspended={!!selectedItem}
-      />
+      <AiChatOverlay {...aiChatProps} />
     </>
   );
 }

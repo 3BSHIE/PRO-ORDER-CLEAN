@@ -12856,7 +12856,22 @@ button{font-family:var(--font-body)}
 /* Above the Cart FAB (150), below the product sheet (200). At 60 the FAB
    won on z-index whatever the DOM order was, and a guest with items in the
    cart had a gold pill sitting on the assistant's composer. */
-.aichat{position:fixed;inset:var(--aichat-top,0px) 0 0 0;z-index:160;display:flex}
+/* -- Phase 121.5 §9 — the surface arrives, it does not appear -----------
+   The owner's complaint was that opening the assistant felt like leaving
+   PRO-ORDER for another application. 240ms of opacity and 10px of travel is
+   what separates "a feature opened" from "the screen was replaced"; it is
+   deliberately far shorter than the mascot's 650ms journey across the panel,
+   which is a different transition with a different job.
+
+   The panel moves, the scrim only fades: a scrim that slides reads as a
+   sheet of paper rather than as the room going dark behind one. */
+.aichat{position:fixed;inset:var(--aichat-top,0px) 0 0 0;z-index:160;display:flex;
+  opacity:0;transition:opacity 240ms var(--ease)}
+.aichat--in{opacity:1}
+.aichat__panel{
+  transform:translateY(10px) scale(.994);
+  transition:transform 240ms var(--ease)}
+.aichat--in .aichat__panel{transform:none}
 .aichat__scrim{display:none}
 .aichat__panel{
   position:relative;flex:1;min-width:0;
@@ -12892,17 +12907,29 @@ button{font-family:var(--font-body)}
    The safe-area padding that used to be here is gone with it — the topbar
    above now takes the notch, and keeping a second copy would have inset
    this row for an edge it no longer touches. */
+/* -- Phase 121.5 §6 — slimmer again, and down to two identities ---------
+   45px before this phase: a name, a role, the venue's name, a pill-shaped
+   "New chat" and a circular Close, in a row whose job is to be subordinate
+   to the utility bar directly above it. The venue's name has gone (it is
+   said once, in the greeting) and both actions are now icons of the same
+   size, which takes the row to 41px and gives four of those pixels back to
+   the stage below. */
 .aichat__bar{
   flex:none;display:flex;align-items:center;justify-content:space-between;
-  gap:10px;min-height:40px;padding:5px 12px 5px 16px;
+  gap:10px;min-height:38px;padding:3px 10px 3px 14px;
   background:var(--surface-2);
   border-bottom:1px solid var(--border)}
 /* One line, not a stack: the name and the role sit side by side with a
    separating dot, which is what keeps the row at 40px. */
 .aichat__who{display:flex;align-items:baseline;gap:7px;min-width:0}
+/* §6 — the character's name in the RESTAURANT's primary colour. --gold-ink
+   rather than --gold: the theme already derives a contrast-corrected form of
+   whatever the manager picked, which is what keeps a pale brand readable on
+   this surface without a second colour system being invented here. A venue
+   on the default palette gets the default accent, unchanged. */
 .aichat__name{
   flex:none;font-family:var(--font-display);font-weight:600;
-  font-size:14.5px;line-height:1.3;color:var(--text-1);
+  font-size:15px;line-height:1.3;color:var(--gold-ink);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aichat__role{
   min-width:0;
@@ -12916,33 +12943,34 @@ button{font-family:var(--font-body)}
 /* Arabic letters join; spacing them apart breaks the word. */
 [dir="rtl"] .aichat__role{letter-spacing:0;text-transform:none}
 
-.aichat__acts{flex:none;display:flex;align-items:center;gap:6px}
-/* §3 — New chat. A ghost control, because it is the one destructive action
-   here and a prominent button invites the accident. Disabled until there is
-   actually a conversation to replace. */
-.aichat__act{
-  display:inline-flex;align-items:center;gap:5px;
-  height:30px;padding-inline:10px;border-radius:999px;
-  border:1px solid var(--border);background:transparent;
+.aichat__acts{flex:none;display:flex;align-items:center;gap:2px}
+/* -- §7/§8 — two icon actions, one visual system ------------------------
+   New chat and Close are the same size, the same shape and the same
+   treatment, because they sit side by side and the eye should not have to
+   work out which is the louder control. Neither carries a filled background:
+   the one destructive action here is New chat, and a prominent button
+   invites the accident.
+
+   34px is the hit area, not the glyph — the icons are 16-17px inside it —
+   and the 2px gap plus their own padding keeps roughly 10px of dead space
+   between the two targets, which is what stops a thumb reaching for Close
+   from clearing the conversation.
+
+   They are named by `aria-label` and `title` rather than by visible text,
+   so the accessible name does not depend on a label that a narrow screen
+   would have hidden. */
+.aichat__icon{
+  flex:none;width:34px;height:34px;display:grid;place-items:center;padding:0;
+  border-radius:10px;border:1px solid transparent;background:transparent;
   color:var(--text-2);cursor:pointer;
-  font-family:var(--font-body);font-size:12px;font-weight:600;
-  white-space:nowrap;
   transition:color .16s var(--ease),border-color .16s var(--ease),
     background .16s var(--ease)}
-.aichat__act:hover:not(:disabled){
-  color:var(--text-1);border-color:var(--border-strong);background:var(--surface-3)}
-.aichat__act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.aichat__act:disabled{opacity:.42;cursor:default}
-.aichat__act svg{flex:none}
-/* Under 360px the label gives way and the icon carries the control. It does
-   not become unlabelled: display:none takes the text out of the
-   accessibility tree too, and the button's `title` is what names it then —
-   which is why that attribute is on the element rather than being left to
-   the visible text. */
-@media(max-width:359.98px){
-  .aichat__act{padding-inline:8px}
-  .aichat__act-label{display:none}
-}
+.aichat__icon:hover:not(:disabled){
+  color:var(--text-1);border-color:var(--border);background:var(--surface-3)}
+.aichat__icon:active:not(:disabled){background:var(--surface-1)}
+.aichat__icon:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.aichat__icon:disabled{opacity:.38;cursor:default}
+.aichat__icon svg{flex:none}
 .aichat__x{
   flex:none;width:34px;height:34px;display:grid;place-items:center;
   border-radius:50%;border:1px solid var(--border);
@@ -12969,10 +12997,14 @@ button{font-family:var(--font-body)}
 .aichat__body{
   position:relative;flex:1;min-width:0;min-height:0;
   display:flex;flex-direction:column}
+/* Phase 121.5 — 14/10 before this phase. In the vertical composition this
+   padding is the space between the AI header and the first message, and
+   between the character's feet and the suggested questions; neither needed
+   the full amount, and the six pixels it returns are spent on the card. */
 .aichat__scene{
   position:relative;flex:1;min-width:0;min-height:0;
-  padding:14px 16px 10px;overflow:clip}
-@media(min-width:768px){.aichat__scene{padding:20px 20px 14px}}
+  padding:10px 16px 8px;overflow:clip}
+@media(min-width:768px){.aichat__scene{padding:16px 20px 12px}}
 
 /* He lives here, over both layouts, never inside either. Sized and moved
    entirely by the hook. */
@@ -13041,6 +13073,42 @@ button{font-family:var(--font-body)}
    appearing, being swiped or vanishing moves nothing. Whatever height is
    left over sits above them, where the conversation beside it is also
    empty. */
+/* -- Phase 121.5 — the approved vertical composition --------------------
+   Conversation above, one stage below holding the card and the character,
+   suggested questions and composer under both. The stage is a SIBLING of
+   the scroller rather than a sticky child of it, so there is no scroll
+   position at which the character can move or be hidden.
+
+   The conversation takes what is left after the stage, which is content-
+   sized from stageGeometry's three custom properties -- so the chat's
+   height is a RESULT of the stage's budget rather than a second share that
+   could disagree with it. */
+.aichat__stack{
+  display:flex;flex-direction:column;height:100%;min-height:0;gap:12px}
+.aichat__stack>.aichat__thread{flex:1 1 auto;min-height:0}
+/* A compact thread always has a half-message at its upper edge, and a
+   bubble cut by a hard line reads as a mistake rather than as "there is
+   more above". Fourteen pixels of fade says the second thing. The log is
+   bottom-aligned, so a short conversation sits clear of this and nothing
+   is faded that the guest could have read. */
+.aichat__stack>.aichat__thread>.aichat__log{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 14px);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 14px)}
+
+/* direction:ltr for the same reason the side-by-side split forces it: the
+   stage's internals are written against a physical direction, and the
+   card's own contents take their reading direction back inside it. The
+   conversation above is NOT forced -- it is full width here, so it simply
+   inherits the document's. */
+.aichat__stage{
+  flex:0 0 auto;direction:ltr;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:12px;min-height:0}
+/* Full width, so the recessed card has the stage's whole slack to sit in.
+   The hero is sized inside it, from --aichat-col. */
+.aichat__stage>.aichat__recs{width:100%}
+.aichat__stage>.aichat__slot--talking{width:100%}
+
 .aichat__side{
   min-width:0;min-height:0;
   display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
@@ -13119,6 +13187,109 @@ button{font-family:var(--font-body)}
   transition:background .18s var(--ease),transform .18s var(--ease)}
 .airecs__dot--on{background:var(--gold);transform:scale(1.25)}
 .airecs__dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* -- Phase 121.5 -- the premium depth carousel --------------------------
+   The approved recommendation presentation. The cards are LAYERED rather
+   than in a row, so the hero takes the full width the geometry allows and
+   the next dish shows from behind it instead of beside it -- a side-by-side
+   peek costs the hero about a quarter of its width, and depth costs it
+   nothing.
+
+   .airecs is still the wrapper, unchanged, so the entrance transition above
+   and the exit the overlay listens for are the approved ones. This replaces
+   only .airecs__track. */
+.aidepth__stack{
+  position:relative;flex:1;min-height:0;
+  /* A gesture that means "scroll" is never claimed from the page: the
+     browser keeps vertical panning and hands us only horizontal movement.
+     The pointer handlers apply the same rule for a mouse or trackpad,
+     which have no touch-action. */
+  touch-action:pan-y;
+  transform:translateX(var(--aidepth-drag,0px));
+  transition:transform 300ms var(--ease)}
+/* While a finger is down the stack follows it with no transition, or the
+   300ms would arrive as lag. */
+.aidepth__stack[data-dragging="1"]{transition:none}
+.aidepth__stack:focus-visible{
+  outline:2px solid var(--gold);outline-offset:4px;border-radius:var(--r-lg)}
+
+/* Every card is laid out at the HERO's width and the depth is a transform,
+   so no card's intrinsic height ever changes and the region cannot jump.
+   Only the front layer takes pointer events; the recessed one gets them
+   back through its own select button below. */
+.aidepth__card{
+  position:absolute;inset-block:0;inset-inline-start:50%;
+  width:min(100%,var(--aichat-col,100%));
+  pointer-events:none;transform:translateX(-50%);
+  transition:transform 300ms var(--ease),opacity 300ms var(--ease)}
+.aidepth__card--front{pointer-events:auto}
+.aidepth__real{height:100%;display:flex}
+/* The stage forces direction:ltr so the composition cannot mirror itself;
+   this hands the CARD's own contents their reading direction back, exactly
+   as [dir="rtl"] .airecs__slide does for the flat track. */
+[dir="rtl"] .aidepth__real{direction:rtl}
+/* Exactly as a card stretches to its row in .menu-grid. */
+.aidepth__real>.item-card{width:100%;height:100%}
+
+/* -- The depth ladder ---------------------------------------------------
+   d = 0 front; d = +-1 recessed to the side; |d| > 1 parked, invisible, so
+   that bringing one forward is a transition of something already laid out
+   and never a mount. --aidepth-sign is 1 or -1: for a right-to-left reader
+   the dish waiting next belongs on the left. */
+.aidepth__card[data-depth="0"]{transform:translateX(-50%) scale(1);opacity:1}
+.aidepth__card[data-depth="1"]{
+  transform:translateX(calc(-50% + (var(--aidepth-sign,1) * var(--aidepth-off,22px))))
+    scale(var(--aidepth-scale,.91));
+  opacity:.72}
+.aidepth__card[data-depth="-1"]{
+  transform:translateX(calc(-50% - (var(--aidepth-sign,1) * var(--aidepth-off,22px))))
+    scale(var(--aidepth-scale,.91));
+  opacity:.72}
+.aidepth__card[data-depth="2"]{
+  transform:translateX(calc(-50% + (var(--aidepth-sign,1) * var(--aidepth-far-off,35px))))
+    scale(var(--aidepth-far-scale,.84));
+  opacity:0}
+.aidepth__card[data-depth="-2"]{
+  transform:translateX(calc(-50% - (var(--aidepth-sign,1) * var(--aidepth-far-off,35px))))
+    scale(var(--aidepth-far-scale,.84));
+  opacity:0}
+/* A stage wide enough to have spent the whole offset has room to show the
+   third dish as well, fainter again, instead of leaving the sides of a
+   tablet empty. The stack sets data-wide from its own measured offset, so
+   there is no breakpoint: a phone never reaches it. */
+.aidepth__stack[data-wide="1"] .aidepth__card[data-depth="2"],
+.aidepth__stack[data-wide="1"] .aidepth__card[data-depth="-2"]{opacity:.38}
+
+/* A subtle depth shadow difference, and nothing more. No blur: blur on food
+   photography looks like a defect rather than depth. No dark overlay: the
+   next dish must read as recessed, not as unavailable, and an overlay is
+   how a disabled control is drawn everywhere else in this app.
+
+   The shadow lands on the real .item-card, which already carries a 0.22s
+   box-shadow transition of its own, so the front card gains and loses it on
+   the theme's existing token instead of a new animated shadow. */
+.aidepth{
+  --aidepth-front-shadow:0 10px 26px rgba(0,0,0,.30);
+  --aidepth-back-shadow:0 3px 10px rgba(0,0,0,.18)}
+/* The light palette casts its shadows in 38,32,20 at a fraction of the dark
+   theme's strength; one rgba(0,0,0,.3) for both reads as a bruise on cream.
+   Deliberately lighter than --shadow, which is the elevation of a modal. */
+:root[data-appearance="light"] .aidepth{
+  --aidepth-front-shadow:0 8px 22px rgba(38,32,20,.16);
+  --aidepth-back-shadow:0 2px 8px rgba(38,32,20,.08)}
+.aidepth__card--front>.aidepth__real>.item-card{box-shadow:var(--aidepth-front-shadow)}
+.aidepth__card:not(.aidepth__card--front)>.aidepth__real>.item-card{
+  box-shadow:var(--aidepth-back-shadow)}
+
+/* The recessed card's own "+" and its Product Details are inert, so the
+   only thing the guest can do with a preview is bring it forward. This is
+   that control: a transparent sibling of the inert wrapper, exactly
+   covering the visible sliver, with its own accessible name. */
+.aidepth__pick{
+  position:absolute;inset:0;z-index:1;padding:0;border:none;
+  border-radius:var(--r-lg);background:transparent;
+  pointer-events:auto;cursor:pointer}
+.aidepth__pick:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
 /* -- §8: the compact strip, and the viewer it opens ---------------------
    Where the panel is too short for a real card to stand beside him, this is
@@ -13286,8 +13457,15 @@ button{font-family:var(--font-body)}
    typing. 121.2 fixes only how it reads -- the row now fades at the trailing
    edge instead of appearing to be cut off, and carries its own end padding
    so the last chip clears the edge when it is scrolled to. */
+/* -- Phase 121.5 -- always present, and two pixels tighter --------------
+   The 121.4D prototype reclaimed this row's 41.5px whenever a dish was on
+   screen. That is not approved behaviour: the suggested questions are a
+   core interaction, and the layout is solved around their measured height
+   instead (see stageGeometry). What this phase does take back is two pixels
+   of the row's own bottom inset, which the composer below already provides
+   separation for. */
 .aichat__chips{
-  flex:none;display:flex;gap:7px;padding:0 16px 9px;
+  flex:none;display:flex;gap:7px;padding:0 16px 7px;
   overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
   overscroll-behavior-x:contain;
   scroll-padding-inline:16px;
@@ -13322,8 +13500,8 @@ button{font-family:var(--font-body)}
    "thinking" state -- there is nothing behind the field to think. */
 .aichat__composer{
   flex:none;display:flex;align-items:flex-end;gap:8px;
-  padding:0 16px 10px;
-  padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  padding:0 16px 8px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom))}
 /* §4 — the field. The stray line beside Send was this element's own
    scrollbar: the autosize set its height from scrollHeight, which excludes
    the border, and border-box then took that border back out of the content
@@ -13380,12 +13558,19 @@ button{font-family:var(--font-body)}
    Arabic and line the composer up under Zaatar instead of under the
    thread. */
 @media(min-width:768px){
-  .aichat__panel--talking .aichat__chips,
-  .aichat__panel--talking .aichat__composer{
+  /* Phase 121.5 — scoped to the side-by-side fallback. In the approved
+     vertical composition the conversation is FULL WIDTH, so insetting the
+     questions and the composer by a character column that is not beside
+     them pushed both into a box 230px too narrow — which is what made the
+     suggested questions wrap onto a second row on a tablet. */
+  .aichat__panel--beside .aichat__chips,
+  .aichat__panel--beside .aichat__composer{
     padding-left:calc(20px + var(--aichat-col,38%) + 20px)}
-  .aichat__chips{flex-wrap:wrap;overflow:visible;
-    -webkit-mask-image:none;mask-image:none}
 }
+/* One compact row at every width, scrolling horizontally when it has to.
+   A second row is height the product card has already been charged for,
+   and the row is now permanent — see stageGeometry. */
+.aichat__chips{flex-wrap:nowrap}
 
 /* -- §3: the New chat confirmation --------------------------------------
    It covers the assistant and nothing else: it is a child of .aichat, which
@@ -13443,7 +13628,15 @@ button{font-family:var(--font-body)}
 
 @media(prefers-reduced-motion:reduce){
   .zaatar-cta,.aichat__x,.aichat__chip,.aichat__send,.airecs__dot,
-  .aichat__act,.airecs-strip,.aiconfirm__btn{transition:none}
+  .aichat__icon,.airecs-strip,.aiconfirm__btn{transition:none}
+  /* Phase 121.5 -- the overlay arrives and leaves without travelling, and
+     the depth carousel swaps without animating. What does NOT go is the
+     state: the recessed card keeps its scale, its offset and its reduced
+     opacity, because those are states rather than animations, and the
+     pagination dots carry the active dish as well -- so which product is
+     selected is never explained by movement alone. */
+  .aichat,.aichat__panel,.aidepth__stack,.aidepth__card{transition:none}
+  .aichat__panel{transform:none}
   .zaatar-cta:active,.aichat__chip:active,.airecs-strip:active,
   .aiconfirm__btn:active,
   .aichat__send:active:not(:disabled){transform:none}

@@ -42,9 +42,9 @@ import { aspectRatio, caneTip, figureTop } from "../../../vendor/zaatar-mascot/s
 
 /* The top of the hair across the poses that can appear here. Above it the
    canvas is transparent headroom reserved for Suggesting's raised cane. */
-const HEADROOM = Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking);
+export const HEADROOM = Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking);
 
-const GAP = 12;     // px between the card region and the character
+export const GAP = 12;     // px between the card region and the character
 
 /* ── Phase 121.3a — how far the raised cane reaches above his slot ────────
    The column reserves his IDLE figure, which starts 23.5% down the canvas.
@@ -61,15 +61,15 @@ const GAP = 12;     // px between the card region and the character
    TIP_GAP is the only judgement call here: the breathing room left between
    the tip and the card's lower edge, so the gesture reaches toward the card
    without touching it. */
-const CANE_RISE = Math.max(0, Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking) - caneTip.y);
-const TIP_GAP = 8;
+export const CANE_RISE = Math.max(0, Math.min(figureTop.welcome, figureTop.idle, figureTop.thinking) - caneTip.y);
+export const TIP_GAP = 8;
 
 /* The carousel's pagination row, inside the reserved region and above the
    card. Measured, not estimated: a 6px dot, a 1px offset and the 6px gap
    that separates it from the track. Reserving it is not optional — without
    it the card is handed thirteen pixels less than it needs and the first
    thing to go is the bottom of the description. */
-const DOTS_ROW = 13;
+export const DOTS_ROW = 13;
 
 /* ── The real card's geometry, measured, not guessed ──────────────────────
    .item-card__img-wrap is aspect-ratio:4/3, and the body below it is a fixed
@@ -90,14 +90,14 @@ const DOTS_ROW = 13;
 const CARD_IMAGE = 0.75;
 const CARD_BODY = 182;
 const CARD_BORDER = 2;
-const cardHeightFor = (width) =>
+export const cardHeightFor = (width) =>
   (width - CARD_BORDER) * CARD_IMAGE + CARD_BODY + CARD_BORDER + DOTS_ROW;
 
 /* 132px is what .menu-grid itself gives a card on a 320px phone, so it is the
    narrowest the design is already proven at. 230px is what it gives at 768px;
    past that the card gains nothing and the conversation loses width. */
-const CARD_MIN = 132;
-const CARD_MAX = 230;
+export const CARD_MIN = 132;
+export const CARD_MAX = 230;
 
 /* The conversation keeps at least 58% of the scene. Phase 121.1 gave it ~66%
    and the owner's verdict was that the character paid too much for it; this
@@ -119,7 +119,7 @@ const SIDE_SHARE = 0.42;
    44 because that is the touch-target floor the rest of the app uses; at
    320x568 it costs the character nothing, because his size there is bound
    by the column's WIDTH, not by the height left over. */
-const STRIP = 44;
+export const STRIP = 44;
 /* Welcome has no card to fit, so the character may take half the width — or
    less, when the scene is short enough that half would be more than the
    height can use. */
@@ -131,7 +131,7 @@ const STRIP = 44;
    buys 46% more character than 121.1 had. */
 const WELCOME_SHARE = 0.54;
 
-const clamp = (lo, value, hi) => Math.max(lo, Math.min(value, hi));
+export const clamp = (lo, value, hi) => Math.max(lo, Math.min(value, hi));
 
 /**
  * The conversation's proportions, from the scene's measured content box.
@@ -173,9 +173,9 @@ const clamp = (lo, value, hi) => Math.max(lo, Math.min(value, hi));
  * him nothing at all.
  */
 /* His visible figure's height, from the width of his column. */
-const FIGURE_PER_WIDTH = (1 - HEADROOM) / aspectRatio;
+export const FIGURE_PER_WIDTH = (1 - HEADROOM) / aspectRatio;
 /* The slot the column reserves: visible figure only. */
-const figureOf = (boxHeight) => boxHeight * (1 - HEADROOM);
+export const figureOf = (boxHeight) => boxHeight * (1 - HEADROOM);
 
 /* How much of his natural column an inline card may cost him.
    ──────────────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ const figureOf = (boxHeight) => boxHeight * (1 - HEADROOM);
    (it costs 39%). */
 const MAX_COLUMN_LOSS = 0.15;
 
-function conversationGeometry(width, height) {
+export function conversationGeometry(width, height) {
   const byWidth = width * SIDE_SHARE;
 
   /* ── 1. His column when nothing but the strip is above him ──────────── */
@@ -308,11 +308,35 @@ const mapBox = (from, to) =>
 const sameBox = (a, b) =>
   ["left", "top", "width", "height"].every((k) => Math.abs(a[k] - b[k]) < 0.5);
 
-export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, reducedMotion }) {
+export function useCharacterPlacement({
+  sceneRef,
+  layerRef,
+  slot,
+  mode,
+  motion,
+  reducedMotion,
+  /* ── Phase 121.4 — where the ACTIVE layout's proportions come from ─────
+     Optional, and absent in the shipping chat: left undefined this is
+     conversationGeometry, exactly as before. The layout comparison passes
+     its own solver so the vertical prototype drives THIS engine — the same
+     slot/layer measurement, the same downscale-only box-to-box transform,
+     the same cancellation and the same Welcome hold — instead of a second
+     animation system that imitates it.
+
+     Welcome is deliberately NOT overridable: both options must greet the
+     guest identically for the comparison to mean anything. */
+  geometry,
+}) {
   /* Only the caller's rendering decision lives in state; the geometry itself
      is written straight to the DOM below, so the layout is correct in the
      same frame rather than one render later. */
   const [recsMode, setRecsMode] = useState("none");
+  /* Phase 121.5 — which COMPOSITION the measured scene calls for: the
+     approved vertical stage, or the side-by-side fallback a landscape
+     phone needs. The geometry decides it from the scene it was handed and
+     the overlay renders the matching slot, so there is one answer and both
+     halves of the UI read it from the same place. */
+  const [stack, setStack] = useState(true);
   /* True only while the character is actually gliding between layouts.
      ZAATAR-LAB holds the Welcome pose for the length of that move
      (ChatDemo.jsx:52, `pose = moving ? 'welcome' : ...`) so a pose
@@ -352,7 +376,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     const innerH = sceneRect.height - parseFloat(pad.paddingTop) - parseFloat(pad.paddingBottom);
     const geom = mode === "welcome"
       ? welcomeGeometry(innerW, innerH)
-      : conversationGeometry(innerW, innerH);
+      : (geometry || conversationGeometry)(innerW, innerH);
 
     /* On the PANEL, not the scene. The composer and the suggested questions
        are siblings of the scene, not children of it, and on a wide panel
@@ -366,6 +390,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
     vars.style.setProperty("--aichat-mascot-h", `${geom.mascotH}px`);
     vars.style.setProperty("--aichat-lift", `${geom.lift}px`);
     setRecsMode(geom.recs);
+    setStack(geom.stack !== false);
 
     /* Reading the slot now forces the layout those three properties just
        invalidated, so what comes back is the column as it will be painted. */
@@ -446,7 +471,7 @@ export function useCharacterPlacement({ sceneRef, layerRef, slot, mode, motion, 
       /* Released on arrival AND on cancellation, so a move cut short by a
          resize or a close can never strand the character in the held pose. */
       .finally(() => { if (animation.current === record || !animation.current) setMoving(false); });
-  }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef]);
+  }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef, geometry]);
 
-  return { recsMode, moving };
+  return { recsMode, stack, moving };
 }

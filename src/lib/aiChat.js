@@ -39,6 +39,52 @@ export const AI_PHASE = { WELCOME: "welcome", CONVERSATION: "conversation" };
 export const AI_ROLE = { USER: "user", ASSISTANT: "assistant", NOTICE: "notice" };
 
 /**
+ * A follow-up the guest can tap instead of typing.
+ *
+ * @typedef {{ id: string, text: string }} SuggestedFollowUp
+ *
+ * -- Phase 121.5 section 5: the contract, and nothing behind it yet -------
+ * The owner wants the suggested questions to follow the conversation. That
+ * is the AI Brain's job and the AI Brain does not exist, so what ships here
+ * is the SHAPE of the answer and the path it travels, with the honest
+ * opener set flowing through it meanwhile.
+ *
+ * A reply may carry its own follow-ups. The UI reads them from the most
+ * recent reply that has any, and falls back to the openers, so the day a
+ * model starts returning them the row simply begins changing - no component
+ * learns anything new, and no suggestion is ever invented here.
+ */
+export const MAX_FOLLOW_UPS = 4;
+
+/**
+ * Clean a list of follow-ups from any source into something renderable:
+ * strings trimmed, blanks dropped, duplicates removed case-insensitively,
+ * ids made stable, and the whole thing capped.
+ *
+ * Defensive on purpose. The eventual producer is a language model, and a
+ * model may repeat itself, return twenty, or return nothing at all.
+ *
+ * @param {Array<SuggestedFollowUp|string>|null|undefined} list
+ * @returns {SuggestedFollowUp[]}
+ */
+export function normalizeFollowUps(list, max = MAX_FOLLOW_UPS) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const entry of list) {
+    const text = String((typeof entry === "string" ? entry : entry?.text) ?? "").trim();
+    if (!text) continue;
+    const fold = text.toLocaleLowerCase();
+    if (seen.has(fold)) continue;
+    seen.add(fold);
+    const id = (typeof entry === "object" && entry?.id) ? String(entry.id) : `f${out.length}-${fold.slice(0, 40)}`;
+    out.push({ id, text });
+    if (out.length === max) break;
+  }
+  return out;
+}
+
+/**
  * The single map from "what the assistant is doing" to "what Zaatar shows".
  *
  * The package exposes the activity names; this is the one place PRO-ORDER
@@ -145,9 +191,38 @@ export function useAiChat(scope) {
     setMessages((prev) => [
       ...prev,
       { id: messageId(), role: AI_ROLE.USER, text: body, at: Date.now() },
-      { id: messageId(), role: AI_ROLE.NOTICE, key: "ai.notConnected", at: Date.now() },
+      /* -- Phase 121.5 section 5: THE SEAM ------------------------------
+         This object is the whole extension point. Today it is the honest
+         not-connected notice and it carries no follow-ups, so the row
+         below falls back to the openers. When the AI Brain lands, this
+         becomes the assistant's reply and gains two fields the rest of
+         the UI already knows how to render:
+
+             { id, role: AI_ROLE.ASSISTANT, text,
+               followUps: SuggestedFollowUp[],   // section 5
+               recommendationIds: string[] }     // the carousel
+
+         Nothing else in the component tree has to change for that. What
+         must NOT happen here is a fabricated reply or a fabricated
+         suggestion: a notice is not an assistant, and an invented
+         follow-up would imply a capability the restaurant has not got. */
+      { id: messageId(), role: AI_ROLE.NOTICE, key: "ai.notConnected", at: Date.now(), followUps: null },
     ]);
   }, []);
+
+  /* The follow-ups belonging to the latest reply that offered any. Stale
+     ones can never be shown: a newer reply without follow-ups returns the
+     row to the openers rather than leaving the previous turn's questions
+     under a different answer. New Chat empties the list, so it resets with
+     everything else. */
+  const followUps = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.role === AI_ROLE.USER) continue;
+      return normalizeFollowUps(m.followUps);
+    }
+    return [];
+  }, [messages]);
 
   /* ── Phase 121.3 §3 — the seam a cancelable request will need ──────────
      There is nothing in flight today: no model, no stream, no request. But
@@ -176,5 +251,5 @@ export function useAiChat(scope) {
     setMessages([]);
   }, [cancelInFlight]);
 
-  return { isOpen, open, close, messages, phase, send, reset, inFlight, cancelInFlight };
+  return { isOpen, open, close, messages, phase, send, reset, followUps, inFlight, cancelInFlight };
 }

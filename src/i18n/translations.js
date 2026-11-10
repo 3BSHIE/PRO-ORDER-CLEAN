@@ -27,6 +27,11 @@ export const translations = {
       /* Only for the collapsed header bar, where the full CTA will not fit. */
       askShort: "Ask AI",
       greetingLead: "Hi, I'm {name}.",
+      /* Phase 121.5 — the restaurant is named ONCE, here, as a welcome
+         rather than as a label repeated in the persistent AI header. Used
+         only when the venue actually has a name; the plain lead above is
+         the fallback, so nothing is ever invented. */
+      greetingLeadAt: "Welcome to {venue}! I'm {name}.",
       greetingBody: "I'm your AI waiter. Ask me about any dish and I'll help you choose.",
       suggestionsLabel: "Suggested questions",
       /* The card region beside the conversation. Zaatar does not pick the
@@ -1428,6 +1433,7 @@ export const translations = {
          and the button's accessible name is still the full "اسأل زعتر". */
       askShort: "اسأل",
       greetingLead: "أهلًا! أنا {name}.",
+      greetingLeadAt: "أهلًا بك في {venue}! أنا {name}.",
       greetingBody: "أنا نادلك الذكي. اسألني عن أي طبق وسأساعدك في الاختيار.",
       suggestionsLabel: "أسئلة مقترحة",
       recsRole: "أطباق مقترحة",
