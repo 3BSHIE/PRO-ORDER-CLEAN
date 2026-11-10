@@ -8,6 +8,7 @@ import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { resolveRecommendations } from "../../../lib/aiRecommendations.js";
 import { getCharacter, characterName, withName } from "./characters.js";
 import { useCharacterPlacement } from "./useCharacterPlacement.js";
+import { useVirtualKeyboard } from "./useVirtualKeyboard.js";
 import { stageGeometry } from "./stageGeometry.js";
 import DepthCarousel from "./DepthCarousel.jsx";
 import RecommendationCarousel from "./RecommendationCarousel.jsx";
@@ -37,6 +38,16 @@ const SPLIT_GAP = 12;
    panel feel like a different application opening. */
 const OPEN_MS = 240;
 
+/* Phase 121.6 — below this the panel cannot hold its own furniture.
+   41 (AI header) + 39.5 (suggested questions) + 54 (composer) is 134.5
+   before a single message is shown, and a landscape phone with its keyboard
+   up leaves about 114px under the utility header. Measured there: the
+   conversation came out 4px tall and the composer was clipped off the
+   bottom of the panel. The threshold is that furniture plus two lines of
+   conversation, so it is a statement about what has to fit rather than a
+   number chosen to make a viewport pass. */
+const PANEL_MIN = 210;
+
 /* The openers. Keys, not sentences: the copy lives in the translation files
    and a future character supplies its own. They are what the suggested
    questions show until the AI Brain starts returning follow-ups of its own
@@ -45,6 +56,31 @@ const OPENER_KEYS = ["ai.q1", "ai.q2", "ai.q3"];
 
 /* One identity, so clearing the held group cannot loop a state update. */
 const NO_RECOMMENDATIONS = [];
+
+/* Blurring is the only way a page can ask for the software keyboard to go
+   away, and it has to be aimed at whatever is actually focused — usually
+   the composer, but possibly another field the guest moved to. */
+/* "On screen" in the sense that matters for focus. The menu renders two
+   entry controls — a compact one in the topbar and a hero one in the header
+   — and hides whichever does not belong at this width with
+   visibility:hidden. That one still reports a box, so an offsetWidth test
+   picks it and .focus() silently does nothing: measured at 390x844, the
+   compact control is 72x33 and unfocusable, and closing the assistant left
+   focus on the body. checkVisibility() answers the real question. */
+const isOnScreen = (el) => {
+  if (!el) return false;
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({ visibilityProperty: true, contentVisibilityAuto: true });
+  }
+  return (el.offsetWidth > 0 || el.offsetHeight > 0)
+    && window.getComputedStyle(el).visibility !== "hidden";
+};
+
+const isEditableElement = (el) => {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "TEXTAREA" || tag === "INPUT" || el.isContentEditable === true;
+};
 
 /**
  * AiChatOverlay — Phase 121.1, recomposed in 121.2, re-housed in 121.3,
@@ -168,6 +204,20 @@ export default function AiChatOverlay({
     return () => cancelAnimationFrame(id);
   }, [present, open, reducedMotion]);
 
+  /* ── Phase 121.6 — typing mode ─────────────────────────────────────────
+     `open` is true only when a SOFTWARE keyboard is genuinely covering the
+     bottom of the screen: a coarse pointer, something editable focused, and
+     a real bite taken out of the viewport. A desktop click in the field, a
+     browser toolbar sliding away and an iPad with a hardware keyboard all
+     report false — see the hook for why each of those had to be excluded
+     by hand.
+
+     `inset` is how far the panel's lower edge has to be lifted, and it is
+     zero on the browsers that shrink the layout viewport themselves, so the
+     keyboard's height is never subtracted twice. */
+  const keyboard = useVirtualKeyboard(present);
+  const typing = keyboard.open;
+
   /* ── 121.3a — the mascot's own card cue ─────────────────────────────────
      The package times the card for us: going INTO Suggesting it reports the
      card visible 360ms in, as the cane reaches up, and coming out it clears
@@ -258,6 +308,12 @@ export default function AiChatOverlay({
     motion,
     reducedMotion,
     geometry,
+    /* The stage is out of the layout while the keyboard is up, so the scene
+       is a fraction of its height. Solving against that would resize him,
+       flip recsMode to strip and replay the whole recommendation
+       choreography on the way back. Nothing is measured until the keyboard
+       has gone. */
+    frozen: typing,
   });
 
   /* ── What "a recommendation is being displayed" means ───────────────────
@@ -314,13 +370,39 @@ export default function AiChatOverlay({
      its lower edge. Read from the live element in a layout effect, which
      runs before paint, so the panel is never painted over the header first
      and corrected afterwards. */
+  /* Read inside syncTopInset, which has to stay referentially stable
+     because a ResizeObserver and three window listeners are bound to it. */
+  const typingRef = useRef(false);
+  typingRef.current = typing;
+
   const syncTopInset = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
     const bar = document.querySelector(".topbar");
     const bottom = bar ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
-    root.style.setProperty("--aichat-top", `${bottom}px`);
+    /* ── §13 — the one responsive compromise, and only where it is forced ─
+       Normally the overlay starts below the Customer Utility Header, which
+       is what keeps Call Staff, My Orders and the language switch reachable
+       with the assistant open.
+
+       A landscape phone with its keyboard up has about 114px left under
+       that header, and the AI header, the suggested questions and the
+       composer need 134.5 of it before a message is shown. Something has to
+       give, and the brief is explicit about the order: the composer and the
+       questions stay. So on a panel that short the overlay TEMPORARILY
+       borrows the band above it — the utility header is not unmounted, not
+       duplicated and not redesigned, it is covered for as long as the
+       keyboard is up and uncovered the moment it goes.
+
+       Everywhere else this is exactly the inset it has always been. */
+    const free = (window.visualViewport?.height ?? window.innerHeight) - bottom;
+    const tight = typingRef.current && free < PANEL_MIN;
+    root.style.setProperty("--aichat-top", `${tight ? 0 : bottom}px`);
   }, []);
+
+  /* The keyboard changes how much room there is, so the decision above has
+     to be retaken when it opens or closes. */
+  useEffect(() => { syncTopInset(); }, [typing, keyboard.inset, syncTopInset]);
 
   useLayoutEffect(() => {
     if (!present) return undefined;
@@ -382,8 +464,7 @@ export default function AiChatOverlay({
            screen: the menu renders a compact copy in the topbar and a hero
            copy in the header, and whichever is hidden at this width cannot
            take focus. */
-        : [...document.querySelectorAll(".zaatar-cta")]
-            .find((el) => el.offsetWidth > 0 || el.offsetHeight > 0);
+        : [...document.querySelectorAll(".zaatar-cta")].find(isOnScreen);
       if (target && typeof target.focus === "function") {
         target.focus({ preventScroll: true });
       }
@@ -409,16 +490,41 @@ export default function AiChatOverlay({
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages.length]);
 
-  /* ── Re-pin when the card changes the thread's height ───────────────────
-     Found by measurement in 121.4D: with sixteen messages the thread is
-     853px of content in a box that drops from 350 to 149 when a dish is
-     presented. The browser keeps scrollTop, so the newest message — the one
-     the recommendation answers — ended up 200px below the fold the moment
-     the card arrived. */
+  /* ── The thread keeps its place when its box changes size ──────────────
+     Three things resize this box: a dish arriving or leaving, the composer
+     growing with a long draft, and — the one this phase adds — the keyboard
+     taking most of the screen and then giving it back.
+
+     Measured in 121.4D: with sixteen messages the thread is 853px of
+     content in a box that drops from 350 to 149 when a dish is presented.
+     The browser keeps scrollTop, so the newest message — the one the
+     recommendation answers — ended up 200px below the fold.
+
+     Re-pinning unconditionally would be the opposite mistake. A guest who
+     has deliberately scrolled up to re-read something must not be yanked
+     back to the bottom merely because the keyboard opened. So the rule is
+     "stay where you were": bottom-anchored if it was bottom-anchored,
+     untouched otherwise. The 24px tolerance is for a thread resting a pixel
+     or two off the end after a smooth scroll. */
   useEffect(() => {
     const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [onStage, recsMode, stack]);
+    if (!log || typeof ResizeObserver === "undefined") return undefined;
+    let pinned = true;
+    const onScroll = () => {
+      pinned = log.scrollHeight - log.clientHeight - log.scrollTop < 24;
+    };
+    const observer = new ResizeObserver(() => {
+      if (pinned) log.scrollTop = log.scrollHeight;
+    });
+    log.addEventListener("scroll", onScroll, { passive: true });
+    observer.observe(log);
+    return () => {
+      log.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+    /* The log element itself is replaced when the composition changes, so
+       this has to be re-bound to the new one. */
+  }, [present, stack, welcome]);
 
   /* A conversation that no longer exists cannot be reviewed in a viewer. */
   useEffect(() => { if (welcome) setViewerOpen(false); }, [welcome]);
@@ -458,18 +564,52 @@ export default function AiChatOverlay({
 
   if (!present || !mount) return null;
 
+  /* ── §5 — what closes the keyboard, and what must not ──────────────────
+     Only a message that has genuinely been ACCEPTED into the conversation.
+     An empty or whitespace-only submission is rejected above the blur, so a
+     mis-tap on Send neither dismisses the keyboard nor discards the draft.
+
+     It does not wait for the assistant: the reply's lifecycle and the
+     keyboard's are separate, and holding the keyboard open until a response
+     arrived would mean holding it open forever today.
+
+     Blurring is how a page asks for the keyboard to go away — there is no
+     API for it — so this is `blur`, not the `focus` that used to be here.
+     On a device with no software keyboard it would be a pointless loss of
+     focus, so it is gated on the same coarse-pointer test the typing layout
+     uses. */
+  const dismissKeyboard = () => {
+    if (!keyboard.coarse) return;
+    const el = inputRef.current;
+    if (el && document.activeElement === el) el.blur();
+    else if (isEditableElement(document.activeElement)) document.activeElement.blur();
+  };
+
   const submit = (e) => {
     e?.preventDefault?.();
     const text = draft.trim();
     if (!text) return;
     onSend(text);
     setDraft("");
-    inputRef.current?.focus();
+    dismissKeyboard();
+    if (!keyboard.coarse) inputRef.current?.focus();
   };
 
   /* A tapped suggestion goes through the SAME path as typing it, so it gets
-     the same answer and no separate reply machinery exists (§5). */
-  const sendSuggestion = (text) => onSend(text);
+     the same answer and no separate reply machinery exists (§5). If the
+     keyboard happened to be up it goes away, exactly as it would after a
+     typed message; if it was already down nothing is focused and nothing
+     opens. */
+  const sendSuggestion = (text) => {
+    onSend(text);
+    dismissKeyboard();
+  };
+
+  /* §9 — leave typing mode without sending, clearing or re-selecting
+     anything. Blurring is the whole implementation: the keyboard goes, the
+     viewport comes back, and the layout restores itself from the state it
+     never lost. */
+  const viewDishes = () => dismissKeyboard();
 
   /* The strip is the same control in both compositions; only its width
      differs, and that is the stylesheet's business. */
@@ -505,11 +645,14 @@ export default function AiChatOverlay({
 
   return createPortal(
     <div
-      className={`aichat ${shown ? "aichat--in" : ""}`}
+      className={`aichat ${shown ? "aichat--in" : ""} ${typing ? "aichat--typing" : ""}`}
       ref={rootRef}
       role="dialog"
       aria-label={t(character.titleKey, "AI waiter")}
-      style={{ "--zaatar-aspect": aspectRatio }}
+      /* --aichat-kb lifts the panel's lower edge clear of the keyboard on
+         the browsers that leave the layout viewport alone. It is 0 on the
+         rest, where the browser has already made the panel shorter. */
+      style={{ "--zaatar-aspect": aspectRatio, "--aichat-kb": `${keyboard.inset}px` }}
     >
       <div className="aichat__scrim" onMouseDown={onClose} aria-hidden="true" />
 
@@ -662,7 +805,14 @@ export default function AiChatOverlay({
               The layout is solved around their measured height rather than
               around their absence: stageGeometry is handed the scene that
               is left after this row and the composer have taken theirs. */}
-          <SuggestionRow items={suggestions} onSend={sendSuggestion} />
+          <SuggestionRow
+            items={suggestions}
+            onSend={sendSuggestion}
+            /* Offered only while the keyboard has actually hidden a group
+               of dishes. No keyboard, or nothing to go back to, and the row
+               is the questions alone. */
+            onViewDishes={typing && hasRecs ? viewDishes : undefined}
+          />
 
           <form className="aichat__composer" onSubmit={submit}>
             <textarea
@@ -672,7 +822,11 @@ export default function AiChatOverlay({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                /* Enter sends, Shift+Enter makes a new line. */
+                /* Enter sends, Shift+Enter makes a new line — but never
+                   while an input method is composing. An Arabic, Japanese
+                   or Korean guest pressing Enter to accept a candidate was
+                   sending the half-finished word instead. */
+                if (e.nativeEvent?.isComposing || e.keyCode === 229) return;
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
               }}
               placeholder={t("ai.placeholder", "Ask about the menu…")}

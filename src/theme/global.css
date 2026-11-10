@@ -12865,7 +12865,15 @@ button{font-family:var(--font-body)}
 
    The panel moves, the scrim only fades: a scrim that slides reads as a
    sheet of paper rather than as the room going dark behind one. */
-.aichat{position:fixed;inset:var(--aichat-top,0px) 0 0 0;z-index:160;display:flex;
+/* -- Phase 121.6 -- the lower edge clears the software keyboard ---------
+   --aichat-kb is how much of the LAYOUT viewport the keyboard has covered,
+   measured by useVirtualKeyboard. On the browsers that shrink the layout
+   viewport themselves it is 0, because the panel has already been made
+   shorter and moving it again would open a gap the height of a keyboard.
+   On iOS, where a position:fixed box stays anchored to a layout viewport
+   the keyboard does not touch, it is what keeps the composer on screen. */
+.aichat{position:fixed;inset:var(--aichat-top,0px) 0 var(--aichat-kb,0px) 0;
+  z-index:160;display:flex;
   opacity:0;transition:opacity 240ms var(--ease)}
 .aichat--in{opacity:1}
 .aichat__panel{
@@ -13188,6 +13196,47 @@ button{font-family:var(--font-body)}
 .airecs__dot--on{background:var(--gold);transform:scale(1.25)}
 .airecs__dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
+/* -- Phase 121.6 -- TYPING MODE -----------------------------------------
+   While the software keyboard is up, the area left above it belongs to
+   reading and writing. The character stage leaves the LAYOUT entirely --
+   display:none, not opacity -- so the conversation expands into the space
+   instead of scrolling behind an invisible block, and so the dish's Add
+   control cannot be reached by tab or by touch while it cannot be seen.
+
+   What does NOT happen is an unmount. The stage's subtree stays in the
+   React tree with its state: the carousel keeps the dish the guest was
+   looking at, the mascot keeps its instance and its activity, and the
+   placement engine is frozen rather than re-solved, so coming back is a
+   restoration and not a replay.
+
+   The suggested questions and the composer are deliberately absent from
+   this block. They are the two things typing mode exists to protect. */
+.aichat--typing .aichat__stage,
+.aichat--typing .aichat__side,
+.aichat--typing .aichat__slot--welcome{display:none}
+/* Both of these are two-column grids, and a hidden first column still
+   reserves its track: measured at 667x375 with the side hidden, the
+   conversation was auto-placed back into the character's 99px column and
+   came out 99px wide. One column while typing, in both. */
+.aichat--typing .aichat__welcome,
+.aichat--typing .aichat__split{grid-template-columns:minmax(0,1fr)}
+/* In typing mode the scene holds the conversation and nothing else, so
+   the padding that separates the character stage from the questions below
+   is paying for a stage that is not there. Ten pixels back, which on a
+   landscape phone with its keyboard up is nearly half the conversation. */
+.aichat--typing .aichat__scene{padding-block:4px}
+/* He is absolutely positioned, so hiding him costs the layout nothing --
+   but an invisible character over the conversation would be a ghost, and
+   the layer is aria-hidden and pointer-events:none already, so opacity is
+   enough and keeps the element (and its animations) alive.
+
+   Out instantly, in over 160ms: leaving typing mode, the stage returns in
+   the same frame the geometry unfreezes, and he fades back into the box he
+   never actually left. Entering it, a fade would leave him hanging over an
+   already-expanded thread. */
+.aichat__layer{transition:opacity 160ms var(--ease)}
+.aichat--typing .aichat__layer{opacity:0;transition:none}
+
 /* -- Phase 121.5 -- the premium depth carousel --------------------------
    The approved recommendation presentation. The cards are LAYERED rather
    than in a row, so the hero takes the full width the geometry allows and
@@ -13488,6 +13537,17 @@ button{font-family:var(--font-body)}
   font-size:12.5px;font-weight:500;
   transition:border-color .16s var(--ease),color .16s var(--ease),
     background .16s var(--ease)}
+/* Phase 121.6 -- the way back to the dishes, inside the row that already
+   exists so it costs the composer and the conversation no height. Sticky
+   rather than scrolling: a long set of questions must not be able to carry
+   it off the screen. Deliberately quieter than a question -- it is a way
+   out of typing, not something to ask. */
+.aichat__chip--action{
+  position:sticky;inset-inline-start:0;z-index:1;
+  border-style:dashed;border-color:var(--border-strong);
+  background:var(--surface-1);color:var(--text-3);font-weight:600}
+.aichat__chip--action:hover{
+  border-style:solid;color:var(--text-1);background:var(--surface-3)}
 .aichat__chip:hover{
   border-color:var(--gold-line);color:var(--text-1);background:var(--surface-3)}
 .aichat__chip:active{transform:scale(.98)}
@@ -13637,6 +13697,10 @@ button{font-family:var(--font-body)}
      selected is never explained by movement alone. */
   .aichat,.aichat__panel,.aidepth__stack,.aidepth__card{transition:none}
   .aichat__panel{transform:none}
+  /* Phase 121.6 -- leaving typing mode restores the character to exactly
+     where he was; with reduced motion he is simply there again, with no
+     fade, which is the correct state change without the movement. */
+  .aichat__layer{transition:none}
   .zaatar-cta:active,.aichat__chip:active,.airecs-strip:active,
   .aiconfirm__btn:active,
   .aichat__send:active:not(:disabled){transform:none}

@@ -42,6 +42,11 @@ export const translations = {
       /* Phase 121.3 §8 — the compact strip on a panel too short to stand a
          full card beside him, and what it opens. */
       recsPeek: "Suggested dishes ({n})",
+      /* Phase 121.6 — the way back to the dishes while the keyboard is up.
+         It dismisses the keyboard and restores the approved layout; it
+         never sends, never clears the draft and never changes which dish
+         is selected. */
+      viewDishes: "View dishes",
       /* Phase 121.3 §2/§3 — clearing the conversation, and only that. The
          body says what survives, because a guest mid-order reading "new
          chat" has every reason to fear for their basket. */
@@ -1440,6 +1445,7 @@ export const translations = {
       recsLabel: "أطباق يقترحها {name}",
       recsGoTo: "عرض الطبق {n}",
       recsPeek: "أطباق مقترحة ({n})",
+      viewDishes: "عرض المنتجات",
       newChat: "محادثة جديدة",
       newChatTitle: "بدء محادثة جديدة؟",
       newChatBody: "سيحل هذا محل محادثتك الحالية مع {name}. لن تتأثر سلتك ولا طلباتك.",

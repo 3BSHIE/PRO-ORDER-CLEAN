@@ -326,6 +326,21 @@ export function useCharacterPlacement({
      Welcome is deliberately NOT overridable: both options must greet the
      guest identically for the comparison to mean anything. */
   geometry,
+  /* ── Phase 121.6 — hold everything exactly where it is ────────────────
+     True while the software keyboard has collapsed the stage out of the
+     layout. The scene is then a fraction of its usual height, and solving
+     the geometry against it would resize the character, flip recsMode from
+     inline to strip and — because recsMode is what tells the caller a
+     recommendation is being DISPLAYED — drop him out of Suggesting and
+     back into it when the keyboard closed. The guest would watch the whole
+     recommendation choreography replay for having typed a word.
+
+     So no pass runs at all while this is set. The layer keeps the inline
+     styles it already had, recsMode keeps its value, and because the
+     geometry is a pure function of the scene's box, the pass that runs on
+     release computes the identical answer and applies it with no
+     animation. Nothing is remembered, because nothing changed. */
+  frozen = false,
 }) {
   /* Only the caller's rendering decision lives in state; the geometry itself
      is written straight to the DOM below, so the layout is correct in the
@@ -359,6 +374,7 @@ export function useCharacterPlacement({
   }, [slot, sceneRef]);
 
   useLayoutEffect(() => {
+    if (frozen) return;
     const scene = sceneRef.current;
     const layer = layerRef.current;
     if (!scene || !layer || !slot) return;
@@ -471,7 +487,7 @@ export function useCharacterPlacement({
       /* Released on arrival AND on cancellation, so a move cut short by a
          resize or a close can never strand the character in the held pose. */
       .finally(() => { if (animation.current === record || !animation.current) setMoving(false); });
-  }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef, geometry]);
+  }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef, geometry, frozen]);
 
   return { recsMode, stack, moving };
 }
