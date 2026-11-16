@@ -300,7 +300,7 @@ export default function AiChatOverlay({
      control does, and the real cards open into the viewer; "none" — this is
      the welcome. `stack` is the composition: the vertical stage, or the
      side-by-side fallback a landscape phone needs. */
-  const { recsMode, stack, moving } = useCharacterPlacement({
+  const { recsMode, stack, card, moving } = useCharacterPlacement({
     sceneRef,
     layerRef,
     slot,
@@ -758,6 +758,7 @@ export default function AiChatOverlay({
                         onOpen={onOpenItem}
                         customLabels={customLabels}
                         visible={cardVisible}
+                        presentation={card.presentation}
                       />
                     )}
                     {strip}

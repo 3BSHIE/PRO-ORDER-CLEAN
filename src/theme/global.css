@@ -961,10 +961,16 @@ button{font-family:var(--font-body)}
 .item-card__name{
   font-size:var(--ic-name);font-weight:600;color:var(--text-1);
   margin:0 0 var(--ic-gap);line-height:1.35;letter-spacing:.01em}
+/* Phase 121.7 — the clamp is a variable with the approved value as its
+   fallback, so every card outside the AI stage still shows two lines and
+   nothing had to opt in. The AI stage lowers it to one only on the tier of
+   screen where two lines is the difference between a conversation and no
+   conversation; the full description is where the bounded treatment always
+   sent it, in Product Details. */
 .item-card__desc{
   font-size:var(--ic-desc);color:var(--text-2);line-height:1.45;
   margin:0 0 var(--ic-desc-gap);flex:1;
-  display:-webkit-box;-webkit-line-clamp:2;
+  display:-webkit-box;-webkit-line-clamp:var(--ic-desc-lines,2);
   -webkit-box-orient:vertical;overflow:hidden}
 .item-card__foot{
   display:flex;align-items:center;
@@ -984,6 +990,63 @@ button{font-family:var(--font-body)}
 .item-card__add:disabled{
   background:var(--surface-3);color:var(--text-3);
   cursor:not-allowed;filter:none;transform:none}
+
+/* ── Phase 121.7 §8/§9 — the AI Waiter's compact presentation ───────────
+   THE SAME CARD. Same component, same markup, same product data, same
+   onOpen into the real Product Details, same price, same availability, same
+   badges, same restaurant theme. What changes is the four numbers Phase
+   119.0 already named on .item-card plus the image's aspect — which is
+   exactly the mechanism the Product Editor's miniature preview uses, so
+   this is the architecture the card was built with rather than a second
+   card pretending to be the first.
+
+   WHY IT EXISTS. The standard card is about 0.75 x width + 184 tall. On a
+   360x640 phone the AI stage has roughly 414px to divide between a
+   conversation, a card and a character, and 0.75 x 132 + 184 is 283 of it
+   before anything else is paid for. That is why the layout used to fall
+   back to a count-only strip, and the owner has rejected that: the dish has
+   to be on screen, not behind a button.
+
+   WHAT IS CUT, AND WHAT IS NOT. Padding, the gaps between sections, the
+   badge slot's reserve, the image's height and the action's diameter. NOT
+   the image, the name, the description, the price, the badges, the
+   availability treatment or the action. The name is bounded to two lines
+   rather than three — the same bounded treatment the description already
+   has, with the full text one tap away in Product Details — which is where
+   most of the saving comes from.
+
+   SCOPED ON PURPOSE. Everything below is inside .item-card--compact, which
+   only ItemCard's `presentation` prop can produce. There is no width-based
+   media query here, so a narrow Customer Menu is untouched. */
+.item-card--compact{
+  --ic-pad:8px 10px 9px;
+  --ic-name:13.5px;
+  --ic-desc:11px;
+  --ic-price:14.5px;
+  --ic-add:28px;
+  --ic-add-font:19px;
+  --ic-gap:3px;
+  --ic-desc-gap:6px}
+/* 16:10 rather than 4:3. Still a landscape food photograph with its own
+   aspect honoured by object-fit:cover — not a stretched one, and not a
+   thumbnail: at a 132px card it is 82px tall, which is a recognisable dish.
+   This is where the width-proportional part of the height comes down,
+   0.75 x width to 0.625 x width. */
+.item-card--compact .item-card__img-wrap{aspect-ratio:16/10}
+/* The attribute slot still exists, so the three dishes in the carousel
+   still line their names up with each other; it simply reserves one
+   tighter row instead of one loose one. */
+.item-card--compact .item-card__badges{min-height:14px;margin-bottom:4px}
+/* Two lines, bounded the same way the description is, with the whole name
+   in Product Details. Three-line reserve is the single largest fixed cost
+   in the standard card and it is the one a 568px phone cannot afford. */
+.item-card--compact .item-card__name{
+  line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+.item-card--compact .item-card__desc{line-height:1.4}
+.item-card--compact .item-card__oos-badge{
+  top:6px;left:6px;padding:2px 7px;font-size:9px}
 
 /* ── Search empty state ── */
 .menu-search-empty{
@@ -13594,6 +13657,75 @@ button{font-family:var(--font-body)}
 .aichat__input:focus{
   outline:none;border-color:var(--gold);
   box-shadow:inset 0 0 0 1px var(--gold)}
+
+
+/* ── Phase 121.7 §3 — the page must not zoom when a field is tapped ──────
+   WHAT THE OWNER SAW, AND WHY
+   Tapping Search, a name field or a note on a real phone zoomed the whole
+   interface in, and dismissing the keyboard sometimes left it that way.
+   That is not a PRO-ORDER behaviour: mobile Safari zooms the page by itself
+   whenever a focused control's EDITABLE TEXT computes under 16px, so that
+   the text it is about to raise a keyboard for is legible. It then has no
+   obligation to zoom back out, which is the half of it the owner noticed.
+
+   Audited across the application, every editable control was under the
+   line — 13px on the collapsed menu search, 13.5 on the admin search, the
+   staff-ordering search and the item note, 14 on the base .input, the menu
+   search, the admin note and the feedback note. The AI composer was the
+   only one already at 16, from Phase 121.5. So the zoom was not one broken
+   field; it was the default.
+
+   WHAT THIS IS NOT
+   It is not `user-scalable=no` and not `maximum-scale=1`. Those stop the
+   automatic zoom by taking PINCH zoom away from the guest as well, which
+   is an accessibility feature and is not ours to remove. The viewport meta
+   is unchanged and deliberately left as `width=device-width,
+   initial-scale=1.0`. There is no script here that resets the scale, no
+   reload on blur, and no transform that fakes a smaller size.
+
+   WHY ONE BLOCK AND NOT TWELVE OVERRIDES
+   The list is explicit so the set is reviewable in one place rather than
+   scattered through eight hundred lines, and the bare type selectors at
+   the end catch any control that carries no class of its own. Nothing in
+   the application declares editable text ABOVE 16px, so this is a floor
+   rather than a resize: no control gets smaller.
+
+   WHY `pointer: coarse`
+   Because that is exactly the set of devices with a software keyboard and
+   therefore the only place the behaviour exists. Desktop typography is
+   untouched — a mouse user focusing a field has nothing to zoom for.
+
+   The fixed-height controls were checked against the new size rather than
+   assumed: .mm-select is 40/44px and .wh-time 34px, both of which hold
+   19px of line box plus their padding without growing. */
+@media (pointer: coarse) {
+  .input,
+  .menu-search__input,
+  .menu-idbar__search .menu-search__input,
+  .mm-search input,
+  .mm-select,
+  .mm-textarea,
+  .fb-textarea,
+  .so-search__input,
+  .item-modal__textarea,
+  .wh-time,
+  .th-color__hex,
+  .aichat__input,
+  textarea,
+  select,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="password"],
+  input[type="url"],
+  input[type="time"],
+  input[type="date"],
+  input:not([type]) {
+    font-size: 16px;
+  }
+}
 /* Light mode puts inputs on the page tone so they stay distinct from the
    near-white surface they sit on -- the same rule the rest of the app uses. */
 :root[data-appearance="light"] .aichat__input{background:var(--bg)}

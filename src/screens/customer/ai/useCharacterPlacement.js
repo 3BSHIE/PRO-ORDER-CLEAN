@@ -352,6 +352,12 @@ export function useCharacterPlacement({
      the overlay renders the matching slot, so there is one answer and both
      halves of the UI read it from the same place. */
   const [stack, setStack] = useState(true);
+  /* Phase 121.7 — which presentation of the shared ProductCard the measured
+     stage has room for, and how many description lines it may show. Decided
+     with the rest of the geometry, from the same box, so the card the
+     carousel renders and the height the stage reserved for it can never
+     disagree. */
+  const [card, setCard] = useState({ presentation: "default", descLines: 2 });
   /* True only while the character is actually gliding between layouts.
      ZAATAR-LAB holds the Welcome pose for the length of that move
      (ChatDemo.jsx:52, `pose = moving ? 'welcome' : ...`) so a pose
@@ -405,8 +411,25 @@ export function useCharacterPlacement({
     vars.style.setProperty("--aichat-card-h", `${geom.cardH}px`);
     vars.style.setProperty("--aichat-mascot-h", `${geom.mascotH}px`);
     vars.style.setProperty("--aichat-lift", `${geom.lift}px`);
+    /* Phase 121.7 — inherited by the recommendation cards and by nothing
+       else: it is written on the AI panel, and the only .item-card inside
+       that panel is the one the carousel renders. The Customer Menu own
+       cards are outside it and keep the stylesheet fallback of two. */
+    vars.style.setProperty("--ic-desc-lines", String(geom.descLines || 2));
     setRecsMode(geom.recs);
     setStack(geom.stack !== false);
+    setCard((prev) => {
+      /* The solver names its tiers "compact" and "compact-1" because they
+         differ in the description clamp; the CARD only has two
+         presentations, and the clamp travels separately as a custom
+         property. Mapped here so neither side has to know the other one is
+         counting lines. */
+      const next = {
+        presentation: (geom.card && geom.card !== "default") ? "ai-compact" : "default",
+        descLines: geom.descLines || 2,
+      };
+      return prev.presentation === next.presentation && prev.descLines === next.descLines ? prev : next;
+    });
 
     /* Reading the slot now forces the layout those three properties just
        invalidated, so what comes back is the column as it will be painted. */
@@ -489,5 +512,5 @@ export function useCharacterPlacement({
       .finally(() => { if (animation.current === record || !animation.current) setMoving(false); });
   }, [resizeTick, slot, mode, motion.key, motion.ms, reducedMotion, sceneRef, layerRef, geometry, frozen]);
 
-  return { recsMode, stack, moving };
+  return { recsMode, stack, card, moving };
 }

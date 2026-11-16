@@ -78,6 +78,10 @@ export default function DepthCarousel({
   onOpen,
   customLabels,
   visible = true,
+  /* Phase 121.7 — which presentation of the SAME shared card the stage has
+     room for. Decided by stageGeometry from the measured scene and handed
+     straight through; the carousel has no opinion about it. */
+  presentation = "default",
 }) {
   const { t, language } = useLanguage();
   const name = characterName(getCharacter(), t);
@@ -286,7 +290,12 @@ export default function DepthCarousel({
                 aria-hidden={front ? undefined : "true"}
                 inert={front ? undefined : ""}
               >
-                <ItemCard item={item} onOpen={onOpen} customLabels={customLabels} />
+                <ItemCard
+                  item={item}
+                  onOpen={onOpen}
+                  customLabels={customLabels}
+                  presentation={presentation}
+                />
               </div>
               {selectable && (
                 <button

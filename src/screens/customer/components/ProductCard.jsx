@@ -69,7 +69,21 @@ export function ItemGrid({ items, onOpen, customLabels }) {
 }
 
 /* ── Product card ───────────────────────────────────────────────────────── */
-export function ItemCard({ item, onOpen, customLabels }) {
+/**
+ * @param {"default"|"ai-compact"} presentation
+ *   Phase 121.7 — "ai-compact" is the AI Waiter's own presentation of this
+ *   same card: the same markup, the same data, the same handlers, with a
+ *   tighter set of the --ic-* custom properties Phase 119.0 already put on
+ *   .item-card and a shorter image. It exists because a phone that can show
+ *   a 230px card beside a conversation cannot show a 283px-tall one on a
+ *   568px screen, and the owner's answer to that must not be a button the
+ *   guest has to press before seeing the dish.
+ *
+ *   It is opt-in and it is passed down from exactly one place. The menu
+ *   grid, search results, Product Details and the admin previews never pass
+ *   it, so none of them changes by a pixel.
+ */
+export function ItemCard({ item, onOpen, customLabels, presentation = "default" }) {
   const available = item.isAvailable;
   const { t, language } = useLanguage();
   /* Phase 119.0 — resolved from ids, with the legacy isPopular/isFeatured
@@ -100,7 +114,7 @@ export function ItemCard({ item, onOpen, customLabels }) {
 
   return (
     <article
-      className={`item-card ${available ? "item-card--available" : "item-card--unavailable"}`}
+      className={`item-card ${available ? "item-card--available" : "item-card--unavailable"}${presentation === "ai-compact" ? " item-card--compact" : ""}`}
       {...cardInteraction}
     >
       {/* Phase 73 §10 — the category emoji is no longer used as a product
