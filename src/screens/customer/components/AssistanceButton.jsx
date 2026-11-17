@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { LifeBuoy } from "lucide-react";
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import AssistanceSheet from "./AssistanceSheet.jsx";
@@ -47,6 +47,11 @@ export default function AssistanceButton({
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  /* The sheet renders through a portal, so it needs to be told where the
+     restaurant's theme lives — see AssistanceSheet for why portalling to
+     <body> alone put it outside those variables. This button is always
+     inside the customer theme, so it is the honest anchor. */
+  const anchorRef = useRef(null);
 
   const label = t("assist.needHelp", "Need Help?");
   const isCompact = variant === "compact";
@@ -55,6 +60,7 @@ export default function AssistanceButton({
   return (
     <>
       <button
+        ref={anchorRef}
         type="button"
         className={`help-btn help-btn--${variant}`}
         onClick={() => setOpen(true)}
@@ -70,6 +76,7 @@ export default function AssistanceButton({
 
       <AssistanceSheet
         open={open}
+        anchorRef={anchorRef}
         onClose={() => setOpen(false)}
         restaurantSlug={restaurantSlug}
         tableId={tableId}

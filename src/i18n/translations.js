@@ -2458,7 +2458,7 @@ export const translations = {
     /* Phase 25 — Digital Waiter Bell (customer action + admin/cashier panel) */
     /* Phase 123.0 — مساعدة الزبائن */
     assist: {
-      needHelp: "مساعدة",
+      needHelp: "مساعدة؟",
       sheetTitle: "كيف بنقدر نساعدك؟",
       sheetHint: "اضغط على أي سؤال لتقرأ الجواب، أو اختر اللي بتحتاجه منّا.",
       sendRequest: "إرسال الطلب",

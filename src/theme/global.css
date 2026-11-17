@@ -3085,16 +3085,30 @@ button{font-family:var(--font-body)}
    "prominent" is the centered call-to-action used only on a canceled order.
    Both use the app's existing tokens, so nothing new is introduced to the
    visual language. */
+/* ── Phase 123.1 §3 — a header utility, not a secondary button ───────────
+   It carried a 1px --border-strong outline and tinted itself gold on hover,
+   which made "I need something" the most emphatic control in a bar it
+   shares with My Orders and the language switch. It now wears exactly what
+   .btn--ghost wears: nothing at rest, one tonal step on hover.
+
+   The border is kept as 1px TRANSPARENT rather than removed. Several
+   measured rules below budget this bar down to the pixel at 320px — the
+   five controls wanted 307px of 296 once already — and dropping a border
+   box would quietly hand 2px back to every one of them and invalidate those
+   measurements. Transparent keeps the geometry identical and removes only
+   the thing the owner objected to: the visible ring. */
 .help-btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   border-radius:999px;cursor:pointer;font-family:var(--font-body);
   font-weight:600;letter-spacing:.015em;white-space:nowrap;
-  background:transparent;border:1px solid var(--border-strong);color:var(--text-2);
+  background:transparent;border:1px solid transparent;color:var(--text-2);
   /* Phase 73 §33 — 240ms, so the move into the confirmed state reads as one
      deliberate change rather than an instant repaint. */
   transition:transform .15s var(--ease),background .24s var(--ease),
     border-color .24s var(--ease),color .24s var(--ease)}
-.help-btn:hover{border-color:var(--gold-line);color:var(--gold-ink);background:var(--gold-soft)}
+/* Same hover as .btn--ghost, so the two controls in this bar respond
+   identically instead of one of them lighting up in the brand colour. */
+.help-btn:hover{border-color:transparent;color:var(--text-1);background:var(--surface-2)}
 .help-btn:active{transform:scale(.97)}
 
 .help-btn--subtle{padding:7px 14px;font-size:12.5px}
@@ -3103,7 +3117,7 @@ button{font-family:var(--font-body)}
    identity and My Orders, so it is icon-led and sheds its label on narrow
    phones; the accessible name is supplied via aria-label in that case, so
    nothing is lost to assistive tech. */
-.help-btn--compact{padding:7px 12px;font-size:12.5px;gap:6px}
+.help-btn--compact{padding:7px 12px;font-size:13px;gap:6px}
 @media(max-width:359px){
   .help-btn--compact{padding:7px;gap:0}
   .help-btn--compact .help-btn__label{display:none}
@@ -8191,9 +8205,14 @@ button{font-family:var(--font-body)}
    lifts, the border firms, the label reaches full strength. Still obviously
    interactive, no longer advertising itself. Tracking keeps its own scoped
    treatment from Unit 6 and is untouched by this (§14). */
+/* Phase 123.1 — this one sat later in the file than the base rule and put
+   the ring back on hover, which is the appearance §3 removes. The focus
+   ring stays, and stays visible: --gold IS the restaurant's primary colour
+   on a customer surface (buildRestaurantThemeVars overrides the token), so
+   this is theme-aware despite the token's name. */
 .help-btn:hover{
   background:var(--surface-2);
-  border-color:var(--secondary-line, var(--border-strong));
+  border-color:transparent;
   color:var(--text-1)}
 .help-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
@@ -13882,7 +13901,7 @@ button{font-family:var(--font-body)}
   transition:background .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
 .asv-iconbtn:hover:not(:disabled){
   background:var(--surface-3);color:var(--text-1);border-color:var(--border)}
-.asv-iconbtn:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.asv-iconbtn:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .asv-iconbtn:disabled{opacity:.3;cursor:default}
 .asv-iconbtn--danger:hover:not(:disabled){
   color:var(--canceled);border-color:var(--canceled-soft);background:var(--canceled-soft)}
@@ -13921,7 +13940,7 @@ button{font-family:var(--font-body)}
 .ap-choice__input:checked + .asv-type__label{
   border-color:var(--gold-line);background:var(--gold-soft)}
 .ap-choice__input:focus-visible + .asv-type__label{
-  outline:2px solid var(--primary);outline-offset:2px}
+  outline:2px solid var(--gold);outline-offset:2px}
 
 @media(prefers-reduced-motion:reduce){
   .asv-iconbtn,.asv-type__label{transition:none}
@@ -13945,26 +13964,41 @@ button{font-family:var(--font-body)}
 .asheet__item{display:flex;flex-direction:column}
 
 /* One geometry for both kinds, so the list reads as one list. 52px clears
-   the 44px touch floor with room for a two-line name on a narrow phone. */
+   the 44px touch floor with room for a two-line name on a narrow phone.
+
+   Phase 123.1 §9 — lighter. Seven rows each wearing a filled surface AND a
+   full border read as seven cards stacked in a sheet that is itself a card.
+   The fill is gone and the border is a hairline; the row still has an edge,
+   so there is no doubt about where to tap, but the list reads as a list. */
 .asheet__row{
-  display:flex;align-items:center;gap:11px;width:100%;
-  min-height:52px;padding:10px 13px;
-  border-radius:var(--r-md);border:1px solid var(--border);
-  background:var(--surface-2);color:var(--text-1);
+  display:flex;align-items:center;gap:12px;width:100%;
+  min-height:52px;padding:10px 14px;
+  border-radius:var(--r-md);
+  border:1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background:transparent;color:var(--text-1);
   font-family:var(--font-body);font-size:14px;font-weight:500;text-align:start;
   cursor:pointer;
-  transition:border-color .18s var(--ease),background .18s var(--ease)}
-.asheet__row:hover{border-color:var(--border-strong)}
+  transition:border-color .15s var(--ease),background .15s var(--ease),
+    color .15s var(--ease)}
+.asheet__row:hover{border-color:var(--border-strong);background:var(--surface-2)}
+/* --gold IS the restaurant's primary colour here: buildRestaurantThemeVars
+   overrides the token per restaurant, so this ring is theme-aware. It read
+   var(--primary) until this phase, which is defined nowhere in the app and
+   therefore silently fell back to currentColor. */
+/* The answer row IS the button, so it takes focus itself. A request row
+   is a label wrapping a hidden input, and CSS cannot reach a parent from a
+   child — :has() is how the rest of this stylesheet already solves that
+   (see .mm-toggle-row--primary:has(input:checked)), and it puts the ring
+   around the whole row rather than around the words inside it. */
 .asheet__row:focus-visible,
-.asheet__input:focus-visible + .asheet__mark{
-  outline:2px solid var(--primary);outline-offset:2px}
+.asheet__row--pick:has(.asheet__input:focus-visible){
+  outline:2px solid var(--gold);outline-offset:2px}
 
+/* §8 — a bare mark. No container, one size, one stroke weight for every
+   row, instant answer and staff request alike. */
 .asheet__icon{
-  flex:0 0 auto;display:grid;place-items:center;width:30px;height:30px;
-  border-radius:9px;border:1px solid var(--border);background:var(--surface-3)}
-/* The informational blue this palette already uses — never the gold that
-   means "this does something". */
-.asheet__icon--answer{color:var(--received);border-color:var(--received-soft)}
+  flex:0 0 auto;color:var(--text-2);
+  transition:color .15s var(--ease)}
 
 .asheet__name{flex:1 1 auto;min-width:0;line-height:1.35}
 
@@ -13972,14 +14006,18 @@ button{font-family:var(--font-body)}
   flex:0 0 auto;color:var(--text-3);
   transition:transform .2s var(--ease)}
 .asheet__row--answer.is-open{
-  border-color:var(--received-soft);background:var(--surface-3)}
+  border-color:var(--border-strong);background:var(--surface-2)}
+.asheet__row--answer.is-open .asheet__icon{color:var(--text-1)}
 .asheet__row--answer.is-open .asheet__chev{transform:rotate(180deg)}
 
 /* ── The answer, in place ────────────────────────────────────────────────── */
+/* The panel itself is untouched by this phase except for the spine, which
+   was the one place still borrowing the informational blue. It takes the
+   restaurant's own colour instead. */
 .asheet__answer{
   margin:6px 0 0;padding:12px 14px;
   border-radius:var(--r-sm);
-  border:1px solid var(--border);border-inline-start:2px solid var(--received);
+  border:1px solid var(--border);border-inline-start:2px solid var(--gold-line);
   background:var(--surface-2)}
 .asheet__answer-text{
   margin:0;font-size:13.5px;line-height:1.6;color:var(--text-2);
@@ -14011,24 +14049,32 @@ button{font-family:var(--font-body)}
   color:var(--text-2);font-family:var(--font-body);font-size:12px;font-weight:600;
   cursor:pointer;transition:color .15s var(--ease),border-color .15s var(--ease)}
 .asheet__copy:hover{color:var(--gold-ink);border-color:var(--gold-line)}
-.asheet__copy:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.asheet__copy:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-/* ── A request row: selectable, with no browser checkbox in sight ────────── */
+/* ── A request row: selectable, with no browser checkbox in sight ──────────
+   Phase 123.1 §7, Option A. Selected means a tint of the restaurant's own
+   colour, one step more border, and a small mark at the trailing edge.
+   --gold-soft is that colour at 13% and --gold-line at 35%, both derived
+   per restaurant by buildRestaurantThemeVars, so nothing here is literally
+   gold on a restaurant that chose otherwise. */
 .asheet__row--pick.is-on{
   border-color:var(--gold-line);background:var(--gold-soft)}
+.asheet__row--pick.is-on .asheet__icon{color:var(--gold-ink)}
+
 /* A real checkbox, kept for the keyboard and the screen reader, made
    invisible so the sheet can draw its own mark. */
 .asheet__input{
   position:absolute;width:1px;height:1px;margin:-1px;padding:0;
   overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
-.asheet__mark{
-  flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;
-  border-radius:7px;border:1.5px solid var(--border-strong);
-  background:transparent;color:transparent;
-  transition:border-color .16s var(--ease),background .16s var(--ease),color .16s var(--ease)}
-.asheet__row--pick.is-on .asheet__mark{
-  border-color:transparent;color:var(--on-primary);
-  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
+
+/* The acknowledgement. It keeps its box at all times so selecting a row
+   cannot nudge its own label, and it is a mark on its own — no square, no
+   fill, no input dressing. 150ms, within the approved 140-160. */
+.asheet__tick{
+  flex:0 0 auto;width:15px;height:15px;
+  color:var(--gold-ink);opacity:0;
+  transition:opacity .15s var(--ease)}
+.asheet__row--pick.is-on .asheet__tick{opacity:1}
 
 /* ── Other Request's details ─────────────────────────────────────────────── */
 .asheet__details{display:flex;flex-direction:column;gap:5px;margin:7px 0 0;padding:0 2px}
@@ -14048,7 +14094,7 @@ button{font-family:var(--font-body)}
 .asheet__done-body{margin:0 0 10px;font-size:13px;line-height:1.55;color:var(--text-3)}
 
 @media(prefers-reduced-motion:reduce){
-  .asheet__row,.asheet__chev,.asheet__mark,.asheet__copy{transition:none}
+  .asheet__row,.asheet__chev,.asheet__tick,.asheet__icon,.asheet__copy{transition:none}
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check, Wifi, Copy, CheckCheck, HelpCircle } from "lucide-react";
+import {
+  ChevronDown,
+  Check,
+  Wifi,
+  Copy,
+  CheckCheck,
+  HelpCircle,
+  /* Phase 123.1 §6 — the SERVICE bell (the one on a hotel desk), which is
+     what Admin already uses for a Staff Request in its own list. Not
+     BellRing, which is a notification. Same icon, same library, so the two
+     sides of the product name the same thing with the same mark. */
+  ConciergeBell,
+} from "lucide-react";
 import Modal from "../../../components/ui/Modal.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import { useLanguage } from "../../../i18n/useLanguage.js";
@@ -52,6 +64,7 @@ import { createAssistanceRequest } from "../../../lib/staffCallData.js";
  */
 export default function AssistanceSheet({
   open,
+  anchorRef,
   onClose,
   restaurantSlug,
   tableId,
@@ -62,7 +75,11 @@ export default function AssistanceSheet({
   const { t, language } = useLanguage();
   const { customerServices } = useAssistanceServices(restaurantSlug);
 
-  const [expandedId, setExpandedId] = useState(null);
+  /* A LIST, not one id. Phase 123.0 kept a single open answer, so opening
+     the opening hours shut the Wi-Fi password a guest was halfway through
+     typing into their phone. These are independent questions and §10 asks
+     that they behave like it. */
+  const [expandedIds, setExpandedIds] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [otherDetails, setOtherDetails] = useState("");
   const [otherError, setOtherError] = useState(false);
@@ -77,17 +94,31 @@ export default function AssistanceSheet({
      replaced — a navigation that lands mid-render crashed this component into
      the error boundary once, which is a whole screen lost for a help sheet.
      Resolving it in an effect means the first render simply has no host and
-     renders nothing, which is what a closed sheet does anyway. */
+     renders nothing, which is what a closed sheet does anyway.
+
+     ── Phase 123.1 §12 — and it must be the THEME element ──────────────────
+     Portalling to <body> alone put the sheet outside .customer-theme, which
+     is the element CustomerTheme writes the restaurant's colours onto.
+     Measured: overriding --gold on that wrapper changed the whole menu and
+     changed nothing in the sheet, so a restaurant that had chosen blue got
+     a sheet in PRO-ORDER's default gold. Hosting it in the theme element
+     instead fixes that at the root rather than by naming colours twice.
+
+     The anchor is the entry button, which is always inside the theme, so
+     this asks "my own theme scope" rather than hunting the document for a
+     class name. Body remains the fallback, because a sheet in the wrong
+     colour is still far better than no sheet. */
   const [host, setHost] = useState(null);
   useEffect(() => {
-    setHost(document.body);
-  }, []);
+    const anchor = anchorRef?.current;
+    setHost(anchor?.closest(".restaurant-theme") || document.body);
+  }, [anchorRef]);
 
   /* A fresh sheet every time it opens. A guest who closed it without sending
      did not mean to keep a half-made request waiting for their next tap. */
   useEffect(() => {
     if (open) return;
-    setExpandedId(null);
+    setExpandedIds([]);
     setSelectedIds([]);
     setOtherDetails("");
     setOtherError(false);
@@ -109,7 +140,9 @@ export default function AssistanceSheet({
   }
 
   function toggleExpand(service) {
-    setExpandedId((prev) => (prev === service.id ? null : service.id));
+    setExpandedIds((prev) =>
+      prev.includes(service.id) ? prev.filter((id) => id !== service.id) : [...prev, service.id]
+    );
   }
 
   async function copyPassword(password) {
@@ -219,7 +252,7 @@ export default function AssistanceSheet({
             {customerServices.map((service) => {
               const name = serviceName(service, language);
               if (service.type === SERVICE_TYPE.INSTANT) {
-                const expanded = expandedId === service.id;
+                const expanded = expandedIds.includes(service.id);
                 const isWifi = service.kind === "wifi";
                 return (
                   <li key={service.id} className="asheet__item">
@@ -229,9 +262,15 @@ export default function AssistanceSheet({
                       aria-expanded={expanded}
                       onClick={() => toggleExpand(service)}
                     >
-                      <span className="asheet__icon asheet__icon--answer" aria-hidden="true">
-                        {isWifi ? <Wifi size={16} /> : <HelpCircle size={16} />}
-                      </span>
+                      {/* §8 — a bare icon. It used to sit in a 30px outlined
+                          box, which gave every row a second rectangle inside
+                          the first and made a seven-row list read as seven
+                          cards. The chevron is what says this row opens. */}
+                      {isWifi ? (
+                        <Wifi className="asheet__icon" size={18} strokeWidth={2} aria-hidden="true" />
+                      ) : (
+                        <HelpCircle className="asheet__icon" size={18} strokeWidth={2} aria-hidden="true" />
+                      )}
                       <span className="asheet__name">{name}</span>
                       <ChevronDown className="asheet__chev" size={16} aria-hidden="true" />
                     </button>
@@ -286,10 +325,28 @@ export default function AssistanceSheet({
                          reader nothing about what is being selected. */
                       aria-label={name}
                     />
-                    <span className="asheet__mark" aria-hidden="true">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
+                    {/* §6/§7 — the service bell leads the row, and it stays
+                        put whether the row is selected or not. The empty
+                        checkbox square that used to sit here said "this is a
+                        form"; a bell says what the row is for. */}
+                    <ConciergeBell
+                      className="asheet__icon"
+                      size={18}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
                     <span className="asheet__name">{name}</span>
+                    {/* The acknowledgement, not a control. It is always
+                        mounted and fades in, so selecting a row cannot shift
+                        its own label sideways by 16px. The real checkbox is
+                        the visually-hidden input above, which is what a
+                        screen reader reads and what the keyboard operates. */}
+                    <Check
+                      className="asheet__tick"
+                      size={15}
+                      strokeWidth={3}
+                      aria-hidden="true"
+                    />
                   </label>
 
                   {/* Only the permanent row asks for words, and only once it
