@@ -8,7 +8,7 @@ import Toast   from "../../components/ui/Toast.jsx";
 import QuantityStepper from "../../components/ui/QuantityStepper.jsx";
 import PaymentMethodModal from "./components/PaymentMethodModal.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
-import CallStaffButton    from "./components/CallStaffButton.jsx";
+import AssistanceButton   from "./components/AssistanceButton.jsx";
 import LanguageSwitcher   from "../../components/i18n/LanguageSwitcher.jsx";
 import { resolveEnabledLanguages } from "../../i18n/language.js";
 import { getLocalizedText } from "../../lib/localizedContent.js";
@@ -621,13 +621,12 @@ function CartShell({ restaurant, table, session, qrToken, onBackToMenu, onOrderC
            screen to change it, and one who needed a waiter while reviewing
            the order had the same problem, on the screen where hesitation is
            most likely. Call Staff is the SAME component the menu uses and
-           reads the same live staff-call list, so this adds a PLACE to press
-           it, not a second mechanism — an open call raised on the menu shows
-           as already-called here. The identity stays last so the venue keeps
-           the corner it has always held. */
+           opens the same Need Help sheet the menu does, so this adds a
+           PLACE to ask, not a second mechanism. The identity stays last so
+           the venue keeps the corner it has always held. */
         right={
           <div className="cust-topbar-right">
-            <CallStaffButton
+            <AssistanceButton
               restaurantSlug={restaurant.slug}
               tableId={table.id}
               tableNumber={table.tableNumber}

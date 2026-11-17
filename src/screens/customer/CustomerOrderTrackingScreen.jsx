@@ -7,7 +7,7 @@ import Badge   from "../../components/ui/Badge.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import { resolveCustomerAccess } from "../../lib/tableData.js";
 import InvalidAccessView from "./components/InvalidAccessView.jsx";
-import CallStaffButton   from "./components/CallStaffButton.jsx";
+import AssistanceButton  from "./components/AssistanceButton.jsx";
 import OrderFeedback     from "./components/OrderFeedback.jsx";
 import StatusRoute        from "./components/StatusRoute.jsx";
 import OrderTimer         from "./components/OrderTimer.jsx";
@@ -443,13 +443,16 @@ function TrackingView({ order, restaurantSlug, table, session, onNotify }) {
       )}
 
       {/* ── 5. Call Staff (§14) ───────────────────────────────────────────
-          Prominent and centered for EVERY status now, not only for a
-          canceled order. §14 makes this deliberate: on a screen whose whole
-          purpose is waiting, "fetch me a person" is the one action the guest
-          may actually need, and it was previously a quiet inline pill unless
-          something had already gone wrong. */}
-      <div className="track__call-staff track__call-staff--prominent">
-        <CallStaffButton
+          Centered and present for EVERY status, not only for a canceled
+          order. §14 makes this deliberate: on a screen whose whole purpose is
+          waiting, asking for help is the one action the guest may actually
+          need, and it was previously a quiet inline pill unless something had
+          already gone wrong.
+
+          Phase 123.0 — it is the Need Help entry now, so the guest can say
+          WHAT they need instead of only that they need somebody. */}
+      <div className="track__help track__help--prominent">
+        <AssistanceButton
           restaurantSlug={restaurantSlug}
           tableId={table.id}
           tableNumber={table.tableNumber}

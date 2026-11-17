@@ -2,6 +2,7 @@ import { AlertTriangle, BellRing, HandPlatter, Wallet, ChevronRight } from "luci
 import { useLanguage } from "../../i18n/useLanguage.js";
 import { fmtPrice } from "../../lib/format.js";
 import { ATTENTION_KIND } from "../../lib/operationalAttention.js";
+import { getLocalizedText } from "../../lib/localizedContent.js";
 
 /* How many rows the section will ever show at once (§17). Five is enough to
    cover a genuinely busy moment without the Overview turning into a second
@@ -95,7 +96,7 @@ const KIND_META = {
  *   onNavigate — (adminPage) => void, the Overview's existing navigator
  */
 export default function NeedsAttentionSection({ items = [], onNavigate }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!items.length) return null;
 
@@ -151,6 +152,21 @@ export default function NeedsAttentionSection({ items = [], onNavigate }) {
                   <span className="ad-attention__label">{label}</span>
                   <span className="ad-attention__where">
                     {t("customer.yourTable", "Table")} #{item.tableNumber}
+                    {/* Phase 123.0 — what the guest asked for, so a row in
+                        this queue says something an operator can act on
+                        before they open the screen. The first ask plus a
+                        count, because the row is one line; the Staff Calls
+                        screen carries the full list. A call from before
+                        assistance options existed has none, and the row
+                        reads exactly as it did. */}
+                    {item.services?.length > 0 && (
+                      <>
+                        <span className="ad-attention__sep" aria-hidden="true"> · </span>
+                        {getLocalizedText(item.services[0].name, language)}
+                        {item.services.length > 1 &&
+                          t("assist.plusMore", " +{n}").replace("{n}", item.services.length - 1)}
+                      </>
+                    )}
                     {item.orderId && (
                       <>
                         <span className="ad-attention__sep" aria-hidden="true"> · </span>
@@ -169,7 +185,7 @@ export default function NeedsAttentionSection({ items = [], onNavigate }) {
                 {/* Elapsed time is context, never a threshold that decided
                     whether this row exists (§9). */}
                 {item.minutes !== null && (
-                  <span className="ad-attention__age">
+                  <span className={`ad-attention__age ${item.overdue ? "ad-attention__age--overdue" : ""}`}>
                     {t("admin.elapsedMinutes", "{n} min").replace("{n}", item.minutes)}
                   </span>
                 )}

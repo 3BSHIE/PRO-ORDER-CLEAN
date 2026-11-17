@@ -45,6 +45,7 @@ const LANGUAGE_DIR  = { en: "ltr", ar: "rtl" };
  *   rows        textarea rows
  *   placeholder optional, per-language placeholder text
  *   compact     smaller type, for nested rows (options, add-ons, ingredients)
+ *   maxLength   optional character cap per language box
  */
 export default function LocalizedField({
   label,
@@ -63,6 +64,11 @@ export default function LocalizedField({
      languages rather than after them. */
   inline = false,
   id,
+  /* Phase 123.0 — an OPTIONAL per-language character limit, for a field whose
+     store clamps on save (assistance service names and answers). Without it
+     the manager types 500 characters, presses Save and silently gets 60. Left
+     undefined it renders exactly as before. */
+  maxLength,
 }) {
   const { t } = useLanguage();
 
@@ -102,6 +108,7 @@ export default function LocalizedField({
                 className={`input lfield__input ${error ? "input--error" : ""}`}
                 dir={LANGUAGE_DIR[code]}
                 rows={rows}
+                maxLength={maxLength}
                 value={getOwn(value, code)}
                 placeholder={placeholder}
                 aria-label={aria}
@@ -112,6 +119,7 @@ export default function LocalizedField({
                 id={inputId}
                 className={`input lfield__input ${error ? "input--error" : ""}`}
                 dir={LANGUAGE_DIR[code]}
+                maxLength={maxLength}
                 value={getOwn(value, code)}
                 placeholder={placeholder}
                 aria-label={aria}

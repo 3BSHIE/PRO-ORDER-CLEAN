@@ -21,6 +21,8 @@
  */
 
 /** The four approved conditions (§7). Stable keys, never shown to a user. */
+import { callServices } from "./staffCallData.js";
+
 export const ATTENTION_KIND = {
   DELAYED: "delayed",
   STAFF_CALL: "staffCall",
@@ -43,6 +45,28 @@ const KIND_PRIORITY = [
 /* Only an order still in the kitchen can be late. Kept next to isOrderDelayed
    because the two are one rule. */
 const IN_KITCHEN_STATUSES = ["received", "preparing"];
+
+/**
+ * When a guest has been waiting too long for a person — Phase 123.0 §22.
+ *
+ * An order is late against an estimate the kitchen itself gave, which is why
+ * isOrderDelayed invents nothing. A staff call has no such promise attached,
+ * so if it is to be shown as overdue at all, the product has to choose a
+ * number. Five minutes: long enough that a waiter crossing a busy room is
+ * not flagged for doing their job, short enough that a guest holding an empty
+ * glass has not yet decided the service here is poor.
+ *
+ * It lives here, exported, because two screens read it — the Staff Calls
+ * queue and Needs Attention — and a threshold copied into both would drift.
+ * It never decides whether a call is SHOWN; an open call is always shown.
+ * It only changes how it is dressed.
+ */
+export const STAFF_CALL_OVERDUE_MINUTES = 5;
+
+/** @param {number|null} minutes — as returned by elapsedMinutes */
+export function isStaffCallOverdue(minutes) {
+  return typeof minutes === "number" && minutes >= STAFF_CALL_OVERDUE_MINUTES;
+}
 
 /**
  * Whole minutes since an ISO timestamp, or null if it cannot be read.
@@ -158,13 +182,21 @@ export function buildAttentionItems({ orders = [], staffCalls = [], now = Date.n
   }
 
   for (const call of staffCalls) {
+    const minutes = elapsedMinutes(call.createdAt, now);
     items.push({
       id: `call-${call.id}`,
       kind: ATTENTION_KIND.STAFF_CALL,
       orderId: null,
       tableNumber: call.tableNumber,
-      minutes: elapsedMinutes(call.createdAt, now),
+      minutes,
       amount: null,
+      /* Phase 123.0 — what was actually asked for, so the row says "Extra
+         Napkins" rather than only that somebody rang. The snapshot is carried
+         through unresolved: this module has no language, and the screen that
+         renders it does. A call from before this phase carries an empty
+         array, and the row then reads exactly as it always did. */
+      services: callServices(call),
+      overdue: isStaffCallOverdue(minutes),
       destination: "staffCalls",
     });
   }

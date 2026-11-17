@@ -6,7 +6,9 @@ import Button  from "../../components/ui/Button.jsx";
 import Toast   from "../../components/ui/Toast.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import { useStaffCalls } from "../../lib/useStaffCalls.js";
-import { resolveStaffCall } from "../../lib/staffCallData.js";
+import { resolveStaffCall, callServices } from "../../lib/staffCallData.js";
+import { getLocalizedText } from "../../lib/localizedContent.js";
+import { elapsedMinutes, isStaffCallOverdue } from "../../lib/operationalAttention.js";
 import { useLanguage } from "../../i18n/useLanguage.js";
 
 const RESOLVED_LIMIT = 10;
@@ -78,7 +80,15 @@ export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, 
   function handleResolve(call) {
     if (resolvingId === call.id) return;
     setResolvingId(call.id);
-    const result = resolveStaffCall(restaurant.slug, call.id);
+    /* Phase 123.0 §19 — who handled it, recorded from the session that is
+       already signed in. Nothing is invented: if the session carries no
+       name, resolveStaffCall stores no attribution rather than guessing at
+       one, and the card then simply does not claim to know. */
+    const result = resolveStaffCall(restaurant.slug, call.id, {
+      id: session?.username,
+      name: session?.name,
+      role: session?.role,
+    });
     if (result.ok) {
       setToastMessage(t("staff.callResolvedToast", "Staff call resolved"));
       setToastVisible(true);
@@ -170,16 +180,26 @@ export default function AdminStaffCallsScreen({ restaurant, session, onSignOut, 
 
 /* ── One staff call row ──────────────────────────────────────────────────── */
 function StaffCallCard({ call, isResolving, onResolve }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isOpen = call.status === "open";
-  /* createStaffCall already trims, but a legacy record could still hold
+  /* The request path already trims, but a legacy record could still hold
      whitespace. Trimming here means a blank name renders NOTHING rather than
      an empty line that pushes the row taller for no content (§6). */
   const customerName = call.customerName?.trim();
   const elapsed = formatElapsed(isOpen ? call.createdAt : call.updatedAt, t);
 
+  /* Phase 123.0 — what the guest actually asked for.
+
+     An empty list is not an error and not an empty state: it is a call from
+     before assistance options existed, or one raised by the plain bell, and
+     it means "somebody at this table wants a person". Saying so is more
+     useful than rendering nothing and leaving staff to guess whether the
+     record is broken. */
+  const services = callServices(call);
+  const overdue = isOpen && isStaffCallOverdue(elapsedMinutes(call.createdAt));
+
   return (
-    <Card className={`sc-card ${isOpen ? "sc-card--open" : "sc-card--resolved"}`}>
+    <Card className={`sc-card ${isOpen ? "sc-card--open" : "sc-card--resolved"} ${overdue ? "sc-card--overdue" : ""}`}>
       <div className="sc-card__main">
         <div className="sc-card__id">
           {/* §5 — the same identifier philosophy as Live Orders 101.1: one
@@ -205,6 +225,12 @@ function StaffCallCard({ call, isResolving, onResolve }) {
               triage on. A resolved one names what the time refers to, so the
               trail reads as "handled N ago" rather than as another queue.
               Both strings already exist; nothing new was added. */}
+          {/* §22 — a guest who has been waiting past the shared threshold.
+              Stated in words beside the status, because the wait itself is
+              already printed in the same orange on every open call. */}
+          {overdue && (
+            <span className="sc-overdue">{t("assist.overdue", "Waiting too long")}</span>
+          )}
           <span className="sc-card__elapsed">
             {isOpen
               ? elapsed
@@ -219,8 +245,51 @@ function StaffCallCard({ call, isResolving, onResolve }) {
         </div>
       </div>
 
+      {/* What was asked for. One call can carry several services — a guest
+          who wants napkins and the table cleared causes ONE visit, not three
+          rows — so this is a list inside the card rather than three cards. */}
+      <ul className="sc-card__asks">
+        {services.length === 0 ? (
+          <li className="sc-card__ask sc-card__ask--legacy">
+            <span className="sc-card__ask-name">
+              {t("assist.unspecifiedRequest", "Assistance requested")}
+            </span>
+            <span className="sc-card__ask-note">
+              {t("assist.unspecifiedHint", "Sent before assistance options existed.")}
+            </span>
+          </li>
+        ) : (
+          services.map((service, index) => (
+            /* The index is part of the key because one call legitimately
+               cannot contain the same service twice, but a corrupted record
+               should still render rather than collapse two rows into one. */
+            <li className="sc-card__ask" key={`${service.serviceId}-${index}`}>
+              <span className="sc-card__ask-name">
+                {/* Resolved HERE, in the reader's language, from the snapshot
+                    the guest's submission froze. Renaming or deleting the
+                    service since then changes nothing on this card. */}
+                {getLocalizedText(service.name, language)}
+              </span>
+              {service.details && (
+                <span className="sc-card__ask-note">{service.details}</span>
+              )}
+            </li>
+          ))
+        )}
+      </ul>
+
+      {/* §19 — who closed it, when the record knows. */}
+      {!isOpen && call.resolvedBy?.name && (
+        <p className="sc-card__by">
+          {t("assist.resolvedByLine", "Resolved by {name}").replace("{name}", call.resolvedBy.name)}
+        </p>
+      )}
+
       {isOpen && (
         <div className="sc-card__action">
+          {/* ONE action for the whole call. A guest who asked for three
+              things is waiting for one visit, and resolving service by
+              service would describe a trip that does not happen. */}
           <Button size="sm" disabled={isResolving} onClick={onResolve} icon={Check}>
             {t("staff.resolve", "Resolve")}
           </Button>

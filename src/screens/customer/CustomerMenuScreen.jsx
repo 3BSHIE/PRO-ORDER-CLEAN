@@ -21,7 +21,7 @@ import { DEV_FLAG_AI_RECS, readFlag, subscribeFlags } from "../../lib/devFlags.j
    overlay and Rollup drops these two modules (and their CSS) from a
    production build. */
 import { devPreviewIds } from "../../lib/aiRecommendations.js";
-import CallStaffButton  from "./components/CallStaffButton.jsx";
+import AssistanceButton from "./components/AssistanceButton.jsx";
 import RestaurantIdentity from "./components/RestaurantIdentity.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import LanguageSwitcher from "../../components/i18n/LanguageSwitcher.jsx";
@@ -773,7 +773,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
         }
         right={
           <div className="menu-topbar-right">
-            <CallStaffButton
+            <AssistanceButton
               restaurantSlug={restaurant.slug}
               tableId={table.id}
               tableNumber={table.tableNumber}

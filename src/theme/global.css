@@ -3085,7 +3085,7 @@ button{font-family:var(--font-body)}
    "prominent" is the centered call-to-action used only on a canceled order.
    Both use the app's existing tokens, so nothing new is introduced to the
    visual language. */
-.call-staff{
+.help-btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   border-radius:999px;cursor:pointer;font-family:var(--font-body);
   font-weight:600;letter-spacing:.015em;white-space:nowrap;
@@ -3094,95 +3094,46 @@ button{font-family:var(--font-body)}
      deliberate change rather than an instant repaint. */
   transition:transform .15s var(--ease),background .24s var(--ease),
     border-color .24s var(--ease),color .24s var(--ease)}
-.call-staff:hover{border-color:var(--gold-line);color:var(--gold-ink);background:var(--gold-soft)}
-.call-staff:active{transform:scale(.97)}
+.help-btn:hover{border-color:var(--gold-line);color:var(--gold-ink);background:var(--gold-soft)}
+.help-btn:active{transform:scale(.97)}
 
-/* Phase 73 §33 — bell and check are both mounted and crossfaded in place.
-   The wrapper reserves the icon box (its size comes from the component, which
-   knows the variant's icon size) so neither the label nor the pill width
-   moves during the dissolve. */
-.call-staff__icons{position:relative;flex:none;display:block}
-.call-staff__icon{
-  position:absolute;inset:0;
-  transition:opacity .24s var(--ease)}
-.call-staff__icon--bell{opacity:1}
-.call-staff__icon--check{opacity:0}
-.call-staff--called .call-staff__icon--bell{opacity:0}
-.call-staff--called .call-staff__icon--check{opacity:1}
-
-.call-staff--subtle{padding:7px 14px;font-size:12.5px}
+.help-btn--subtle{padding:7px 14px;font-size:12.5px}
 
 /* Phase 73 §32/§36 — the sticky-topbar variant. It shares the bar with table
    identity and My Orders, so it is icon-led and sheds its label on narrow
    phones; the accessible name is supplied via aria-label in that case, so
    nothing is lost to assistive tech. */
-.call-staff--compact{padding:7px 12px;font-size:12.5px;gap:6px}
+.help-btn--compact{padding:7px 12px;font-size:12.5px;gap:6px}
 @media(max-width:359px){
-  .call-staff--compact{padding:7px;gap:0}
-  .call-staff--compact .call-staff__label{display:none}
+  .help-btn--compact{padding:7px;gap:0}
+  .help-btn--compact .help-btn__label{display:none}
 }
 
-.call-staff--prominent{
-  padding:13px 26px;font-size:14.5px;color:var(--on-primary);border-color:transparent;
-  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to));
-  box-shadow:0 8px 22px rgba(212,169,78,.22),inset 0 1px 0 rgba(255,255,255,.3)}
-.call-staff--prominent:hover{
-  filter:brightness(1.08);color:var(--on-primary);border-color:transparent;
-  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
-
-/* Already-called state — calm confirmation, never an error. Pressing it
-   again is still allowed; it just re-shows the "already called" message. */
-.call-staff--called{
-  background:var(--ready-soft);border-color:rgba(63,214,143,.32);color:var(--ready)}
-.call-staff--called:hover{
-  background:var(--ready-soft);border-color:rgba(63,214,143,.45);color:var(--ready);filter:none}
-.call-staff--prominent.call-staff--called{box-shadow:none}
+/* Phase 123.0 — a compact premium utility action, not a hero button. 44px
+   keeps the touch target; the padding keeps it the size of the thing it
+   does. It is centred by its container, never stretched to the viewport. */
+.help-btn--prominent{
+  min-height:44px;padding:0 20px;font-size:14px;
+  color:var(--text-1);background:var(--surface-2);
+  border:1px solid var(--border-strong);box-shadow:none}
+.help-btn--prominent:hover{
+  color:var(--text-1);background:var(--surface-3);
+  border-color:var(--secondary-line, var(--border-strong));filter:none}
 
 /* Placement inside the customer Menu header */
 
-/* Phase 88.2 §12 — on TRACKING, Call Staff is a utility, not the goal.
-   It was wearing the Primary gradient, .btn--primary's shadow and --on-primary
-   text: identical to Place Order. That made fetching a waiter look like the
-   thing the guest was supposed to do next.
+/* Phase 88.2 §12 / 88.3 §5 asked for this control to stop looking like Place
+   Order and to stop being the largest thing on the tracking screen. Those
+   rules lived here as a scoped override; Phase 123.0 moved the treatment into
+   .help-btn--prominent itself, so the override would now only repeat it. The
+   measurements it set — 44px tall, 20px of side padding, neutral surface —
+   are unchanged and defined once, up in the variant.
 
-   It keeps its size, its centring and its 48px target — it must still be easy
-   to find — but drops to a neutral surface with a Secondary-derived border.
-   Scoped to .track__call-staff on purpose: .call-staff--prominent is also
-   used by the checkout sheet's no-payment-methods state, and Checkout is out
-   of scope this phase. */
-/* Phase 88.3 §5 — same neutral treatment, smaller footprint. It measured 48px
-   tall with 26px of side padding, which made a help action the biggest control
-   on the screen. min-height pins it at 45px — comfortably over the 44px touch
-   minimum — and the padding comes in to 20px, so it reads as available rather
-   than as the thing to press. Still centred, still the same icon and label,
-   still the same behaviour and confirmed state. */
-.track__call-staff .call-staff--prominent{
-  color:var(--text-1);
-  background:var(--surface-2);
-  border:1px solid var(--border-strong);
-  box-shadow:none;
-  /* 44px, not 45: the customer surface already carries a shared touch-target
-     floor (.customer-theme .call-staff and friends) at min-height:44px, and
-     that selector ties this one on specificity while sitting later in the
-     file. Declaring 45 here would simply never take effect. 44px is the
-     approved floor and the bottom of the 44-46px target, so the rule now
-     states what actually renders instead of an intention that loses. */
-  min-height:44px;padding:0 20px;font-size:14px}
-.track__call-staff .call-staff--prominent:hover{
-  color:var(--text-1);
-  background:var(--surface-3);
-  border-color:var(--secondary-line, var(--border-strong));
-  filter:none}
-/* The confirmed state keeps its calm green acknowledgement — clear feedback,
-   no celebration (§12). */
-.track__call-staff .call-staff--prominent.call-staff--called{
-  background:var(--ready-soft);
-  border-color:rgba(63,214,143,.3);
-  color:var(--ready)}
+   This block is therefore gone, not reverted. */
 
 /* Placement inside Order Tracking */
-.track__call-staff{display:flex;justify-content:center;margin:0 0 28px}
-.track__call-staff--prominent{margin:0 0 32px}
+.track__help{display:flex;justify-content:center;margin:0 0 28px}
+.track__help--prominent{margin:0 0 32px}
 
 /* ── Admin / Cashier Staff Calls panel ───────────────────────────────────── */
 /* ══ Phase 102.0 — Staff Calls ═══════════════════════════════════════════
@@ -4036,7 +3987,7 @@ button{font-family:var(--font-body)}
 .customer-theme .chip,
 .customer-theme .cust-pill,
 .customer-theme .cust-addon,
-.customer-theme .call-staff,
+.customer-theme .help-btn,
 .customer-theme .cart-back-btn,
 .customer-theme .onboard__back,
 .customer-theme .btn--sm,
@@ -4078,11 +4029,11 @@ button{font-family:var(--font-body)}
    wide, but ~44% more area each, bought in the axis that was free. The pills
    themselves do not move, so the header keeps its measured 61px height.
    ─────────────────────────────────────────────────────────────────────── */
-.customer-theme .call-staff--compact,
+.customer-theme .help-btn--compact,
 .customer-theme .menu-topbar-right .btn--sm,
 .customer-theme .cust-topbar-right .btn--sm{position:relative}
 
-.customer-theme .call-staff--compact::after,
+.customer-theme .help-btn--compact::after,
 .customer-theme .menu-topbar-right .btn--sm::after,
 .customer-theme .cust-topbar-right .btn--sm::after{
   content:"";position:absolute;top:50%;left:50%;
@@ -4661,7 +4612,7 @@ button{font-family:var(--font-body)}
      icon: 14px of glyph inside 7px of padding and a 1px border is a 30px-wide
      control, measured, on the screens a guest uses one-handed.
 
-     The height was already 44px (min-height on .call-staff). The width is
+     The height was already 44px (min-height on .help-btn). The width is
      bought with the button's own padding rather than with a wider invisible
      overlay, because the controls here sit 6px apart: an overlay big enough
      to reach 44 would reach 7px past each edge and start trading taps with
@@ -4672,7 +4623,7 @@ button{font-family:var(--font-body)}
      its aria-label and its place in the row. Only the reachable area grows,
      and only below 480px.
 
-     Scoped per BAR rather than applied to every .call-staff--compact,
+     Scoped per BAR rather than applied to every .help-btn--compact,
      because the two bars have different budgets. Cart and Tracking give the
      identity a row of its own below 430px, so row 1 has the 14px to spare.
      The Menu topbar does not reflow: it carries five controls on one line
@@ -4682,7 +4633,7 @@ button{font-family:var(--font-body)}
      existing invisible extender (36x56, further up this file) stands, and
      that is the honest limit of "where practical": five 44px targets do not
      fit across 320px without taking something away from the guest. */
-  .topbar--customer-deep .call-staff--compact{min-width:44px;min-height:44px}
+  .topbar--customer-deep .help-btn--compact{min-width:44px;min-height:44px}
   /* Cart and Tracking put the identity in the SAME row as the controls, so
      on a phone it yields more width than on the screens where it sits alone.
      It already truncates with an ellipsis, so this costs no layout. */
@@ -4691,8 +4642,8 @@ button{font-family:var(--font-body)}
      out of the venue's own name. */
   .cust-topbar-right .rest-identity--compact{max-width:36vw}
   .menu-orders-label{display:none}
-  .call-staff--compact{padding:7px;gap:0}
-  .call-staff--compact .call-staff__label{display:none}
+  .help-btn--compact{padding:7px;gap:0}
+  .help-btn--compact .help-btn__label{display:none}
 }
 
 /* ══ Phase 120.0 §3/§4/§5 — the Menu bar keeps its words ═════════════════
@@ -4710,20 +4661,20 @@ button{font-family:var(--font-body)}
    of type — not by shrinking the text until it cannot be read. Measured
    worst case is Arabic at 320px, where the labels are wider than English. */
 .menu-topbar-right .menu-orders-label{display:inline}
-.menu-topbar-right .call-staff--compact{padding:7px 9px;gap:5px}
-.menu-topbar-right .call-staff--compact .call-staff__label{display:inline}
+.menu-topbar-right .help-btn--compact{padding:7px 9px;gap:5px}
+.menu-topbar-right .help-btn--compact .help-btn__label{display:inline}
 @media(max-width:480px){
   .menu-topbar-right{gap:5px}
   .menu-topbar-right .btn--sm{padding-inline:7px;font-size:12px!important}
-  .menu-topbar-right .call-staff--compact{padding:7px 8px;gap:4px;font-size:12px}
+  .menu-topbar-right .help-btn--compact{padding:7px 8px;gap:4px;font-size:12px}
 }
 @media(max-width:400px){
   .menu-topbar-right{gap:4px}
   .menu-topbar-right .btn--sm{padding-inline:5px;font-size:11.5px!important}
-  .menu-topbar-right .call-staff--compact{padding:7px 6px;gap:3px;font-size:11.5px}
+  .menu-topbar-right .help-btn--compact{padding:7px 6px;gap:3px;font-size:11.5px}
   /* The label is the only part allowed to give way, and it gives way by
      losing letter-spacing rather than size. */
-  .menu-topbar-right .call-staff__label,
+  .menu-topbar-right .help-btn__label,
   .menu-topbar-right .menu-orders-label{letter-spacing:-.01em;white-space:nowrap}
 }
 /* 320px, measured: the four controls wanted 307px of the 296px the bar's
@@ -4734,7 +4685,7 @@ button{font-family:var(--font-body)}
    smaller than the 11px above; the words were the point. */
 @media(max-width:340px){
   .menu-topbar-right .btn--sm{padding-inline:4px;font-size:11px!important}
-  .menu-topbar-right .call-staff--compact{padding:6px 5px;font-size:11px}
+  .menu-topbar-right .help-btn--compact{padding:6px 5px;font-size:11px}
   .menu-topbar-left{gap:4px}
   /* Measured again after the first attempt: the row needed 303px of 300.
      The language control is 93px of that, but its two options are 44px
@@ -4748,7 +4699,7 @@ button{font-family:var(--font-body)}
 /* The Menu topbar half of the same rule, held back to 341px: see the note
    above for why these two bars get different thresholds. */
 @media(min-width:341px) and (max-width:480px){
-  .menu-topbar-right .call-staff--compact{min-width:44px;min-height:44px}
+  .menu-topbar-right .help-btn--compact{min-width:44px;min-height:44px}
 }
 /* Narrower still: the language codes tighten horizontally but keep their full
    44px height, so the target stays comfortable in the direction that matters
@@ -7059,9 +7010,11 @@ button{font-family:var(--font-body)}
 .pm-empty__actions{
   display:flex;flex-direction:column;gap:10px;width:100%;margin-top:12px}
 
-/* The shared Call Staff control is reused as-is (§29); it only needs to fill
-   this column the way the Back to Cart button under it does. */
-.pm-empty__actions .call-staff--prominent{width:100%;justify-content:center}
+/* Phase 123.0 §2 — it no longer fills the column. A help action the full
+   width of the sheet reads as the primary way out of a payment problem,
+   which it is not: it sits above "Back to Cart" and beside it in importance.
+   Centred at its own width instead. */
+.pm-empty__actions .help-btn--prominent{align-self:center}
 
 /* ── §38 — RTL ────────────────────────────────────────────────────────────
    The sheet is already built from flex rows and logical properties, so the
@@ -7228,11 +7181,11 @@ button{font-family:var(--font-body)}
 /* §14 — Call Staff, prominent and centered for every status. Generous space
    above so it never crowds the timer, and below so it never crowds the
    details panel. */
-.track__call-staff{display:flex;justify-content:center;margin:26px 0 24px}
+.track__help{display:flex;justify-content:center;margin:26px 0 24px}
 /* Phase 88.3 §5 — the 48px floor that used to live here was silently
    beating the sizing rule up in the Call Staff block (same specificity, later
    in the file), so the button stayed 48px however that rule was edited. The
-   height now has ONE source: see .track__call-staff .call-staff--prominent. */
+   height now has ONE source: see .track__help .help-btn--prominent. */
 
 /* ══ 3. Status Route (§4, §5) ════════════════════════════════════════════ */
 
@@ -8074,7 +8027,7 @@ button{font-family:var(--font-body)}
   .sroute,
   .track__status-copy,
   .otimer,
-  .track__call-staff,
+  .track__help,
   .odetails,
   .track__canceled{max-width:520px;margin-inline:auto}
   .sroute{margin-bottom:26px}
@@ -8238,19 +8191,11 @@ button{font-family:var(--font-body)}
    lifts, the border firms, the label reaches full strength. Still obviously
    interactive, no longer advertising itself. Tracking keeps its own scoped
    treatment from Unit 6 and is untouched by this (§14). */
-.call-staff:hover{
+.help-btn:hover{
   background:var(--surface-2);
   border-color:var(--secondary-line, var(--border-strong));
   color:var(--text-1)}
-.call-staff:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-/* §16 — the confirmed state stays exactly as approved: a calm green
-   acknowledgement, no celebration, and hovering it does not re-tint toward
-   Primary either. */
-.call-staff--called:hover{
-  background:var(--ready-soft);
-  border-color:rgba(63,214,143,.45);
-  color:var(--ready)}
+.help-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* ── §23 — reduced motion ────────────────────────────────────────────────
    The one-shot success animations are decorative acknowledgement; the state
@@ -13869,3 +13814,307 @@ button{font-family:var(--font-body)}
   border-color:var(--gold-line);color:var(--gold-ink)}
 @media(prefers-reduced-motion:reduce){.demo-switcher{transition:none}}
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 123.0 — CUSTOMER ASSISTANCE (ADMIN)
+   ═══════════════════════════════════════════════════════════════════════════
+   The management list for "Need Help?". It deliberately does NOT look like
+   the inline field cards around it: rows with an Edit and a Delete read as
+   records, which is what they are, and which is why committing immediately
+   is not a surprise here the way it would be in a form.
+   ------------------------------------------------------------------------- */
+.asv-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:12px;margin:0 0 12px;flex-wrap:wrap}
+.asv-head__hint{margin:0;flex:1 1 220px;min-width:0}
+
+.asv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+
+.asv-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface-2)}
+/* A disabled service is still configured, so it dims rather than greying out
+   to the point of being unreadable — a manager has to be able to find it. */
+.asv-row--off{opacity:.62}
+.asv-row--locked{
+  border-style:dashed;background:transparent}
+
+.asv-row__order{
+  display:flex;flex-direction:column;gap:2px;flex:0 0 auto;
+  color:var(--text-3)}
+
+.asv-row__kind{
+  flex:0 0 auto;display:grid;place-items:center;
+  width:28px;height:28px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface-3)}
+/* The two kinds are told apart by colour as well as icon, because the kind
+   decides whether tapping summons a person — too important to rest on one
+   13px glyph. Instant borrows the informational blue already in this
+   palette; a request wears the gold the product uses for action. */
+.asv-row__kind--instant{color:var(--received);border-color:var(--received-soft)}
+.asv-row__kind--request{color:var(--gold);border-color:var(--gold-line)}
+
+.asv-row__main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.asv-row__name{
+  font-size:13.5px;font-weight:600;color:var(--text-1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asv-row__meta{
+  font-size:11.5px;color:var(--text-3);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+.asv-flag{
+  font-style:normal;font-size:10.5px;font-weight:600;letter-spacing:.02em;
+  padding:1px 6px;border-radius:999px;
+  border:1px solid var(--border-strong);color:var(--text-2)}
+.asv-flag--warn{
+  border-color:rgba(245,158,75,.4);color:var(--preparing);
+  background:var(--preparing-soft)}
+.asv-flag--on{
+  border-color:var(--gold-line);color:var(--gold-ink);background:var(--gold-soft)}
+
+.asv-row__actions{flex:0 0 auto;display:flex;align-items:center;gap:4px}
+
+.asv-iconbtn{
+  display:grid;place-items:center;width:26px;height:26px;
+  border-radius:7px;border:1px solid transparent;background:transparent;
+  color:var(--text-2);cursor:pointer;
+  transition:background .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+.asv-iconbtn:hover:not(:disabled){
+  background:var(--surface-3);color:var(--text-1);border-color:var(--border)}
+.asv-iconbtn:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.asv-iconbtn:disabled{opacity:.3;cursor:default}
+.asv-iconbtn--danger:hover:not(:disabled){
+  color:var(--canceled);border-color:var(--canceled-soft);background:var(--canceled-soft)}
+
+.asv-switch{display:grid;place-items:center;width:26px;height:26px;cursor:pointer}
+.asv-switch input{width:15px;height:15px;accent-color:var(--gold);cursor:pointer}
+
+.asv-empty{
+  margin:0 0 10px;padding:12px;border-radius:var(--r-sm);
+  border:1px dashed var(--border);background:var(--surface-2);
+  font-size:12.5px;color:var(--text-3);text-align:center}
+.asv-foot{margin-top:10px}
+
+/* ── The Add / Edit dialog ───────────────────────────────────────────────── */
+.asv-form{display:flex;flex-direction:column;gap:14px}
+.asv-subtitle{
+  font-family:var(--font-display);font-size:14px;font-weight:600;
+  color:var(--text-1);margin:0}
+.asv-confirm{margin:0;font-size:13.5px;line-height:1.6;color:var(--text-2)}
+
+/* Two stacked choices rather than side-by-side chips: each one carries a
+   sentence saying what it does to the guest and to the team, and that
+   sentence is the whole point of the control. */
+.asv-types{display:flex;flex-direction:column;gap:8px}
+.asv-type{position:relative}
+.asv-type__label{
+  display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;
+  padding:9px 11px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface-2);
+  cursor:pointer;color:var(--text-2);
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.asv-type__name{font-size:13px;font-weight:600;color:var(--text-1)}
+.asv-type__hint{
+  grid-column:2;font-size:11.5px;line-height:1.45;color:var(--text-3)}
+.asv-type__label:hover{border-color:var(--border-strong)}
+.ap-choice__input:checked + .asv-type__label{
+  border-color:var(--gold-line);background:var(--gold-soft)}
+.ap-choice__input:focus-visible + .asv-type__label{
+  outline:2px solid var(--primary);outline-offset:2px}
+
+@media(prefers-reduced-motion:reduce){
+  .asv-iconbtn,.asv-type__label{transition:none}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 123.0 — CUSTOMER ASSISTANCE (GUEST SHEET)
+   ═══════════════════════════════════════════════════════════════════════════
+   "How can we help you?" — a bottom sheet on a phone, a centered dialog on a
+   desktop, both inherited from the shared Modal rather than built again.
+
+   The one rule the whole visual design serves: an answer row and a request
+   row must never be mistaken for each other, because one of them makes a
+   person walk across a restaurant. They differ in the mark (chevron against
+   a selection box), in the icon, and in what happens when they are open.
+   ------------------------------------------------------------------------- */
+.asheet__hint{
+  margin:0 0 12px;font-size:12.5px;line-height:1.55;color:var(--text-3)}
+
+.asheet__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.asheet__item{display:flex;flex-direction:column}
+
+/* One geometry for both kinds, so the list reads as one list. 52px clears
+   the 44px touch floor with room for a two-line name on a narrow phone. */
+.asheet__row{
+  display:flex;align-items:center;gap:11px;width:100%;
+  min-height:52px;padding:10px 13px;
+  border-radius:var(--r-md);border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text-1);
+  font-family:var(--font-body);font-size:14px;font-weight:500;text-align:start;
+  cursor:pointer;
+  transition:border-color .18s var(--ease),background .18s var(--ease)}
+.asheet__row:hover{border-color:var(--border-strong)}
+.asheet__row:focus-visible,
+.asheet__input:focus-visible + .asheet__mark{
+  outline:2px solid var(--primary);outline-offset:2px}
+
+.asheet__icon{
+  flex:0 0 auto;display:grid;place-items:center;width:30px;height:30px;
+  border-radius:9px;border:1px solid var(--border);background:var(--surface-3)}
+/* The informational blue this palette already uses — never the gold that
+   means "this does something". */
+.asheet__icon--answer{color:var(--received);border-color:var(--received-soft)}
+
+.asheet__name{flex:1 1 auto;min-width:0;line-height:1.35}
+
+.asheet__chev{
+  flex:0 0 auto;color:var(--text-3);
+  transition:transform .2s var(--ease)}
+.asheet__row--answer.is-open{
+  border-color:var(--received-soft);background:var(--surface-3)}
+.asheet__row--answer.is-open .asheet__chev{transform:rotate(180deg)}
+
+/* ── The answer, in place ────────────────────────────────────────────────── */
+.asheet__answer{
+  margin:6px 0 0;padding:12px 14px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--border);border-inline-start:2px solid var(--received);
+  background:var(--surface-2)}
+.asheet__answer-text{
+  margin:0;font-size:13.5px;line-height:1.6;color:var(--text-2);
+  white-space:pre-wrap;overflow-wrap:anywhere}
+
+.asheet__wifi{margin:0;display:flex;flex-direction:column;gap:9px}
+.asheet__wifi-row{display:flex;flex-direction:column;gap:3px}
+.asheet__wifi-row dt{
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3)}
+.asheet__wifi-row dd{
+  margin:0;font-size:14px;color:var(--text-1);overflow-wrap:anywhere}
+.asheet__wifi-pass{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* The credential is the thing being read off a screen in a noisy room, so it
+   is monospaced and spaced out: the difference between l, 1 and I has to
+   survive being typed into a phone by somebody else. */
+.asheet__wifi-pass code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:14.5px;letter-spacing:.06em;color:var(--text-1);
+  padding:4px 9px;border-radius:7px;
+  border:1px solid var(--border);background:var(--surface-3);
+  /* Latin credentials keep their own direction inside Arabic copy. */
+  direction:ltr;unicode-bidi:isolate}
+.asheet__copy{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:32px;padding:0 11px;border-radius:999px;
+  border:1px solid var(--border-strong);background:transparent;
+  color:var(--text-2);font-family:var(--font-body);font-size:12px;font-weight:600;
+  cursor:pointer;transition:color .15s var(--ease),border-color .15s var(--ease)}
+.asheet__copy:hover{color:var(--gold-ink);border-color:var(--gold-line)}
+.asheet__copy:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+/* ── A request row: selectable, with no browser checkbox in sight ────────── */
+.asheet__row--pick.is-on{
+  border-color:var(--gold-line);background:var(--gold-soft)}
+/* A real checkbox, kept for the keyboard and the screen reader, made
+   invisible so the sheet can draw its own mark. */
+.asheet__input{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.asheet__mark{
+  flex:0 0 auto;display:grid;place-items:center;width:22px;height:22px;
+  border-radius:7px;border:1.5px solid var(--border-strong);
+  background:transparent;color:transparent;
+  transition:border-color .16s var(--ease),background .16s var(--ease),color .16s var(--ease)}
+.asheet__row--pick.is-on .asheet__mark{
+  border-color:transparent;color:var(--on-primary);
+  background:linear-gradient(180deg,var(--btn-primary-from),var(--btn-primary-to))}
+
+/* ── Other Request's details ─────────────────────────────────────────────── */
+.asheet__details{display:flex;flex-direction:column;gap:5px;margin:7px 0 0;padding:0 2px}
+.asheet__details-label{
+  font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--text-3)}
+.asheet__textarea{resize:vertical;min-height:62px}
+
+/* ── Sent ────────────────────────────────────────────────────────────────── */
+.asheet__done{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:10px 4px 2px;text-align:center}
+.asheet__done-mark{
+  display:grid;place-items:center;width:52px;height:52px;border-radius:50%;
+  color:var(--ready);background:var(--ready-soft);
+  border:1px solid rgba(63,214,143,.3);margin-bottom:2px}
+.asheet__done-title{margin:0;font-size:15.5px;font-weight:600;color:var(--text-1)}
+.asheet__done-body{margin:0 0 10px;font-size:13px;line-height:1.55;color:var(--text-3)}
+
+@media(prefers-reduced-motion:reduce){
+  .asheet__row,.asheet__chev,.asheet__mark,.asheet__copy{transition:none}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 123.0 — CUSTOMER ASSISTANCE (STAFF SIDE)
+   ═══════════════════════════════════════════════════════════════════════════
+   A staff call now says what was asked for. The card keeps its existing
+   shape — table, name, status, elapsed, one Resolve — and gains a list
+   between the header row and the action.
+   ------------------------------------------------------------------------- */
+/* The card is a wrapping flex row — table and name on the left, status and
+   Resolve on the right. The asks are a third thing and belong under both,
+   not squeezed into the gap between them, so they take a full-width line of
+   their own. `order` keeps Resolve on the first line where staff already
+   look for it; below 560px the card is already stacked, and there the asks
+   read better BEFORE the button, which is why the order is undone again. */
+.sc-card__action{order:1}
+.sc-card__asks{order:2;flex:1 1 100%}
+.sc-card__by{order:3;flex:1 1 100%}
+@media(max-width:560px){
+  .sc-card__action{order:4}
+}
+
+.sc-card__asks{
+  list-style:none;margin:10px 0 0;padding:0;
+  display:flex;flex-direction:column;gap:6px}
+.sc-card__ask{
+  display:flex;flex-direction:column;gap:2px;
+  padding:8px 11px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface-2);
+  /* The leading rule gives the list a spine, so several asks read as one
+     visit rather than as several unrelated rows. */
+  border-inline-start:2px solid var(--gold-line)}
+.sc-card__ask-name{font-size:13.5px;font-weight:600;color:var(--text-1)}
+/* Free text a guest typed. It wraps, it can be long, and it is never
+   truncated into something that changes its meaning. */
+.sc-card__ask-note{
+  font-size:12.5px;line-height:1.5;color:var(--text-2);
+  white-space:pre-wrap;overflow-wrap:anywhere}
+/* A call from before assistance options existed. Stated, not styled as an
+   error: it is a valid record, just a less specific one. */
+.sc-card__ask--legacy{border-inline-start-color:var(--border-strong)}
+.sc-card__ask--legacy .sc-card__ask-name{color:var(--text-2);font-weight:500}
+.sc-card__ask--legacy .sc-card__ask-note{color:var(--text-3);font-size:11.5px}
+
+.sc-card__by{
+  margin:9px 0 0;font-size:11.5px;color:var(--text-3)}
+
+/* ── Waiting too long ────────────────────────────────────────────────────
+   The threshold lives in operationalAttention.js and is shared with Needs
+   Attention. It changes how a call is dressed, never whether it is shown:
+   every open call is always in the queue.
+
+   It is a WORD, not a colour. Every open call already prints its wait in
+   --preparing orange, so tinting an overdue one orange said nothing — the
+   two were measured as the same rgb(245,158,75). A filled chip beside the
+   status says which calls have crossed the line, and says it in a way that
+   survives being read by someone who cannot separate those two oranges. */
+.sc-overdue{
+  display:inline-flex;align-items:center;
+  padding:3px 9px;border-radius:999px;
+  background:var(--preparing);color:#231405;
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;white-space:nowrap}
+/* A heavier accent on the card's leading edge, so the row is findable
+   while scanning rather than only once it is read. */
+.sc-card--overdue::before{width:5px}
+
+.ad-attention__row .ad-attention__age--overdue{
+  color:var(--preparing);font-weight:700}

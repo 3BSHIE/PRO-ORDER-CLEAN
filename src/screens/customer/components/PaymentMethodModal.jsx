@@ -15,7 +15,7 @@ import {
 import { useLanguage } from "../../../i18n/useLanguage.js";
 import { useBodyScrollLock } from "../../../lib/useBodyScrollLock.js";
 import { fmtPrice } from "../../../lib/format.js";
-import CallStaffButton from "./CallStaffButton.jsx";
+import AssistanceButton from "./AssistanceButton.jsx";
 
 /**
  * Phase 73 §15 — the method's semantic icon key resolved to a Lucide mark.
@@ -373,13 +373,14 @@ export default function PaymentMethodModal({
                   staff. §8 asks for only the functional CTA in this state, so
                   the sentence is gone and the control speaks for itself. */}
               <div className="pm-empty__actions">
-                {/* §29 — the existing Digital Waiter Bell, not a second
-                    staff-call implementation. It carries its own duplicate
-                    rule and its own confirmed state, so a guest who already
-                    rang from the Menu sees "Staff notified" here too. Only
-                    surfaced when the table is actually known. */}
+                {/* §29 — the shared Need Help entry, not a second
+                    staff-call implementation: it opens the same sheet and
+                    writes through the same request path as the Menu. A guest
+                    stuck at payment can say what they actually need rather
+                    than only ringing a bell. Only surfaced when the table is
+                    actually known. */}
                 {table?.id && (
-                  <CallStaffButton
+                  <AssistanceButton
                     restaurantSlug={restaurantSlug}
                     tableId={table.id}
                     tableNumber={table.number}

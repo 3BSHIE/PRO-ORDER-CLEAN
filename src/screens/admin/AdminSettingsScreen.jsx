@@ -9,12 +9,14 @@ import Logo    from "../../components/brand/Logo.jsx";
 import AdminLayout from "./AdminLayout.jsx";
 import KitchenAlertsCard from "./KitchenAlertsCard.jsx";
 import StaffCallAlertsCard from "./StaffCallAlertsCard.jsx";
+import AssistanceServicesCard from "./AssistanceServicesCard.jsx";
 import { useSettingsData } from "../../lib/useSettingsData.js";
 import { updateSettings } from "../../lib/settingsData.js";
 import { WEEKDAY_KEYS, normalizeWorkingHours } from "../../lib/acceptingOrders.js";
 import { registerNavigationGuard } from "../../lib/navigationGuard.js";
 import { useKitchenAlertSettings } from "../../lib/useKitchenAlertSettings.js";
 import { useStaffCallAlertSettings } from "../../lib/useStaffCallAlertSettings.js";
+import { useAssistanceServices } from "../../lib/useAssistanceServices.js";
 import { updateStaffCallAlertSettings } from "../../lib/staffCallAlertData.js";
 import { updateKitchenAlertSettings, SOUND_PURPOSES } from "../../lib/kitchenAlertData.js";
 import { findAlertSoundConflict, alertSoundFieldId } from "../../lib/alertPurposes.js";
@@ -284,6 +286,10 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
      and have never been part of that constraint, so inventing a cross-purpose
      rule here would be new product behaviour this phase was not asked for. */
   const { settings: staffAlertSettings } = useStaffCallAlertSettings(restaurant.slug);
+  /* Phase 123.0 — assistance services are CRUD and commit immediately, so
+     they are read live here rather than copied into this page's draft. See
+     AssistanceServicesCard for why that is deliberate and visible. */
+  const { services: assistanceServices } = useAssistanceServices(restaurant.slug);
   const [staffAlertDraft, setStaffAlertDraft] = useState(staffAlertSettings);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -974,6 +980,30 @@ export default function AdminSettingsScreen({ restaurant, session, onSignOut, on
           </div>
           <p className="ad-settings__hint">{t("admin.onlinePaymentStillDisabledHint", "Online Payment remains functionally disabled — this only controls whether it's shown as an upcoming option.")}</p>
         </Card>
+          </div>
+        </section>
+
+        {/* ── Phase 123.0 — Customer Assistance ───────────────────────────
+            Its own group rather than a card inside Customer Experience: that
+            group is "what guests can choose when they order", and asking for
+            napkins or the Wi-Fi password is not ordering. It sits directly
+            after it because both are guest-facing, and before Operations
+            because a manager configures what guests can ask for long before
+            they tune how the kitchen runs. */}
+        <section className="ad-settings__group">
+          <header className="ad-settings__group-head">
+            <h2 className="ad-settings__group-title">{t("assist.adminTitle", "Customer Assistance")}</h2>
+            <p className="ad-settings__group-hint">{t("assist.groupHint", "What guests can ask you for, and what they can simply be told.")}</p>
+          </header>
+          <div className="ad-settings__row">
+            <AssistanceServicesCard
+              restaurantSlug={restaurant.slug}
+              services={assistanceServices}
+              onToast={(message) => {
+                setToastMessage(message);
+                setToastVisible(true);
+              }}
+            />
           </div>
         </section>
 
