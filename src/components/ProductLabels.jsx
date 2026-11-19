@@ -110,7 +110,14 @@ function useFittedCount(containerRef, measureRef, total, hasOverflowChip) {
     if (!container || !measureRow) return;
 
     const available = container.clientWidth;
-    if (!available) return;
+    /* Phase 124.1 — zero is an ANSWER, not a "not laid out yet". Over the
+       image the row can legitimately be squeezed to nothing: an out-of-stock
+       badge at 375px wants 145px of a 151px overlay and leaves the
+       attributes 0. Returning early here kept whatever count was measured
+       last and rendered a "+4" clipped to 12px of the 17 it needs.
+       ResizeObserver still fires when the row regains width, so a wider
+       viewport brings the chips straight back. */
+    if (!available) { setCount(-1); return; }
 
     const children = Array.from(measureRow.children);
     /* The measurement row ALWAYS ends with the indicator, whether or not one
@@ -139,6 +146,14 @@ function useFittedCount(containerRef, measureRef, total, hasOverflowChip) {
     /* Otherwise something will be hidden either way, so the indicator is
        certain to be shown and its width is reserved from the start — which is
        what stops a "+2" being promised in a row it cannot fit in. */
+    /* Phase 124.1 §6 — when not even the indicator fits, show nothing.
+       Measured on the out-of-stock card at 320px: the status badge needs
+       almost the whole overlay and leaves the attributes 13px, where a "+4"
+       that wants 17px renders as a clipped sliver. -1 means "suppressed",
+       which the row below renders as an empty (but still measured) row, so
+       widening the viewport brings the chips back. */
+    if (available < overflowWidth) { setCount(-1); return; }
+
     let used = overflowWidth;
     let fitted = 0;
     for (const w of widths) {
@@ -147,9 +162,17 @@ function useFittedCount(containerRef, measureRef, total, hasOverflowChip) {
       used = next;
       fitted += 1;
     }
-    /* Never an empty row: one chip is shown even in a column too narrow for
-       it, and the stylesheet truncates it rather than letting it overflow. */
-    setCount(Math.max(1, fitted));
+    /* Phase 124.1 §4/§6 — zero chips is now a legitimate answer.
+       This used to force at least one chip through, because the row sat in
+       a reserved lane under the image and an empty lane looked like a bug.
+       The row is over the photograph now, where nothing is reserved: an
+       empty row simply is not there, and the count beside it still tells
+       the whole truth.
+       Measured case that made the change necessary: an out-of-stock card at
+       390px gives the attributes 54px once the status badge has taken what
+       it needs, and "Extra Spicy" was being ellipsised to 27px — an icon and
+       two letters. "+4" is both narrower and honest. */
+    setCount(fitted);
   }, [containerRef, measureRef, total, hasOverflowChip]);
 
   useLayoutEffect(() => {
@@ -194,8 +217,12 @@ export function AttributeRow({ labels, limit = 3, className = "" }) {
 
   if (labels.length === 0) return <div className={`plabel-row ${className}`.trim()} aria-hidden="true" />;
 
-  const shown = candidates.slice(0, fitted);
-  const hiddenCount = labels.length - shown.length;
+  /* -1 is "not even the count fits here" (§6). The row still renders, and
+     still carries the gauge and the ResizeObserver, so the chips return the
+     moment there is room for them again. */
+  const suppressed = fitted < 0;
+  const shown = suppressed ? [] : candidates.slice(0, fitted);
+  const hiddenCount = suppressed ? 0 : labels.length - shown.length;
   const hiddenNames = labels.slice(shown.length).map((l) => labelText(l, t, language)).join(", ");
 
   return (

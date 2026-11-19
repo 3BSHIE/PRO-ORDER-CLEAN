@@ -788,12 +788,19 @@ function ProductMiniPreview({
           )}
         </div>
 
-        {isAvailable
-          ? <PromoBadge label={promo} className="item-card__promo" />
-          : <span className="item-card__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>}
+        {/* Phase 124.1 — the same one-row label overlay the guest card uses,
+            in the same order, with the same limit. The preview has to show
+            the manager where their labels will actually land, and after this
+            phase that is over the photograph: status in the leading corner,
+            attributes in the trailing one. */}
+        <div className="item-card__labels">
+          {isAvailable
+            ? <PromoBadge label={promo} className="item-card__promo" />
+            : <span className="item-card__oos-badge">{t("common.outOfStock", "Out of Stock")}</span>}
+          <AttributeRow labels={attrs} limit={2} className="item-card__attrs" />
+        </div>
 
         <div className="item-card__body">
-          <AttributeRow labels={attrs} className="item-card__badges" />
           <p className="item-card__name">{displayName}</p>
           <p className="item-card__desc">{displayDesc}</p>
           <div className="item-card__foot">

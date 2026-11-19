@@ -873,11 +873,27 @@ button{font-family:var(--font-body)}
   --ic-add-font:20px;
   --ic-gap:5px;
   --ic-desc-gap:11px;
+  /* Phase 124.1 — the description's line-height, named once so the two
+     places that need it (the rendered leading, and the flex-basis that
+     pins the card's natural height to two lines) cannot drift apart. */
+  --ic-desc-lh:1.45;
+  /* Phase 124.1 §10 — what the body handed back to the photograph. It is
+     exactly the attribute lane that used to sit under the image: 16px of
+     min-height plus its 6px margin, measured at 1280x800 before this phase.
+     Expressed as a CONSTANT, not as a new aspect ratio, and that is the
+     whole trick — see .item-card__img-wrap. */
+  --ic-img-gain:22px;
   background:linear-gradient(160deg,rgba(255,255,255,.028) 0%,transparent 55%),
     var(--surface-1);
   border:1px solid var(--border);border-radius:var(--r-lg);
   overflow:hidden;position:relative;
   display:flex;flex-direction:column;
+  /* Phase 124.1 — so the image below can be told "three quarters of MY
+     width, plus a constant". Every consumer already gives the card an
+     explicit width (the grid's 1fr column, .mm-mini's 128px, the AI
+     carousel's width:100%), so nothing here was sizing itself from its
+     contents and nothing loses a layout it depended on. */
+  container-type:inline-size;
   transition:border-color .22s var(--ease),transform .22s var(--ease),
     box-shadow .22s var(--ease)}
 /* Phase 73 §6 — hover is desktop-only and much quieter than it was. The card
@@ -903,8 +919,24 @@ button{font-family:var(--font-body)}
 .item-card--unavailable .item-card__body{opacity:.5}
 
 /* card image / emoji placeholder */
+/* ── Phase 124.1 §10 — a taller photograph that costs the card nothing ────
+   The height is the 4:3 the card has always used PLUS the attribute lane
+   the body no longer spends: 0.75 x width + 22px. A constant, deliberately,
+   rather than a new aspect ratio.
+
+   That choice is what keeps the AI stage intact without editing it. The
+   stage solves its whole composition from cardHeightFor(), which is
+   (width - 2) x 0.75 + CARD_BODY + 2 + 13 with the lane baked into
+   CARD_BODY. Moving 22px from the fixed term to the fixed term leaves that
+   function identical at every width; a new ratio would have changed the
+   SLOPE, and the mascot, the conversation and the composer would all have
+   been solving against a card that no longer existed.
+
+   cqw rather than a percentage because a percentage height resolves against
+   the card's own height, which is what we are computing. */
 .item-card__img-wrap{
-  width:100%;aspect-ratio:4/3;overflow:hidden;
+  width:100%;height:calc(75cqw + var(--ic-img-gain));
+  overflow:hidden;
   background:var(--surface-3);flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
 .item-card__img{width:100%;height:100%;object-fit:cover;display:block;
@@ -935,9 +967,38 @@ button{font-family:var(--font-body)}
      centred lockup rather than text with something stuck under it. */
   transform:translateY(-6%)}
 
+/* ── Phase 124.1 §3/§6 — one row, two ends, inside the image ─────────────
+   The primary status (promotion, or Out of Stock) takes the LEADING corner
+   and the attributes the TRAILING one, which in English is left and right
+   and in Arabic is right and left — by logical properties, so neither
+   language is special-cased and neither is a translation of the other's
+   layout.
+
+   A flex row rather than two absolute corners: absolute boxes cannot be
+   told to share a width, which is why a long promotion and a long Arabic
+   attribute could previously only be kept apart by guessing a breakpoint.
+   Here the row IS the constraint. The attributes get what the status does
+   not take, AttributeRow measures that and drops to one chip plus a count,
+   and .plabel-row's overflow:clip means nothing can leave the image even in
+   the width where one chip still will not fit. */
+.item-card__labels{
+  position:absolute;top:8px;inset-inline:8px;z-index:2;
+  display:flex;align-items:flex-start;gap:6px}
+/* The status keeps its intrinsic width and yields last. The attribute row
+   TAKES THE REMAINDER rather than shrinking to its chips, and right-aligns
+   them inside it — which is not cosmetic: AttributeRow measures its own
+   container to decide how many chips fit, so a row sized by its content
+   would be measuring itself and could never discover that a second chip
+   fits. Measured before the fix: two attributes on a 169px card rendered
+   as one chip plus "+1" with 29px to spare. */
+.item-card__labels > .plabel--promo{flex:0 1 auto;min-width:0}
+.item-card__attrs{flex:1 1 0;min-width:0;justify-content:flex-end}
+.item-card__attrs:empty{display:none}
+
 /* out of stock overlay badge */
 .item-card__oos-badge{
-  position:absolute;top:8px;left:8px;
+  flex:0 1 auto;min-width:0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
   background:rgba(10,10,11,.75);backdrop-filter:blur(4px);
   border:1px solid var(--canceled);color:var(--canceled);
   border-radius:999px;padding:3px 9px;
@@ -948,14 +1009,12 @@ button{font-family:var(--font-body)}
 .item-card__body{
   padding:var(--ic-pad);
   display:flex;flex-direction:column;flex:1}
-/* Phase 73 §5/§7 — the slot is always in the layout, even when the product
-   has no badge, so the product name starts at the same y on every card in a
-   row. Previously the whole block was conditional and a badged card pushed
-   its neighbour's title down. min-height matches one badge's rendered height;
-   nowrap because only one badge can ever be here now. */
-.item-card__badges{
-  display:flex;gap:4px;margin-bottom:6px;
-  min-height:16px;align-items:flex-start}
+/* Phase 124.1 §8 — .item-card__badges is GONE from the card body. No rule
+   replaces it and no spacer stands in for it: the attributes it used to
+   hold are over the photograph now, so every name begins at the same
+   distance below the image whatever the product carries. The two Phase
+   124.0 rules that collapsed it conditionally are removed below, because a
+   lane that does not exist cannot need collapsing. */
 
 /* ── Phase 124.0 §3 — the lane a product with no attributes was paying for ──
    Measured at 1280x800: an EMPTY lane rendered 16px tall plus a 6px margin,
@@ -982,8 +1041,10 @@ button{font-family:var(--font-body)}
    per-presentation body cost (CARD_MODEL.fixed), so shortening the card
    there would leave the mascot, the chat and the composer solving against a
    card that no longer exists. Phase 124.0 §6 freezes that scene. */
-.menu-grid .item-card__badges:empty,
-.mm-mini .item-card__badges:empty{display:none}
+/* (Phase 124.0's conditional collapse lived here. Phase 124.1 removed the
+   lane itself, so there is nothing left to collapse and nothing left to
+   make conditional — which is also what removed the attribute-dependent
+   title offset that collapse had introduced.) */
 
 /* ── Phase 124.0 §5 — and the space goes to the words, not to air ─────────
    Approved option B. A card that spent nothing on attributes spends it on
@@ -1004,7 +1065,8 @@ button{font-family:var(--font-body)}
    :has() rather than a class, so it follows the same single source of truth
    as the rule above. .mm-mini pins its own clamp directly on the element and
    therefore keeps its deliberately tiny two-line preview (Admin §15). */
-.menu-grid .item-card:has(.item-card__badges:empty){--ic-desc-lines:3}
+/* (and Phase 124.0's conditional three-line allowance. It is unconditional
+   now, and pinned so it cannot grow a card — see .item-card__desc.) */
 .item-card__badge{
   font-size:9.5px!important;padding:2px 7px!important}
 .item-card__name{
@@ -1016,8 +1078,27 @@ button{font-family:var(--font-body)}
    screen where two lines is the difference between a conversation and no
    conversation; the full description is where the bounded treatment always
    sent it, in Product Details. */
+/* ── Phase 124.1 §10 — why this stays at two lines ───────────────────────
+   Phase 124.0 bought a third line with the attribute lane. This phase gives
+   that same 22px to the photograph instead, which is the first of §10's
+   stated priorities, and 22px cannot be spent twice: a third line costs
+   16.675 of it.
+
+   Two ways to keep both were implemented and measured, and both broke a
+   different rule. Pinning flex-basis to two lines holds the tall cards
+   still, but then a ONE-line description reserves two — San Pellegrino grew
+   by 16.67px, which is precisely the fake text block §10 forbids. Letting
+   the basis follow the content with a three-line clamp does the reverse:
+   every card whose text wants a third line grows by one. CSS cannot express
+   "two lines of natural height, three only if the row is already paying for
+   them", because the clamp sets both at once and nothing but JavaScript can
+   tell a stretched card from a tall one.
+
+   So the clamp stays at two and the natural height is identical to e46a5c6:
+   flex:1 is basis 0 with an automatic minimum of min-content, so a one-line
+   description still occupies one line and an empty one still occupies none. */
 .item-card__desc{
-  font-size:var(--ic-desc);color:var(--text-2);line-height:1.45;
+  font-size:var(--ic-desc);color:var(--text-2);line-height:var(--ic-desc-lh);
   margin:0 0 var(--ic-desc-gap);flex:1;
   display:-webkit-box;-webkit-line-clamp:var(--ic-desc-lines,2);
   -webkit-box-orient:vertical;overflow:hidden}
@@ -1080,12 +1161,16 @@ button{font-family:var(--font-body)}
    aspect honoured by object-fit:cover — not a stretched one, and not a
    thumbnail: at a 132px card it is 82px tall, which is a recognisable dish.
    This is where the width-proportional part of the height comes down,
-   0.75 x width to 0.625 x width. */
-.item-card--compact .item-card__img-wrap{aspect-ratio:16/10}
-/* The attribute slot still exists, so the three dishes in the carousel
-   still line their names up with each other; it simply reserves one
-   tighter row instead of one loose one. */
-.item-card--compact .item-card__badges{min-height:14px;margin-bottom:4px}
+   0.75 x width to 0.625 x width.
+
+   Phase 124.1 — plus this tier's own lane, 14px of min-height and a 4px
+   margin, handed to the photograph on exactly the same terms as the
+   standard card. 0.625 x width + 18px keeps CARD_MODEL.compact's measured
+   138.6 fixed term true, so the stage still solves correctly. */
+.item-card--compact{--ic-img-gain:18px;--ic-desc-lh:1.4}
+.item-card--compact .item-card__img-wrap{height:calc(62.5cqw + var(--ic-img-gain))}
+/* The labels sit closer in on a card this size. */
+.item-card--compact .item-card__labels{top:6px;inset-inline:6px;gap:4px}
 /* Two lines, bounded the same way the description is, with the whole name
    in Product Details. Three-line reserve is the single largest fixed cost
    in the standard card and it is the one a 568px phone cannot afford. */
@@ -1093,9 +1178,8 @@ button{font-family:var(--font-body)}
   line-height:1.3;
   display:-webkit-box;-webkit-line-clamp:2;
   -webkit-box-orient:vertical;overflow:hidden}
-.item-card--compact .item-card__desc{line-height:1.4}
-.item-card--compact .item-card__oos-badge{
-  top:6px;left:6px;padding:2px 7px;font-size:9px}
+
+.item-card--compact .item-card__oos-badge{padding:2px 7px;font-size:9px}
 
 /* ── Search empty state ── */
 .menu-search-empty{
@@ -12584,6 +12668,7 @@ button{font-family:var(--font-body)}
   color:var(--text-3);background:var(--surface-3);
   box-shadow:inset 0 0 0 1px var(--border)}
 
+
 /* Light appearance: the promotional fills are unchanged — they sit on
    photographs, which do not get lighter — while the attribute tints need a
    darker ink to stay readable on a pale card. */
@@ -12591,6 +12676,37 @@ button{font-family:var(--font-body)}
   color:hsl(var(--lbl-h) 70% 29%);
   background:hsl(var(--lbl-h) 68% 46% / .12);
   box-shadow:inset 0 0 0 1px hsl(var(--lbl-h) 58% 42% / .26)}
+
+/* ── Phase 124.1 §5 — the same attributes, now over food ────────────────
+   Option A: the hues, the icons and the chip shape are the product's
+   identity and are kept. What changes is only what sits BEHIND them.
+
+   The card-surface treatment is a 15%-alpha tint under pale text, which is
+   readable on a dark card and illegible on a photograph of a lemon. Over
+   the image each chip gets a dark, hue-tinted, nearly opaque ground of its
+   own — the same device .plabel--promo already uses to sit on a
+   photograph, one step quieter so the promotion stays primary.
+
+   Deliberately NOT a glow, an outline or a drop-shadow stack: one hairline
+   and one soft shadow, exactly what the promotional chip carries.
+
+   It sits after the light-appearance tint, and carries .item-card__labels
+   purely to outrank it, because the sentence directly above applies to
+   these chips too now: a photograph does not get lighter when the
+   restaurant picks the light theme. Measured before the fix — a light-mode
+   card rendered hsl(142 70% 29%) ink on a 12%-alpha ground over a bright
+   salad, which is the exact combination that rule was written to avoid. */
+.item-card__labels .item-card__attrs .plabel--attr{
+  color:hsl(var(--lbl-h) 85% 86%);
+  background:hsl(var(--lbl-h) 42% 16% / .86);
+  box-shadow:inset 0 0 0 1px hsl(var(--lbl-h) 55% 62% / .38),
+    0 1px 3px rgba(0,0,0,.34)}
+.item-card__labels .item-card__attrs .plabel--attr-custom{
+  color:#f2efe6;background:rgba(14,14,16,.86);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 1px 3px rgba(0,0,0,.34)}
+.item-card__labels .item-card__attrs .plabel--more{
+  color:#e8e4d9;background:rgba(14,14,16,.86);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),0 1px 3px rgba(0,0,0,.34)}
 
 /* ── The card's attribute row ───────────────────────────────────────────── */
 .plabel-row{
@@ -12644,9 +12760,10 @@ button{font-family:var(--font-body)}
    invented for the badge. Logical inset, so it mirrors with the interface
    while staying the same corner relative to reading direction — and the
    opposite corner from the Out of Stock overlay, which keeps its own. */
-.item-card__promo{
-  position:absolute;top:8px;inset-inline-end:8px;
-  z-index:2;max-width:calc(100% - 16px)}
+/* Phase 124.1 — positioned by .item-card__labels now. It keeps its own
+   width and is the last thing allowed to give way, because §6 is explicit
+   that if space runs out it is the SECONDARY attributes that simplify. */
+.item-card__promo{flex:0 1 auto;min-width:0}
 
 /* ── Item Details ───────────────────────────────────────────────────────── */
 .item-modal__labels{
@@ -12696,14 +12813,16 @@ button{font-family:var(--font-body)}
   --ic-desc-gap:5px;
   /* Inert: nothing in here is focusable, clickable or hoverable (§27). */
   pointer-events:none;cursor:default}
-.mm-mini .item-card__promo{top:5px;inset-inline-end:5px}
+/* Phase 124.1 — the preview's own lane was 10px of min-height plus a 3px
+   margin; it goes to the preview's photograph by the same rule. */
+.mm-mini .item-card{--ic-img-gain:13px}
+.mm-mini .item-card__labels{top:5px;inset-inline:5px;gap:4px}
 .mm-mini .plabel--promo{padding:2px 5px;font-size:7px;letter-spacing:.06em}
 .mm-mini .plabel--attr,
 .mm-mini .plabel--more{padding:1px 4px;font-size:6.5px;letter-spacing:.02em}
 .mm-mini .plabel__icon{width:7px;height:7px}
-.mm-mini .item-card__badges{margin-bottom:3px;min-height:10px}
 .mm-mini .item-card__oos-badge{
-  top:5px;left:5px;padding:2px 5px;font-size:6.5px;letter-spacing:.06em}
+  padding:2px 5px;font-size:6.5px;letter-spacing:.06em}
 .mm-mini .item-card__mono{font-size:17px}
 .mm-mini .item-card__desc{-webkit-line-clamp:2}
 

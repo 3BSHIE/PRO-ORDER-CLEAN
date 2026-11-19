@@ -124,48 +124,60 @@ export function ItemCard({ item, onOpen, customLabels, presentation = "default" 
          need a string, never the localized object. */}
       <ItemImage src={item.imageUrl} alt={itemName} name={itemName} />
 
-      {/* Phase 119.0 §10 — the promotional badge, in the image's top-end
-          corner. It is a child of the CARD rather than of the image wrapper,
-          so it sits in exactly the same place whether the product has a
-          photograph, a broken one or none at all — the monogram panel fills
-          the identical box and nothing was invented to hold the badge. The
-          opposite corner from Out of Stock, which keeps its own.
+      {/* ── Phase 124.1 §3/§6 — every label the product carries, over the
+          photograph, in ONE constrained row ───────────────────────────────
+          Both groups used to be positioned absolutely and independently,
+          which is why they could not be asked to share a width. They are now
+          the two ends of a single flex row inset inside the image: the
+          primary status takes the leading corner, the attributes take the
+          trailing one, and the row — not a breakpoint — is what guarantees
+          they can never reach each other or leave the image.
 
-          Suppressed on an unavailable card, which is the rule Phase 73 §7 and
-          Phase 85 §8 already settled: one status at a time. The card body is
-          dimmed to .5 when unavailable and this badge is not in the body, so
-          leaving it would have put a full-strength "Best Seller" on a faded
-          card for something nobody can order. */}
-      {available && <PromoBadge label={promoBadge} className="item-card__promo" />}
+          It is a child of the CARD rather than of the image wrapper, so it
+          sits in exactly the same place whether the product has a
+          photograph, a broken one or none at all: the monogram panel fills
+          the identical box and nothing was invented to hold the labels. */}
+      <div className="item-card__labels">
+        {/* Leading corner: ONE status at a time. The rule Phase 73 §7 and
+            Phase 85 §8 settled is preserved exactly — an unavailable card
+            shows Out of Stock INSTEAD of its promotion, never both, because
+            the body is dimmed to .5 and a full-strength "Best Seller" on a
+            faded card for something nobody can order is the wrong promise.
+            Now an either/or in markup as well as in intent. */}
+        {available ? (
+          <PromoBadge label={promoBadge} className="item-card__promo" />
+        ) : (
+          /* Carries an id so the disabled "+" can point at it instead of
+             repeating the wording — one source of truth for the status text,
+             in whichever language is active. */
+          <span className="item-card__oos-badge" id={oosId}>
+            {t("common.outOfStock", "Out of Stock")}
+          </span>
+        )}
 
-      {/* Out of stock overlay badge. Carries an id so the disabled "+" can
-          point at it instead of repeating the wording — one source of truth
-          for the status text, in whichever language is active. */}
-      {!available && (
-        <span className="item-card__oos-badge" id={oosId}>
-          {t("common.outOfStock", "Out of Stock")}
-        </span>
-      )}
+        {/* Trailing corner: what the dish IS, rather than how it is sold.
+            Shown whether or not the product is available, because an
+            allergen does not stop being true when the kitchen runs out.
+
+            limit={2} is §4: at most two named attributes, then an accurate
+            count. AttributeRow already measures real rendered widths and
+            already falls back to one chip plus the indicator when two will
+            not fit — reused rather than reimplemented, so Arabic, which is
+            wider, narrows the row by measurement instead of by assumption. */}
+        <AttributeRow labels={attributes} limit={2} className="item-card__attrs" />
+      </div>
 
       {/* Body */}
+      {/* ── Phase 124.1 §8 — the body now begins with the NAME, always ─────
+          The attribute lane that used to open this block is gone: not
+          hidden, not collapsed, not replaced by a spacer — moved onto the
+          photograph above. That is what makes every product name in a grid
+          row start at the same height again, whether the dish carries five
+          attributes or none, without reserving a single pixel for the ones
+          that carry none. The 22px the lane cost is returned to the image
+          (see .item-card__img-wrap), so the card's outer height is exactly
+          what it was before Phase 124.0 touched it. */}
       <div className="item-card__body">
-        {/* Phase 73 §7 — at most ONE badge, priority Out of Stock > Popular >
-            Featured. The product's own isPopular/isFeatured flags are
-            untouched; this is purely which one the card is allowed to show.
-            Out of Stock wins by being handled above as the image overlay
-            (Phase 44, deliberately preserved), so an unavailable card shows
-            no body badge at all rather than two competing statuses.
-
-            The slot is always rendered, even when empty, so the product name
-            sits at the same height on every card in a row. */}
-        {/* Phase 119.0 §11/§12 — the slot the old single badge occupied now
-            carries the product's ATTRIBUTES: at most three, fewer when the
-            card is too narrow for three, measured rather than guessed. Shown
-            regardless of availability because they are information about the
-            dish, not a promotion of it, and they dim with the body like the
-            rest of the card. The slot is still rendered when empty so every
-            name in a grid row starts at the same height. */}
-        <AttributeRow labels={attributes} className="item-card__badges" />
         <p className="item-card__name">{itemName}</p>
         <p className="item-card__desc">{itemDescription}</p>
         <div className="item-card__foot">
