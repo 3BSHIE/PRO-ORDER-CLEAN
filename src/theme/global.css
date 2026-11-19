@@ -956,6 +956,55 @@ button{font-family:var(--font-body)}
 .item-card__badges{
   display:flex;gap:4px;margin-bottom:6px;
   min-height:16px;align-items:flex-start}
+
+/* ── Phase 124.0 §3 — the lane a product with no attributes was paying for ──
+   Measured at 1280x800: an EMPTY lane rendered 16px tall plus a 6px margin,
+   so every attribute-less card reserved 22px for nothing. A lane holding
+   four chips measured 22.59px. The reserve was therefore costing almost
+   exactly what real content costs, on every card in the menu, whether or not
+   the product had anything to show.
+
+   The original reason was alignment: a badged card used to push its
+   neighbour's title down. That reason no longer holds, because the grid
+   stretches every card in a row to the same height and the footer is
+   anchored with margin-top:auto — prices stay on one line whatever the
+   titles do above them. The owner has asked for the space back and accepts
+   that two titles in a row may now start at different heights.
+
+   :empty rather than a conditional render, because AttributeRow's zero-label
+   branch returns a genuinely childless <div> and the Product Editor's
+   preview builds the same markup by hand. One rule keeps the guest card and
+   the "Customer preview" identical by construction; a prop would have had to
+   be threaded through two call sites and could drift.
+
+   Scoped to the surfaces that can afford it. The AI stage is deliberately
+   NOT included: stageGeometry.js solves the whole scene from a hardcoded
+   per-presentation body cost (CARD_MODEL.fixed), so shortening the card
+   there would leave the mascot, the chat and the composer solving against a
+   card that no longer exists. Phase 124.0 §6 freezes that scene. */
+.menu-grid .item-card__badges:empty,
+.mm-mini .item-card__badges:empty{display:none}
+
+/* ── Phase 124.0 §5 — and the space goes to the words, not to air ─────────
+   Approved option B. A card that spent nothing on attributes spends it on
+   its description instead.
+
+   This is worth more than it looks. In a row where some other card is
+   taller, the short card is already stretched and its description box
+   already holds the slack as dead air — measured at 390x844: a 52.16px box
+   rendering 33.35px of text, 18.81px of nothing, directly above the price.
+   Raising the allowance converts that air into a third line of real text at
+   zero cost to the card's height, which is the "truncated while space was
+   available" case the owner described.
+
+   It stays a bound, not a removal: three lines, still clamped, still unable
+   to reach the footer. A short description still occupies only the lines it
+   has — the allowance is a ceiling, so nothing reserves a phantom paragraph.
+
+   :has() rather than a class, so it follows the same single source of truth
+   as the rule above. .mm-mini pins its own clamp directly on the element and
+   therefore keeps its deliberately tiny two-line preview (Admin §15). */
+.menu-grid .item-card:has(.item-card__badges:empty){--ic-desc-lines:3}
 .item-card__badge{
   font-size:9.5px!important;padding:2px 7px!important}
 .item-card__name{
