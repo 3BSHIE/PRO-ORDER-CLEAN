@@ -10,8 +10,9 @@
  *     becomes a constant false that the bundler can eliminate.
  *   · The value lives in sessionStorage under a key nothing else reads, so
  *     it dies with the tab and never touches a restaurant's saved data.
- *   · Nothing here is reachable from the customer interface. The only writer
- *     is DemoSwitcher, which App.jsx mounts behind the same DEV guard.
+ *   · Nothing here is reachable from the customer interface. The only
+ *     writer is the Developer Hub at /dev (Phase 125.0), which App.jsx
+ *     registers behind the same DEV guard and the dev server gates again.
  *
  * Subscribers are notified in-process because sessionStorage fires no event
  * in the tab that wrote it.

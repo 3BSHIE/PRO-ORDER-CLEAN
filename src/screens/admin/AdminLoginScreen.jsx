@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -51,7 +51,7 @@ const CREDENTIALS_ERROR_FALLBACK = {
    table management — this phase is login + a placeholder shell only.
    ═══════════════════════════════════════════════════════════════════════ */
 
-export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn }) {
+export default function AdminLoginScreen({ restaurantSlug, onLoggedIn }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -88,14 +88,11 @@ export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn })
 
   return (
     <>
-      <Topbar
-        left={
-          <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onHome}>
-            {t("common.home", "Home")}
-          </Button>
-        }
-        right={<BrandMarkStatic size={20} />}
-      />
+      {/* Phase 125.0 — the "Home" arrow is gone: it led to the demo
+          landing page, and there is nowhere above a sign-in screen for a
+          member of staff to go. The bar keeps its right-hand mark and its
+          height, so the layout below is unchanged. */}
+      <Topbar right={<BrandMarkStatic size={20} className="topbar__solo" />} />
       <main className="container">
         <div className="admin-login anim-rise">
           <LanguageSwitcher variant="compact" className="admin-login__lang-switcher" />
@@ -144,7 +141,7 @@ export default function AdminLoginScreen({ restaurantSlug, onHome, onLoggedIn })
 }
 
 /* ── Invalid restaurant state (used by AdminRoute wrapper) ──────────────── */
-export function AdminInvalidRestaurantView({ onHome }) {
+export function AdminInvalidRestaurantView() {
   const { t } = useLanguage();
   return (
     <div className="access anim-rise">
@@ -155,9 +152,10 @@ export function AdminInvalidRestaurantView({ onHome }) {
       <p className="access__msg">
         {t("admin.restaurantNotFoundMsg", "This admin link doesn't match a known restaurant.")}
       </p>
-      <Button variant="outline" icon={ArrowLeft} onClick={onHome}>
-        {t("common.backHome", "Back to home")}
-      </Button>
+      {/* No action: the link itself is wrong, and the only fix is a correct
+          one. Phase 125.0 removed the "Back to home" that went to the demo
+          landing page — sending a manager to a list of demo surfaces was
+          never a repair. */}
     </div>
   );
 }

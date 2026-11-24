@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import Topbar  from "../../components/layout/Topbar.jsx";
 import BrandMarkStatic from "../../components/brand/BrandMarkStatic.jsx";
 import Button  from "../../components/ui/Button.jsx";
@@ -53,7 +53,7 @@ const PIN_ERROR_FALLBACK = {
    controls — this phase is login + a placeholder shell only.
    ═══════════════════════════════════════════════════════════════════════ */
 
-export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn }) {
+export default function KitchenLoginScreen({ restaurantSlug, onLoggedIn }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(null);
   const { t } = useLanguage();
@@ -91,14 +91,11 @@ export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn 
 
   return (
     <>
-      <Topbar
-        left={
-          <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onHome}>
-            {t("common.home", "Home")}
-          </Button>
-        }
-        right={<BrandMarkStatic size={20} />}
-      />
+      {/* Phase 125.0 — the "Home" arrow is gone: it led to the demo landing
+          page, and there is nowhere above a PIN screen for a cook to go. The
+          bar keeps its right-hand mark and its height, so the layout below
+          is unchanged. */}
+      <Topbar right={<BrandMarkStatic size={20} className="topbar__solo" />} />
       <main className="container">
         <div className="kitchen-login anim-rise">
           <LanguageSwitcher variant="compact" className="kitchen-login__lang-switcher" />
@@ -143,7 +140,7 @@ export default function KitchenLoginScreen({ restaurantSlug, onHome, onLoggedIn 
 }
 
 /* ── Invalid restaurant state (used by KitchenRoute wrapper) ─────────────── */
-export function KitchenInvalidRestaurantView({ onHome }) {
+export function KitchenInvalidRestaurantView() {
   const { t } = useLanguage();
   return (
     <div className="access anim-rise">
@@ -154,9 +151,9 @@ export function KitchenInvalidRestaurantView({ onHome }) {
       <p className="access__msg">
         {t("kitchen.restaurantNotFoundMsg", "This kitchen link doesn't match a known restaurant.")}
       </p>
-      <Button variant="outline" icon={ArrowLeft} onClick={onHome}>
-        {t("common.backHome", "Back to home")}
-      </Button>
+      {/* No action: the link itself is wrong, and the only fix is a correct
+          one. Phase 125.0 removed the "Back to home" that went to the demo
+          landing page. */}
     </div>
   );
 }

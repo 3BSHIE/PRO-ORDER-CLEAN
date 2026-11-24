@@ -64,7 +64,6 @@ import { restaurantDisplayName } from "../../lib/restaurantName.js";
 export default function CustomerCartScreen({
   restaurantSlug,
   qrToken,
-  onHome,
   onBackToMenu,
   onBackToAccess,
   onOrderCreated,
@@ -123,7 +122,6 @@ export default function CustomerCartScreen({
         <main className="container">
           <InvalidAccessView
             reason={result.reason}
-            onHome={onHome}
             /* Phase 90 §3 — resolveCustomerAccess carries the restaurant on the
                token and inactive failures, so the recovery screen can name the
                venue instead of being anonymous. Five screens were dropping it

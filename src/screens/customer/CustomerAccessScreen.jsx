@@ -69,7 +69,6 @@ function validateName(raw, t) {
 export default function CustomerAccessScreen({
   restaurantSlug,
   qrToken,
-  onHome,
   onEnterMenu,   // () => void — called after session saved
 }) {
   const result = resolveTableAccess(restaurantSlug, qrToken);
@@ -151,7 +150,6 @@ export default function CustomerAccessScreen({
                view itself, so all six call sites are identical. */}
           <InvalidAccessView
             reason={result.reason}
-            onHome={onHome}
             restaurantName={result.restaurant?.name}
             restaurantSlug={restaurantSlug}
           />

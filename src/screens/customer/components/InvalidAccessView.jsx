@@ -1,5 +1,4 @@
-import { QrCode, CircleAlert, Store, ArrowLeft } from "lucide-react";
-import Button from "../../../components/ui/Button.jsx";
+import { QrCode, CircleAlert, Store } from "lucide-react";
 import RestaurantIdentity from "./RestaurantIdentity.jsx";
 import { useSettingsData } from "../../../lib/useSettingsData.js";
 import { resolveRestaurantDisplayName } from "../../../lib/restaurantName.js";
@@ -40,14 +39,16 @@ import { useLanguage } from "../../../i18n/useLanguage.js";
  *   RestaurantIdentity's existing safe-image path, so a broken or missing URL
  *   degrades to the monogram rather than a broken-image glyph.
  *
- * ACTION HIERARCHY (§14) — "Back to home" is deliberately NOT primary. A guest
- * sitting at a table wants to re-scan the code in front of them, not visit a
- * marketing home page, so the instruction is the message and home is a demoted
- * outline escape. No "Scan QR" button exists anywhere here: the web app cannot
- * actually open a camera, and §14 rules out inventing one.
+ * ACTION HIERARCHY (§14, revised in Phase 125.0) — there is no action at
+ * all now, and that is the correct number. The old "Back to home" was a
+ * demoted escape to a landing page that no longer exists; the page it went
+ * to listed Customer, Kitchen and Admin demos, which was never a useful
+ * destination for a guest holding a phone at a table. What helps them is
+ * written above it: re-scan the code. No "Scan QR" button exists anywhere
+ * here either — the web app cannot open a camera, and §14 rules out
+ * inventing one.
  *
  * @param {"restaurant"|"token"|"inactive"} reason
- * @param {() => void} onHome
  * @param {string} [restaurantName] — the RESOLVED venue's name. Its presence
  *   is what authorises showing identity at all: callers pass it only from
  *   resolveTableAccess's own `restaurant`, so it is absent exactly when the
@@ -55,7 +56,7 @@ import { useLanguage } from "../../../i18n/useLanguage.js";
  * @param {string} [restaurantSlug] — used to pick up the live settings
  *   override and the logo. Never used to invent identity on its own.
  */
-export default function InvalidAccessView({ reason, onHome, restaurantName, restaurantSlug }) {
+export default function InvalidAccessView({ reason, restaurantName, restaurantSlug }) {
   const { t } = useLanguage();
 
   /* Identity is resolved HERE rather than by each caller because the live name
@@ -108,10 +109,6 @@ export default function InvalidAccessView({ reason, onHome, restaurantName, rest
 
       <h1 className="access__title">{title}</h1>
       <p className="access__msg">{help}</p>
-
-      <Button variant="outline" size="sm" icon={ArrowLeft} onClick={onHome}>
-        {t("common.backHome", "Back to home")}
-      </Button>
     </div>
   );
 }

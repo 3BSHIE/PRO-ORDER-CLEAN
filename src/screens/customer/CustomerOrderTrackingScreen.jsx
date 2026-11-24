@@ -122,7 +122,6 @@ export default function CustomerOrderTrackingScreen({
   restaurantSlug,
   qrToken,
   orderId,
-  onHome,
   onBackToMenu,
   onBackToAccess,
 }) {
@@ -182,7 +181,6 @@ export default function CustomerOrderTrackingScreen({
         <main className="container">
           <InvalidAccessView
             reason={result.reason}
-            onHome={onHome}
             /* Phase 90 §3 — resolveCustomerAccess carries the restaurant on the
                token and inactive failures, so the recovery screen can name the
                venue instead of being anonymous. Five screens were dropping it

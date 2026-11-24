@@ -2126,63 +2126,9 @@ button{font-family:var(--font-body)}
   border-radius:var(--r-md);color:var(--canceled);
   font-size:12.5px;font-weight:600}
 
-/* ══ Phase 14.5 — Demo Switcher (dev/testing tool only, NOT a product feature) ══ */
-/* ⚠️ Remove or disable this block (and the component) before production. ⚠️ */
-
-.demo-switcher{
-  position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right));z-index:400;
-  display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-
-.demo-switcher__fab{
-  width:38px;height:38px;border-radius:50%;flex:none;
-  background:var(--surface-3);border:1px solid var(--border-strong);
-  color:var(--gold-ink);cursor:pointer;display:grid;place-items:center;
-  box-shadow:0 6px 20px rgba(0,0,0,.45);
-  transition:transform .15s,border-color .15s}
-.demo-switcher__fab:hover{border-color:var(--gold-line);transform:scale(1.06)}
-
-.demo-switcher__panel{
-  width:230px;background:rgba(18,18,18,.97);backdrop-filter:blur(10px);
-  border:1px solid var(--border-strong);border-radius:var(--r-lg);
-  padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);
-  animation:rise .18s var(--ease) both}
-
-.demo-switcher__panel-head{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:6px}
-.demo-switcher__panel-title{
-  font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--gold-ink)}
-.demo-switcher__close{
-  background:none;border:none;color:var(--text-3);cursor:pointer;
-  padding:2px;display:flex}
-.demo-switcher__close:hover{color:var(--text-1)}
-
-.demo-switcher__hint{
-  font-size:10.5px;color:var(--text-3);line-height:1.5;margin:0 0 10px}
-
-.demo-switcher__group{
-  display:flex;flex-direction:column;gap:4px;margin-bottom:12px;
-  padding-bottom:12px;border-bottom:1px solid var(--border)}
-.demo-switcher__link{
-  text-align:start;background:var(--surface-2);border:1px solid var(--border);
-  color:var(--text-1);border-radius:8px;padding:7px 10px;
-  font-size:12px;font-weight:500;cursor:pointer;
-  transition:border-color .15s,color .15s}
-.demo-switcher__link:hover{border-color:var(--gold-line);color:var(--gold-ink)}
-
-.demo-switcher__danger-title{
-  font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--canceled);margin:0 0 6px}
-.demo-switcher__danger-btn{
-  width:100%;text-align:start;background:transparent;
-  border:1px solid rgba(241,106,106,.3);color:var(--canceled);
-  border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:500;
-  cursor:pointer;margin-bottom:4px;transition:background .15s,color .15s}
-.demo-switcher__danger-btn:last-child{margin-bottom:0}
-.demo-switcher__danger-btn:hover{background:var(--canceled-soft)}
-.demo-switcher__danger-btn--confirm{
-  background:var(--canceled);color:#fff;font-weight:700}
+/* (Phase 14.5's Demo Switcher block lived here. Its own comment asked for
+   it to be removed before production; Phase 125.0 deleted the component, so
+   the rules went with it.) */
 
 /* ══ Phase 16 — Admin / Cashier Login Shell ══════════════════════════════════ */
 
@@ -4551,7 +4497,6 @@ button{font-family:var(--font-body)}
      self-maintaining: a screen that adds another section is hidden by it
      automatically, without this block needing to learn the new class. */
   .topbar,
-  .demo-switcher,
   .toast-wrap,
   /* Phase 100.0 — the sidebar is a SIBLING of .container--admin, so the
      `.container--admin > *` rule below cannot reach it. Named explicitly,
@@ -5853,8 +5798,8 @@ button{font-family:var(--font-body)}
      .btn--md          used all over the Customer app (cart, item details,
                        recovery screens); changing it would resize Phase
                        73/74 surfaces this phase must not touch.
-     .modal__foot .btn also styles the Home demo-switcher dialog, which is
-                       not an Admin confirmation.
+     .modal__foot .btn also styled the old Home screen's dialog, which was
+                       not an Admin confirmation (both removed in 125.0).
      per-dialog class  the shared Modal takes no className, and special-
                        casing one dialog is what §2 asks to avoid.
 
@@ -11125,7 +11070,6 @@ button{font-family:var(--font-body)}
 @media print{
   body:has(.rep-doc) .topbar,
   body:has(.rep-doc) .ad-sidebar,
-  body:has(.rep-doc) .demo-switcher,
   body:has(.rep-doc) .toast-wrap,
   body:has(.rep-doc) .sc-alert,
   body:has(.rep-doc) .rep-toolbar,
@@ -13971,35 +13915,10 @@ button{font-family:var(--font-body)}
   .airecs__dot--on{transform:none}
 }
 
-/* -- The developer switcher, out of the way -----------------------------
-   It was bottom-right at z-index 400, which is the Cart FAB's corner and,
-   with the assistant open, sat on top of the send button. Production was
-   never the problem: App.jsx renders it behind import.meta.env.DEV, so the
-   component and its strings are eliminated from the build -- verified by
-   grepping the dist bundles for "demo-switcher", which returns nothing.
-   What it needed was a corner nothing else wants.
+/* (The developer switcher's corner-avoidance rules lived here — it had to
+   dodge the Cart FAB and the assistant's composer. Phase 125.0 removed the
+   switcher itself, so there is no longer a corner to find for it.) */
 
-   The leading bottom corner, below the chat's z-index so it can never cover
-   the composer, and faded until it is hovered or focused. */
-.demo-switcher{
-  /* Logical, so it keeps to the leading edge in both languages, and it must
-     cancel the physical right: the 14.5 rule above sets one. The safe area
-     takes the larger of the two sides, because env() has no logical form and
-     the leading edge changes with the language. */
-  inset-inline-start:calc(16px + max(env(safe-area-inset-left),env(safe-area-inset-right)));
-  inset-inline-end:auto;
-  z-index:55;align-items:flex-start;
-  opacity:.4;transition:opacity .18s var(--ease)}
-.demo-switcher:hover,
-.demo-switcher:focus-within{opacity:1}
-/* The panel is ~509px tall, which does not fit above a 16px bottom margin on
-   a 568px phone -- it was running off the top of the screen. */
-.demo-switcher__panel{max-height:calc(100dvh - 86px);overflow-y:auto}
-/* An engaged dev flag. Gold rather than a checkbox, because the panel has no
-   other form controls and does not need one. */
-.demo-switcher__link--on{
-  border-color:var(--gold-line);color:var(--gold-ink)}
-@media(prefers-reduced-motion:reduce){.demo-switcher{transition:none}}
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -14332,3 +14251,143 @@ button{font-family:var(--font-body)}
 
 .ad-attention__row .ad-attention__age--overdue{
   color:var(--preparing);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHASE 125.0 — THE BASE OF THE APPLICATION, AND THE DEVELOPER'S OWN DOOR
+   ═══════════════════════════════════════════════════════════════════════════
+   Two screens that are deliberately NOT part of the product's surfaces: the
+   minimal state at "/", and the developer hub that replaced the floating
+   wrench. Both reuse the existing tokens — neither introduces a palette, a
+   typeface or an animation of its own.
+   ------------------------------------------------------------------------- */
+
+/* ── "/" and unknown routes ──────────────────────────────────────────────
+   The old landing page was a hero, a headline, a phase badge, three demo
+   cards and a component kit. This is a mark, a sentence and the only advice
+   that helps. Centred, capped at a readable measure, and the same in both
+   languages because every box here is logical. */
+.entry{
+  min-height:100dvh;display:flex;flex-direction:column;
+  background:var(--bg);
+  /* --brand-mark is declared on .restaurant-theme, which paints the mark in
+     the venue own colour. This screen is deliberately outside every theme
+     wrapper because no venue has been resolved, so the variable resolved to
+     nothing and BrandMarkStatic masked a transparent fill - a 12x22 invisible
+     logo, measured. The product own gold is the right answer here: there is
+     no restaurant to borrow a colour from. */
+  --brand-mark:#a5843d}
+.entry__bar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:14px 16px;
+  padding-inline:max(16px,env(safe-area-inset-left),env(safe-area-inset-right))}
+.entry__body{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;
+  padding:24px 20px 72px;gap:0}
+.entry__mark{
+  display:grid;place-items:center;width:72px;height:72px;
+  border-radius:22px;margin-bottom:22px;
+  background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold-ink)}
+.entry__title{
+  font-family:var(--font-display);
+  font-size:clamp(20px,4.6vw,26px);font-weight:700;line-height:1.3;
+  color:var(--text-1);margin:0 0 10px;max-width:420px}
+.entry__msg{
+  font-size:15px;line-height:1.65;color:var(--text-2);
+  margin:0 0 18px;max-width:380px}
+.entry__hint{
+  font-size:13px;line-height:1.6;color:var(--text-3);
+  margin:0;max-width:360px}
+
+/* ── The Developer Hub ───────────────────────────────────────────────────
+   Development only — this block ships in the stylesheet (CSS has no build
+   flag), but the markup it styles is dropped from a production bundle, so
+   nothing can render it there. It is kept deliberately plain: a testing
+   console should look like a tool, not like the product it is testing. */
+.devhub{
+  min-height:100dvh;background:var(--bg);color:var(--text-1);
+  padding:22px 18px 48px;
+  padding-inline:max(18px,env(safe-area-inset-left),env(safe-area-inset-right));
+  max-width:960px;margin-inline:auto}
+/* The pre-authorisation state paints nothing at all: a flash of the hub
+   before the server answers would show the tools to someone who is about to
+   be refused them. */
+.devhub--pending{background:var(--bg)}
+.devhub--denied{display:grid;place-items:center}
+.devhub__denied-title{
+  font-family:var(--font-display);font-size:20px;font-weight:600;
+  color:var(--text-2);margin:0}
+
+.devhub__head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.devhub__eyebrow{
+  font-size:10.5px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;
+  color:var(--gold-ink);margin:0 0 4px}
+.devhub__title{
+  font-family:var(--font-display);font-size:23px;font-weight:700;
+  color:var(--text-1);margin:0}
+.devhub__tabpref{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12.5px;color:var(--text-2);cursor:pointer;user-select:none;
+  padding:7px 10px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface-1)}
+.devhub__tabpref input{width:14px;height:14px;accent-color:var(--gold);cursor:pointer}
+.devhub__lede{
+  font-size:13px;line-height:1.6;color:var(--text-3);
+  margin:0 0 20px;max-width:620px}
+
+.devhub__grid{
+  display:grid;gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.devhub__card{
+  border:1px solid var(--border);border-radius:var(--r-md);
+  background:var(--surface-1);padding:14px 15px 15px}
+.devhub__card--danger{border-color:rgba(241,106,106,.28)}
+.devhub__card-title{
+  display:flex;align-items:center;gap:7px;
+  font-family:var(--font-display);font-size:15px;font-weight:600;
+  color:var(--text-1);margin:0 0 6px}
+.devhub__card--danger .devhub__card-title{color:var(--canceled)}
+.devhub__card-note{
+  font-size:12px;line-height:1.55;color:var(--text-3);margin:0 0 12px}
+
+.devhub__links{display:flex;flex-direction:column;gap:6px}
+.devhub__link{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;min-height:40px;padding:9px 12px;
+  border-radius:var(--r-sm);border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text-1);
+  font-family:var(--font-body);font-size:13px;font-weight:500;text-align:start;
+  cursor:pointer;
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.devhub__link:hover{border-color:var(--border-strong);background:var(--surface-3)}
+.devhub__link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.devhub__link--on{border-color:var(--gold-line);background:var(--gold-soft)}
+.devhub__flag{
+  font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text-3)}
+.devhub__link--on .devhub__flag{color:var(--gold-ink)}
+.devhub__link--danger{color:var(--text-2)}
+.devhub__link--danger:hover{
+  border-color:rgba(241,106,106,.4);color:var(--canceled)}
+.devhub__link--confirm{
+  border-color:var(--canceled);color:var(--canceled);background:var(--canceled-soft)}
+
+.devhub__foot{
+  font-size:11.5px;line-height:1.6;color:var(--text-3);
+  margin:22px 0 0;text-align:center}
+
+@media(prefers-reduced-motion:reduce){
+  .devhub__link{transition:none}
+}
+
+/* Phase 125.0 — a top bar with ONE item left in it.
+   .topbar__inner is space-between, which with two children put the mark at
+   the end and the action at the start. Removing the obsolete "Home" action
+   left a single child, and space-between then parked the mark at the START
+   — measured at x=12 on a 390px phone, where it had always been at the
+   right. The auto margin puts it back at the end without the shared Topbar
+   having to learn about empty slots, and it is logical, so Arabic mirrors
+   it for free. */
+.topbar__inner > .topbar__solo{margin-inline-start:auto}

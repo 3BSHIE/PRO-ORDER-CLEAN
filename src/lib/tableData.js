@@ -38,8 +38,8 @@ function tablesKey(restaurantSlug) {
 
 /* The exact tables the app has shipped with since the QR-access foundation
    phase — same ids/qrTokens/isActive flags as the old static TABLES array
-   in mockRestaurant.js, so every existing demo link (DemoSwitcher included)
-   keeps working unchanged after this phase. restaurantSlug is attached at
+   in mockRestaurant.js, so every existing testing link (the Developer
+   Hub's included) keeps working unchanged after this phase. restaurantSlug is attached at
    seed time (see seedIfEmpty), not baked in here, since this template is
    restaurant-agnostic. */
 const SEED_TABLES_TEMPLATE = [

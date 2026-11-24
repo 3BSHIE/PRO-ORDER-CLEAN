@@ -22,9 +22,10 @@ import { useLayoutEffect } from "react";
  * down and mounts them again in development: the count returns to where it
  * started and the saved position is simply re-read.
  *
- * Scope: customer surfaces only. The shared components/ui/Modal.jsx is used
- * by five Admin screens and the HomeScreen component kit, so it is
- * deliberately left alone.
+ * Scope: customer surfaces only. The shared components/ui/Modal.jsx is
+ * used by five Admin screens, so it is deliberately left alone. (It was
+ * also used by the old HomeScreen component kit, which Phase 125.0
+ * removed.)
  *
  * @param {boolean} active — lock while true, release when false/unmounted
  */

@@ -1233,6 +1233,17 @@ export const translations = {
       overdue: "Waiting too long",
       plusMore: " +{n}",
     },
+    /* Phase 125.0 — the base of the application. Not a landing page: the
+       smallest honest answer for someone who opened the bare address or
+       followed a stale link. It names no venue and no table, because it
+       knows neither. */
+    entry: {
+      title: "Scan the code on your table",
+      msg: "PRO·ORDER opens from the QR code at your table, which tells us where you're sitting. Please scan it to see the menu.",
+      notFoundTitle: "This page isn't available",
+      notFoundMsg: "The address you opened doesn't match anything here. To order, scan the QR code on your table.",
+      help: "If the code won't scan, ask a member of staff for help.",
+    },
     staff: {
       callStaff: "Call Staff",
       callWaiterForHelp: "Call Staff for Help",
@@ -2523,6 +2534,14 @@ export const translations = {
       resolvedByLine: "تم الإنجاز بواسطة {name}",
       overdue: "الانتظار طال",
       plusMore: " +{n}",
+    },
+    /* Phase 125.0 — قاعدة التطبيق */
+    entry: {
+      title: "امسح الرمز الموجود على طاولتك",
+      msg: "برو·أوردر بيفتح من رمز QR اللي على طاولتك، وهو اللي بيعرّفنا وين قاعد. امسحه عشان تشوف المنيو.",
+      notFoundTitle: "هذه الصفحة غير متاحة",
+      notFoundMsg: "الرابط اللي فتحته ما بيطابق إشي عنا. عشان تطلب، امسح رمز QR الموجود على طاولتك.",
+      help: "إذا الرمز ما مسح، اطلب المساعدة من أحد الموظفين.",
     },
     staff: {
       callStaff: "اطلب الموظف",

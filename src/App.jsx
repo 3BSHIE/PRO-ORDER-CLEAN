@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from "react-router-dom";
 import "./theme/global.css";
-import HomeScreen                        from "./screens/HomeScreen.jsx";
+import EntryScreen                       from "./screens/EntryScreen.jsx";
+import DevHubScreen                      from "./screens/dev/DevHubScreen.jsx";
 import CustomerAccessScreen              from "./screens/customer/CustomerAccessScreen.jsx";
 import CustomerMenuScreen                from "./screens/customer/CustomerMenuScreen.jsx";
 import CustomerCartScreen                from "./screens/customer/CustomerCartScreen.jsx";
@@ -27,15 +28,9 @@ import { requestNavigation } from "./lib/navigationGuard.js";
 import { getAdminSession, clearAdminSession } from "./lib/adminSession.js";
 import { findRestaurantBySlug }          from "./data/mockRestaurant.js";
 import { getKitchenSession, clearKitchenSession } from "./lib/kitchenSession.js";
-import DemoSwitcher                      from "./components/demo/DemoSwitcher.jsx";
 import ErrorBoundary                     from "./components/system/ErrorBoundary.jsx";
 import CustomerTheme                     from "./components/theme/CustomerTheme.jsx";
 import RestaurantTheme                   from "./components/theme/RestaurantTheme.jsx";
-
-function HomeRoute() {
-  const navigate = useNavigate();
-  return <HomeScreen onNavigate={(to) => navigate(to)} />;
-}
 
 /* Phase 31 — every customer route is wrapped in <CustomerTheme>, and no
    Admin or Kitchen route is. That placement is the access control for the
@@ -49,7 +44,6 @@ function CustomerAccessRoute() {
       <CustomerAccessScreen
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
-        onHome={() => navigate("/")}
         onEnterMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
       />
     </CustomerTheme>
@@ -64,7 +58,6 @@ function CustomerMenuRoute() {
       <CustomerMenuScreen
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
-        onHome={() => navigate("/")}
         onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
         onViewCart={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/cart`)}
         onViewOrders={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/orders`)}
@@ -81,7 +74,6 @@ function CustomerCartRoute() {
       <CustomerCartScreen
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
-        onHome={() => navigate("/")}
         onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
         onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
         onOrderCreated={(orderId) =>
@@ -100,7 +92,6 @@ function CustomerOrdersRoute() {
       <CustomerOrdersScreen
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
-        onHome={() => navigate("/")}
         onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
         onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
         onTrackOrder={(orderId) =>
@@ -120,7 +111,6 @@ function CustomerOrderConfirmationRoute() {
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
         orderId={orderId}
-        onHome={() => navigate("/")}
         onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
         onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
         onViewTracking={() =>
@@ -140,7 +130,6 @@ function CustomerOrderTrackingRoute() {
         restaurantSlug={restaurantSlug}
         qrToken={qrToken}
         orderId={orderId}
-        onHome={() => navigate("/")}
         onBackToMenu={() => navigate(`/r/${restaurantSlug}/table/${qrToken}/menu`)}
         onBackToAccess={() => navigate(`/r/${restaurantSlug}/table/${qrToken}`)}
       />
@@ -157,7 +146,7 @@ function KitchenRoute() {
 
   const restaurant = findRestaurantBySlug(restaurantSlug);
   if (!restaurant) {
-    return <KitchenInvalidRestaurantView onHome={() => navigate("/")} />;
+    return <KitchenInvalidRestaurantView />;
   }
 
   const session = getKitchenSession();
@@ -168,7 +157,6 @@ function KitchenRoute() {
     return (
       <KitchenLoginScreen
         restaurantSlug={restaurantSlug}
-        onHome={() => navigate("/")}
         onLoggedIn={() => setSessionTick((t) => t + 1)}
       />
     );
@@ -187,7 +175,6 @@ function KitchenRoute() {
           clearKitchenSession();
           setSessionTick((t) => t + 1);
         }}
-        onHome={() => navigate("/")}
       />
     </ErrorBoundary>
   );
@@ -291,7 +278,7 @@ function AdminRoute() {
 
   const restaurant = findRestaurantBySlug(restaurantSlug);
   if (!restaurant) {
-    return <AdminInvalidRestaurantView onHome={() => navigate("/")} />;
+    return <AdminInvalidRestaurantView />;
   }
 
   const session = getAdminSession();
@@ -304,7 +291,6 @@ function AdminRoute() {
     return (
       <AdminLoginScreen
         restaurantSlug={restaurantSlug}
-        onHome={() => navigate("/")}
         onLoggedIn={() => setSessionTick((t) => t + 1)}
       />
     );
@@ -477,16 +463,32 @@ export default function App() {
   return (
     <div className="app">
       <BrowserRouter>
-        {/* Demo-only dev tool — see src/components/demo/DemoSwitcher.jsx.
-            Phase 33: mounted only in development. import.meta.env.DEV is
-            statically replaced with `false` in a production build, so this
-            branch (and the component behind it) is dead-code-eliminated
-            rather than merely hidden. The component carries the same guard
-            internally as a second layer. */}
-        {import.meta.env.DEV && <DemoSwitcher />}
+        {/* Phase 125.0 — the floating wrench that used to be mounted here,
+            over every operational screen, is gone. Its navigation and its
+            reset utilities moved to /dev, so a development build now shows
+            the real interface with nothing on top of it. */}
         <RoutedErrorBoundary>
         <Routes>
-          <Route path="/"                                                          element={<HomeRoute />} />
+          {/* "/" is where someone lands with no table and no context: a
+              bookmark, a typed address, a stale link. It gets the smallest
+              honest answer — scan the code on your table — and links to
+              nothing operational. */}
+          <Route path="/"                                                          element={<EntryScreen />} />
+          {/* ── Phase 125.0 — the Developer Hub, development builds only ──
+              import.meta.env.DEV is replaced by the literal `false` when
+              Vite builds for production, so this branch folds away, the
+              route is never registered and the module is tree-shaken out of
+              the bundle — the same mechanism that kept the old DemoSwitcher
+              out of production, verified by grepping dist/.
+
+              That is the FIRST of the hub's two guards, and the only one
+              that can live in the bundle. The second is in the dev server,
+              because "this is a development build" and "you are allowed to
+              use this" are different questions and only a server can answer
+              the second one. See dev-server/devAccess.js. */}
+          {import.meta.env.DEV && (
+            <Route path="/dev" element={<DevHubScreen />} />
+          )}
           <Route path="/kitchen/:restaurantSlug"                                  element={<ThemedKitchenRoute />} />
           <Route path="/admin/:restaurantSlug"                                    element={<ThemedAdminRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken"                        element={<CustomerAccessRoute />} />
@@ -495,7 +497,13 @@ export default function App() {
           <Route path="/r/:restaurantSlug/table/:qrToken/orders"                 element={<CustomerOrdersRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken/orders/:orderId/confirmation" element={<CustomerOrderConfirmationRoute />} />
           <Route path="/r/:restaurantSlug/table/:qrToken/orders/:orderId/tracking"     element={<CustomerOrderTrackingRoute />} />
-          <Route path="*"                                                          element={<Navigate to="/" replace />} />
+          {/* Rendered, not redirected. A redirect to "/" would have made
+              every mistyped address indistinguishable from the front door,
+              and with "/" now being a real screen rather than a menu of
+              surfaces, a redirect loop is one bad route definition away.
+              This keeps the address the visitor typed and tells them it is
+              not one of ours. */}
+          <Route path="*"                                                          element={<EntryScreen variant="notFound" />} />
         </Routes>
         </RoutedErrorBoundary>
       </BrowserRouter>

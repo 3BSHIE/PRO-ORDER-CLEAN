@@ -81,7 +81,6 @@ const NO_RECOMMENDATIONS = [];
 export default function CustomerMenuScreen({
   restaurantSlug,
   qrToken,
-  onHome,
   onBackToAccess,
   onViewCart,
   onViewOrders,
@@ -147,7 +146,6 @@ export default function CustomerMenuScreen({
         <main className="container">
           <InvalidAccessView
             reason={result.reason}
-            onHome={onHome}
             /* Phase 90 §3 — resolveCustomerAccess carries the restaurant on the
                token and inactive failures, so the recovery screen can name the
                venue instead of being anonymous. Five screens were dropping it
@@ -170,7 +168,6 @@ export default function CustomerMenuScreen({
       restaurant={effectiveRestaurant}
       table={result.table}
       session={session}
-      onHome={onHome}
       onBackToAccess={onBackToAccess}
       onViewCart={onViewCart}
       onViewOrders={onViewOrders}
@@ -179,7 +176,7 @@ export default function CustomerMenuScreen({
 }
 
 /* ── Menu Shell ──────────────────────────────────────────────────────────── */
-function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewCart, onViewOrders }) {
+function MenuShell({ restaurant, table, session, onBackToAccess, onViewCart, onViewOrders }) {
   const [activeCategory, setActiveCategory] = useState(null); // null = All
   const [searchQuery,    setSearchQuery]    = useState("");
   /* Phase 97.7 — `language` is the CUSTOMER language, and it is what resolves
@@ -643,8 +640,8 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
      readFlag is a literal false in a production build, so devRecsOn folds to
      false, the array folds to the empty constant, and the carousel is never
      reachable — the preview is absent from the bundle rather than hidden in
-     it. The toggle lives in DemoSwitcher, which App.jsx mounts behind the
-     same guard. */
+     it. The toggle lives in the Developer Hub at /dev (Phase 125.0),
+     which App.jsx registers behind the same guard. */
   const devRecsOn = useSyncExternalStore(
     subscribeFlags,
     () => readFlag(DEV_FLAG_AI_RECS),
@@ -694,7 +691,7 @@ function MenuShell({ restaurant, table, session, onHome, onBackToAccess, onViewC
   /* Phase 33 — the "Clear cart (demo only)" / "Clear session (demo only)"
      buttons that used to live in the menu footer were removed: they were
      customer-reachable destructive actions, and both are already available
-     (dev-only) from the DemoSwitcher Danger zone, so nothing is lost for
+     (dev-only) from the Developer Hub's Danger zone, so nothing is lost for
      local testing. Their handlers went with them. */
 
   const selectedCategory = selectedItem

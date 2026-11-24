@@ -1,3 +1,6 @@
 node_modules
 dist
 .DS_Store
+
+# Phase 125.0 — the developer-tools token. Machine-local, never shared.
+.dev-access-token
