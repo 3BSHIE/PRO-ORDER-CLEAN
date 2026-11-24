@@ -1,64 +1,107 @@
-# PRO·ORDER — Phase 1 (Routing + Table QR access)
+# PRO·ORDER
 
-Premium restaurant QR ordering SaaS — rebuild in progress.
+A restaurant ordering and operations platform: guests order from the QR code
+on their table, the kitchen works a live ticket board, and staff manage the
+menu, orders, payments and settings from one place.
 
-This phase adds route-based navigation and the table-specific QR access gate.
-Scanning a valid, active table token opens a table welcome; an unknown or
-inactive token is turned away. No menu, cart, orders, admin or kitchen logic
-exists yet — by design.
+**Frontend only.** Everything persists in the browser — see
+[Current limitations](#current-limitations) before reading anything here as
+production-ready.
 
-## Run
+## Run it
 
-    npm install
-    npm run dev
+```
+npm install
+npm run dev
+```
 
-Then open http://localhost:5173
+Then open <http://localhost:5173>.
+
+```
+npm run build      # production build into dist/
+npm run preview    # serve that build locally
+```
+
+## The four interfaces
+
+| | Entry | What it is |
+|---|---|---|
+| **Customer** | the table's QR code | Welcome, menu, item details, cart, order confirmation, My Orders, live tracking, Customer Assistance ("Need Help?") and the Zaatar AI waiter preview |
+| **Admin** | Staff Access sign-in | Dashboard, live orders, staff calls, menu and categories, tables and QR codes, revenue reports, staff ordering, settings |
+| **Cashier** | the same Staff Access sign-in | A permission-restricted view of the above; the role is decided by the credentials |
+| **Kitchen** | a PIN | The live ticket board and order status controls |
+
+Each is reached through its own entry point. Nothing in the product
+navigates between them.
 
 ## Routes
 
-    /                                     Demo home
-    /kitchen                              Kitchen placeholder
-    /admin                                Admin placeholder
-    /r/:restaurantSlug/table/:qrToken     Customer QR access gate
+```
+/                                                      entry guidance — scan the code on your table
+/r/:restaurantSlug/table/:qrToken                      customer welcome (QR/NFC entry)
+/r/:restaurantSlug/table/:qrToken/menu                 menu
+/r/:restaurantSlug/table/:qrToken/cart                 cart
+/r/:restaurantSlug/table/:qrToken/orders               my orders
+    …/orders/:orderId/confirmation                     order confirmation
+    …/orders/:orderId/tracking                         live tracking
+/admin/:restaurantSlug                                 staff access → admin / cashier
+/kitchen/:restaurantSlug                               kitchen PIN → board
+/dev                                                   Developer Hub (development builds only)
+anything else                                          "this page isn't available"
+```
 
-Valid demo links:
+`/` and unknown routes show a small guidance screen. Neither links to any
+operational interface, and neither invents a restaurant or a table.
 
-    /r/lumiere/table/table-1-token        Welcome to Table #1
-    /r/lumiere/table/table-2-token        Welcome to Table #2
+## Developer Hub
 
-Invalid demo links:
+Testing shortcuts live at `/dev`, separately from the product. It carries
+links into every surface (through their real entry points), the AI card
+preview flag, and the local reset utilities.
 
-    /r/lumiere/table/broken-token         Unknown token  -> Invalid access
-    /r/lumiere/table/table-4-token        Inactive table -> Invalid access
-    /r/nope/table/table-1-token           Unknown slug   -> Invalid access
+**On this machine:** `npm run dev`, then open <http://localhost:5173/dev>.
 
-## Structure
+**From a phone, or behind a tunnel:** there are a few more steps and a real
+security boundary to understand first.
 
-    src/
-      main.jsx
-      App.jsx                              Router + route wrappers
-      theme/global.css
-      components/
-        ui/    Button, Card, Badge, Input, Modal, Tabs
-        brand/Wordmark.jsx
-        layout/Topbar.jsx
-      screens/
-        HomeScreen.jsx                     3 cards + QR access test panel
-        PlaceholderScreen.jsx              Kitchen / Admin placeholders
-        customer/
-          CustomerAccessScreen.jsx         QR validation + welcome / error
-      data/
-        surfaces.js
-        mockRestaurant.js                  Restaurant + tables + validation
+→ **[dev-server/README.md](dev-server/README.md)** — phone access, the
+one-time token, strict mode, tunnels, and token rotation.
 
-## ⚠️ Demo tools
+Nothing in the product links to `/dev`, and no developer control appears on
+any operational screen.
 
-`src/components/demo/DemoSwitcher.jsx` adds a small floating "wrench" button
-(bottom-right) with quick links between customer and kitchen surfaces plus
-optional destructive "clear storage" actions, for local manual testing only.
+## Development vs production
 
-**Demo tools are for local testing only and must be disabled before production.**
+`/dev`, the Developer Hub and the access gate exist **only in development
+builds**. `import.meta.env.DEV` becomes the literal `false` at build time, so
+the route is never registered and the Hub is dropped from the bundle; the
+access plugin is `apply: "serve"` and has no build hooks at all.
 
-To disable: set `SHOW_DEMO_TOOLS = false` at the top of `DemoSwitcher.jsx`
-(or swap it for `import.meta.env.DEV`), or remove the `<DemoSwitcher />`
-mount in `App.jsx` and delete the component entirely.
+In a production build, `/dev` is just another unknown address and shows the
+same "this page isn't available" screen.
+
+## Current limitations
+
+These are real and worth being precise about:
+
+- **No backend.** All data — menus, orders, carts, sessions, staff calls,
+  settings — lives in the browser's `localStorage` / `sessionStorage`.
+- **No cross-device sync.** Data is shared between **tabs of one browser on
+  one origin** and with nothing else. A guest's order placed on their phone
+  does **not** reach a cashier's tablet. Screens poll local storage every few
+  seconds, which makes tabs agree; it does not make devices agree.
+- **No real authentication.** Staff sign-in and the kitchen PIN are checked
+  against local fixtures. They separate roles in the interface; they are not
+  security.
+- **Wi-Fi passwords and similar values** stored through Admin are plain text
+  in the browser, readable by anyone with the device.
+- **The AI waiter is a preview.** It is not connected to a model and
+  recommends nothing on its own.
+
+Shared, multi-device synchronisation and genuine authentication are backend
+work and are not implemented.
+
+## Stack
+
+React 18 · Vite 5 · react-router-dom 6 · plain CSS (one stylesheet,
+`src/theme/global.css`) · lucide-react icons. No test runner is configured.

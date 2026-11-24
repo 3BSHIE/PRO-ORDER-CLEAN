@@ -14354,9 +14354,14 @@ button{font-family:var(--font-body)}
   font-size:12px;line-height:1.55;color:var(--text-3);margin:0 0 12px}
 
 .devhub__links{display:flex;flex-direction:column;gap:6px}
+/* Phase 125.0a - a destination is an <a> in new-tab mode and a <button>
+   otherwise (see DestinationLink). One rule dresses both, so switching the
+   preference cannot move the layout; text-decoration and box-sizing are the
+   only things an anchor would otherwise bring with it. */
 .devhub__link{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
-  width:100%;min-height:40px;padding:9px 12px;
+  width:100%;min-height:40px;padding:9px 12px;box-sizing:border-box;
+  text-decoration:none;
   border-radius:var(--r-sm);border:1px solid var(--border);
   background:var(--surface-2);color:var(--text-1);
   font-family:var(--font-body);font-size:13px;font-weight:500;text-align:start;

@@ -129,18 +129,6 @@ export default function DevHubScreen() {
     }
   }
 
-  function open(to) {
-    if (!newTab) {
-      navigate(to);
-      return;
-    }
-    /* A blocked popup returns null (or a window that never loads). Falling
-       back to same-tab navigation means the button always does something,
-       which matters on the phone browsers that block this by default. */
-    const win = window.open(to, "_blank", "noopener");
-    if (!win) navigate(to);
-  }
-
   function handleClear(index, run) {
     if (confirming !== index) {
       setConfirming(index);
@@ -203,19 +191,13 @@ export default function DevHubScreen() {
               <p className="devhub__card-note">{surface.note}</p>
               <div className="devhub__links">
                 {surface.links.map((link) => (
-                  <button
+                  <DestinationLink
                     key={link.to}
-                    type="button"
-                    className="devhub__link"
-                    onClick={() => open(link.to)}
-                  >
-                    <span>{link.label}</span>
-                    {newTab ? (
-                      <ExternalLink size={13} aria-hidden="true" />
-                    ) : (
-                      <ArrowUpRight size={13} aria-hidden="true" />
-                    )}
-                  </button>
+                    to={link.to}
+                    label={link.label}
+                    newTab={newTab}
+                    onSameTab={navigate}
+                  />
                 ))}
               </div>
             </section>
@@ -269,5 +251,50 @@ export default function DevHubScreen() {
         product links to it.
       </p>
     </main>
+  );
+}
+
+/**
+ * One testing destination.
+ *
+ * ── WHY TWO ELEMENTS AND NOT ONE HANDLER ─────────────────────────────────
+ * Phase 125.0 used window.open(to, "_blank", "noopener") and treated a null
+ * return as "the popup was blocked, navigate here instead". That reading is
+ * wrong: with the noopener feature the browser deliberately returns null
+ * EVEN WHEN THE TAB OPENED, precisely because there is no opener handle to
+ * give back. So the fallback fired on the success path and navigated the Hub
+ * away as well — the one thing the "open in a new tab" preference exists to
+ * prevent.
+ *
+ * There is no reliable way to ask a browser whether a popup opened, so this
+ * stops asking. In new-tab mode the destination IS an anchor and the browser
+ * does what anchors do; rel="noopener noreferrer" gives the new tab no
+ * window.opener and sends no referrer, which is what the old feature string
+ * was for. In same-tab mode it stays a button driving the router, so Back
+ * still returns to the Hub.
+ *
+ * Both render the same class, so the two modes are indistinguishable to look
+ * at and the layout does not move.
+ */
+function DestinationLink({ to, label, newTab, onSameTab }) {
+  const Icon = newTab ? ExternalLink : ArrowUpRight;
+  const body = (
+    <>
+      <span>{label}</span>
+      <Icon size={13} aria-hidden="true" />
+    </>
+  );
+
+  if (newTab) {
+    return (
+      <a className="devhub__link" href={to} target="_blank" rel="noopener noreferrer">
+        {body}
+      </a>
+    );
+  }
+  return (
+    <button type="button" className="devhub__link" onClick={() => onSameTab(to)}>
+      {body}
+    </button>
   );
 }
